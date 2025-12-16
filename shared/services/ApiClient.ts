@@ -1,4 +1,3 @@
-import * as SecureStore from 'expo-secure-store';
 import settings from '@/config/settings';
 
 interface RequestOptions extends RequestInit {
@@ -24,11 +23,59 @@ export class ApiClientError extends Error {
   }
 }
 
+// Token en memoria para evitar persistir el access token en el cliente
+let currentAccessToken: string | null = null;
+
+// Error handler para que AuthContext maneje errores 401
+type ErrorHandlerResponse = { retry: boolean; newToken?: string } | null;
+type ErrorHandler = (error: ApiClientError, endpoint: string, options: RequestInit) => Promise<ErrorHandlerResponse>;
+
+let errorHandler: ErrorHandler | null = null;
+
+export const setErrorHandler = (handler: ErrorHandler | null) => {
+  errorHandler = handler;
+};
+
 const getAuthToken = async (): Promise<string | null> => {
-  return await SecureStore.getItemAsync('authToken');
+  // Preferimos el token en memoria; como respaldo, leemos SecureStore si existe
+  return currentAccessToken;
 };
 
 const apiClient = {
+  async refreshAccessToken(): Promise<string | null> {
+    try {
+      const response = await fetch(`${settings.api.baseUrl}${settings.api.endpoints.refresh()}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({}),
+      });
+      if (!response.ok) {
+        let errorData: ApiClientErrorData = { detail: `Error ${response.status}` };
+        try { errorData = await response.json(); } catch { }
+        throw new ApiClientError(errorData.detail || 'Error en refresh token', response.status, errorData);
+      }
+      const data = await response.json();
+      const newAccess = data?.access ?? null;
+      if (newAccess) {
+        currentAccessToken = newAccess;
+      } else {
+        currentAccessToken = null;
+      }
+      return currentAccessToken;
+    } catch (error) {
+      currentAccessToken = null;
+      if (error instanceof ApiClientError) throw error;
+      throw new ApiClientError(
+        error instanceof Error ? error.message : 'Fallo al refrescar token',
+        0,
+        { detail: error instanceof Error ? error.message : 'Error desconocido' }
+      );
+    }
+  },
   async request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
     const authToken = await getAuthToken();
     const defaultHeaders: HeadersInit = {
@@ -46,10 +93,23 @@ const apiClient = {
         ...defaultHeaders,
         ...options.headers,
       },
+      // Envío de cookies (e.g., refresh token HttpOnly) cuando corresponda
+      credentials: 'include',
     };
 
     try {
+      console.log('Making API Request:', `${settings.api.baseUrl}${endpoint}`, config);
       const response = await fetch(`${settings.api.baseUrl}${endpoint}`, config);
+
+      // Check for new token in Authorization header and update if present
+      const authHeader = response.headers.get('Authorization');
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const newToken = authHeader.substring(7);
+        if (newToken) {
+          console.log('Updating token from response header');
+          currentAccessToken = newToken;
+        }
+      }
 
       if (!response.ok) {
         let errorData: ApiClientErrorData = { detail: `Error ${response.status}` };
@@ -59,7 +119,48 @@ const apiClient = {
           // Si el cuerpo del error no es JSON, usamos el texto del status
           errorData = { detail: response.statusText || `Error ${response.status}` };
         }
-        console.error('API Client Error:', response.status, errorData);
+        
+        if (response.status !== 401 || !errorHandler) {
+          console.error('API Client Error:', response.status, errorData);
+        } else {
+          console.log('API Client: 401 received, delegating to error handler');
+        }
+
+        // Call error handler for 401 errors
+        if (response.status === 401 && errorHandler) {
+          const error = new ApiClientError(
+            errorData.detail || `HTTP error! status: ${response.status}`,
+            response.status,
+            errorData
+          );
+
+          try {
+            const handlerResponse = await errorHandler(error, endpoint, config);
+            if (handlerResponse?.retry) {
+              // Retry the request with potentially new token
+              const retryConfig: RequestInit = {
+                ...config,
+                headers: {
+                  ...config.headers as HeadersInit,
+                  ...(handlerResponse.newToken ? { Authorization: `Bearer ${handlerResponse.newToken}` } : {}),
+                },
+              };
+              const retryResp = await fetch(`${settings.api.baseUrl}${endpoint}`, retryConfig);
+              if (retryResp.ok) {
+                if (retryResp.status === 204) return undefined as T;
+                return await retryResp.json() as T;
+              }
+              // If retry fails, throw the retry error
+              let retryErr: ApiClientErrorData = { detail: `Error ${retryResp.status}` };
+              try { retryErr = await retryResp.json(); } catch { }
+              throw new ApiClientError(retryErr.detail || `HTTP error! status: ${retryResp.status}`, retryResp.status, retryErr);
+            }
+          } catch (handlerError) {
+            // If error handler itself fails, continue to throw original error
+            console.error('Error handler failed:', handlerError);
+          }
+        }
+
         throw new ApiClientError(
           errorData.detail || `HTTP error! status: ${response.status}`,
           response.status,
@@ -69,10 +170,13 @@ const apiClient = {
 
       // Si la respuesta es 204 No Content, no intentamos parsear JSON
       if (response.status === 204) {
+        console.log('API Response: 204 No Content');
         return undefined as T; // O lo que sea apropiado para una respuesta vacía
       }
 
-      return await response.json() as T;
+      const responseData = await response.json() as T;
+      console.log('API Response Data:', responseData);
+      return responseData;
     } catch (error) {
       console.error('API Request Failed:', error);
       if (error instanceof ApiClientError) {
@@ -92,6 +196,7 @@ const apiClient = {
   },
 
   post<T>(endpoint: string, body: any, options: RequestOptions = {}): Promise<T> {
+    console.log('POST Request:', endpoint, body, options);
     return this.request<T>(endpoint, { ...options, method: 'POST', body: JSON.stringify(body) });
   },
 
@@ -101,6 +206,11 @@ const apiClient = {
 
   delete<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
     return this.request<T>(endpoint, { ...options, method: 'DELETE' });
+  },
+
+  // Permite configurar el access token en memoria y limpiarlo en logout
+  setAuthToken(token: string | null) {
+    currentAccessToken = token;
   },
   // Puedes añadir patch, etc., según necesites
 };

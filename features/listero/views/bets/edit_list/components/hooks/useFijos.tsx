@@ -34,11 +34,7 @@ export const useFijosParlet = ({ onSelectPlay }: { onSelectPlay: (bets: FijosCor
     if (fijosCorridosList.length > 0) {
       onSelectPlay(fijosCorridosList);
     }
-     // De forma opcional, si onSelectPlay(null) o onSelectPlay([]) es válido para resetear:
-    // else { 
-    //   onSelectPlay([]); 
-    // }
-  }, [fijosCorridosList, onSelectPlay]);
+  }, [fijosCorridosList]);
 
   // Efecto para mostrar el Alert cuando amountConfirmationDetails cambia
   useEffect(() => {

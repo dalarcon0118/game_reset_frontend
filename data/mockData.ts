@@ -1,4 +1,4 @@
-import { BetType, DrawRules, DrawType, FinancialSummary, GameType,FijosCorridosBet,ParletBet, CentenaBet } from '@/types';
+import { BetType, DrawRules, DrawType, FinancialSummary, GameType, FijosCorridosBet, ParletBet, CentenaBet } from '@/types';
 
 export const mockFinancialSummary: FinancialSummary = {
   totalCollected: 250.75,
@@ -103,11 +103,19 @@ export type UserRole = 'listero' | 'colector' | 'admin';
 // User interface
 export interface User {
   id: string;
-  username: string;
-  name: string;
+  first_name: string;
+  last_name: string;
   role: UserRole;
   active: boolean;
+  email: string;
   password?: string; // Add optional password field
+  structure?: {
+    id: number;
+    name: string;
+    type: string;
+    path: string;
+    role_in_structure: string;
+  };
 }
 
 // Mock users data
@@ -202,7 +210,7 @@ export const mockParlets: ParletBet[] = [
   { id: 'p6', bets: [27, 72], amount: 100 },
   { id: 'p7', bets: [74, 34], amount: 80 },
   { id: 'p8', bets: [6, 60], amount: 50 },
-  { id: 'p9', bets: [6, 60,78], amount: 50 },
+  { id: 'p9', bets: [6, 60, 78], amount: 50 },
 ];
 
 export const mockCentenas: CentenaBet[] = [
@@ -309,4 +317,3 @@ export const mockRules: DrawRules[] = [
   },
   // Añadir reglas para los demás sorteos...
 ];
-

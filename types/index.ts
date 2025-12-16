@@ -1,9 +1,32 @@
+export interface WinningRecord {
+  id: number;
+  winning_number: string;
+  date: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface DrawType {
   id: string;
-  source: string;
-  date: string;
-  time: string;
-  status: 'open' | 'pending' | 'closed';
+  name: string; // Nombre del sorteo (ej: Miami, Florida, México)
+  description: string | null;
+  draw_datetime: string; // ISO datetime string
+  betting_start_time: string | null; // ISO datetime string
+  betting_end_time: string | null; // ISO datetime string
+  status: 'scheduled' | 'completed' | 'cancelled' | 'open' | 'pending' | 'closed';
+  draw_type: number; // ID del DrawType
+  owner_structure: number; // ID de la estructura (banco)
+  winning_numbers: WinningRecord | null;
+  created_at: string;
+  updated_at: string;
+  totalCollected?: number;
+  premiumsPaid?: number;
+  netResult?: number;
+
+  // Campos calculados para UI (mantener compatibilidad)
+  source?: string; // Alias de 'name' para compatibilidad
+  date?: string; // Fecha formateada
+  time?: string; // Hora formateada
 }
 
 
@@ -19,7 +42,7 @@ export interface BetType {
 export type GameType = {
   id: string;
   name: string;
-  code: 'fijo' | 'parlet' | 'centena';
+  code: 'FIJO' | 'PARLET' | 'CORRIDO' | 'CENTENA' | 'QUINIELA_DIRECTA';
   description: string;
 };
 

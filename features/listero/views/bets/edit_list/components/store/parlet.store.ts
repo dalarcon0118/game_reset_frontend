@@ -1,184 +1,216 @@
 import { create } from 'zustand';
-import { Alert } from 'react-native';
 import { FijosCorridosBet, ParletBet } from '@/types';
 import { AnnotationTypes } from '@/constants/Bet';
-import { splitStringToPairs } from '../../utils/numbers';
+import { ParletState } from './IParlet.store';
+import { extractUniqueNumbers, parseInputToBetNumbers } from '../domain/ParletTransform';
+import { validateParletNumbers, validateAmount } from '../domain/ParletValidation';
+import { createBet, editBetById, findBet, deleteBet } from '../domain/BetDomain';
+import { Edit } from 'lucide-react-native';
 
-// Helper to generate random string ID, if needed for new ParletBet
-const generateRandomId = () => Math.random().toString(36).substr(2, 9);
-
-export interface ParletState {
-  activeAnnotationType: string | null;
-  isParletModalVisible: boolean;
-  potentialParletNumbers: number[];
-  isParletDrawerVisible: boolean;
-  fromFijosyCorridoBet: boolean; // To track if the flow started from Fijos/Corridos
-  newParletBet: ParletBet | null; // Optional: store the confirmed Parlet bet
-  parletList: ParletBet[];
-  isAmmountDrawerVisible: boolean;
-  isError: boolean;
-  errorMessage: string;
-  _resetAmountContext: () => void;
-
-  // Actions
-  showParletDrawer: (visible:boolean) => void;
-  promptToAddAsParlet: (fijosCorridosBets: FijosCorridosBet[]) => void;
-  confirmParletBet: () => void;
-  cancelParletBet: () => void;
-  showAmmountDrawer: (visible:boolean) => void;
-  processAmountInput: (inputString: string) => void;
-  processBetInput: (inputString: string) => void;
-  activateAnnotationType: (AnnotationType:string) => void;
-  showAmmountKeyboard: () => void;
+export const Cmd = {
+  None: "None",
+  Add: "Add",
+  Added: "Added",
+  Edit: "Edit",
+  Edited: "Edited",
+  Process: "Process",
 }
 
-export const useParletStore = create<ParletState>((set, get) => ({
-  isParletModalVisible: false,
-  potentialParletNumbers: [],
-  isParletDrawerVisible: false,
-  fromFijosyCorridoBet: false,
-  newParletBet: null,
-  activeAnnotationType: null,
-  parletList: [],
-  isAmmountDrawerVisible: false,
-  isError: false,
-  errorMessage: "",
-  // Actions
-  showAmmountDrawer: (visible:boolean) => {
-    console.log('showAmmountDrawer',visible);
-    set({ 
-      activeAnnotationType: AnnotationTypes.Amount,
-      isAmmountDrawerVisible: visible 
-    });
-  },
-  showAmmountKeyboard: ()=>{
-    if(get().parletList.length <1){
-      Alert.alert("Debes agregar jugadas", "Solo puedes anotar un monto luego de una jugada.");
-      return;
-    }
-    else{
-      console.log('showAmmountKeyboard');
-      get().showAmmountDrawer(true)
-    }
-  },
+export const useParletStore = create<ParletState & {
+  cmd: string;
+}>((set, get) => {
+  return {
+    // Business State
+    parletList: [],
+    activeParletBetId: '',
+    potentialParletNumbers: [],
+    fromFijosyCorridoBet: false,
+    canceledFromFijosyCorridoBet: false,
+    newParletBet: null,
 
-  promptToAddAsParlet: (fijosCorridosBets) => {
-    if (!fijosCorridosBets || fijosCorridosBets.length === 0) {
-      get().activateAnnotationType(AnnotationTypes.Bet)
-      get().showParletDrawer(true)
-      return;
-    }
-    const extractedNumbers = fijosCorridosBets
-      .map(bet => bet.bet)
-      .filter((value, index, self) => self.indexOf(value) === index); // Unique numbers
+    // Error State
+    isError: false,
+    errorMessage: '',
+    cmd: Cmd.None,
 
-    if (extractedNumbers.length < 2) {
-      Alert.alert("Apuestas de parlet ", "Los parlet son cifras de dos numeros.");
-      return;
-    }
+    // Annotation State
+    activeAnnotationType: null as string | null,
 
-    set({
-      potentialParletNumbers: extractedNumbers,      
-      isParletModalVisible: true,
-      
-      fromFijosyCorridoBet: true, // Mark that flow started from Fijos/Corridos
-      isParletDrawerVisible: false, // Ensure drawer is closed when modal opens
-    });
-  },
 
-  processBetInput: (inputString: string) => {
-    console.log('processBetInput',inputString);
-    console.log('activeAnnotationType',get().activeAnnotationType);
-    if (get().activeAnnotationType !== AnnotationTypes.Bet) return;
+    // Actions - Business Logic
+    pressAddParlet: (fijosCorridosBets: FijosCorridosBet[]) => {
+      const state = get();
 
-    const pairs = splitStringToPairs(inputString);
-    const newBets: ParletBet[] = [];
-    const newBetNumbers: number[] = [];
+      /*if (!numbersValidation.ok) {
+        const msg = numbersValidation.errorCode === 'PARLET_MIN_NUMBERS'
+          ? 'Los parlet son cifras de dos numeros.'
+          : 'Error en los números del parlet.';
 
-    pairs.forEach((pair) => {
-      if (pair.length === 2) {
-        const betNumber = parseInt(pair, 10);
-        if (!isNaN(betNumber)) {
-          newBetNumbers.push(betNumber);
+        set({ isError: true, errorMessage: msg });
+        return;
+      }*/
+      console.log("pasa por la funcion pressAddParlet");
+
+      set({
+        cmd: Cmd.Add,
+        potentialParletNumbers: fijosCorridosBets?.length > 0 ? extractUniqueNumbers(fijosCorridosBets) : [],
+        fromFijosyCorridoBet: (fijosCorridosBets?.length > 0),
+        activeAnnotationType: AnnotationTypes.Bet,
+        activeParletBetId: '',
+        isError: false,
+        errorMessage: ''
+      });
+    },
+
+    processBetInput: (inputString: string) => {
+      const newBetNumbers = parseInputToBetNumbers(inputString);
+      const activeBetId = get().activeParletBetId;
+
+      if (activeBetId) {
+        if (newBetNumbers.length > 0) {
+          const updated = editBetById(get().parletList, activeBetId, { bets: newBetNumbers });
+          set({ parletList: updated });
+        }
+      } else {
+        if (newBetNumbers.length > 0) {
+          const created = createBet(newBetNumbers, null);
+          set(state => ({
+            parletList: [...state.parletList, created],
+            activeParletBetId: ''
+          }));
         }
       }
-    });
-    newBets.push({
-      id: generateRandomId(),
-      bets: newBetNumbers,
-      amount: null
-    });
-    console.log('newBets',newBets);
-    if (newBets.length > 0) {
+      set({ cmd: Cmd.Added });
+    },
+
+    processAmountInput: (inputString: string) => {
+      const hasBets = get().parletList.length > 0;
+      if (!hasBets) {
+        set({
+          isError: true,
+          errorMessage: 'No hay apuestas para agregar el monto',
+          isAmmountDrawerVisible: true,
+          activeAnnotationType: AnnotationTypes.Amount
+        });
+        return;
+      }
+
+      const activeBetId = get().activeParletBetId;
+      const amountValidation = validateAmount(inputString);
+      if (!amountValidation.ok || amountValidation.value === undefined) {
+        set({ isError: true, errorMessage: 'Monto inválido' });
+        return;
+      }
+
+      const updated = editBetById(get().parletList, activeBetId, { amount: amountValidation.value });
+      set({
+        parletList: updated,
+        activeParletBetId: '',
+        cmd: Cmd.Edited,
+      });
+    },
+
+    confirmParletBet: () => {
+      const state = get();
+      if (state.potentialParletNumbers.length > 0) {
+        const created = createBet(state.potentialParletNumbers, null);
+        set({
+          parletList: [...state.parletList, created],
+          newParletBet: null,
+          activeParletBetId: created.id,
+          parletAlertVisibleState: false,
+          potentialParletNumbers: [],
+          fromFijosyCorridoBet: false,
+          canceledFromFijosyCorridoBet: false,
+        });
+      }
+    },
+
+    cancelParletBet: () => {
+      set({
+        parletAlertVisibleState: false,
+        potentialParletNumbers: [],
+        canceledFromFijosyCorridoBet: true,
+        fromFijosyCorridoBet: false,
+      });
+    },
+
+    setActiveParletBet: (betId: string | null) => {
+      console.log("setActiveParletBet", get().activeParletBetId);
+      set({ activeParletBetId: betId || '' });
+    },
+
+    editParletBet: (betId: string) => {
+      const targetBet = findBet(get().parletList, betId);
+      if (targetBet) {
+        set({
+          potentialParletNumbers: [...targetBet.bets],
+          activeParletBetId: betId,
+          activeAnnotationType: AnnotationTypes.Bet,
+          cmd: Cmd.Edit,
+        });
+      } else {
+        set({ isError: true, errorMessage: 'Apuesta no encontrada' });
+      }
+    },
+
+    deleteParletBet: (betId: string) => {
+      const state = get();
+      const updated = deleteBet(state.parletList, betId);
+      const activeBetId = state.activeParletBetId;
+      set({
+        parletList: updated,
+        activeParletBetId: activeBetId === betId ? '' : activeBetId
+      });
+    },
+
+    updateParletBet: (betId: string, changes: Partial<ParletBet>) => {
+      const updated = editBetById(get().parletList, betId, changes);
+      set({ parletList: updated });
+    },
+
+    addParletBet: (numbers: number[]) => {
+      if (!numbers || numbers.length === 0) return;
+      const created = createBet(numbers, null);
       set(state => ({
-        parletList: [...state.parletList, ...newBets]
+        parletList: [...state.parletList, created],
+        activeParletBetId: created.id
       }));
-    }
-    get().showParletDrawer(false);
-  },
-  
-  processAmountInput: (inputString: string) => {
-   
-    if (get().activeAnnotationType!== AnnotationTypes.Amount ||  get().parletList.length === 0){
-     set({
-      isError: true,
-      errorMessage: 'No hay apuestas para agregar el monto',
-      isAmmountDrawerVisible: true,
-      activeAnnotationType: AnnotationTypes.Amount // Set the active annotation type to Amount if needed
-     })
-      return;
-    } 
-    const update:ParletBet[] = get().parletList.map((bet)=>{
-       bet.amount = parseInt(inputString,10);
-       return bet;
-    })
-    set((state)=>({
-      parletList: [...update]
-    }))
-    get().showAmmountDrawer(false);
-  }
+    },
 
-  , _resetAmountContext: () => {
-    set({
-      isAmmountDrawerVisible: false,
-      activeAnnotationType: null
-    });
-  },
+    _resetAmountContext: () => {
+      set({ isAmmountDrawerVisible: false });
+    },
 
-  activateAnnotationType: (AnnotationType:string)=>{
-    set({ activeAnnotationType: AnnotationType });
-  },
+    activateAnnotationType: (annotationType: string) => {
+      set({ activeAnnotationType: annotationType });
+    },
 
-  confirmParletBet: () => {
-    const { potentialParletNumbers } = get();
-    if (potentialParletNumbers.length > 0) {
-      const createdParlet: ParletBet = {
-        id: generateRandomId(),
-        bets: potentialParletNumbers,
-        amount: null
-      };
-      set({ newParletBet: createdParlet });
-      console.log('Los nmeros agregados son :', potentialParletNumbers);
-    }
-    set({
-      isParletModalVisible: false,
-      potentialParletNumbers: [],
-      fromFijosyCorridoBet: false, // Reset flow origin
-    });
-  },
+    clearError: () => {
+      set({ isError: false, errorMessage: '' });
+    },
 
-  cancelParletBet: () => {
-    const wasFromFijos = get().fromFijosyCorridoBet;
-    console.log('Adding Parlet bet cancelled.');
-    set(state => ({
-      isParletModalVisible: false,
-      potentialParletNumbers: [],
-      fromFijosyCorridoBet: false, // Reset flow origin
-      isParletDrawerVisible: wasFromFijos ? true : state.isParletDrawerVisible,
-    }));
-  },
-  showParletDrawer: (visible:boolean) => {
-    set({ isParletDrawerVisible: visible });
-  }
- 
-}));
+    resetCmd: () => {
+      set({ cmd: Cmd.None });
+    },
+
+    editAmmountKeyboard: (betId: string) => {
+      const state = get();
+      const targetBet = findBet(get().parletList, betId);
+
+      if (state.parletList.length < 1) {
+        set({ isError: true, errorMessage: 'Debes agregar jugadas. Solo puedes anotar un monto luego de una jugada.' });
+        return;
+      }
+
+      if (targetBet) {
+        set({
+          activeParletBetId: betId,
+          activeAnnotationType: AnnotationTypes.Amount,
+          cmd: Cmd.Edit,
+        });
+      }
+
+    },
+  };
+});

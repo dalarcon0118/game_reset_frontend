@@ -7,7 +7,7 @@ import { useLoginForm } from '../hooks/useLoginForm';
 import { Controller } from 'react-hook-form';
 
 export default function LoginScreen() {
-  const { register, handleSubmit, errors, isSubmitting, control } = useLoginForm();
+  const { handleSubmit, errors, isSubmitting, control } = useLoginForm();
 
   return (
     

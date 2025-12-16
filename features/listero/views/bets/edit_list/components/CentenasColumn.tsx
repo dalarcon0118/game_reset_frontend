@@ -12,9 +12,14 @@ interface CentenaBet {
 
 interface CentenasColumnProps {
   bets: CentenaBet[];
+  betTypeId: string | null;
 }
 
-export default function CentenasColumn({ bets }: CentenasColumnProps) {
+export default function CentenasColumn({
+  bets,
+  betTypeId
+
+}: CentenasColumnProps) {
   return (
     <View style={[styles.column, styles.colCentenas]}>
       <View style={styles.columnContent}>
@@ -34,6 +39,7 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     borderRightColor: '#E8E8E8',
     flex: 1,
+    paddingTop: 10
   },
   colCentenas: {
     flex: 2,

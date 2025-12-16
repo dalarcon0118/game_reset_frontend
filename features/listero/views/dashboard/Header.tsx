@@ -1,22 +1,29 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Modal, Pressable } from 'react-native';
 import { Layout, Text, Icon, Button, useTheme } from '@ui-kitten/components';
 import { CircleUser as UserCircle2, LogOut } from 'lucide-react-native';
 import LayoutConstants from '@/constants/Layout'; // Renamed to avoid conflict
 import { useAuth } from '@/shared/context/AuthContext';
+import { router } from 'expo-router';
 
-interface HeaderProps {}
+interface HeaderProps { }
 
-export default function Header({}: HeaderProps) {
+export default function Header({ }: HeaderProps) {
   const theme = useTheme();
-  const { logout, user } = useAuth();
+  const { logout, user, isLoggingOut } = useAuth();
   const [isMenuVisible, setIsMenuVisible] = useState(false);
+
+ 
+  useEffect(() => {
+    console.log('header user: ', user);
+  }, [user]);
 
   const toggleMenu = () => {
     setIsMenuVisible(!isMenuVisible);
   };
 
   const handleLogout = () => {
+    if (isLoggingOut) return;
     toggleMenu();
     logout();
   };
@@ -28,7 +35,7 @@ export default function Header({}: HeaderProps) {
           Bienvenido
         </Text>
         <Text category='h5' style={styles.userName}>
-          {user?.name || 'Usuario'}
+          {user?.username || 'Usuario'}
         </Text>
       </Layout>
 

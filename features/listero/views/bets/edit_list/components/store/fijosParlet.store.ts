@@ -4,7 +4,7 @@ import { GameTypes, AnnotationType, AnnotationTypes, GameTypeCodes } from '@/con
 import { splitStringToPairs } from '../../utils/numbers';
 
 // Funciones auxiliares (movidas aquí ya que son usadas por el store)
-const generateRandomId = () => Math.random().toString(36).substr(2, 9);
+const generateRandomId = () => Math.floor(Math.random() * 10000000000).toString().padStart(10, '0');
 
 
 

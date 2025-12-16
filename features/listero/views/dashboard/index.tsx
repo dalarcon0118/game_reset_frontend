@@ -8,16 +8,20 @@ import { FinancialSummaryService } from '@/shared/services/FinancialSummary';
 import { router } from 'expo-router';
 import { FinancialSummary } from '@/types';
 import Header from './Header';
-import {Text} from "@ui-kitten/components"
+import { Text, Button, useTheme } from "@ui-kitten/components"
+import { RefreshCw } from 'lucide-react-native';
 import QuickActions from './QuickActions';
+import { useAuth } from '@/shared/context/AuthContext';
 
 export default function Dashboard() {
-  const [lisDraws, draws,isLoading, errorDraws] = useDataFetch(DrawService.list);
-  const [getFinancial,summary,isLoadingFinancial]  = useDataFetch<FinancialSummary,any>(FinancialSummaryService.get);
+  const theme = useTheme();
+  const [lisDraws, draws, isLoading, errorDraws] = useDataFetch(DrawService.list);
+  const { user } = useAuth();
+  const [getFinancial, summary, isLoadingFinancial] = useDataFetch<FinancialSummary, any>(FinancialSummaryService.get);
 
   useEffect(() => {
     getFinancial();
-    lisDraws()
+    lisDraws(user?.structure?.id);
   }, []);
 
   const handleRulesPress = (drawId: string) => {
@@ -36,35 +40,26 @@ export default function Dashboard() {
 
   return (
     <ScrollView style={styles.container}>
-      <Header/>
+      <Header />
       {/* Financial Summary Cards */}
       <View style={styles.summaryContainer}>
-      <Text style={styles.summaryTitle}>
-          Resumen de hoy
-        </Text>
-        {summary && (
-          <>
-            <SummaryCard
-              title="Recaudado"
-              amount={summary.totalCollected}
-              type="collected"
-            />
-            <SummaryCard
-              title="Pagado"
-              amount={summary.premiumsPaid}
-              type="paid"
-            />
-            <SummaryCard
-              title="Mis ganos"
-              amount={summary.netResult}
-              type="net"
-            />
-          </>
-        )}
+           
+        <Button
+          appearance='ghost'
+          status='basic'
+          accessoryLeft={<RefreshCw size={20} color={theme['text-basic-color']} />}
+          onPress={() => lisDraws(user?.structure?.id)}
+        >
+          Actualizar
+        </Button>
       </View>
 
       {/* Draws List */}
       <View style={styles.drawsContainer}>
+        <View style={styles.drawsHeader}>
+          <Text style={styles.summaryTitle}>Sorteos Disponibles</Text>
+
+        </View>
         {draws?.map((draw, index) => (
           <DrawItem
             key={draw.id}
@@ -74,7 +69,7 @@ export default function Dashboard() {
           />
         ))}
       </View>
-      <QuickActions/>
+      { /*<QuickActions />*/}
     </ScrollView>
   );
 }
@@ -97,5 +92,11 @@ const styles = StyleSheet.create({
   },
   drawsContainer: {
     padding: 8,
+  },
+  drawsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
   },
 });

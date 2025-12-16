@@ -9,7 +9,7 @@
 // const manifest = Constants.manifest;
 
 // API Configuration
-const API_BASE_URL_DEVELOPMENT = 'http://localhost:8000/api'; // URL de tu backend en desarrollo
+const API_BASE_URL_DEVELOPMENT = 'http://10.0.0.156:8000/api'; // URL de tu backend en desarrollo (use host machine IP for Expo)
 const API_BASE_URL_PRODUCTION = 'https://your-production-api.com/api'; // URL de tu backend en producción
 
 // Determinar si estamos en modo de desarrollo o producción
@@ -22,12 +22,15 @@ export const settings = {
     timeout: 10000, // Tiempo de espera para las peticiones API en milisegundos
     endpoints: {
       auth: '/auth',
-      login: '/auth/login/',
+      login: () => '/auth/token/',
+      refresh: () => '/auth/token/refresh/',
+      logout: () => '/auth/logout/',
+      me: () => '/auth/me/',
       register: '/auth/register/',
       users: '/users/',
       structures: '/structures/',
       bets: '/bets/',
-      draws: '/draws/',
+      draws: '/draw/draws/',
       // ...otros endpoints de tu API
     },
   },

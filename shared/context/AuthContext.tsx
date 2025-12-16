@@ -1,7 +1,9 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { User } from '@/data/mockData';
 import { useDataFetch } from '@/shared/hooks/useDataFetch';
 import { LoginService } from '@/shared/services/auth/LoginService';
+import apiClient, { setErrorHandler, ApiClientError } from '@/shared/services/ApiClient';
+import { router } from 'expo-router';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -11,16 +13,18 @@ interface AuthContextType {
   checkLoginStatus: () => Promise<any>;
   error: any;
   isLoading: boolean;
+  isLoggingOut: boolean;
 }
 
 const AuthContext = createContext<AuthContextType>({
   isAuthenticated: false,
   user: null,
   login: async () => false,
-  logout: async () => {},
-  checkLoginStatus: async () => {},
+  logout: async () => { },
+  checkLoginStatus: async () => { },
   isLoading: false,
-  error: null
+  error: null,
+  isLoggingOut: false
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -32,6 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [logout] = useDataFetch(loginService.logout);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // Handle login data changes
   useEffect(() => {
@@ -54,15 +59,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(loginLoading || statusLoading);
   }, [loginLoading, statusLoading]);
 
-  // Initial status check
-  useEffect(() => {
-    checkLoginStatus();
-  }, []);
+  const handleLogout = useCallback(async () => {
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
+    try {
+      router.replace('/login');
+      await logout();
+      setUser(null);
+      
+    } finally {
+      setIsLoggingOut(false);
+    }
+  }, [isLoggingOut, logout]);
 
-  const handleLogout = async () => {
-    await logout();
-    setUser(null);
-  };
+  // Register error handler for 401 errors
+  useEffect(() => {
+    const handler = async (error: ApiClientError, endpoint: string, options: RequestInit) => {
+      if (error.status === 401) {
+        console.log('401 error detected, attempting token refresh');
+
+        try {
+          const newToken = await apiClient.refreshAccessToken();
+          if (newToken) {
+            console.log('Token refreshed successfully, signaling retry');
+            // Return signal to retry with new token
+            return { retry: true, newToken };
+          } else {
+            // Refresh failed, logout
+            console.log('Token refresh failed, logging out');
+            await handleLogout();
+            return null;
+          }
+        } catch (refreshError) {
+          console.error('Token refresh error:', refreshError);
+          // Refresh failed, logout
+          await handleLogout();
+          return null;
+        }
+      }
+      return null;
+    };
+
+    setErrorHandler(handler);
+
+    return () => {
+      setErrorHandler(null);
+    };
+  }, [handleLogout]);
 
   return (
     <AuthContext.Provider value={{
@@ -72,7 +115,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       login,
       logout: handleLogout,
       error: loginError,
-      isLoading
+      isLoading,
+      isLoggingOut
     }}>
       {children}
     </AuthContext.Provider>

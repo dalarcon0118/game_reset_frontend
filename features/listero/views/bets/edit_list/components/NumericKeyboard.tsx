@@ -1,86 +1,94 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text,Button, useTheme } from '@ui-kitten/components';
+import { Text, Button, useTheme } from '@ui-kitten/components';
 import { ArrowUpDown } from 'lucide-react-native';
-import { GameTypeCodes,AnnotationType } from '@/constants/Bet';
+import { GameTypeCodes, AnnotationType } from '@/constants/Bet';
 import NumberDisplay from './NumberDisplay';
 import { formatNumbers } from '../utils/numbers';
 
 interface NumericKeyboardProps {
   onNumberPress: (number: string) => void;
-  gameType:GameTypeCodes;
-  annotationType:AnnotationType;
+  value?: string;
+  gameType: GameTypeCodes;
+  annotationType: AnnotationType;
 }
 
-export default function NumericKeyboard({ 
-  onNumberPress, 
+export default function NumericKeyboard({
+  onNumberPress,
   annotationType,
-  gameType
+  gameType,
+  value = ""
 }: NumericKeyboardProps) {
-  const numbers = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0',"Limpiar","OK"];
+  const numbers = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', "Limpiar", "OK", "<-"];
   const theme = useTheme();
-  const [numbersDisplay,setNumbersDisplay] = useState<string >("");
-  const [numbersClick,setNumbersClick] = useState<string >("");
-  const [numbersBuff,setNumbersBuff] = useState<string >("");
+  const [numbersDisplay, setNumbersDisplay] = useState<string>(value);
+  const [numbersClick, setNumbersClick] = useState<string>("");
+  const [numbersBuff, setNumbersBuff] = useState<string>("");
+
   useEffect(() => {
-    console.log(`NumericKeyboard is now visible and active. ${gameType},${annotationType}`);
-    // Aquí puedes añadir lógica adicional si es necesario,
-    // como enfocar el primer botón para accesibilidad si usas refs,
-    // o realizar alguna animación.
-  }, [numbersDisplay]); 
-  
+    console.log(`NumericKeyboard is now visible and active. ${gameType},${annotationType} with value ${value}`);
+    value ? setNumbersBuff(value) : setNumbersBuff("");
+    setNumbersDisplay(value);
+    setNumbersClick("");
+  }, [annotationType, gameType, value]);
+
   return (
     <View>
-       <NumberDisplay
-            numbers={formatNumbers(gameType,annotationType, numbersBuff)}
-            annotationType={annotationType}
-            gameTypeCode={gameType}
-          />
+      <NumberDisplay
+        numbers={formatNumbers(gameType, annotationType, numbersBuff)}
+        annotationType={annotationType}
+        gameTypeCode={gameType}
+      />
       <View style={styles.container}>
         <View style={styles.grid}>
           {numbers.map((number) => (
-          <Button
-          key={number}
-          appearance='ghost'
-          size='large'
-          status='primary'
-          style={{
-            ...styles.button
-            ,backgroundColor: theme['color-primary-100'],
-            borderColor: theme['color-primary-500']}}
-          onPress={() =>{
-            
-            if(number === "OK"){
-              console.log('OK -->',numbersBuff);
-              onNumberPress(numbersBuff)
-              setNumbersDisplay("");
-              setNumbersClick("");
-            }
-            else if(number === "Limpiar"){
-              setNumbersDisplay("");
-              setNumbersClick("");
-              setNumbersBuff("");
-            }
-            else{
-              setNumbersBuff((prev)=> prev + number)
-              setNumbersClick(number)
-              setNumbersDisplay(number)
-            }
-          
-          
-          } }
-        >
-          <Text style={styles.buttonText}>{number}</Text>
-        </Button>
-          
+            <Button
+              key={number}
+              appearance='ghost'
+              size='large'
+              status='primary'
+              style={{
+                ...styles.button
+                , backgroundColor: theme['color-primary-100'],
+                borderColor: theme['color-primary-500']
+              }}
+              onPress={() => {
+                console.log()
+                if (number === "OK") {
+                  console.log('OK -->', numbersBuff);
+                  onNumberPress(numbersBuff);
+                  setNumbersBuff("");
+                  setNumbersDisplay("");
+                  setNumbersClick("");
+                }
+                else if (number === "Limpiar") {
+                  setNumbersDisplay("");
+                  setNumbersClick("");
+                  setNumbersBuff("");
+                }
+                else if (number === "<-") {
+                  setNumbersBuff((prev) => prev.slice(0, -2))
+                  setNumbersClick("");
+                  setNumbersDisplay((prev) => prev.slice(0, -2))
+                }
+                else {
+                  setNumbersBuff((prev) => prev + number)
+                  setNumbersClick(number)
+                  setNumbersDisplay(number)
+                }
+              }}
+            >
+              <Text style={styles.buttonText}>{number}</Text>
+            </Button>
+
           ))}
-        
+
         </View>
-      
-     
-      </View>    
+
+
+      </View>
     </View>
-    
+
   );
 }
 
@@ -112,7 +120,7 @@ const styles = StyleSheet.create({
     width: '100%',
     flexDirection: 'row',
     gap: 8,
-    
+
     height: 60,
   },
 });

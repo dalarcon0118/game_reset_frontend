@@ -1,0 +1,182 @@
+[
+  {
+    "amount": "236.00",
+    "bet_type": 11,
+    "bet_type_details": {
+      "code": "FIJO",
+      "created_at": "2025-12-01T12:35:48.058402",
+      "description": "Apuesta a un número fijo que debe salir en posición exacta",
+      "draw_type": 4,
+      "id": 11,
+      "name": "Fijo",
+      "reward_rules": [],
+      "updated_at": "2025-12-09T13:14:49.811428",
+      "validation_rules": [],
+      "winning_rule": 1
+    },
+    "created_at": "2025-12-09T16:51:30.579380",
+    "draw": 433,
+    "id": 266,
+    "is_winner": false,
+    "numbers_played": {
+      "number": 27
+    },
+    "owner_structure": 48,
+    "owner_structure_details": {
+      "children": [],
+      "created_at": "2025-12-01T12:35:48.186865",
+      "description": "",
+      "id": 48,
+      "level": 4,
+      "name": "Listeria X",
+      "parent": 46,
+      "path": "Occidental/Habana/Centro-Habana/Banco 1/Listeria X",
+      "updated_at": "2025-12-09T13:14:49.906354"
+    },
+    "payout_amount": "0.00"
+  },
+  {
+    "amount": "256.00",
+    "bet_type": 11,
+    "bet_type_details": {
+      "code": "FIJO",
+      "created_at": "2025-12-01T12:35:48.058402",
+      "description": "Apuesta a un número fijo que debe salir en posición exacta",
+      "draw_type": 4,
+      "id": 11,
+      "name": "Fijo",
+      "reward_rules": [],
+      "updated_at": "2025-12-09T13:14:49.811428",
+      "validation_rules": [],
+      "winning_rule": 1
+    },
+    "created_at": "2025-12-09T16:51:30.579429",
+    "draw": 433,
+    "id": 267,
+    "is_winner": false,
+    "numbers_played": {
+      "number": 85
+    },
+    "owner_structure": 48,
+    "owner_structure_details": {
+      "children": [],
+      "created_at": "2025-12-01T12:35:48.186865",
+      "description": "",
+      "id": 48,
+      "level": 4,
+      "name": "Listeria X",
+      "parent": 46,
+      "path": "Occidental/Habana/Centro-Habana/Banco 1/Listeria X",
+      "updated_at": "2025-12-09T13:14:49.906354"
+    },
+    "payout_amount": "0.00"
+  },
+  {
+    "amount": "215.00",
+    "bet_type": 11,
+    "bet_type_details": {
+      "code": "FIJO",
+      "created_at": "2025-12-01T12:35:48.058402",
+      "description": "Apuesta a un número fijo que debe salir en posición exacta",
+      "draw_type": 4,
+      "id": 11,
+      "name": "Fijo",
+      "reward_rules": [],
+      "updated_at": "2025-12-09T13:14:49.811428",
+      "validation_rules": [],
+      "winning_rule": 1
+    },
+    "created_at": "2025-12-09T16:51:30.579442",
+    "draw": 433,
+    "id": 268,
+    "is_winner": false,
+    "numbers_played": {
+      "number": 63
+    },
+    "owner_structure": 48,
+    "owner_structure_details": {
+      "children": [],
+      "created_at": "2025-12-01T12:35:48.186865",
+      "description": "",
+      "id": 48,
+      "level": 4,
+      "name": "Listeria X",
+      "parent": 46,
+      "path": "Occidental/Habana/Centro-Habana/Banco 1/Listeria X",
+      "updated_at": "2025-12-09T13:14:49.906354"
+    },
+    "payout_amount": "0.00"
+  },
+  {
+    "amount": "120.00",
+    "bet_type": 14,
+    "bet_type_details": {
+      "code": "CENTENA",
+      "created_at": "2025-12-01T12:35:48.077986",
+      "description": "Apuesta a números de tres dígitos (000-999)",
+      "draw_type": 4,
+      "id": 14,
+      "name": "Centena",
+      "reward_rules": [],
+      "updated_at": "2025-12-01T12:35:48.078004",
+      "validation_rules": [],
+      "winning_rule": null
+    },
+    "created_at": "2025-12-09T16:51:30.579453",
+    "draw": 433,
+    "id": 269,
+    "is_winner": false,
+    "numbers_played": {
+      "number": 830
+    },
+    "owner_structure": 48,
+    "owner_structure_details": {
+      "children": [],
+      "created_at": "2025-12-01T12:35:48.186865",
+      "description": "",
+      "id": 48,
+      "level": 4,
+      "name": "Listeria X",
+      "parent": 46,
+      "path": "Occidental/Habana/Centro-Habana/Banco 1/Listeria X",
+      "updated_at": "2025-12-09T13:14:49.906354"
+    },
+    "payout_amount": "0.00"
+  },
+  {
+    "amount": "286.00",
+    "bet_type": 13,
+    "bet_type_details": {
+      "code": "PARLET",
+      "created_at": "2025-12-01T12:35:48.068586",
+      "description": "Apuesta combinada a múltiples números con diferentes posiciones",
+      "draw_type": 4,
+      "id": 13,
+      "name": "Parlet",
+      "reward_rules": [],
+      "updated_at": "2025-12-09T13:14:49.830723",
+      "validation_rules": [],
+      "winning_rule": 3
+    },
+    "created_at": "2025-12-09T16:51:30.579465",
+    "draw": 433,
+    "id": 270,
+    "is_winner": false,
+    "numbers_played": {
+      "numbers": []
+    },
+    "owner_structure": 48,
+    "owner_structure_details": {
+      "children": [],
+      "created_at": "2025-12-01T12:35:48.186865",
+      "description": "",
+      "id": 48,
+      "level": 4,
+      "name": "Listeria X",
+      "parent": 46,
+      "path": "Occidental/Habana/Centro-Habana/Banco 1/Listeria X",
+      "updated_at": "2025-12-09T13:14:49.906354"
+    },
+    "payout_amount": "0.00"
+  }
+]

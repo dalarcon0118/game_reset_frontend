@@ -14,70 +14,72 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  withTiming,
-  runOnJS
+  withTiming
 } from 'react-native-reanimated';
 import { X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Card, Layout,Text } from '@ui-kitten/components';
+import { Layout, Text } from '@ui-kitten/components';
+import { useBottomDrawer } from "./useBottomDrawer";
 
-const { height } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface BottomDrawerProps {
-  isVisible: boolean;
-  onClose: () => void;
-  title:string;
-  children: React.ReactNode;
+  isVisible?: boolean;
+  onClose?: () => void;
+  title?: string;
   height?: number | string;
+  children?: React.ReactNode;
 }
 
-export default function BottomDrawer({
-  isVisible,
-  onClose,
-  children,
-  title,
-  height: drawerHeight = '30%'
-}: BottomDrawerProps) {
-  const translateY = useSharedValue(height);
-  const opacity = useSharedValue(0);
+export default function BottomDrawer(props: BottomDrawerProps = {}) {
+  // Si se pasan props, NO usar el hook (evita error de provider)
+  const hasProps = props.isVisible !== undefined;
+
+  let drawer, closeDrawer;
+  if (!hasProps) {
+    // Solo usar hook si no hay props
+    const hookData = useBottomDrawer();
+    drawer = hookData.drawer;
+    closeDrawer = hookData.closeDrawer;
+  } else {
+    // Cuando hay props, usar valores por defecto para drawer
+    drawer = { isVisible: false, title: '', content: null, height: '40%' };
+    closeDrawer = () => { }; // Función vacía por defecto
+  }
+
+  const isVisible = props.isVisible ?? drawer.isVisible;
+  const onClose = props.onClose ?? closeDrawer;
+  const title = props.title ?? drawer.title;
+  const content = props.children ?? drawer.content;
+  const height = props.height ?? drawer.height;
+
   const insets = useSafeAreaInsets();
+
+  // Animaciones
+  const translateY = useSharedValue(SCREEN_HEIGHT);
+  const overlayOpacity = useSharedValue(0);
 
   useEffect(() => {
     if (isVisible) {
-      opacity.value = withTiming(1, { duration: 300 });
-      translateY.value = withSpring(0, {
-        damping: 20,
-        stiffness: 90
-      });
+      overlayOpacity.value = withTiming(1, { duration: 0 });
+      translateY.value = withSpring(0, { damping: 20, stiffness: 180 });
     } else {
-      opacity.value = withTiming(0, { duration: 300 });
-      translateY.value = withSpring(height, {
-        damping: 20,
-        stiffness: 90
-      });
+      overlayOpacity.value = withTiming(0, { duration: 0 });
+      translateY.value = withSpring(SCREEN_HEIGHT, { damping: 20, stiffness: 180 });
     }
-  }, [isVisible, height, translateY, opacity]);
+  }, [isVisible]);
 
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ translateY: translateY.value }]
-    };
-  });
+  const animatedDrawer = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
 
-  const overlayStyle = useAnimatedStyle(() => {
-    return {
-      opacity: opacity.value
-    };
-  });
+  const animatedOverlay = useAnimatedStyle(() => ({
+    opacity: overlayOpacity.value,
+  }));
 
   const handleDismiss = () => {
     Keyboard.dismiss();
     onClose();
-  };
-
-  const handleModalClose = () => {
-    // This function is intentionally empty to prevent
-    // the modal from closing when pressing outside the drawer
   };
 
   return (
@@ -88,45 +90,45 @@ export default function BottomDrawer({
       onRequestClose={handleDismiss}
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.keyboardAvoidingView}
       >
+        {/* Overlay */}
         <TouchableWithoutFeedback onPress={handleDismiss}>
-          <Animated.View style={[styles.overlay, overlayStyle]} />
+          <Animated.View style={[styles.overlay, animatedOverlay]} />
         </TouchableWithoutFeedback>
 
+        {/* Drawer */}
         <Animated.View
           style={[
             styles.drawerContainer,
-            animatedStyle,
-            { height: typeof drawerHeight === 'number' ? drawerHeight : drawerHeight },
-            { paddingBottom: insets.bottom }
+            animatedDrawer,
+            {
+              height: (height ?? '30%') as any,
+              paddingBottom: insets.bottom,
+            },
           ]}
         >
           <View style={styles.handle} />
-          
-          <TouchableWithoutFeedback onPress={handleModalClose}>
-            
-            <View style={styles.drawerContent}>
-            <Layout >
-                    <Text category="h6" style={[{padding:10}]}>{title}</Text>
-                
-                </Layout>
-              <TouchableWithoutFeedback onPress={handleDismiss}>
-                <View style={styles.closeButton}>
-                  <X size={24} color="#333" />
-                </View>
-              </TouchableWithoutFeedback>
-              <ScrollView>
-                    
-                    {children}
-                    </ScrollView>
 
-                
-               
-              
-            </View>
-          </TouchableWithoutFeedback>
+          <View style={styles.drawerContent}>
+            <Layout>
+              <Text category="h6" >{title}</Text>
+            </Layout>
+
+            <TouchableWithoutFeedback onPress={handleDismiss}>
+              <View style={styles.closeButton}>
+                <X size={24} color="#333" />
+              </View>
+            </TouchableWithoutFeedback>
+            <ScrollView
+              contentContainerStyle={{ flexGrow: 1 }}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              {content}
+            </ScrollView>
+          </View>
         </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
@@ -134,45 +136,35 @@ export default function BottomDrawer({
 }
 
 const styles = StyleSheet.create({
-  keyboardAvoidingView: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
+  keyboardAvoidingView: { flex: 1, justifyContent: 'flex-end' },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0,0,0,0.45)',
   },
   drawerContainer: {
-    backgroundColor: 'white',
+    backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    paddingTop: 8,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: -3,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 10,
+    elevation: 12,
+    paddingTop: 5,
   },
   handle: {
-    width: 40,
+    width: 45,
     height: 5,
     borderRadius: 3,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: '#DDD',
     alignSelf: 'center',
-    marginBottom: 0,
+    marginBottom: 6,
   },
   drawerContent: {
     flex: 1,
-    padding: 0,
+    paddingHorizontal: 10,
   },
   closeButton: {
     position: 'absolute',
-    top: -15,
-    right: -2,
-    padding: 8,
-    zIndex: 1,
-  },
+    top: -10,
+    right: 0,
+    padding: 10,
+    zIndex: 10,
+  }
 });

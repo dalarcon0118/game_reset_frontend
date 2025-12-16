@@ -20,42 +20,41 @@ interface FijoCorridoBet {
 
 interface FijosCorridosColumnProps {
   onSelectPlay: any;
+  betTypeId: string | null;
 }
 
 export default function FijosCorridosColumn({
-  onSelectPlay
-}:FijosCorridosColumnProps) {
+  onSelectPlay,
+  betTypeId
+}: FijosCorridosColumnProps) {
   const {
     fijosCorridosList,
     showBetKeyboard, // Updated state name
     showAmountKeyboard, // Updated state name
     hideBetKeyboard, // Updated handler name
     hideAmountKeyboard, // Updated handler name
-    handleBetKeyboardInput, // Updated handler name
+    processBetInput,
     handleAmountKeyboardInput, // New handler
     handleAddBetPress,
     handleAmountCirclePress,
-  } = useFijosParlet({onSelectPlay});
+  } = useFijosParlet({ onSelectPlay });
 
- 
 
-  
+
+
   const renderKeyboard = () => {
     const isVisible = showBetKeyboard || showAmountKeyboard;
     const onClose = showBetKeyboard ? hideBetKeyboard : hideAmountKeyboard;
-    const onNumberPress = showBetKeyboard ? handleBetKeyboardInput : handleAmountKeyboardInput;
+    const onNumberPress = showBetKeyboard ? processBetInput : handleAmountKeyboardInput;
     const annotationType = showBetKeyboard ? AnnotationTypes.Bet : AnnotationTypes.Amount;
     // Add a "Done" button or similar mechanism to the amount keyboard if needed
     // to trigger finalizeAmountInput explicitly. For now, it triggers on close.
 
     return (
       <BottomDrawer isVisible={isVisible} onClose={onClose} title='' height={"50%"}>
-       
-        <NumericKeyboard
-          onNumberPress={(number:string)=>{
-            onNumberPress(number); 
 
-          }} // Pass the correct handler
+        <NumericKeyboard
+          onNumberPress={(number: string) => onNumberPress(number)} // Pass the correct handler
           annotationType={annotationType}
           gameType={GameTypes.FIJOS_CORRIDOS} // Assuming this column is always for this type
         />
@@ -67,13 +66,13 @@ export default function FijosCorridosColumn({
   return (
     <View style={[styles.column, styles.colFijos]}>
       <View style={styles.columnContent}>
-        
-        {fijosCorridosList.map((item:FijosCorridosBet) => (
+
+        {fijosCorridosList.map((item: FijosCorridosBet) => (
           <View key={item.id} style={styles.fijoRow}>
-            <BetCircle value={item.bet.toString().padStart(2, '0')}/>
-            
-           {/* Fijo Amount Circle - Clickable */}
-           <AmountCircle
+            <BetCircle value={item.bet.toString().padStart(2, '0')} />
+
+            {/* Fijo Amount Circle - Clickable */}
+            <AmountCircle
               amount={item.fijoAmount} // Show '$' if null
               onPress={() => handleAmountCirclePress(item.id, 'fijo')} // Pass betId and type
             />
@@ -83,15 +82,15 @@ export default function FijosCorridosColumn({
               onPress={() => handleAmountCirclePress(item.id, 'corrido')} // Pass betId and type
             />
           </View>
-          
+
         ))}
         <View key={`add-row-${Math.random().toString(36).substr(2, 9)}`} style={styles.fijoRow}>
-            <BetCircle value={"+"} onPress={handleAddBetPress}/>
-            <AmountCircle amount={"$"} />
-            <AmountCircle amount={"$"} />
+          <BetCircle value={"+"} onPress={handleAddBetPress} />
+          <AmountCircle amount={"$"} />
+          <AmountCircle amount={"$"} />
         </View>
       </View>
-           {renderKeyboard()}
+      {renderKeyboard()}
 
     </View>
   );
@@ -102,6 +101,7 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     borderRightColor: '#E8E8E8',
     flex: 1,
+    paddingTop: 12
   },
   colFijos: {
     flex: 3,
