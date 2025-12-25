@@ -103,8 +103,8 @@ export type UserRole = 'listero' | 'colector' | 'admin';
 // User interface
 export interface User {
   id: string;
-  first_name: string;
-  last_name: string;
+  username: string;
+  name: string;
   role: UserRole;
   active: boolean;
   email: string;
@@ -125,40 +125,80 @@ export const mockUsers: User[] = [
     username: 'jperez',
     name: 'Juan Pérez',
     role: 'admin',
+    email: 'juan.perez@example.com',
     active: true,
     password: '123', // Add password
+    structure: {
+      id: 1,
+      name: 'Structure 1',
+      type: 'Structure',
+      path: 'Structure 1',
+      role_in_structure: 'admin',
+    },
   },
   {
     id: '2',
     username: 'mrodriguez',
     name: 'María Rodríguez',
     role: 'colector',
+    email: 'maria.rodriguez@example.com',
     active: true,
     password: '123', // Add password
+    structure: {
+      id: 2,
+      name: 'Structure 2',
+      type: 'Structure',
+      path: 'Structure 2',
+      role_in_structure: 'colector',
+    },
   },
   {
     id: '3',
     username: 'alopez',
     name: 'Antonio López',
     role: 'admin',
+    email: 'antonio.lopez@example.com',
     active: true,
     password: '123', // Add password
+    structure: {
+      id: 3,
+      name: 'Structure 3',
+      type: 'Structure',
+      path: 'Structure 3',
+      role_in_structure: 'admin',
+    },
   },
   {
     id: '4',
     username: 'cgomez',
     name: 'Carmen Gómez',
     role: 'listero',
+    email: 'carmen.gomez@example.com',
     active: true,
     password: '123', // Add password
+    structure: {
+      id: 4,
+      name: 'Structure 4',
+      type: 'Structure',
+      path: 'Structure 4',
+      role_in_structure: 'listero',
+    },
   },
   {
     id: '5',
     username: 'rgarcia',
     name: 'Roberto García',
+    email: 'roberto.garcia@example.com',
     role: 'colector',
     active: true,
     password: '123', // Add password
+    structure: {
+      id: 5,
+      name: 'Structure 5',
+      type: 'Structure',
+      path: 'Structure 5',
+      role_in_structure: 'colector',
+    },
   }
 ];
 

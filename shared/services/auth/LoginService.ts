@@ -1,6 +1,6 @@
 import { User } from '@/data/mockData';
 import settings from '@/config/settings';
-import apiClient, { ApiClientError } from '../ApiClient'; // Importamos nuestro ApiClient
+import apiClient, { ApiClientError } from '@/shared/services/ApiClient'; // Importamos nuestro ApiClient
 
 interface LoginResponse {
   access: string;
@@ -53,7 +53,7 @@ export const LoginService = () => {
         console.warn('Failed to logout from server, clearing local session anyway.', e);
       }
       apiClient.setAuthToken(null);
-     
+
     } catch (error) {
       console.error('Logout error', error);
       apiClient.setAuthToken(null);
@@ -62,14 +62,14 @@ export const LoginService = () => {
 
   const checkLoginStatus = async (): Promise<User | null> => {
     try {
-      // Verificar sesión preguntando al backend; auto-refresh se encargará si el access expiró
       const me = await apiClient.get<User>(settings.api.endpoints.me());
-      // Opcional: mantener copia local del usuario
-     // await SecureStore.setItemAsync('loggedInUser', JSON.stringify(me));
       return me;
     } catch (error) {
       console.error('Check login status error:', error);
-      await logout();
+      // Solo limpiamos el token si es un error de autenticación (401/403)
+      if (error instanceof ApiClientError && (error.status === 401 || error.status === 403)) {
+        await logout();
+      }
       return null;
     }
   };

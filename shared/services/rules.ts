@@ -1,6 +1,6 @@
 import { DrawRules } from '@/types';
 import { mockRules } from '@/data/mockData';
-import ApiClient from './ApiClient';
+import ApiClient, { ApiClientError } from './ApiClient';
 import settings from '@/config/settings';
 
 // Simulate server response delay for mock data
@@ -179,6 +179,9 @@ export class RulesService {
       return response;
     } catch (error) {
       console.error('Error fetching validation rules for current user:', error);
+      if (error instanceof ApiClientError && (error.status === 401 || error.status === 403)) {
+        throw error;
+      }
       return [];
     }
   }
@@ -233,6 +236,9 @@ export class RulesService {
       return response;
     } catch (error) {
       console.error('Error fetching reward rules for current user:', error);
+      if (error instanceof ApiClientError && (error.status === 401 || error.status === 403)) {
+        throw error;
+      }
       return [];
     }
   }

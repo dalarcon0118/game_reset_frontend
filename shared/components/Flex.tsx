@@ -49,6 +49,7 @@ export type FlexProps = {
   rounded?: boolean | BorderConfig;
   width?: SizeProp;
   height?: SizeProp;
+  background?: string | ViewStyle;
 };
 
 export const Flex: React.FC<FlexProps> = ({
@@ -67,6 +68,7 @@ export const Flex: React.FC<FlexProps> = ({
   rounded,
   width,
   height,
+  background,
 }) => {
   const getJustify = (j?: string) => {
     switch (j) {
@@ -146,7 +148,7 @@ export const Flex: React.FC<FlexProps> = ({
 
   const resolveBorderStyles = (): ViewStyle => {
     if (!rounded) return {};
-    
+
     const defaults = {
       borderRadius: 12,
       borderWidth: 1,
@@ -181,9 +183,18 @@ export const Flex: React.FC<FlexProps> = ({
     return styles;
   };
 
+  const resolveBackgroundStyles = (bg?: string | ViewStyle): ViewStyle => {
+    if (!bg) return {};
+    if (typeof bg === 'string') {
+      return { backgroundColor: bg };
+    }
+    return bg;
+  };
+
   const borderStyles = resolveBorderStyles();
   const widthStyles = resolveSizeStyles(width, 'width');
   const heightStyles = resolveSizeStyles(height, 'height');
+  const backgroundStyles = resolveBackgroundStyles(background);
 
   const layoutStyles: ViewStyle = {
     flexDirection: vertical ? 'column' : 'row',
@@ -199,20 +210,21 @@ export const Flex: React.FC<FlexProps> = ({
     ...borderStyles,
     ...widthStyles,
     ...heightStyles,
+    ...backgroundStyles,
   };
 
   const renderedChildren = childrenStyle
     ? React.Children.map(children, (child) => {
-        if (React.isValidElement(child)) {
-          return React.cloneElement(child as React.ReactElement<any>, {
-            style: [
-              (child.props as any).style,
-              childrenStyle,
-            ],
-          });
-        }
-        return child;
-      })
+      if (React.isValidElement(child)) {
+        return React.cloneElement(child as React.ReactElement<any>, {
+          style: [
+            (child.props as any).style,
+            childrenStyle,
+          ],
+        });
+      }
+      return child;
+    })
     : children;
 
   if (scroll) {
@@ -233,10 +245,10 @@ export const Flex: React.FC<FlexProps> = ({
   }
 
   return (
-    <View 
+    <View
       style={[
-        layoutStyles, 
-        structuralStyles, 
+        layoutStyles,
+        structuralStyles,
         paddingStyles, // Padding goes to View itself
         style
       ]}

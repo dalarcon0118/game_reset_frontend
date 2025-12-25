@@ -49,7 +49,16 @@ export function BottomDrawerProvider({ children }: { children: ReactNode }) {
 
 export const useBottomDrawer = () => {
   const ctx = useContext(BottomDrawerContext);
-  if (!ctx)
-    throw new Error("useBottomDrawer must be used inside <BottomDrawerProvider />");
-  return ctx;
+  if (ctx) return ctx;
+
+  return {
+    openDrawer: () => {},
+    closeDrawer: () => {},
+    drawer: {
+      isVisible: false,
+      title: '',
+      content: null,
+      height: '35%',
+    },
+  };
 };

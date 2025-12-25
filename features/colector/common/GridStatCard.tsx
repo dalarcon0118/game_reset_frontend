@@ -1,36 +1,36 @@
 import React from 'react';
 import { View, StyleSheet, ViewStyle, StyleProp } from 'react-native';
-import { Card } from '../../../shared/components/Card';
-import { Flex } from '../../../shared/components/Flex';
-import { Label } from '../../../shared/components/Label';
+import { Card } from '../../../shared/components/card';
+import { Flex } from '../../../shared/components/flex';
+import { Label } from '../../../shared/components/label';
 
 interface GridStatCardProps {
   label: string;
   value: string;
   icon: React.ReactNode;
   barColor: string;
-  secondaryContent?: React.ReactNode;
+  children?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
 }
 
-export const GridStatCard: React.FC<GridStatCardProps> = ({ label, value, icon, barColor, secondaryContent, style }) => {
+export const GridStatCard: React.FC<GridStatCardProps> = ({ label, value, icon, barColor, children, style }) => {
   return (
-    <Card 
-      style={[styles.container, style]} 
+    <Card
+      style={[styles.container, style]}
       padding={0} // Custom padding handling due to topBar
     >
       <View style={[styles.topBar, { backgroundColor: barColor }]} />
-      
-      <Flex 
-        justify="between" 
-        align="start" 
+
+      <Flex
+        justify="between"
+        align="start"
         padding="l"
       >
         <Flex vertical>
           <Label type="detail" style={styles.labelMargin}>{label}</Label>
           <Flex align="center">
-             <Label type="number">{value}</Label>
-             {secondaryContent}
+            <Label type="number">{value}</Label>
+            {children}
           </Flex>
         </Flex>
         {icon}

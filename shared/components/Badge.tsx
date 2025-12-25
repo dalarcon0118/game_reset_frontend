@@ -1,17 +1,18 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle, TextStyle, StyleProp } from 'react-native';
-import { COLORS } from '../../features/colector/common/constants';
+import { COLORS } from './constants';
 
 export interface BadgeProps {
-  children: React.ReactNode;
+  children?: React.ReactNode;
   color?: string;
   textColor?: string;
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
+  content?: string;
 }
 
-export const Badge: React.FC<BadgeProps> = ({ 
-  children, 
+export const Badge: React.FC<BadgeProps> = ({
+  content,
   color = '#E6FFFA', // Default light green
   textColor = COLORS.primaryDark,
   style,
@@ -20,7 +21,7 @@ export const Badge: React.FC<BadgeProps> = ({
   return (
     <View style={[styles.container, { backgroundColor: color }, style]}>
       <Text style={[styles.text, { color: textColor }, textStyle]}>
-        {children}
+        {content}
       </Text>
     </View>
   );

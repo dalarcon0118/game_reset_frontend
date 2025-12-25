@@ -1,9 +1,9 @@
 import React from 'react';
 import { StyleSheet, StyleProp, TextStyle } from 'react-native';
 import { Text, TextProps } from '@ui-kitten/components';
-import { COLORS } from '../../features/colector/common/constants';
+import { COLORS } from './constants';
 
-export type LabelType = 'title' | 'subtitle' | 'header' | 'subheader' | 'date' | 'number' | 'detail' | 'default';
+export type LabelType = 'title' | 'subtitle' | 'header' | 'subheader' | 'date' | 'number' | 'detail' | 'error' | 'default';
 
 interface LabelProps extends Omit<TextProps, 'children'> {
   style?: StyleProp<TextStyle>;
@@ -29,6 +29,8 @@ export const Label: React.FC<LabelProps> = ({ style, children, value, type = 'de
         return styles.number;
       case 'detail':
         return styles.detail;
+      case 'error':
+        return styles.error;
       default:
         return styles.default;
     }
@@ -78,6 +80,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.textLight,
     fontWeight: '500',
+  },
+  error: {
+    fontSize: 14,
+    color: COLORS.danger,
+    fontWeight: '600',
   },
   default: {
     fontSize: 14,

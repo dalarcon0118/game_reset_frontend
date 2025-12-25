@@ -119,7 +119,7 @@ const apiClient = {
           // Si el cuerpo del error no es JSON, usamos el texto del status
           errorData = { detail: response.statusText || `Error ${response.status}` };
         }
-        
+
         if (response.status !== 401 || !errorHandler) {
           console.error('API Client Error:', response.status, errorData);
         } else {
@@ -127,7 +127,7 @@ const apiClient = {
         }
 
         // Call error handler for 401 errors
-        if (response.status === 401 && errorHandler) {
+        if ((response.status === 401 || response.status === 403) && errorHandler) {
           const error = new ApiClientError(
             errorData.detail || `HTTP error! status: ${response.status}`,
             response.status,
@@ -135,6 +135,7 @@ const apiClient = {
           );
 
           try {
+            console.log(`API Client: ${response.status} received, delegating to error handler`);
             const handlerResponse = await errorHandler(error, endpoint, config);
             if (handlerResponse?.retry) {
               // Retry the request with potentially new token
@@ -145,6 +146,7 @@ const apiClient = {
                   ...(handlerResponse.newToken ? { Authorization: `Bearer ${handlerResponse.newToken}` } : {}),
                 },
               };
+              console.log('API Client: Retrying request after handler response');
               const retryResp = await fetch(`${settings.api.baseUrl}${endpoint}`, retryConfig);
               if (retryResp.ok) {
                 if (retryResp.status === 204) return undefined as T;
@@ -158,6 +160,7 @@ const apiClient = {
           } catch (handlerError) {
             // If error handler itself fails, continue to throw original error
             console.error('Error handler failed:', handlerError);
+            if (handlerError instanceof ApiClientError) throw handlerError;
           }
         }
 
@@ -206,6 +209,10 @@ const apiClient = {
 
   delete<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
     return this.request<T>(endpoint, { ...options, method: 'DELETE' });
+  },
+
+  patch<T>(endpoint: string, body: any, options: RequestOptions = {}): Promise<T> {
+    return this.request<T>(endpoint, { ...options, method: 'PATCH', body: JSON.stringify(body) });
   },
 
   // Permite configurar el access token en memoria y limpiarlo en logout

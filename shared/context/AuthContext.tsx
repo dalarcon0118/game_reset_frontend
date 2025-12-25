@@ -35,67 +35,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [checkLoginStatus, userData, statusLoading] = useDataFetch(loginService.checkLoginStatus);
   const [logout] = useDataFetch(loginService.logout);
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Start loading true to prevent premature redirect
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-
-  // Handle login data changes
-  useEffect(() => {
-    console.log("loginData: ", loginData);
-    if (loginData) {
-      setUser(loginData);
-    }
-  }, [loginData]);
-
-  // Handle user data changes from status check
-  useEffect(() => {
-    console.log("userData: ", userData);
-    if (userData) {
-      setUser(userData);
-    }
-  }, [userData]);
-
-  // Combined loading state
-  useEffect(() => {
-    setIsLoading(loginLoading || statusLoading);
-  }, [loginLoading, statusLoading]);
 
   const handleLogout = useCallback(async () => {
     if (isLoggingOut) return;
     setIsLoggingOut(true);
     try {
-      router.replace('/login');
-      await logout();
-      setUser(null);
+      console.log('Logging out...');
+      // Intentar avisar al backend (opcional, no importa si falla)
+      try {
+        await logout();
+      } catch (e) {
+        console.warn('Backend logout failed or session already invalid', e);
+      }
       
+      // Limpiar estado local SIEMPRE
+      setUser(null);
+      apiClient.setAuthToken(null);
+      
+      // Redirigir al login
+      router.replace('/login');
     } finally {
       setIsLoggingOut(false);
     }
   }, [isLoggingOut, logout]);
 
-  // Register error handler for 401 errors
+  // Register error handler for 401/403 errors
   useEffect(() => {
     const handler = async (error: ApiClientError, endpoint: string, options: RequestInit) => {
-      if (error.status === 401) {
-        console.log('401 error detected, attempting token refresh');
+      // 401 is unauthorized (expired/invalid token)
+      // 403 is forbidden (valid token but no permissions, or sometimes session issues)
+      if (error.status === 401 || error.status === 403) {
+        console.log(`${error.status} error detected on ${endpoint}`);
 
-        try {
-          const newToken = await apiClient.refreshAccessToken();
-          if (newToken) {
-            console.log('Token refreshed successfully, signaling retry');
-            // Return signal to retry with new token
-            return { retry: true, newToken };
-          } else {
-            // Refresh failed, logout
-            console.log('Token refresh failed, logging out');
-            await handleLogout();
-            return null;
+        // Only attempt refresh on 401
+        if (error.status === 401) {
+          console.log('Attempting token refresh...');
+          try {
+            const newToken = await apiClient.refreshAccessToken();
+            if (newToken) {
+              console.log('Token refreshed successfully, signaling retry');
+              return { retry: true, newToken };
+            }
+          } catch (refreshError) {
+            console.error('Token refresh error:', refreshError);
           }
-        } catch (refreshError) {
-          console.error('Token refresh error:', refreshError);
-          // Refresh failed, logout
-          await handleLogout();
-          return null;
         }
+
+        // If we reach here, it's a 403 or a 401 that couldn't be refreshed
+        console.log('Session is invalid or refresh failed, logging out');
+        await handleLogout();
+        return null;
       }
       return null;
     };
@@ -106,6 +97,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setErrorHandler(null);
     };
   }, [handleLogout]);
+
+  // Handle login data changes
+  useEffect(() => {
+    if (loginData) {
+      setUser(loginData);
+    }
+  }, [loginData]);
+
+  // Handle user data changes from status check
+  useEffect(() => {
+    if (userData) {
+      setUser(userData);
+    }
+  }, [userData]);
+
+  // Combined loading state
+  useEffect(() => {
+    // Update loading state if we are performing a login
+    if (loginLoading) {
+      setIsLoading(true);
+    } 
+    // Only set global loading for status check if we don't have a user yet
+    // This prevents the app from flashing a loading screen during background refreshes
+    else if (statusLoading && user === null) {
+      setIsLoading(true);
+    }
+    // If nothing is loading, ensure global loading is off
+    else if (!loginLoading && !statusLoading) {
+      setIsLoading(false);
+    }
+  }, [loginLoading, statusLoading, user]);
+
+  // Initial session check
+  useEffect(() => {
+    const initSession = async () => {
+      try {
+        console.log('Initializing session...');
+        const result = await checkLoginStatus();
+        if (!result) {
+          console.log('No active session found during init');
+          // No llamamos a handleLogout aquí para evitar bucles si no hay token,
+          // simplemente dejamos que RootLayout redirija a login.
+        }
+      } catch (e) {
+        console.error('Failed to initialize session:', e);
+        await handleLogout();
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    initSession();
+  }, []);
+
+
 
   return (
     <AuthContext.Provider value={{

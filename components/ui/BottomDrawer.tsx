@@ -32,20 +32,7 @@ interface BottomDrawerProps {
 }
 
 export default function BottomDrawer(props: BottomDrawerProps = {}) {
-  // Si se pasan props, NO usar el hook (evita error de provider)
-  const hasProps = props.isVisible !== undefined;
-
-  let drawer, closeDrawer;
-  if (!hasProps) {
-    // Solo usar hook si no hay props
-    const hookData = useBottomDrawer();
-    drawer = hookData.drawer;
-    closeDrawer = hookData.closeDrawer;
-  } else {
-    // Cuando hay props, usar valores por defecto para drawer
-    drawer = { isVisible: false, title: '', content: null, height: '40%' };
-    closeDrawer = () => { }; // Función vacía por defecto
-  }
+  const { drawer, closeDrawer } = useBottomDrawer();
 
   const isVisible = props.isVisible ?? drawer.isVisible;
   const onClose = props.onClose ?? closeDrawer;

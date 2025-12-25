@@ -7,7 +7,7 @@ export default function ColectorLayout() {
   const theme = useTheme();
 
   return (
-    <Tabs screenOptions={{ 
+    <Tabs screenOptions={{
       headerShown: false,
       tabBarActiveTintColor: theme['color-primary-500'],
       tabBarInactiveTintColor: theme['text-hint-color'],
@@ -23,13 +23,7 @@ export default function ColectorLayout() {
           tabBarIcon: ({ color, size }) => <LayoutDashboard color={color} size={size} />,
         }}
       />
-      <Tabs.Screen
-        name={routes.colector.operations.screen}
-        options={{
-          ...routes.colector.operations.options,
-          tabBarIcon: ({ color, size }) => <Briefcase color={color} size={size} />,
-        }}
-      />
+
       <Tabs.Screen
         name={routes.colector.reports.screen}
         options={{
@@ -44,7 +38,6 @@ export default function ColectorLayout() {
           tabBarIcon: ({ color, size }) => <Settings color={color} size={size} />,
         }}
       />
-      
     </Tabs>
   );
 }

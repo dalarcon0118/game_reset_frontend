@@ -31,6 +31,7 @@ export const settings = {
       structures: '/structures/',
       bets: '/bets/',
       draws: '/draw/draws/',
+      incidents: '/incidents/',
       // ...otros endpoints de tu API
     },
   },

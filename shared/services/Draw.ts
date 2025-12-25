@@ -1,6 +1,6 @@
 import { DrawType, GameType } from '@/types';
 import { mockDraws } from '@/data/mockData';
-import apiClient from './ApiClient';
+import apiClient from '@/shared/services/ApiClient';
 import settings from '@/config/settings';
 
 // Simulate server response delay
@@ -95,7 +95,7 @@ export class DrawService {
       }
 
       const response = await apiClient.get<BackendDraw[]>(endpoint, { headers });
-      
+
 
       // Map backend response to frontend DrawType with all fields
       return response.map(backendDraw => ({
@@ -265,6 +265,25 @@ export class DrawService {
     } catch (error) {
       console.error('Error adding winning numbers:', error);
       return null;
+    }
+  }
+
+  /**
+   * Update draw status
+   * @param drawId - ID of the draw
+   * @param status - New status (status_closed)
+   * @returns Promise with updated draw
+   */
+  static async updateStatus(drawId: string | number, status: 'success' | 'reported'): Promise<void> {
+    try {
+      await apiClient.patch(
+        `${settings.api.endpoints.draws}${drawId}/`,
+        { status_closed: status }
+      );
+      console.info(`[Status updated for drawId: ${drawId}] to ${status}`);
+    } catch (error) {
+      console.error(`Error updating status for draw ${drawId}:`, error);
+      throw error;
     }
   }
 }

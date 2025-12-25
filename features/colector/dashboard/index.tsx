@@ -1,159 +1,43 @@
-import React from 'react';
-import { StyleSheet, View, Dimensions, TouchableOpacity } from 'react-native';
-import { Layout, Text, Button, useTheme } from '@ui-kitten/components';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { 
-  Calendar, 
-  Medal, 
-  TrendingUp, 
-  TrendingDown,
-  BarChart3, 
-  Coins, 
-  Percent,
-  Briefcase,
-  ChevronRight
-} from 'lucide-react-native';
-import Svg, { Circle, G, Text as SvgText } from 'react-native-svg';
+import React, { useEffect } from 'react';
+import { StyleSheet, SafeAreaView } from 'react-native';
 
-import { COLORS } from '../common/constants';
-import { Flex } from '../../../shared/components/Flex';
-import { Label } from '../../../shared/components/Label';
-import { TopStatCard } from '../common/TopStatCard';
-import { GridStatCard } from '../common/GridStatCard';
-import { OperationCard } from '../common/OperationCard';
-
-const { width } = Dimensions.get('window');
-
-// Mock Data
-const stats = {
-  total: 24,
-  pending: 3,
-  completed: 21,
-  netTotal: '$12,500',
-  grossTotal: '$15,800',
-  commissions: '$948',
-  dailyProfit: '$852',
-};
-
-const operations = [
-  { id: '2024-05-15-001', net: '$680', gross: '$815', commission: '$48.90' },
-  { id: '2024-05-15-002', net: '$920', gross: '$1,100', commission: '$66.00' },
-  { id: '2024-05-15-003', net: '$1,200', gross: '$1,450', commission: '$87.00' },
-];
+import { COLORS } from '../../../shared/components/constants';
+import { Flex } from '../../../shared/components/flex';
+import { useAuth } from '@/shared/context/AuthContext';
+import { useDataFetch } from '@/shared/hooks/useDataFetch';
+import { StructureService, ChildStructure } from '@/shared/services/Structure';
+import { DashboardHeader } from './DashboardHeader';
+import { DashboardStats } from './DashboardStats';
+import { DashboardOperations } from './DashboardOperations';
+import { useTheme } from '@ui-kitten/components';
 
 export default function DashboardScreen() {
-  const theme = useTheme();
+  const { user } = useAuth();
+  const [fetchChildren, children, isLoading] = useDataFetch<ChildStructure[], [number]>(StructureService.getChildren);
+    const theme = useTheme();
+  
+
+  useEffect(() => {
+    if (user?.structure?.id) {
+      fetchChildren(user.structure.id);
+    }
+  }, [user?.structure?.id]);
+
+
+
+  const handleRefresh = () => {
+    if (user?.structure?.id) {
+      fetchChildren(user.structure.id);
+    }
+  };
 
   return (
-    <Flex flex={1}>
+   <Flex vertical flex={1} background={theme['background-basic-color-1']} padding={[{type:"top", value:20}]}>
+      <DashboardHeader isLoading={isLoading} onRefresh={handleRefresh} />
       <SafeAreaView style={styles.safeArea}>
-        
-          {/* Header */}
-          <Flex justify="between" align="center" margin="l">
-            <Label type="title" value="Collector Dashboard" />
-            <TouchableOpacity>
-              <Flex align="center" gap={6}  margin="m"padding={"m"} style={styles.dateBadge} >
-                <Label type="date" value="May 15, 2024" />
-                <Calendar size={16} color={COLORS.textLight} />
-              </Flex>
-            </TouchableOpacity>
-          </Flex>
-          <Flex 
-            scroll={{ horizontal: true, showsHorizontalScrollIndicator: false }} 
-            gap={12} 
-            childrenStyle={{ width: width * 0.45, height: 120 }} 
-            margin="m"
-            height={{ value: 120, max: 120 }}
-          >
-            {/* Card 1: Net Total */}
-            <GridStatCard
-              label="Total"
-              value={stats.netTotal}
-              icon={<TrendingUp size={24} color={COLORS.primary} />}
-              barColor={COLORS.primary}
-            />
-            
-            {/* Card 2: Gross Total */}
-            
-
-            {/* Card 3: Commissions */}
-            <GridStatCard
-              label="Commissions"
-              value={stats.commissions}
-              icon={<Coins size={24} color={COLORS.secondary} />}
-              barColor={COLORS.secondary}
-              secondaryContent={
-                <View style={styles.percentBadge}>
-                   <Label type="detail" value=" - 6%" />
-                </View>
-              }
-            />
-            <GridStatCard
-              label="Perdido"
-              value={stats.grossTotal}
-              icon={<BarChart3 size={24} color={COLORS.textLight} />}
-              barColor={COLORS.textLight}
-            />
-             {/* Card 4: Daily Profit */}
-             <GridStatCard
-              label="Ganado"
-              value={stats.dailyProfit}
-              icon={<Percent size={24} color={COLORS.textLight} />}
-              barColor={COLORS.success}
-            />
-            
-          </Flex>
-         
-          
-
-          {/* Top Stats Row 
-          <Flex gap={12} childrenStyle={{ flex: 1 }} style={styles.topStatsRow}>
-            <TopStatCard 
-              label="Total de Hoy" 
-              value={stats.total} 
-              icon={<Briefcase size={16} color={COLORS.primary} />} 
-            />
-            <TopStatCard 
-              label="Perdido" 
-              value={stats.pending} 
-              icon={<TrendingDown size={16} color={COLORS.danger} />} 
-            />
-            <TopStatCard 
-              label="Ganado" 
-              value={stats.completed} 
-              icon={<Medal size={16} color={COLORS.success} />} 
-            />
-          </Flex>
-          */}
-        <Flex 
-          vertical 
-          flex={1}
-          scroll={{ showsVerticalScrollIndicator: false }}
-          padding={[{ type: 'horizontal', value: 20 }, { type: 'bottom', value: 40 }]}
-        >
-
-          {/* Grid Stats */}
-           <Flex gap={12} childrenStyle={{ flex: 1 }}>
-            {/* Card 4: Daily Profit */}
-           
-          </Flex>
-          {/* Operations List */}
-          <Flex vertical gap={5} >
-             <Label type="header">Listas Activas ({stats.completed} completed)</Label>
-             {operations.map((op, index) => (
-               <OperationCard key={index} operation={op} />
-             ))}
-          </Flex>
-
-          <Button 
-            style={styles.viewAllButton} 
-            size='large'
-            accessoryRight={<ChevronRight color="white" />}
-          >
-            View All Operations
-          </Button>
-
-        </Flex>
+      
+        <DashboardStats />
+        <DashboardOperations children={children} isLoading={isLoading} onRefresh={handleRefresh} />
       </SafeAreaView>
     </Flex>
   );
@@ -166,10 +50,10 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
+     backgroundColor: COLORS.background,
   },
- 
+
   dateBadge: {
-  
     backgroundColor: '#FFFFFF',
   },
   dateText: {
@@ -193,7 +77,7 @@ const styles = StyleSheet.create({
   },
   percentBadge: {
     backgroundColor: '#FFF8E1', // Light yellow
-   
+
     borderRadius: 6,
   },
   percentText: {
@@ -210,7 +94,7 @@ const styles = StyleSheet.create({
   viewAllButton: {
     borderRadius: 30,
     backgroundColor: COLORS.primary,
-   borderColor: COLORS.border,
+    borderColor: COLORS.border,
     height: 50,
   },
 });

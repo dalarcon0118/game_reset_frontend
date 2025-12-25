@@ -73,6 +73,16 @@ export const routes = {
         freezeOnBlur: true,
       },
     },
+    details: {
+      screen: 'details/[id]',
+      options: {
+        headerShown: true,
+        headerTitle: '',
+        headerBackTitle: 'Atrás',
+        headerBackVisible: false,
+        freezeOnBlur: true,
+      },
+    },
     dashboard: {
       screen: 'index',
       options: {
@@ -102,7 +112,39 @@ export const routes = {
       options: {
         href: null
       }
+    },
+    reports_form: {
+      screen: 'reports/form',
+      options: {
+        headerShown: false,
+        headerTitle: 'Reportar Incidencia',
+        headerBackTitle: 'Atrás',
+        headerBackVisible: true,
+        freezeOnBlur: true,
+      },
+    },
+    update_rule:{
+      screen:"update_rule",
+       options: {
+        headerShown: false,
+        headerTitle: '',
+        headerBackTitle: 'Atrás',
+        headerBackVisible: true,
+        freezeOnBlur: true,
+      }
+    },
+    node_rule:{
+       screen:"rules",
+       options: {
+        headerShown: false,
+        headerTitle: '',
+        headerBackTitle: 'Atrás',
+        headerBackVisible: true,
+        freezeOnBlur: true,
+      },
     }
+
+    
   }
 }
 

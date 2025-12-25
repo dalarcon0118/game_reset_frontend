@@ -1,37 +1,33 @@
 import React from 'react';
-import { StyleSheet, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native';
-import { useColorScheme } from 'react-native';
-import { Layout, Text, Input, Button, Card } from '@ui-kitten/components';
-import LayoutConstants from '@/constants/Layout';
+import { StyleSheet, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, TouchableOpacity } from 'react-native';
+import { Input, Button, Card, useTheme } from '@ui-kitten/components';
+import LayoutConstants from '../../../constants/Layout';
 import { useLoginForm } from '../hooks/useLoginForm';
 import { Controller } from 'react-hook-form';
+import { Flex, Label } from '../../../shared/components';
+import { Eye, EyeOff } from 'lucide-react-native';
 
 export default function LoginScreen() {
   const { handleSubmit, errors, isSubmitting, control } = useLoginForm();
+  const theme = useTheme();
+  const [isPasswordVisible, setIsPasswordVisible] = React.useState(false);
 
   return (
-    
-    <KeyboardAvoidingView 
+
+    <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <Layout style={styles.inner} level='1'>
-          <Layout style={styles.logoContainer} level='1'>
-            <Text category='h1' style={styles.appTitle}>
-              Game-reset
-            </Text>
-            <Text category='s1' appearance='hint' style={styles.appSubtitle}>
-              Sistema de Gestión de Apuestas
-            </Text>
-          </Layout>
+        <Flex flex={1} vertical justify="center" padding="l">
+          <Flex vertical align="center" margin={[{ type: 'bottom', value: 'xl' }]}>
+            <Label type="title" value="Game-reset" />
+            <Label type="subtitle" style={styles.appSubtitle} value="Sistema de Gestión de Apuestas" />
+          </Flex>
 
-          <Card style={styles.loginCard}>
-            <Text category='h5' style={styles.cardTitle}>
-              Iniciar Sesión
-            </Text>
-
-            <Layout style={styles.inputContainer} level='1'>
+          <Card>
+            <Label type="header" value={" Iniciar Sesión"} />
+            <Flex flex={1} vertical margin={[{ type: 'bottom', value: 'xxl' }]}>
               <Controller
                 control={control}
                 name="username"
@@ -47,34 +43,45 @@ export default function LoginScreen() {
                   />
                 )}
               />
-            </Layout>
+            </Flex>
 
-            <Layout style={styles.inputContainer} level='1'>
+            <Flex vertical margin={[{ type: 'top', value: 'l' }, { type: 'bottom', value: 'm' }]}>
               <Controller
                 control={control}
                 name="password"
                 render={({ field: { onChange, value } }) => (
                   <Input
-                    label='Contraseña'
+                    label='Contraseña:'
                     placeholder='Ingrese su contraseña'
                     value={value}
                     onChangeText={onChange}
                     caption={errors.password?.message}
                     status={errors.password ? 'danger' : 'basic'}
-                    secureTextEntry
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    secureTextEntry={!isPasswordVisible}
+                    accessoryRight={() => (
+                      <TouchableOpacity onPress={() => setIsPasswordVisible(!isPasswordVisible)}>
+                        {isPasswordVisible ? (
+                          <EyeOff size={20} color={theme['color-basic-600']} />
+                        ) : (
+                          <Eye size={20} color={theme['color-basic-600']} />
+                        )}
+                      </TouchableOpacity>
+                    )}
                   />
                 )}
               />
-            </Layout>
+            </Flex>
 
             {errors.root && (
-              <Text 
-                category='c1' 
-                status='danger'
+              <Label
+                type="detail"
+                status="danger"
                 style={styles.errorText}
               >
                 {errors.root.message}
-              </Text>
+              </Label>
             )}
 
             <Button
@@ -85,7 +92,7 @@ export default function LoginScreen() {
               {isSubmitting ? "Iniciando sesión..." : "Iniciar Sesión"}
             </Button>
           </Card>
-        </Layout>
+        </Flex>
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
   );
@@ -95,28 +102,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  inner: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: LayoutConstants.spacing.lg,
-  },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: LayoutConstants.spacing.xl,
-  },
-  appTitle: {
-    marginBottom: LayoutConstants.spacing.xs,
-  },
   appSubtitle: {
     textAlign: 'center',
   },
-  loginCard: {
-    padding: LayoutConstants.spacing.lg,
-  },
-  cardTitle: {
-    marginBottom: LayoutConstants.spacing.lg,
-    textAlign: 'center',
-  },
+
   inputContainer: {
     marginBottom: LayoutConstants.spacing.md,
   },
@@ -126,5 +115,5 @@ const styles = StyleSheet.create({
   errorText: {
     textAlign: 'center',
     marginBottom: LayoutConstants.spacing.md,
-  }
+  },
 });

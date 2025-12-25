@@ -1,58 +1,93 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
-import { Text } from '@ui-kitten/components';
+import { View, StyleSheet, TouchableOpacity, GestureResponderEvent } from 'react-native';
 import { Briefcase } from 'lucide-react-native';
-import { COLORS } from './constants';
-import { Flex } from '../../../shared/components/Flex';
-import { Card } from '../../../shared/components/Card';
-import { IconBox } from '../../../shared/components/IconBox';
-import { Badge } from '../../../shared/components/Badge';
+import { COLORS } from '@/shared/components/constants';
+import { Flex, Card, IconBox, Badge, Label, ButtonKit } from '@/shared/components';
 
 interface Operation {
-  id: string;
+  id: number;
+  name: string;
+  draw: string;
+  total: string;
   net: string;
-  gross: string;
+  loosed: string;
   commission: string;
 }
 
 interface OperationCardProps {
   operation: Operation;
+  onPress?: () => void;
+  onReglamentoPress?: () => void;
 }
 
-export const OperationCard: React.FC<OperationCardProps> = ({ operation }) => {
+export const OperationCard: React.FC<OperationCardProps> = ({ operation, onPress, onReglamentoPress }) => {
   return (
-    <Card style={styles.container}>
-      <Flex align="center" gap={12}>
-        <IconBox>
-            <Briefcase size={20} color={COLORS.textLight} />
-        </IconBox>
-        
-        <Flex vertical flex={1} gap={4}>
-            <Text style={styles.id}>Operation #{operation.id}</Text>
-            <Flex gap={12}>
-              <Text style={styles.detailLabel}>Net: <Text style={styles.detailValue}>{operation.net}</Text></Text>
-              <Text style={styles.detailLabel}>Gross: <Text style={styles.detailValue}>{operation.gross}</Text></Text>
-            </Flex>
-        </Flex>
+    <TouchableOpacity onPress={onPress}>
+      <Card style={styles.card} padding={0}>
+        <View style={[styles.topBar, { backgroundColor: COLORS.primary }]} />
 
-        <Badge>
-            Comm (6%): {operation.commission}
-        </Badge>
-      </Flex>
-    </Card>
+        <Flex align="center" gap={12} style={styles.container}>
+          <IconBox>
+            <Briefcase size={20} color={COLORS.textLight} />
+          </IconBox>
+
+          <Flex vertical flex={1} gap={2} width={"100%"}>
+            <Flex justify="between" align="center">
+              <Flex vertical gap={2} flex={1}>
+                <Label
+                  type="header"
+                  value={`${operation.name}`}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                />
+                <Label
+                  type="header"
+                  value={`${operation.draw}`}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                />
+              </Flex>
+
+            </Flex>
+
+            <Badge content={`Comisión(6%): ${operation.commission}`} textColor={COLORS.primaryDark} color="#E6FFFA" />
+            <Flex gap={12} margin={[{ type: "top", value: 12 }]}>
+              <Label type="detail" style={styles.detailLabel} value={`Total: ${operation.total}`} />
+              <Label type="detail" style={styles.detailLabel} value={`Net: ${operation.net}`} />
+              <Label type="detail" style={styles.detailLabel} value={`Perdido: ${operation.loosed}`} />
+            </Flex>
+            <Flex justify="end">
+              <ButtonKit
+                label="Reglamento"
+                size="small"
+                appearance="outline"
+                onPress={(e: GestureResponderEvent) => {
+                  e?.stopPropagation?.();
+                  onReglamentoPress?.();
+                }}
+                style={styles.reglamentoButton}
+              />
+            </Flex>
+          </Flex>
+        </Flex>
+      </Card>
+    </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
+  card: {
+    marginTop: 10,
+    paddingRight: 10,
+    height: 170,
+  },
   container: {
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#F0F2F5',
-    // Removed duplicate shadow styles, handled by Card
+    marginTop: 5,
+    paddingLeft: 10,
   },
   id: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '200',
     color: COLORS.textDark,
   },
   detailLabel: {
@@ -62,5 +97,15 @@ const styles = StyleSheet.create({
   detailValue: {
     fontWeight: '700',
     color: COLORS.textDark,
+  },
+  topBar: {
+    marginLeft: 14,
+    height: 4,
+    width: '95%',
+  },
+  reglamentoButton: {
+    paddingHorizontal: 10,
+    height: 32,
+    borderRadius: 8,
   },
 });

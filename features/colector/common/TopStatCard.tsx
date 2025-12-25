@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, StyleSheet, ViewStyle, StyleProp } from 'react-native';
 import { Text } from '@ui-kitten/components';
-import { COLORS } from './constants';
-import { Card } from '../../../shared/components/Card';
+import { COLORS } from '../../../shared/components/constants';
+import { Card } from '../../../shared/components/card';
 
 interface TopStatCardProps {
   label: string;

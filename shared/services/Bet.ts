@@ -1,5 +1,5 @@
 import { BetType } from '@/types';
-import apiClient from './ApiClient';
+import apiClient from '@/shared/services/ApiClient';
 import settings from '@/config/settings';
 
 
@@ -11,7 +11,7 @@ export interface CreateBetDTO {
     numbers_played?: any;    // JSON con los números (array o objeto según el juego)
     amount?: number;         // Monto de la apuesta
     owner_structure?: number;// ID de la estructura del listero
-    
+
     // New bulk payload structure
     drawId?: string;
     centenas?: any[];
@@ -58,7 +58,7 @@ export class BetService {
     static async create(betData: CreateBetDTO): Promise<BetType> {
         console.log('Creating bet with data:', betData);
         const response = await apiClient.post<BackendBet[]>(settings.api.endpoints.bets, betData);
-        
+
         // Si el backend devuelve un array, tomamos el primer elemento
         if (Array.isArray(response) && response.length > 0) {
             console.log('Taking first element from array response');

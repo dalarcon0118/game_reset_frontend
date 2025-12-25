@@ -7,8 +7,7 @@ import { AuthProvider, useAuth } from '@/shared/context/AuthContext';
 import { ActivityIndicator, useColorScheme, View } from 'react-native';
 import { UserRole } from '@/data/mockData'; // Assuming UserRole is defined here
 import * as eva from '@eva-design/eva'; // Import eva
-import { ApplicationProvider, Button, IconRegistry } from '@ui-kitten/components';
-import { EvaIconsPack } from '@ui-kitten/eva-icons';
+import { ApplicationProvider, Button } from '@ui-kitten/components';
 import { roleToScreenMap, routes } from '@/config/routes';
 import { ArrowLeft } from "lucide-react-native";
 
@@ -19,8 +18,6 @@ export default function RootLayoutNav() {
 
   return (
     <>
-      {/* Optional: Icon Registry if using Eva Icons */}
-      <IconRegistry icons={EvaIconsPack} />
       {/* Wrap AuthProvider with ApplicationProvider */}
       <ApplicationProvider {...eva} theme={eva[colorScheme]}>
         <AuthProvider>
@@ -40,13 +37,25 @@ function RootLayout() {
     // console.log('user: ', user);
   }, [user]);
   useEffect(() => {
-    console.log(isLoading, isAuthenticated, user);
-    if (!isLoading && user && isAuthenticated) {
-      const targetPath = user.role ? roleToScreenMap[user.role] : '+not-found';
-      console.log('User authenticated, redirecting to:', targetPath);
-      router.replace(targetPath);
+    console.log('Auth State:', { isLoading, isAuthenticated, user, pathname });
+    
+    if (isLoading) return;
+
+    if (user && isAuthenticated) {
+      // Si estamos autenticados y estamos en la página de login, redirigir al dashboard
+      if (pathname === '/login' || pathname === '/') {
+        const targetPath = user.role ? roleToScreenMap[user.role] : '+not-found';
+        console.log('User authenticated, redirecting to dashboard:', targetPath);
+        router.replace(targetPath as any);
+      }
+    } else {
+      // Si NO estamos autenticados y NO estamos en la página de login, redirigir al login
+      if (pathname !== '/login') {
+        console.log('User not authenticated, redirecting to login');
+        router.replace('/login');
+      }
     }
-  }, [isLoading, isAuthenticated, user]);
+  }, [isLoading, isAuthenticated, user, pathname]);
 
   const handleBackPress = useCallback(() => {
     console.log('Back button pressed', pathname);
@@ -77,12 +86,8 @@ function RootLayout() {
     }}>
       <Stack.Screen name={routes.login.screen} options={routes.login.options} />
       <Stack.Screen name={routes.admin.screen} options={routes.admin.options} />
-      <Stack.Screen name={routes.lister.tabs.screen} options={routes.lister.tabs.options} />
-      <Stack.Screen name={routes.lister.bets_create.screen} options={routes.lister.bets_create.options} />
-      <Stack.Screen name={routes.lister.bets_list.screen} options={routes.lister.bets_list.options} />
-      <Stack.Screen name={routes.lister.bets_rules.screen} options={routes.lister.bets_rules.options} />
-      <Stack.Screen name={routes.lister.rewards.screen} options={routes.lister.rewards.options} />
-      <Stack.Screen name={routes.colector.tabs.screen} options={routes.colector.tabs.options} />
+      <Stack.Screen name="lister" options={{ headerShown: false }} />
+      <Stack.Screen name="colector" options={{ headerShown: false }} />
 
     </Stack>
   );
