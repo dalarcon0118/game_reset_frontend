@@ -144,7 +144,65 @@ export const routes = {
       },
     }
 
-    
+
+  },
+  banker: {
+    tabs: {
+      screen: 'banker/(tabs)',
+      options: {
+        headerShown: false,
+        headerTitle: 'Dashboard',
+        headerBackTitle: 'Atrás',
+        headerBackVisible: true,
+        freezeOnBlur: true,
+      },
+    },
+    agency_details: {
+      screen: 'agency_details/[id]',
+      options: {
+        headerShown: true,
+        headerTitle: '',
+        headerBackTitle: 'Atrás',
+        headerBackVisible: true,
+        freezeOnBlur: true,
+      },
+    },
+    reports: {
+      screen: 'reports',
+      options: {
+        title: 'Reports',
+      }
+    },
+    reports_form: {
+      screen: 'reports/form',
+      options: {
+        headerShown: false,
+        headerTitle: 'Report Details',
+        headerBackTitle: 'Atrás',
+        headerBackVisible: true,
+        freezeOnBlur: true,
+      },
+    },
+    rules: {
+      screen: 'rules',
+      options: {
+        headerShown: false,
+        headerTitle: 'Bank Rules Management',
+        headerBackTitle: 'Atrás',
+        headerBackVisible: true,
+        freezeOnBlur: true,
+      }
+    },
+    settings: {
+      screen: 'settings',
+      options: {
+        headerShown: false,
+        headerTitle: 'Bank Settings',
+        headerBackTitle: 'Atrás',
+        headerBackVisible: true,
+        freezeOnBlur: true,
+      }
+    }
   }
 }
 
