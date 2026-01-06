@@ -27,14 +27,14 @@ export const LoginService = () => {
       console.log('Login request:', { username, password });
       const data = await apiClient.post<LoginResponse>(settings.api.endpoints.login(), { username, password });
       console.log('Login response:', data);
-      // Mantener el access token solo en memoria
-      apiClient.setAuthToken(data.access);
-      // Con cookies habilitadas, no persistimos el refresh token en el cliente
+      // Persistir el access token de forma segura
+      await apiClient.setAuthToken(data.access);
+      // Con cookies habilitadas, el refresh token se maneja vía cookies HttpOnly
 
       return data.user;
     } catch (error) {
       console.error('Login API error in LoginService:', error);
-      apiClient.setAuthToken(null);
+      await apiClient.setAuthToken(null);
       // El ApiClientError ya tiene un mensaje útil, o es un Error genérico
       if (error instanceof ApiClientError) {
         // Puedes personalizar más el mensaje si es necesario basado en error.status o error.data
@@ -52,11 +52,11 @@ export const LoginService = () => {
       } catch (e) {
         console.warn('Failed to logout from server, clearing local session anyway.', e);
       }
-      apiClient.setAuthToken(null);
+      await apiClient.clearAuthToken();
 
     } catch (error) {
       console.error('Logout error', error);
-      apiClient.setAuthToken(null);
+      await apiClient.clearAuthToken();
     }
   };
 

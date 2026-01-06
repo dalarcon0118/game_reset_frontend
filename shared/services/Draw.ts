@@ -2,9 +2,22 @@ import { DrawType, GameType } from '@/types';
 import { mockDraws } from '@/data/mockData';
 import apiClient from '@/shared/services/ApiClient';
 import settings from '@/config/settings';
+import { to, AsyncResult } from '../utils/generators';
 
 // Simulate server response delay
 const RESPONSE_DELAY = 500;
+
+// Extended DrawType interface to include hierarchical closure data
+export interface ExtendedDrawType extends DrawType {
+  hierarchical_closure_status?: string | null;
+  closure_confirmations_count?: {
+    total: number;
+    pending: number;
+    confirmed_success: number;
+    reported_issue: number;
+    rejected: number;
+  };
+}
 
 // Backend response type
 interface BackendDraw {
@@ -26,11 +39,38 @@ interface BackendDraw {
   winning_numbers: any | null; // WinningRecord object from backend
   created_at: string;
   updated_at: string;
+  hierarchical_closure_status: string | null;
+  closure_confirmations_count: {
+    total: number;
+    pending: number;
+    confirmed_success: number;
+    reported_issue: number;
+    rejected: number;
+  };
+}
+
+// Draw closure confirmation types
+export interface DrawClosureConfirmation {
+  id: number;
+  draw: number;
+  structure: number;
+  structure_name: string;
+  structure_type: string;
+  confirmed_by: number;
+  confirmed_by_name: string;
+  draw_name: string;
+  status: 'pending' | 'confirmed_success' | 'reported_issue' | 'rejected';
+  notes: string;
+  level_required: number;
+  is_mandatory: boolean;
+  requires_notification: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export class DrawService {
   // Get a single draw by ID
-  static async getOne(id: string): Promise<DrawType | null> {
+  static async getOne(id: string): Promise<ExtendedDrawType | null> {
     try {
       const response = await apiClient.get<BackendDraw>(`${settings.api.endpoints.draws}${id}/`);
 
@@ -54,6 +94,10 @@ export class DrawService {
         created_at: response.created_at,
         updated_at: response.updated_at,
 
+        // Hierarchical closure fields
+        hierarchical_closure_status: response.hierarchical_closure_status,
+        closure_confirmations_count: response.closure_confirmations_count,
+
         // Computed UI fields for compatibility
         source: response.name,
         date: new Date(response.draw_datetime).toLocaleDateString('es-ES'),
@@ -72,16 +116,16 @@ export class DrawService {
    * Get all draws from backend
    * @param structureId - Optional ID of the structure (bank) to filter draws
    *                      Sent via X-Owner-Structure header
-   * @returns Promise with array of DrawType (filtered by current date on backend)
+   * @returns Promise with array of ExtendedDrawType (filtered by current date on backend)
    * @example
    * // Get all draws for a specific structure
    * const draws = await DrawService.list(10);
-   * 
+   *
    * // Get all draws (no filter)
    * const allDraws = await DrawService.list();
    */
-  static async list(structureId?: number): Promise<DrawType[]> {
-    try {
+  static list(structureId?: number): Promise<AsyncResult<ExtendedDrawType[]>> {
+    const promise = (async () => {
       // Build query params (only for today filter)
       const params = new URLSearchParams();
       params.append('today', 'true');
@@ -97,7 +141,7 @@ export class DrawService {
       const response = await apiClient.get<BackendDraw[]>(endpoint, { headers });
 
 
-      // Map backend response to frontend DrawType with all fields
+      // Map backend response to frontend ExtendedDrawType with all fields
       return response.map(backendDraw => ({
         // Backend fields
         id: backendDraw.id.toString(),
@@ -119,6 +163,10 @@ export class DrawService {
         created_at: backendDraw.created_at,
         updated_at: backendDraw.updated_at,
 
+        // Hierarchical closure fields
+        hierarchical_closure_status: backendDraw.hierarchical_closure_status,
+        closure_confirmations_count: backendDraw.closure_confirmations_count,
+
         // Computed UI fields for compatibility
         source: backendDraw.name,
         date: new Date(backendDraw.draw_datetime).toLocaleDateString('es-ES'),
@@ -127,11 +175,9 @@ export class DrawService {
           minute: '2-digit'
         })
       }));
-    } catch (error) {
-      console.error('Error fetching draws:', error);
-      // Fallback to mock data in case of error
-      return mockDraws as unknown as DrawType[];
-    }
+    })();
+
+    return to(promise);
   }
 
   // Map backend status to frontend status
@@ -283,6 +329,169 @@ export class DrawService {
       console.info(`[Status updated for drawId: ${drawId}] to ${status}`);
     } catch (error) {
       console.error(`Error updating status for draw ${drawId}:`, error);
+      throw error;
+    }
+  }
+
+  // ===== DRAW CLOSURE CONFIRMATION METHODS =====
+
+  /**
+   * Get all closure confirmations for a specific draw
+   * @param drawId - ID of the draw
+   * @returns Promise with array of closure confirmations
+   */
+  static async getClosureConfirmationsByDraw(drawId: string | number): Promise<DrawClosureConfirmation[]> {
+    try {
+      const response = await apiClient.get<DrawClosureConfirmation[]>(
+        `${settings.api.baseUrl}/draw/draw-closure-confirmations/by-draw/${drawId}/`
+      );
+      console.info(`[Closure confirmations for draw ${drawId}]`, response);
+      return response;
+    } catch (error) {
+      console.error(`Error fetching closure confirmations for draw ${drawId}:`, error);
+      return [];
+    }
+  }
+
+  /**
+   * Create closure confirmations for all relevant structures in a draw
+   * @param drawId - ID of the draw
+   * @param data - Optional initial status and notes
+   * @returns Promise with array of created confirmations
+   */
+  static async createClosureConfirmationsForDraw(
+    drawId: string | number,
+    data?: { status?: 'pending' | 'confirmed_success' | 'reported_issue' | 'rejected'; notes?: string }
+  ): Promise<DrawClosureConfirmation[]> {
+    try {
+      const payload = data || {};
+      const response = await apiClient.post<DrawClosureConfirmation[]>(
+        `${settings.api.baseUrl}/draw/draw-closure-confirmations/create-for-draw/${drawId}/`,
+        payload
+      );
+      console.info(`[Created closure confirmations for draw ${drawId}]`, response);
+      return response;
+    } catch (error) {
+      console.error(`Error creating closure confirmations for draw ${drawId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Confirm a specific closure confirmation
+   * @param confirmationId - ID of the confirmation
+   * @param status - New status for the confirmation
+   * @param notes - Optional notes
+   * @returns Promise with updated confirmation
+   */
+  static async confirmClosure(
+    confirmationId: string | number,
+    status: 'confirmed_success' | 'reported_issue' | 'rejected',
+    notes?: string
+  ): Promise<DrawClosureConfirmation> {
+    try {
+      const payload: any = { status };
+      if (notes) payload.notes = notes;
+
+      const response = await apiClient.post<DrawClosureConfirmation>(
+        `${settings.api.baseUrl}/draw/draw-closure-confirmations/${confirmationId}/confirm/`,
+        payload
+      );
+      console.info(`[Confirmed closure ${confirmationId}] with status ${status}`);
+      return response;
+    } catch (error) {
+      console.error(`Error confirming closure ${confirmationId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all pending closure confirmations for the current user
+   * @returns Promise with array of pending confirmations
+   */
+  static async getPendingClosureConfirmations(): Promise<DrawClosureConfirmation[]> {
+    try {
+      const response = await apiClient.get<DrawClosureConfirmation[]>(
+        `${settings.api.baseUrl}/draw/draw-closure-confirmations/pending-for-user/`
+      );
+      console.info(`[Pending closure confirmations]`, response);
+      return response;
+    } catch (error) {
+      console.error('Error fetching pending closure confirmations:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get all closure confirmations (with optional filters)
+   * @param filters - Optional filters
+   * @returns Promise with array of confirmations
+   */
+  static async getClosureConfirmations(filters?: {
+    draw?: string | number;
+    structure?: string | number;
+    status?: 'pending' | 'confirmed_success' | 'reported_issue' | 'rejected';
+  }): Promise<DrawClosureConfirmation[]> {
+    try {
+      let endpoint = `${settings.api.baseUrl}/draw/draw-closure-confirmations/`;
+
+      if (filters) {
+        const params = new URLSearchParams();
+
+        if (filters.draw) params.append('draw', filters.draw.toString());
+        if (filters.structure) params.append('structure', filters.structure.toString());
+        if (filters.status) params.append('status', filters.status);
+
+        if (params.toString()) {
+          endpoint += `?${params.toString()}`;
+        }
+      }
+
+      const response = await apiClient.get<DrawClosureConfirmation[]>(endpoint);
+      console.info(`[Closure confirmations with filters]`, filters, response);
+      return response;
+    } catch (error) {
+      console.error('Error fetching closure confirmations:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Update a closure confirmation
+   * @param confirmationId - ID of the confirmation
+   * @param data - Updated data
+   * @returns Promise with updated confirmation
+   */
+  static async updateClosureConfirmation(
+    confirmationId: string | number,
+    data: Partial<Pick<DrawClosureConfirmation, 'status' | 'notes'>>
+  ): Promise<DrawClosureConfirmation> {
+    try {
+      const response = await apiClient.patch<DrawClosureConfirmation>(
+        `${settings.api.baseUrl}/draw/draw-closure-confirmations/${confirmationId}/`,
+        data
+      );
+      console.info(`[Updated closure confirmation ${confirmationId}]`, data);
+      return response;
+    } catch (error) {
+      console.error(`Error updating closure confirmation ${confirmationId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a closure confirmation
+   * @param confirmationId - ID of the confirmation
+   * @returns Promise
+   */
+  static async deleteClosureConfirmation(confirmationId: string | number): Promise<void> {
+    try {
+      await apiClient.delete(
+        `${settings.api.baseUrl}/draw/draw-closure-confirmations/${confirmationId}/`
+      );
+      console.info(`[Deleted closure confirmation ${confirmationId}]`);
+    } catch (error) {
+      console.error(`Error deleting closure confirmation ${confirmationId}:`, error);
       throw error;
     }
   }

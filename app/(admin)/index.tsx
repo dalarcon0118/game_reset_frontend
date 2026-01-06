@@ -1,5 +1,5 @@
 import WithRole from "@/features/auth/WithRole";
-import { useAuth } from "@/shared/context/AuthContext";
+import { useAuth } from '../../features/auth';
 import { Redirect } from "expo-router";
 /*
 export default function IndexView() {
@@ -35,6 +35,7 @@ import { LogOut } from 'lucide-react-native'; // Import an icon for logout
 import Colors from '@/constants/Colors'; // Import Colors
 import Layout from '@/constants/Layout'; // Import Layout
 import StyledText from '@/components/typography/StyledText'; // Assuming you have this
+import { useEffect } from "react";
 
 export default function AdminIndexView() { // Renamed component for clarity
   const { user, logout } = useAuth(); // Get user and logout function

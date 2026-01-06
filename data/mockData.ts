@@ -1,4 +1,4 @@
-import { BetType, DrawRules, DrawType, FinancialSummary, GameType, FijosCorridosBet, ParletBet, CentenaBet } from '@/types';
+import { BetType, DrawRules, DrawType, FinancialSummary, GameType, FijosCorridosBet, ParletBet, CentenaBet } from '../types';
 
 export const mockFinancialSummary: FinancialSummary = {
   totalCollected: 250.75,

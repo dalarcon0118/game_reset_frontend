@@ -11,11 +11,11 @@ import {
   Settings,
   Save
 } from 'lucide-react-native';
-import LayoutConstants from '../../../constants/Layout';
-import { Flex, Label, Card, IconBox, ButtonKit } from '../../../shared/components';
-import { useAuth } from '../../../shared/context/AuthContext';
-import { withDataView } from '../../../shared/components/withDataView';
-import { User as UserType } from '../../../data/mockData';
+import LayoutConstants from '@/constants/Layout';
+import { Flex, Label, Card, IconBox, ButtonKit } from '@/shared/components';
+import { useAuth } from '../../auth';
+import { withDataView } from '@/shared/components/withDataView';
+import { User as UserType } from '@/data/mockData';
 import { useSettings } from './hooks/hook.settings';
 
 interface AccordionItemProps {

@@ -1,4 +1,8 @@
 import settings from '@/config/settings';
+import * as SecureStore from 'expo-secure-store';
+
+const TOKEN_KEY = 'auth_access_token';
+const LAST_USER_KEY = 'auth_last_username';
 
 interface RequestOptions extends RequestInit {
   // Podrías añadir aquí tipos específicos para tus opciones si es necesario
@@ -37,8 +41,20 @@ export const setErrorHandler = (handler: ErrorHandler | null) => {
 };
 
 const getAuthToken = async (): Promise<string | null> => {
-  // Preferimos el token en memoria; como respaldo, leemos SecureStore si existe
-  return currentAccessToken;
+  // Preferimos el token en memoria por velocidad
+  if (currentAccessToken) return currentAccessToken;
+
+  // Como respaldo, leemos SecureStore
+  try {
+    const savedToken = await SecureStore.getItemAsync(TOKEN_KEY);
+    if (savedToken) {
+      currentAccessToken = savedToken;
+    }
+    return savedToken;
+  } catch (error) {
+    console.error('Error reading from SecureStore:', error);
+    return null;
+  }
 };
 
 const apiClient = {
@@ -61,9 +77,9 @@ const apiClient = {
       const data = await response.json();
       const newAccess = data?.access ?? null;
       if (newAccess) {
-        currentAccessToken = newAccess;
+        await apiClient.setAuthToken(newAccess);
       } else {
-        currentAccessToken = null;
+        await apiClient.setAuthToken(null);
       }
       return currentAccessToken;
     } catch (error) {
@@ -107,7 +123,7 @@ const apiClient = {
         const newToken = authHeader.substring(7);
         if (newToken) {
           console.log('Updating token from response header');
-          currentAccessToken = newToken;
+          apiClient.setAuthToken(newToken);
         }
       }
 
@@ -215,11 +231,40 @@ const apiClient = {
     return this.request<T>(endpoint, { ...options, method: 'PATCH', body: JSON.stringify(body) });
   },
 
-  // Permite configurar el access token en memoria y limpiarlo en logout
-  setAuthToken(token: string | null) {
+  // Permite configurar el access token en memoria y persistirlo
+  async setAuthToken(token: string | null) {
     currentAccessToken = token;
+    try {
+      if (token) {
+        await SecureStore.setItemAsync(TOKEN_KEY, token);
+      } else {
+        await SecureStore.deleteItemAsync(TOKEN_KEY);
+      }
+    } catch (error) {
+      console.error('Error persisting token to SecureStore:', error);
+    }
   },
-  // Puedes añadir patch, etc., según necesites
+
+  async clearAuthToken() {
+    await this.setAuthToken(null);
+  },
+
+  async saveLastUsername(username: string) {
+    try {
+      await SecureStore.setItemAsync(LAST_USER_KEY, username);
+    } catch (error) {
+      console.error('Error saving username to SecureStore:', error);
+    }
+  },
+
+  async getLastUsername(): Promise<string | null> {
+    try {
+      return await SecureStore.getItemAsync(LAST_USER_KEY);
+    } catch (error) {
+      console.error('Error reading username from SecureStore:', error);
+      return null;
+    }
+  }
 };
 
 export default apiClient;

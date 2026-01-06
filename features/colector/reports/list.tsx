@@ -5,7 +5,7 @@ import { Select, SelectItem, IndexPath, Datepicker } from '@ui-kitten/components
 import { Flex, Label, Card } from '@/shared/components';
 import { Search, Filter, X } from 'lucide-react-native';
 import { useTheme } from '@/shared/hooks/useTheme';
-import { useAuth } from '@/shared/context/AuthContext';
+import { useAuth } from '../../auth';
 import { IncidentService, Incident } from '@/shared/services/Incident';
 import { useDataFetch } from '@/shared/hooks/useDataFetch';
 import { useIsFocused } from '@react-navigation/native';

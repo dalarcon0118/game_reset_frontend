@@ -42,7 +42,7 @@ export interface BetType {
 export type GameType = {
   id: string;
   name: string;
-  code: 'FIJO' | 'PARLET' | 'CORRIDO' | 'CENTENA' | 'QUINIELA_DIRECTA';
+  code: 'FIJO' | 'PARLET' | 'CORRIDO' | 'CENTENA' | 'QUINIELA_DIRECTA' | 'fijo' | 'parlet' | 'corrido' | 'centena' | 'quiniela_directa';
   description: string;
 };
 

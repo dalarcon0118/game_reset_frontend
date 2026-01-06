@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'expo-router';
-import { useAuth } from '../../../../shared/context/AuthContext';
+import { useAuth } from '../../../auth';
 import { useDataFetch } from '../../../../shared/hooks/useDataFetch';
 import { ValidationRuleService, StructureSpecificRule, RuleRepository } from '../../../../shared/services/ValidationRule';
 

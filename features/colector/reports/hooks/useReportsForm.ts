@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Alert } from 'react-native';
 import { IndexPath } from '@ui-kitten/components';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useAuth } from '@/shared/context/AuthContext';
+import { useAuth } from '../../../auth';
 import { useDataFetch } from '@/shared/hooks/useDataFetch';
 import { StructureService, ChildStructure, ListeroDetails } from '@/shared/services/Structure';
 import { IncidentService } from '@/shared/services/Incident';

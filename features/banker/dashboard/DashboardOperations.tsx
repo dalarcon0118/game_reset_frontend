@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
+import { StyleSheet, ActivityIndicator } from 'react-native';
 import { Text } from '@ui-kitten/components';
 import { ChevronRight } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
@@ -7,9 +7,10 @@ import { useRouter } from 'expo-router';
 import { COLORS } from '@/shared/components/constants';
 import { Flex } from '@/shared/components/flex';
 import { Label } from '@/shared/components/label';
-import { AgencyCard } from '@/shared/components/common/AgencyCard';
-import { ButtonKit } from '@/shared/components';
+import { AgencyCard } from '../common/AgencyCard';
+import { ButtonKit } from '@/shared/components/button';
 import { ChildStructure } from '@/shared/services/Structure';
+import { es } from '../../language/es';
 
 interface Agency {
   id: number;
@@ -26,9 +27,18 @@ interface DashboardOperationsProps {
   agencies: ChildStructure[] | null | undefined;
   isLoading: boolean;
   onRefresh: () => void;
+  onSelected: (id: number) => void;
+  onRulesPress: (id: number) => void;
+  onListPress: (id: number) => void;
 }
 
-export function DashboardOperations({ agencies, isLoading, onRefresh }: DashboardOperationsProps) {
+export function DashboardOperations({
+   agencies, 
+   isLoading, 
+   onRulesPress, 
+   onListPress,
+   onSelected 
+}: DashboardOperationsProps) {
   const router = useRouter();
 
   const agencyList: Agency[] = agencies?.map(agency => ({
@@ -39,29 +49,16 @@ export function DashboardOperations({ agencies, isLoading, onRefresh }: Dashboar
     premiums_paid: agency.premiums_paid || 0,
     commissions: agency.commissions || 0,
     status: 'active', // Default status since ChildStructure doesn't have status
-    active_draws: 0, // Default since ChildStructure doesn't have active_draws
+    active_draws: agency.draw_ids?.length || 0,
   })) || [];
 
   return (
-    <Flex
-      vertical
-      flex={1}
-      scroll={{
-        showsVerticalScrollIndicator: false,
-        refreshControl: (
-          <RefreshControl
-            refreshing={isLoading}
-            onRefresh={onRefresh}
-            colors={[COLORS.primary]}
-            tintColor={COLORS.primary}
-          />
-        )
-      }}
-      padding={[{ type: 'horizontal', value: 20 }, { type: 'bottom', value: 40 }]}
-    >
-      {/* Agencies List */}
-      <Flex vertical gap={5}>
-        <Label type="header">Collection Agencies ({agencyList.length})</Label>
+    <>
+      <Flex vertical gap={12}>
+        <Flex justify="between" align="center" margin={[{ type: 'bottom', value: 4 }]}>
+           <Label type="header" style={{ fontSize: 18 }}>{es.banker.dashboard.operations.activeAgenciesTitle}</Label>
+           <Label type="detail" style={{ color: COLORS.primary, fontWeight: '600' }}>{agencyList.length} {es.banker.dashboard.operations.activeCount}</Label>
+        </Flex>
 
         {isLoading ? (
           <Flex align="center" justify="center" margin="l">
@@ -72,34 +69,43 @@ export function DashboardOperations({ agencies, isLoading, onRefresh }: Dashboar
             <AgencyCard
               key={index}
               agency={agency}
-              onPress={() => router.push({ pathname: '/colector/details/[id]', params: { id: agency.id, title: agency.name } })}
-              onRulesPress={() => router.push({ pathname: '/colector/rules', params: { id_structure: agency.id } })}
+              onPress={() => onSelected(agency.id)}
+              onListPress={() => onListPress(agency.id)}
+              onRulesPress={() => onRulesPress(agency.id)}
             />
           ))
         ) : (
           <Flex align="center" justify="center" margin="l">
-            <Text appearance='hint'>No collection agencies available</Text>
+            <Text appearance='hint'>{es.banker.dashboard.operations.noAgencies}</Text>
           </Flex>
         )}
       </Flex>
-      <Flex flex={1} justify="center" margin={[{ type: 'top', value: 20 }]} >
+      <Flex flex={1} justify="center" margin={[{ type: 'vertical', value: 24 }]} >
         <ButtonKit
           style={styles.viewAllButton}
           size='giant'
           appearance='filled'
-          accessoryRight={<ChevronRight color="white" />}
-          label="View All Agencies"
+          accessoryRight={<ChevronRight color="white" size={20} />}
+          label={es.banker.dashboard.operations.viewAll}
         />
       </Flex>
-    </Flex>
+      </>
   );
 }
 
 const styles = StyleSheet.create({
   viewAllButton: {
-    borderRadius: 30,
+    borderRadius: 16,
     backgroundColor: COLORS.primary,
-    borderColor: COLORS.border,
-    height: 50,
+    borderColor: COLORS.primary,
+    height: 56,
+    shadowColor: COLORS.primary,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
 });

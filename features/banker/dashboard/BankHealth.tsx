@@ -7,6 +7,7 @@ import { Flex } from '@/shared/components/flex';
 import { Label } from '@/shared/components/label';
 import { Card } from '@/shared/components/card';
 import { ChildStructure } from '@/shared/services/Structure';
+import { es } from '../../language/es';
 
 const { width } = Dimensions.get('window');
 
@@ -28,26 +29,26 @@ export function BankHealth({ agencies }: BankHealthProps) {
     if (!agencies || agencies.length === 0) {
       return [
         {
-          label: 'Reserve Ratio',
-          value: 'N/A',
+          label: es.banker.dashboard.health.metrics.reserveRatio,
+          value: es.banker.dashboard.health.values.na,
           status: 'critical',
           icon: <Shield size={20} color={COLORS.danger} />
         },
         {
-          label: 'Agency Performance',
-          value: 'N/A',
+          label: es.banker.dashboard.health.metrics.agencyPerformance,
+          value: es.banker.dashboard.health.values.na,
           status: 'critical',
           icon: <BarChart3 size={20} color={COLORS.danger} />
         },
         {
-          label: 'Risk Level',
-          value: 'High',
+          label: es.banker.dashboard.health.metrics.riskLevel,
+          value: es.banker.dashboard.health.values.high,
           status: 'critical',
           icon: <AlertTriangle size={20} color={COLORS.danger} />
         },
         {
-          label: 'Growth Trend',
-          value: 'N/A',
+          label: es.banker.dashboard.health.metrics.growthTrend,
+          value: es.banker.dashboard.health.values.na,
           status: 'critical',
           icon: <TrendingUp size={20} color={COLORS.danger} />
         }
@@ -71,15 +72,15 @@ export function BankHealth({ agencies }: BankHealthProps) {
       }, 0) / agencies.length : 0;
 
     // Risk level based on reserve ratio and performance
-    const riskLevel = reserveRatio > 80 ? 'Low' :
-                     reserveRatio > 50 ? 'Medium' : 'High';
+    const riskLevel = reserveRatio > 80 ? es.banker.dashboard.health.values.low :
+                     reserveRatio > 50 ? es.banker.dashboard.health.values.medium : es.banker.dashboard.health.values.high;
 
     // Growth trend (simplified - would need historical data)
-    const growthTrend = netProfit > 0 ? 'Positive' : 'Negative';
+    const growthTrend = netProfit > 0 ? es.banker.dashboard.health.values.positive : es.banker.dashboard.health.values.negative;
 
     return [
       {
-        label: 'Reserve Ratio',
+        label: es.banker.dashboard.health.metrics.reserveRatio,
         value: `${reserveRatio.toFixed(1)}%`,
         status: reserveRatio > 70 ? 'excellent' :
                 reserveRatio > 40 ? 'good' : 'critical',
@@ -89,7 +90,7 @@ export function BankHealth({ agencies }: BankHealthProps) {
         } />
       },
       {
-        label: 'Agency Performance',
+        label: es.banker.dashboard.health.metrics.agencyPerformance,
         value: `${avgPerformance.toFixed(1)}%`,
         status: avgPerformance > 75 ? 'excellent' :
                 avgPerformance > 50 ? 'good' : 'critical',
@@ -99,21 +100,21 @@ export function BankHealth({ agencies }: BankHealthProps) {
         } />
       },
       {
-        label: 'Risk Level',
+        label: es.banker.dashboard.health.metrics.riskLevel,
         value: riskLevel,
-        status: riskLevel === 'Low' ? 'excellent' :
-                riskLevel === 'Medium' ? 'good' : 'critical',
+        status: riskLevel === es.banker.dashboard.health.values.low ? 'excellent' :
+                riskLevel === es.banker.dashboard.health.values.medium ? 'good' : 'critical',
         icon: <AlertTriangle size={20} color={
-          riskLevel === 'Low' ? COLORS.success :
-          riskLevel === 'Medium' ? COLORS.warning : COLORS.danger
+          riskLevel === es.banker.dashboard.health.values.low ? COLORS.success :
+          riskLevel === es.banker.dashboard.health.values.medium ? COLORS.warning : COLORS.danger
         } />
       },
       {
-        label: 'Growth Trend',
+        label: es.banker.dashboard.health.metrics.growthTrend,
         value: growthTrend,
-        status: growthTrend === 'Positive' ? 'excellent' : 'critical',
+        status: growthTrend === es.banker.dashboard.health.values.positive ? 'excellent' : 'critical',
         icon: <TrendingUp size={20} color={
-          growthTrend === 'Positive' ? COLORS.success : COLORS.danger
+          growthTrend === es.banker.dashboard.health.values.positive ? COLORS.success : COLORS.danger
         } />
       }
     ];
@@ -124,9 +125,9 @@ export function BankHealth({ agencies }: BankHealthProps) {
     const excellentCount = metrics.filter(m => m.status === 'excellent').length;
     const goodCount = metrics.filter(m => m.status === 'good').length;
 
-    if (excellentCount >= 3) return { status: 'excellent', label: 'Excellent' };
-    if (excellentCount + goodCount >= 3) return { status: 'good', label: 'Good' };
-    return { status: 'critical', label: 'Critical' };
+    if (excellentCount >= 3) return { status: 'excellent', label: es.banker.dashboard.health.values.excellent };
+    if (excellentCount + goodCount >= 3) return { status: 'good', label: es.banker.dashboard.health.values.good };
+    return { status: 'critical', label: es.banker.dashboard.health.values.critical };
   };
 
   const metrics = calculateHealthMetrics();
@@ -144,7 +145,7 @@ export function BankHealth({ agencies }: BankHealthProps) {
     <Card style={styles.healthCard}>
       <Flex vertical padding="l">
         <Flex justify="between" align="center" margin={[{ type: 'bottom', value: 16 }]}>
-          <Label type="header" value="Bank Health Status" />
+          <Label type="header" value={es.banker.dashboard.health.title} />
           <Flex
             align="center"
             padding={[{ type: 'horizontal', value: 12 }, { type: 'vertical', value: 6 }]}
@@ -158,13 +159,11 @@ export function BankHealth({ agencies }: BankHealthProps) {
           </Flex>
         </Flex>
 
-        <Flex wrap="wrap" gap={16}>
+        <Flex wrap="wrap" gap={12} justify="between">
           {metrics.map((metric, index) => (
             <Flex
               key={index}
-              vertical
-              align="center"
-              style={styles.metricItem}
+              style={[styles.metricItem]}
             >
               <Flex
                 align="center"
@@ -173,8 +172,10 @@ export function BankHealth({ agencies }: BankHealthProps) {
               >
                 {metric.icon}
               </Flex>
-              <Label type="detail" style={styles.metricLabel} value={metric.label} />
-              <Label type="number" style={styles.metricValue} value={metric.value} />
+              <Flex vertical flex={1}>
+                 <Label type="detail" style={styles.metricLabel} value={metric.label} />
+                 <Label type="header" style={styles.metricValue} value={metric.value} />
+              </Flex>
             </Flex>
           ))}
         </Flex>
@@ -185,32 +186,40 @@ export function BankHealth({ agencies }: BankHealthProps) {
 
 const styles = StyleSheet.create({
   healthCard: {
-    marginHorizontal: 20,
-    marginBottom: 16,
-    borderRadius: 12,
+    marginBottom: 24,
+    borderRadius: 16,
+    borderWidth: 0,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 3.84,
+    elevation: 2,
   },
   statusBadge: {
     borderRadius: 16,
   },
   metricItem: {
-    width: (width - 80) / 4, // 4 metrics per row
+    width: '47%',
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: COLORS.background,
+    padding: 12,
+    borderRadius: 12,
+    gap: 12,
   },
   metricIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginBottom: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
   },
   metricLabel: {
-    fontSize: 12,
-    textAlign: 'center',
-    marginBottom: 4,
-    color: '#666',
+    fontSize: 11,
+    opacity: 0.7,
   },
   metricValue: {
     fontSize: 14,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
+  }
 });

@@ -1,41 +1,47 @@
+import 'react-native-gesture-handler';
+import 'react-native-reanimated';
 import React, { useCallback, useEffect, useMemo } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 // Import router
-import { Stack, usePathname, router } from 'expo-router';
+import { Stack, usePathname, router, ErrorBoundary as ExpoErrorBoundary } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useFrameworkReady } from '@/hooks/useFrameworkReady';
-import { AuthProvider, useAuth } from '@/shared/context/AuthContext';
-import { ActivityIndicator, useColorScheme, View } from 'react-native';
-import { UserRole } from '@/data/mockData'; // Assuming UserRole is defined here
+import { useFrameworkReady } from '../hooks/useFrameworkReady';
+import { useAuth } from '../features/auth/hooks/useAuth';
+import { useColorScheme } from 'react-native';
 import * as eva from '@eva-design/eva'; // Import eva
 import { ApplicationProvider, Button } from '@ui-kitten/components';
-import { roleToScreenMap, routes } from '@/config/routes';
+import { roleToScreenMap, routes } from '../config/routes';
 import { ArrowLeft } from "lucide-react-native";
 
-// Root layout wrapper with AuthProvider
+// Re-export ErrorBoundary for Expo Router to catch internal errors
+export const ErrorBoundary = ExpoErrorBoundary;
+
+// Root layout wrapper
 export default function RootLayoutNav() {
   useFrameworkReady();
   const colorScheme = useColorScheme() ?? 'light'; // Get color scheme
 
   return (
     <>
-      {/* Wrap AuthProvider with ApplicationProvider */}
+      {/* Wrap with ApplicationProvider */}
       <ApplicationProvider {...eva} theme={eva[colorScheme]}>
-        <AuthProvider>
-          <RootLayout />
-          <StatusBar style="auto" />
-        </AuthProvider>
+        <RootLayout />
+        <StatusBar style="auto" />
       </ApplicationProvider>
     </>
   );
 }
 
-// Inner component that uses auth context
+// Inner component that uses TEA-based auth store
 function RootLayout() {
-  const { isAuthenticated, isLoading, user, checkLoginStatus } = useAuth();
+  const { isAuthenticated, isLoading, user, checkLoginStatus, loadSavedUsername } = useAuth();
   const pathname = usePathname();
+
   useEffect(() => {
-    // console.log('user: ', user);
-  }, [user]);
+    loadSavedUsername();
+    checkLoginStatus();
+  }, []);
+
   useEffect(() => {
     console.log('Auth State:', { isLoading, isAuthenticated, user, pathname });
     
@@ -88,7 +94,30 @@ function RootLayout() {
       <Stack.Screen name={routes.admin.screen} options={routes.admin.options} />
       <Stack.Screen name="lister" options={{ headerShown: false }} />
       <Stack.Screen name="colector" options={{ headerShown: false }} />
+      <Stack.Screen name="banker" options={{ headerShown: false }} />
 
     </Stack>
   );
 }
+
+const styles = StyleSheet.create({
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#fff',
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    color: '#000',
+  },
+  errorMessage: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+});

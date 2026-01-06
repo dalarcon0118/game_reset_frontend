@@ -1,119 +1,254 @@
-import React from 'react';
-import { StyleSheet, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, TouchableOpacity } from 'react-native';
-import { Input, Button, Card, useTheme } from '@ui-kitten/components';
-import LayoutConstants from '../../../constants/Layout';
-import { useLoginForm } from '../hooks/useLoginForm';
-import { Controller } from 'react-hook-form';
-import { Flex, Label } from '../../../shared/components';
-import { Eye, EyeOff } from 'lucide-react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, View, TouchableOpacity, SafeAreaView, Alert, Dimensions, ActivityIndicator } from 'react-native';
+import { Text, Input, Button } from '@ui-kitten/components';
+import { Delete, User, Lock, Edit2 } from 'lucide-react-native';
+import { COLORS } from '@/shared/components/constants';
+import { useAuth } from '../hooks/useAuth';
+import { Flex } from '@/shared/components';
+
+// Custom dark theme colors for this screen
+const THEME = {
+  background: '#141414', // Very dark/black
+  text: '#FFFFFF',
+  textSecondary: '#8F9BB3',
+  dotEmpty: '#333333',
+  dotFilled: '#FFFFFF',
+  keypadText: '#FFFFFF',
+  keypadPressed: '#333333',
+  accent: COLORS.primary, // #00C48C
+};
 
 export default function LoginScreen() {
-  const { handleSubmit, errors, isSubmitting, control } = useLoginForm();
-  const theme = useTheme();
-  const [isPasswordVisible, setIsPasswordVisible] = React.useState(false);
+  const {
+    loginSession,
+    isLoading,
+    error,
+    login,
+    updateUsername,
+    updatePin
+  } = useAuth();
+
+  // Local UI state (not part of TEA - just for component behavior)
+  const [tempUsername, setTempUsername] = useState('');
+  const [isEditingUser, setIsEditingUser] = useState(false);
+
+  useEffect(() => {
+    if (loginSession.pin.length === 6) {
+      handleLogin(loginSession.pin);
+    }
+  }, [loginSession.pin]);
+
+  const handleLogin = async (currentPin: string) => {
+    // TEA: Dispatch login action (handled by TEA store)
+    login(loginSession.username, currentPin);
+  };
+
+  const handleUsernameSubmit = () => {
+    if (tempUsername.trim()) {
+      // TEA: Dispatch username update
+      updateUsername(tempUsername.trim());
+      setIsEditingUser(false);
+    }
+  };
+
+  const handlePress = (val: string) => {
+    // TEA: Dispatch PIN update (limited to 6 digits)
+    if (loginSession.pin.length < 6) {
+      updatePin(loginSession.pin + val);
+    }
+  };
+
+  const handleDelete = () => {
+    // TEA: Dispatch PIN update (remove last digit)
+    updatePin(loginSession.pin.slice(0, -1));
+  };
+
+  const renderDot = (index: number) => {
+    const isFilled = index < loginSession.pin.length;
+    return (
+      <View
+        key={index}
+        style={[
+          styles.dot,
+          {
+            backgroundColor: isFilled ? THEME.dotFilled : 'transparent',
+            borderColor: isFilled ? THEME.dotFilled : THEME.dotEmpty,
+          }
+        ]}
+      />
+    );
+  };
+
+  const renderKey = (val: string) => (
+    <TouchableOpacity
+      style={[styles.key, { opacity: isLoading ? 0.3 : 1 }]}
+      onPress={() => handlePress(val)}
+      activeOpacity={0.5}
+      disabled={isLoading}
+    >
+      <Text style={styles.keyText}>{val}</Text>
+    </TouchableOpacity>
+  );
 
   return (
+    <SafeAreaView style={styles.container}>
+      <Flex flex={1} vertical justify="between" align="center" padding="xl">
+        
+        {/* Top Section: Logo/Branding */}
+        <Flex vertical align="center" style={{ marginTop: 60 }} gap={16}>
+             <View style={styles.iconContainer}>
+               <Lock size={32} color={THEME.accent} />
+             </View>
+             <Text category="h4" style={{ color: THEME.text }}>Game-Reset</Text>
+             
+             {isEditingUser ? (
+                 <View style={{ width: 250, alignItems: 'center' }}>
+                    <Input
+                        value={tempUsername}
+                        onChangeText={setTempUsername}
+                        placeholder="Usuario"
+                        autoCapitalize="none"
+                        status="control"
+                        style={{ marginBottom: 16, backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'transparent' }}
+                        textStyle={{ color: 'white' }}
+                    />
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', gap: 10 }}>
+                        <Button 
+                            size="small" 
+                            appearance="ghost" 
+                            status="basic" 
+                            onPress={() => setIsEditingUser(false)}
+                            style={{ flex: 1 }}
+                        >
+                            Cancelar
+                        </Button>
+                        <Button 
+                            size="small" 
+                            status="primary" 
+                            onPress={handleUsernameSubmit}
+                            style={{ flex: 1 }}
+                        >
+                            OK
+                        </Button>
+                    </View>
+                 </View>
+             ) : (
+                 <TouchableOpacity
+                    onPress={() => {
+                        setTempUsername(loginSession.username);
+                        setIsEditingUser(true);
+                    }}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 8 }}
+                 >
+                    <Text category="s1" style={{ color: THEME.textSecondary }}>
+                        Hola, <Text category="s1" style={{ color: THEME.text, fontWeight: 'bold' }}>{loginSession.username}</Text>
+                    </Text>
+                    <Edit2 size={14} color={THEME.textSecondary} />
+                 </TouchableOpacity>
+             )}
+        </Flex>
 
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <Flex flex={1} vertical justify="center" padding="l">
-          <Flex vertical align="center" margin={[{ type: 'bottom', value: 'xl' }]}>
-            <Label type="title" value="Game-reset" />
-            <Label type="subtitle" style={styles.appSubtitle} value="Sistema de Gestión de Apuestas" />
+        {/* Middle Section: PIN Dots */}
+        <Flex vertical align="center" gap={40} style={{ width: '100%' }}>
+          <View style={{ height: 24, justifyContent: 'center' }}>
+            {isLoading ? (
+              <ActivityIndicator color={THEME.accent} />
+            ) : error ? (
+              <Text status="danger" category="p2">{error}</Text>
+            ) : (
+              <Text category="p1" style={{ color: THEME.text, fontSize: 18 }}>Ingresa el PIN de acceso</Text>
+            )}
+          </View>
+          
+          <Flex vertical={false} gap={24}>
+            {[0, 1, 2, 3, 4, 5].map(renderDot)}
           </Flex>
 
-          <Card>
-            <Label type="header" value={" Iniciar Sesión"} />
-            <Flex flex={1} vertical margin={[{ type: 'bottom', value: 'xxl' }]}>
-              <Controller
-                control={control}
-                name="username"
-                render={({ field: { onChange, value } }) => (
-                  <Input
-                    label='Usuario'
-                    placeholder='Ingrese su usuario'
-                    value={value}
-                    onChangeText={onChange}
-                    caption={errors.username?.message}
-                    status={errors.username ? 'danger' : 'basic'}
-                    autoCapitalize="none"
-                  />
-                )}
-              />
-            </Flex>
-
-            <Flex vertical margin={[{ type: 'top', value: 'l' }, { type: 'bottom', value: 'm' }]}>
-              <Controller
-                control={control}
-                name="password"
-                render={({ field: { onChange, value } }) => (
-                  <Input
-                    label='Contraseña:'
-                    placeholder='Ingrese su contraseña'
-                    value={value}
-                    onChangeText={onChange}
-                    caption={errors.password?.message}
-                    status={errors.password ? 'danger' : 'basic'}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    secureTextEntry={!isPasswordVisible}
-                    accessoryRight={() => (
-                      <TouchableOpacity onPress={() => setIsPasswordVisible(!isPasswordVisible)}>
-                        {isPasswordVisible ? (
-                          <EyeOff size={20} color={theme['color-basic-600']} />
-                        ) : (
-                          <Eye size={20} color={theme['color-basic-600']} />
-                        )}
-                      </TouchableOpacity>
-                    )}
-                  />
-                )}
-              />
-            </Flex>
-
-            {errors.root && (
-              <Label
-                type="detail"
-                status="danger"
-                style={styles.errorText}
-              >
-                {errors.root.message}
-              </Label>
-            )}
-
-            <Button
-              onPress={handleSubmit}
-              disabled={isSubmitting}
-              style={styles.loginButton}
-            >
-              {isSubmitting ? "Iniciando sesión..." : "Iniciar Sesión"}
-            </Button>
-          </Card>
+           <TouchableOpacity 
+            onPress={() => Alert.alert('Info', 'Contacte al administrador para restablecer su PIN')}
+            disabled={isLoading}
+          >
+            <Text style={{ color: THEME.accent, marginTop: 10, opacity: isLoading ? 0.5 : 1 }}>Restablecer PIN</Text>
+          </TouchableOpacity>
         </Flex>
-      </TouchableWithoutFeedback>
-    </KeyboardAvoidingView>
+
+        {/* Bottom Section: Keypad */}
+        <View style={styles.keypadContainer}>
+          <View style={styles.row}>
+            {renderKey('1')}
+            {renderKey('2')}
+            {renderKey('3')}
+          </View>
+          <View style={styles.row}>
+            {renderKey('4')}
+            {renderKey('5')}
+            {renderKey('6')}
+          </View>
+          <View style={styles.row}>
+            {renderKey('7')}
+            {renderKey('8')}
+            {renderKey('9')}
+          </View>
+          <View style={styles.row}>
+             <View style={styles.key} /> {/* Empty spacer */}
+            {renderKey('0')}
+             <TouchableOpacity
+              style={[styles.key, { opacity: isLoading ? 0.3 : 1 }]}
+              onPress={handleDelete}
+              activeOpacity={0.5}
+              disabled={isLoading}
+            >
+              <Delete size={28} color={THEME.text} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+      </Flex>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: THEME.background,
   },
-  appSubtitle: {
-    textAlign: 'center',
+  iconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(0, 196, 140, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
   },
-
-  inputContainer: {
-    marginBottom: LayoutConstants.spacing.md,
+  dot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 1,
   },
-  loginButton: {
-    marginTop: LayoutConstants.spacing.lg,
+  keypadContainer: {
+    width: '100%',
+    paddingHorizontal: 20,
+    marginBottom: 20,
+    maxWidth: 400,
   },
-  errorText: {
-    textAlign: 'center',
-    marginBottom: LayoutConstants.spacing.md,
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-around', 
+    marginBottom: 24,
+  },
+  key: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  keyText: {
+    fontSize: 28,
+    color: THEME.keypadText,
+    fontWeight: '300',
   },
 });

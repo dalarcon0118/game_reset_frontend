@@ -4,7 +4,7 @@ import Colors from '@/constants/Colors';
 import Layout from '@/constants/Layout';
 import StyledText from '@/components/typography/StyledText';
 import Button from '@/components/ui/Button';
-import { useAuth } from '@/shared/context/AuthContext';
+import { useAuth } from '../../features/auth';
 import { currentUser, roleDescriptions } from '@/data/mockData';
 
 export default function SettingsScreen() {

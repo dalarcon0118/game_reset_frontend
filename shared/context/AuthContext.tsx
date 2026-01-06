@@ -1,169 +1,70 @@
-import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
-import { User } from '@/data/mockData';
-import { useDataFetch } from '@/shared/hooks/useDataFetch';
-import { LoginService } from '@/shared/services/auth/LoginService';
+import React, { createContext, useContext, useEffect } from 'react';
+import { useAuthStore, selectAuthModel, selectAuthDispatch } from '@/features/auth/store/store';
+import { AuthMsgType } from '@/features/auth/store/types';
 import apiClient, { setErrorHandler, ApiClientError } from '@/shared/services/ApiClient';
-import { router } from 'expo-router';
 
 interface AuthContextType {
   isAuthenticated: boolean;
-  user: User | null;
-  login: (username: string, password: string) => Promise<any>;
-  logout: () => Promise<any>;
-  checkLoginStatus: () => Promise<any>;
-  error: any;
+  user: any;
+  login: (username: string, pin: string) => void;
+  logout: () => void;
+  checkLoginStatus: () => void;
+  error: string | null;
   isLoading: boolean;
-  isLoggingOut: boolean;
 }
 
-const AuthContext = createContext<AuthContextType>({
-  isAuthenticated: false,
-  user: null,
-  login: async () => false,
-  logout: async () => { },
-  checkLoginStatus: async () => { },
-  isLoading: false,
-  error: null,
-  isLoggingOut: false
-});
+const AuthContext = createContext<AuthContextType | null>(null);
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) throw new Error('useAuth must be used within AuthProvider');
+  return context;
+};
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const loginService = LoginService();
-  const [login, loginData, loginLoading, loginError] = useDataFetch(loginService.login);
-  const [checkLoginStatus, userData, statusLoading] = useDataFetch(loginService.checkLoginStatus);
-  const [logout] = useDataFetch(loginService.logout);
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true); // Start loading true to prevent premature redirect
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const model = useAuthStore(selectAuthModel);
+  const dispatch = useAuthStore(selectAuthDispatch);
 
-  const handleLogout = useCallback(async () => {
-    if (isLoggingOut) return;
-    setIsLoggingOut(true);
-    try {
-      console.log('Logging out...');
-      // Intentar avisar al backend (opcional, no importa si falla)
-      try {
-        await logout();
-      } catch (e) {
-        console.warn('Backend logout failed or session already invalid', e);
-      }
-      
-      // Limpiar estado local SIEMPRE
-      setUser(null);
-      apiClient.setAuthToken(null);
-      
-      // Redirigir al login
-      router.replace('/login');
-    } finally {
-      setIsLoggingOut(false);
-    }
-  }, [isLoggingOut, logout]);
-
-  // Register error handler for 401/403 errors
+  // Register error handler for 401/403 errors to trigger TEA logout
   useEffect(() => {
-    const handler = async (error: ApiClientError, endpoint: string, options: RequestInit) => {
-      // 401 is unauthorized (expired/invalid token)
-      // 403 is forbidden (valid token but no permissions, or sometimes session issues)
+    const handler = async (error: ApiClientError, endpoint: string) => {
       if (error.status === 401 || error.status === 403) {
-        console.log(`${error.status} error detected on ${endpoint}`);
-
+        console.log(`${error.status} error detected on ${endpoint}, triggering TEA logout`);
+        
         // Only attempt refresh on 401
         if (error.status === 401) {
-          console.log('Attempting token refresh...');
           try {
             const newToken = await apiClient.refreshAccessToken();
-            if (newToken) {
-              console.log('Token refreshed successfully, signaling retry');
-              return { retry: true, newToken };
-            }
+            if (newToken) return { retry: true, newToken };
           } catch (refreshError) {
             console.error('Token refresh error:', refreshError);
           }
         }
 
-        // If we reach here, it's a 403 or a 401 that couldn't be refreshed
-        console.log('Session is invalid or refresh failed, logging out');
-        await handleLogout();
+        dispatch({ type: AuthMsgType.LOGOUT_REQUESTED });
         return null;
       }
       return null;
     };
 
     setErrorHandler(handler);
-
-    return () => {
-      setErrorHandler(null);
-    };
-  }, [handleLogout]);
-
-  // Handle login data changes
-  useEffect(() => {
-    if (loginData) {
-      setUser(loginData);
-    }
-  }, [loginData]);
-
-  // Handle user data changes from status check
-  useEffect(() => {
-    if (userData) {
-      setUser(userData);
-    }
-  }, [userData]);
-
-  // Combined loading state
-  useEffect(() => {
-    // Update loading state if we are performing a login
-    if (loginLoading) {
-      setIsLoading(true);
-    } 
-    // Only set global loading for status check if we don't have a user yet
-    // This prevents the app from flashing a loading screen during background refreshes
-    else if (statusLoading && user === null) {
-      setIsLoading(true);
-    }
-    // If nothing is loading, ensure global loading is off
-    else if (!loginLoading && !statusLoading) {
-      setIsLoading(false);
-    }
-  }, [loginLoading, statusLoading, user]);
+    return () => setErrorHandler(null);
+  }, [dispatch]);
 
   // Initial session check
   useEffect(() => {
-    const initSession = async () => {
-      try {
-        console.log('Initializing session...');
-        const result = await checkLoginStatus();
-        if (!result) {
-          console.log('No active session found during init');
-          // No llamamos a handleLogout aquí para evitar bucles si no hay token,
-          // simplemente dejamos que RootLayout redirija a login.
-        }
-      } catch (e) {
-        console.error('Failed to initialize session:', e);
-        await handleLogout();
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    initSession();
-  }, []);
+    dispatch({ type: AuthMsgType.CHECK_AUTH_STATUS_REQUESTED });
+  }, [dispatch]);
 
+  const value: AuthContextType = {
+    isAuthenticated: model.isAuthenticated,
+    user: model.user,
+    login: (username, pin) => dispatch({ type: AuthMsgType.LOGIN_REQUESTED, username, pin }),
+    logout: () => dispatch({ type: AuthMsgType.LOGOUT_REQUESTED }),
+    checkLoginStatus: () => dispatch({ type: AuthMsgType.CHECK_AUTH_STATUS_REQUESTED }),
+    error: model.error,
+    isLoading: model.isLoading,
+  };
 
-
-  return (
-    <AuthContext.Provider value={{
-      checkLoginStatus,
-      isAuthenticated: user !== null,
-      user,
-      login,
-      logout: handleLogout,
-      error: loginError,
-      isLoading,
-      isLoggingOut
-    }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

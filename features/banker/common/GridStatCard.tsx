@@ -23,17 +23,19 @@ export const GridStatCard: React.FC<GridStatCardProps> = ({ label, value, icon, 
 
       <Flex
         justify="between"
-        align="start"
-        padding="l"
+        align="center"
+        padding={[{ type: 'horizontal', value: 16 }, { type: 'vertical', value: 16 }]}
       >
-        <Flex vertical>
-          <Label type="detail" style={styles.labelMargin}>{label}</Label>
-          <Flex align="center">
-            <Label type="number">{value}</Label>
+        <Flex vertical gap={4}>
+          <Label type="detail" style={styles.label}>{label}</Label>
+          <Flex align="center" gap={4}>
+            <Label type="header" style={{ fontSize: 20 }}>{value}</Label>
             {children}
           </Flex>
         </Flex>
-        {icon}
+        <View style={[styles.iconContainer, { backgroundColor: barColor + '15' }]}>
+           {icon}
+        </View>
       </Flex>
     </Card>
   );
@@ -42,14 +44,31 @@ export const GridStatCard: React.FC<GridStatCardProps> = ({ label, value, icon, 
 const styles = StyleSheet.create({
   container: {
     width: '48%',
-    marginBottom: 16,
+    borderRadius: 16,
     overflow: 'hidden',
+    borderWidth: 0,
+    shadowColor: "#000",
+    
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 3.84,
+    elevation: 2,
   },
   topBar: {
     height: 4,
     width: '100%',
+    position: 'absolute',
+    top: 0,
   },
-  labelMargin: {
-    marginBottom: 4,
+  label: {
+    opacity: 0.6,
+    fontSize: 12,
+  },
+  iconContainer: {
+    padding: 8,
+    borderRadius: 12,
   }
 });

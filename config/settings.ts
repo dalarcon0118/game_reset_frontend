@@ -9,7 +9,7 @@
 // const manifest = Constants.manifest;
 
 // API Configuration
-const API_BASE_URL_DEVELOPMENT = 'http://10.0.0.156:8000/api'; // URL de tu backend en desarrollo (use host machine IP for Expo)
+const API_BASE_URL_DEVELOPMENT = 'http://10.0.0.136:8000/api'; // URL de tu backend en desarrollo (Docker container port mapping)
 const API_BASE_URL_PRODUCTION = 'https://your-production-api.com/api'; // URL de tu backend en producción
 
 // Determinar si estamos en modo de desarrollo o producción

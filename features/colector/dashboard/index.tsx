@@ -3,7 +3,7 @@ import { StyleSheet, SafeAreaView } from 'react-native';
 
 import { COLORS } from '../../../shared/components/constants';
 import { Flex } from '../../../shared/components/flex';
-import { useAuth } from '@/shared/context/AuthContext';
+import { useAuth } from '../../auth';
 import { useDataFetch } from '@/shared/hooks/useDataFetch';
 import { StructureService, ChildStructure } from '@/shared/services/Structure';
 import { DashboardHeader } from './DashboardHeader';
@@ -19,7 +19,7 @@ export default function DashboardScreen() {
 
   useEffect(() => {
     if (user?.structure?.id) {
-      fetchChildren(user.structure.id);
+      fetchChildren(Number(user.structure.id));
     }
   }, [user?.structure?.id]);
 
@@ -27,7 +27,7 @@ export default function DashboardScreen() {
 
   const handleRefresh = () => {
     if (user?.structure?.id) {
-      fetchChildren(user.structure.id);
+      fetchChildren(Number(user.structure.id));
     }
   };
 

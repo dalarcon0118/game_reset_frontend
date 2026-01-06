@@ -1,8 +1,14 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity, GestureResponderEvent } from 'react-native';
-import { Building2, Users, DollarSign } from 'lucide-react-native';
+import { Building2, Users } from 'lucide-react-native';
 import { COLORS } from '../../../shared/components/constants';
-import { Flex, Card, IconBox, Badge, Label, ButtonKit } from '../../../shared/components';
+import { Flex } from '../../../shared/components/flex';
+import { Card } from '../../../shared/components/card';
+import { IconBox } from '../../../shared/components/icon-box';
+import { Badge } from '../../../shared/components/badge';
+import { Label } from '../../../shared/components/label';
+import { ButtonKit } from '../../../shared/components/button';
+import { es } from '../../language/es';
 
 interface Agency {
   id: number;
@@ -19,9 +25,10 @@ interface AgencyCardProps {
   agency: Agency;
   onPress?: () => void;
   onRulesPress?: () => void;
+  onListPress?: () => void;
 }
 
-export const AgencyCard: React.FC<AgencyCardProps> = ({ agency, onPress, onRulesPress }) => {
+export const AgencyCard: React.FC<AgencyCardProps> = ({ agency, onPress, onRulesPress, onListPress }) => {
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'active':
@@ -35,60 +42,95 @@ export const AgencyCard: React.FC<AgencyCardProps> = ({ agency, onPress, onRules
     }
   };
 
+  const getStatusText = (status: string) => {
+     switch (status.toLowerCase()) {
+      case 'active':
+        return es.banker.common.agencyCard.status.active;
+      case 'inactive':
+        return es.banker.common.agencyCard.status.inactive;
+      case 'suspended':
+        return es.banker.common.agencyCard.status.suspended;
+      default:
+        return status;
+    }
+  };
+
   return (
-    <TouchableOpacity onPress={onPress}>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.9}>
       <Card style={styles.card} padding={0}>
-        <View style={[styles.topBar, { backgroundColor: COLORS.primary }]} />
+        <View style={[styles.topBar, { backgroundColor: getStatusColor(agency.status) }]} />
 
-        <Flex align="center" gap={12} style={styles.container}>
-          <IconBox backgroundColor={COLORS.primary + '20'}>
-            <Building2 size={20} color={COLORS.primary} />
-          </IconBox>
-
-          <Flex vertical flex={1} gap={2} width={"100%"}>
-            <Flex justify="between" align="center">
+        <Flex padding={16} vertical gap={16}>
+          {/* Header Section */}
+          <Flex justify="between" align="center">
+            <Flex align="center" gap={12} flex={1}>
+              <IconBox size={40} backgroundColor={COLORS.primary + '15'} style={{ borderRadius: 12 }}>
+                <Building2 size={20} color={COLORS.primary} />
+              </IconBox>
               <Flex vertical gap={2} flex={1}>
                 <Label
                   type="header"
                   value={agency.name}
                   numberOfLines={1}
                   ellipsizeMode="tail"
+                  style={{ fontSize: 16 }}
                 />
-                <Flex align="center" gap={8}>
-                  <Flex align="center" gap={4}>
-                    <Users size={14} color={COLORS.textLight} />
-                    <Label type="detail" value={`${agency.active_draws} draws`} />
-                  </Flex>
-                  <Badge
-                    content={agency.status}
-                    textColor="white"
-                    color={getStatusColor(agency.status)}
-                  />
+                <Flex align="center" gap={6}>
+                  <Users size={12} color={COLORS.textLight} />
+                  <Label type="detail" value={`${agency.active_draws} ${es.banker.common.agencyCard.activeDraws}`} style={{ fontSize: 12 }} />
                 </Flex>
               </Flex>
             </Flex>
+            <Badge
+              content={getStatusText(agency.status)}
+              textColor="white"
+              color={getStatusColor(agency.status)}
+              style={{ paddingHorizontal: 8, height: 24 }}
+            />
+          </Flex>
 
-            <Flex gap={12} margin={[{ type: "top", value: 8 }]}>
-              <Label type="detail" style={styles.detailLabel} value={`Collected: $${agency.total_collected.toLocaleString()}`} />
-              <Label type="detail" style={styles.detailLabel} value={`Net: $${agency.net_collected.toLocaleString()}`} />
-            </Flex>
-            <Flex gap={12} margin={[{ type: "top", value: 4 }]}>
-              <Label type="detail" style={styles.detailLabel} value={`Paid: $${agency.premiums_paid.toLocaleString()}`} />
-              <Label type="detail" style={styles.detailLabel} value={`Commission: $${agency.commissions.toLocaleString()}`} />
-            </Flex>
+          {/* Stats Grid */}
+          <View style={styles.statsGrid}>
+             <Flex vertical gap={4} style={styles.statItem}>
+                <Label type="detail" value={es.banker.common.agencyCard.collected} style={styles.statLabel} />
+                <Label type="default" value={`$${agency.total_collected.toLocaleString()}`} style={styles.statValue} />
+             </Flex>
+             <Flex vertical gap={4} style={styles.statItem}>
+                <Label type="detail" value={es.banker.common.agencyCard.net} style={styles.statLabel} />
+                <Label type="default" value={`$${agency.net_collected.toLocaleString()}`} style={styles.statValue} />
+             </Flex>
+             <Flex vertical gap={4} style={styles.statItem}>
+                <Label type="detail" value={es.banker.common.agencyCard.paid} style={styles.statLabel} />
+                <Label type="default" value={`$${agency.premiums_paid.toLocaleString()}`} style={styles.statValue} />
+             </Flex>
+             <Flex vertical gap={4} style={styles.statItem}>
+                <Label type="detail" value={es.banker.common.agencyCard.commission} style={styles.statLabel} />
+                <Label type="default" value={`$${agency.commissions.toLocaleString()}`} style={styles.statValue} />
+             </Flex>
+          </View>
 
-            <Flex justify="end">
-              <ButtonKit
-                label="Rules"
-                size="small"
-                appearance="outline"
-                onPress={(e: GestureResponderEvent) => {
-                  e?.stopPropagation?.();
-                  onRulesPress?.();
-                }}
-                style={styles.rulesButton}
-              />
-            </Flex>
+          {/* Actions */}
+          <Flex justify="end" gap={8} margin={[{ type: 'top', value: 8 }]}>
+            <ButtonKit
+              label={es.banker.common.agencyCard.viewLists}
+              size="small"
+              appearance="ghost"
+              status="primary"
+              onPress={(e: GestureResponderEvent) => {
+                e?.stopPropagation?.();
+                onListPress?.();
+              }}
+            />
+            <ButtonKit
+              label={es.banker.common.agencyCard.rulesConfiguration}
+              size="small"
+              appearance="ghost"
+              status="primary"
+              onPress={(e: GestureResponderEvent) => {
+                e?.stopPropagation?.();
+                onRulesPress?.();
+              }}
+            />
           </Flex>
         </Flex>
       </Card>
@@ -98,26 +140,42 @@ export const AgencyCard: React.FC<AgencyCardProps> = ({ agency, onPress, onRules
 
 const styles = StyleSheet.create({
   card: {
-    marginTop: 10,
-    paddingRight: 10,
-    height: 180,
-  },
-  container: {
-    marginTop: 5,
-    paddingLeft: 10,
-  },
-  detailLabel: {
-    fontSize: 12,
-    color: COLORS.textLight,
+    marginBottom: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 0,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 3.84,
+    elevation: 2,
   },
   topBar: {
-    marginLeft: 14,
     height: 4,
-    width: '95%',
+    width: '100%',
+    position: 'absolute',
+    top: 0,
   },
-  rulesButton: {
-    paddingHorizontal: 10,
-    height: 32,
-    borderRadius: 8,
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+    padding: 16,
+    backgroundColor: COLORS.background + '50',
+    borderRadius: 12,
   },
+  statItem: {
+    width: '45%',
+  },
+  statLabel: {
+    fontSize: 11,
+    opacity: 0.6,
+  },
+  statValue: {
+    fontSize: 14,
+    fontWeight: '600',
+  }
 });

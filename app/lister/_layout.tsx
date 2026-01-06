@@ -1,18 +1,9 @@
-import { Stack, usePathname, router } from "expo-router";
-import { useEffect } from "react";
-import { useAuth } from "@/shared/context/AuthContext";
-import { routes } from "@/config/routes";
+import { Stack, ErrorBoundary } from "expo-router";
+import { routes } from "../../config/routes";
+
+export { ErrorBoundary };
 
 export default function AuthenticatedLayout() {
-  const { isAuthenticated, isLoading } = useAuth();
-  const pathname = usePathname();
-
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.replace('/login');
-    }
-  }, [isAuthenticated, isLoading]);
-
   return (
     <Stack>
       <Stack.Screen name="(tabs)" options={routes.lister.tabs.options} />

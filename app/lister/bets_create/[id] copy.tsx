@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Colors from '@/constants/Colors';
 import Layout from '@/constants/Layout';
 import StyledText from '@/components/typography/StyledText'; // Assuming you have this component
-import CreateBetScreen from '@/features/listero/views/bets/create_bet';
+import CreateBetScreen from '@/features/listero/bets/views/create_bet';
 import { useLocalSearchParams } from 'expo-router';
 
 export default function ListerBetsScreen({

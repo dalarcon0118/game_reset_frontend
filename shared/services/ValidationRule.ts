@@ -1,4 +1,6 @@
 import ApiClient, { ApiClientError } from '../services/ApiClient';
+import { createStream } from '../utils/generators';
+import { transformTemplatesWithStatus, generatorToArray } from '../utils/generators';
 
 export interface ValidationRule {
     id: string;
@@ -121,17 +123,25 @@ export class ValidationRuleService {
 
     /**
      * Get all available rule templates that can be copied to structures
+     * Versión tradicional con await - mantiene compatibilidad
      */
     static async getAvailableTemplates(): Promise<RuleRepository[]> {
-        try {
-            const response = await ApiClient.get<RuleRepository[]>(
-                '/draw/structure-specific-rules/available-templates/'
-            );
-            return response;
-        } catch (error) {
-            console.error('Error fetching available rule templates:', error);
-            return [];
-        }
+        return await ApiClient.get<RuleRepository[]>('/draw/structure-specific-rules/available-templates/')
+    }
+
+
+
+    /**
+     * Get available templates with status usando yield * (MÉTODO RECOMENDADO)
+     * Demuestra composición perfecta con generadores:
+     * 1. getAvailableTemplatesGenerator() -> yield templates
+     * 2. transformTemplatesWithStatus() -> yield* transformación
+     * 3. generatorToArray() -> convierte a array para compatibilidad
+     */
+    static async getAvailableTemplatesWithStatus(): Promise<(RuleRepository & { isActivated: boolean })[]> {
+        const generator = createStream(() => this.getAvailableTemplates());
+        const transformedGenerator = transformTemplatesWithStatus(generator);
+        return generatorToArray(transformedGenerator);
     }
 
     /**

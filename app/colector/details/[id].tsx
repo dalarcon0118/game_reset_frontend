@@ -1,1 +1,1 @@
-export { default } from '@/features/colector/listas';
+export { default } from '@/features/colector/drawers';
