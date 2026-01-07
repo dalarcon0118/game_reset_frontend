@@ -1,6 +1,13 @@
-import { useEffect, useCallback, useState, useMemo } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useAuth } from '../../../auth';
-import { useDashboardStore, selectDraws, selectSummary, selectDispatch } from '../store';
+import {
+    useDashboardStore,
+    selectDraws,
+    selectSummary,
+    selectDispatch,
+    selectStatusFilter,
+    selectDailyTotals
+} from '../store';
 import {
     FETCH_DATA_REQUESTED,
     REFRESH_CLICKED,
@@ -9,7 +16,9 @@ import {
     REWARDS_CLICKED,
     BETS_LIST_CLICKED,
     CREATE_BET_CLICKED,
-    NAVIGATE_TO_ERROR
+    NAVIGATE_TO_ERROR,
+    STATUS_FILTER_CHANGED,
+    StatusFilter
 } from '../store/types';
 
 export const useDashboard = () => {
@@ -17,7 +26,12 @@ export const useDashboard = () => {
     const draws = useDashboardStore(selectDraws);
     const summary = useDashboardStore(selectSummary);
     const dispatch = useDashboardStore(selectDispatch);
-    const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'closed' | 'closing_soon'>('all');
+    const statusFilter = useDashboardStore(selectStatusFilter);
+    const dailyTotals = useDashboardStore(selectDailyTotals);
+
+    const setStatusFilter = useCallback((filter: StatusFilter) => {
+        dispatch(STATUS_FILTER_CHANGED(filter));
+    }, [dispatch]);
 
     useEffect(() => {
         if (user?.structure?.id) {
@@ -50,40 +64,8 @@ export const useDashboard = () => {
         dispatch(NAVIGATE_TO_ERROR());
     }, [dispatch]);
 
-    const isClosingSoon = (bettingEndTime: string | null) => {
-        if (!bettingEndTime) return false;
-        const now = new Date();
-        const endTime = new Date(bettingEndTime);
-        const diffMs = endTime.getTime() - now.getTime();
-        const diffMins = diffMs / (1000 * 60);
-        return diffMins > 0 && diffMins <= 30;
-    };
-
-    const filteredDraws = useMemo(() => {
-        const data = draws.data || [];
-        if (statusFilter === 'all') return data;
-
-        return data.filter(draw => {
-            if (statusFilter === 'open') return draw.status === 'open';
-            if (statusFilter === 'closed') return draw.status === 'closed';
-            if (statusFilter === 'closing_soon') return isClosingSoon(draw.betting_end_time);
-            return true;
-        });
-    }, [draws.data, statusFilter]);
-
-    const dailyTotals = useMemo(() => {
-        return (draws.data || []).reduce((acc, draw) => {
-            return {
-                totalCollected: acc.totalCollected + (draw.totalCollected || 0),
-                premiumsPaid: acc.premiumsPaid + (draw.premiumsPaid || 0),
-                netResult: acc.netResult + (draw.netResult || 0),
-                estimatedCommission: acc.estimatedCommission + ((draw.totalCollected || 0) * 0.10)
-            };
-        }, { totalCollected: 0, premiumsPaid: 0, netResult: 0, estimatedCommission: 0 });
-    }, [draws.data]);
-
     return {
-        draws: { ...draws, data: filteredDraws },
+        draws: { ...draws, data: draws.filteredData },
         summary,
         dailyTotals,
         statusFilter,

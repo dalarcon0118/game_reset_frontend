@@ -18,6 +18,7 @@ import CustomNumericKeyboard from './CustomNumericKeyboard';
 import QuickAmountButtons from './QuickAmountButtons';
 import BetSummary from './BetSummary';
 import { useBets } from '../../hooks/useBets';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function CreateBetScreen({
   drawId
@@ -86,7 +87,7 @@ export default function CreateBetScreen({
   };
 
   return (
-    <Layout style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <ScrollView 
         ref={scrollViewRef}
         style={styles.scrollView}
@@ -187,7 +188,7 @@ export default function CreateBetScreen({
           {tempBets.length > 0 ? 'REGISTRAR APUESTAS' : 'REGISTRAR APUESTA'}
         </Button>
       </ScrollView>
-    </Layout>
+    </SafeAreaView>
   );
 }
 

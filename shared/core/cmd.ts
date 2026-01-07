@@ -46,5 +46,9 @@ export const Cmd = {
     }): CommandDescriptor => ({
         type: 'NAVIGATE',
         payload: config
+    }),
+    sleep: (ms: number, msg: any): CommandDescriptor => ({
+        type: 'SLEEP',
+        payload: { ms, msg }
     })
 };

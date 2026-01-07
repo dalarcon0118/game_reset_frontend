@@ -8,9 +8,66 @@ import { ApiClientError } from '@/shared/services/ApiClient';
 import { pipe, createStream, toArray } from '@/shared/utils/generators';
 
 export const initialState: Model = {
-    draws: { data: null, loading: false, error: null },
+    draws: { data: null, filteredData: [], loading: false, error: null },
     summary: { data: null, loading: false, error: null },
+    dailyTotals: {
+        totalCollected: 0,
+        premiumsPaid: 0,
+        netResult: 0,
+        estimatedCommission: 0,
+    },
     userStructureId: null,
+    statusFilter: 'open',
+    appliedFilter: 'open',
+};
+
+const isClosingSoon = (bettingEndTime?: string) => {
+    if (!bettingEndTime) return false;
+    const now = new Date();
+    const endTime = new Date(bettingEndTime);
+    const diff = endTime.getTime() - now.getTime();
+    return diff > 0 && diff < 30 * 60 * 1000; // 30 minutes
+};
+
+const applyFiltersAndTotals = (model: Model): Model => {
+    const data = (model.draws.data as any[]) || [];
+    const filteredData = data.filter((draw) => {
+        if (model.appliedFilter === 'all') return true;
+        if (model.appliedFilter === 'open') return draw.status === 'open';
+        if (model.appliedFilter === 'closed') {
+            return (
+                draw.status === 'closed' ||
+                draw.status === 'completed' ||
+                draw.status === 'cancelled'
+            );
+        }
+        if (model.appliedFilter === 'closing_soon') {
+            return draw.status === 'open' && isClosingSoon(draw.betting_end_time);
+        }
+        if (model.appliedFilter === 'rewarded') {
+            return (draw.premiumsPaid || 0) > 0;
+        }
+        return true;
+    });
+
+    const dailyTotals = filteredData.reduce(
+        (acc, draw) => {
+            return {
+                totalCollected: acc.totalCollected + (draw.totalCollected || 0),
+                premiumsPaid: acc.premiumsPaid + (draw.premiumsPaid || 0),
+                netResult: acc.netResult + (draw.netResult || 0),
+                estimatedCommission:
+                    acc.estimatedCommission + (draw.totalCollected || 0) * 0.1,
+            };
+        },
+        { totalCollected: 0, premiumsPaid: 0, netResult: 0, estimatedCommission: 0 }
+    );
+
+    return {
+        ...model,
+        draws: { ...model.draws, filteredData },
+        dailyTotals,
+    };
 };
 
 // --- Cmd Creators ---
@@ -20,12 +77,12 @@ const fetchDrawsCmd = (structureId: string | null): Cmd => {
     return Cmd.attempt({
         task: () => DrawService.list(Number(structureId)),
         onSuccess: (draws) => ({ type: MsgType.FETCH_DRAWS_SUCCEEDED, draws }),
-        onFailure: (err) => ({ 
-            type: MsgType.FETCH_DRAWS_FAILED, 
-            error: { 
-                message: err.message, 
-                status: err instanceof ApiClientError ? err.status : undefined 
-            } 
+        onFailure: (err) => ({
+            type: MsgType.FETCH_DRAWS_FAILED,
+            error: {
+                message: err.message,
+                status: err instanceof ApiClientError ? err.status : undefined
+            }
         }),
     });
 };
@@ -34,12 +91,12 @@ const fetchSummaryCmd = (): Cmd =>
     Cmd.attempt({
         task: () => FinancialSummaryService.get(),
         onSuccess: (summary) => ({ type: MsgType.FETCH_SUMMARY_SUCCEEDED, summary }),
-        onFailure: (err) => ({ 
-            type: MsgType.FETCH_SUMMARY_FAILED, 
-            error: { 
-                message: err.message, 
-                status: err instanceof ApiClientError ? err.status : undefined 
-            } 
+        onFailure: (err) => ({
+            type: MsgType.FETCH_SUMMARY_FAILED,
+            error: {
+                message: err.message,
+                status: err instanceof ApiClientError ? err.status : undefined
+            }
         }),
     });
 
@@ -87,9 +144,17 @@ export const update = (model: Model, msg: Msg): UpdateResult<Model, Msg> => {
     }
 
     // 2. Manejar lógica de estado
-    return match<Msg, UpdateResult<Model, Msg>>(msg)
+    const [nextModel, cmd] = match<Msg, UpdateResult<Model, Msg>>(msg)
         .with({ type: MsgType.SET_USER_STRUCTURE }, ({ id }) =>
             [{ ...model, userStructureId: id }, fetchDrawsCmd(id)])
+
+        .with({ type: MsgType.STATUS_FILTER_CHANGED }, ({ filter }) =>
+            [{ ...model, statusFilter: filter, draws: { ...model.draws, loading: true } },
+            Cmd.sleep(500, { type: MsgType.APPLY_STATUS_FILTER, filter })])
+
+        .with({ type: MsgType.APPLY_STATUS_FILTER }, ({ filter }) =>
+            [{ ...model, appliedFilter: filter, draws: { ...model.draws, loading: false } },
+            Cmd.none])
 
         .with({ type: MsgType.REFRESH_CLICKED }, () =>
             [model, { type: MsgType.FETCH_DATA_REQUESTED } as any])
@@ -112,4 +177,6 @@ export const update = (model: Model, msg: Msg): UpdateResult<Model, Msg> => {
             ];
         })
         .otherwise(() => [model, Cmd.none]);
+
+    return [applyFiltersAndTotals(nextModel), cmd];
 };

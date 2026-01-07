@@ -49,6 +49,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     backgroundColor: '#FFF',
+    marginTop: 20,
   },
   userIconContainer: {
     width: 40,

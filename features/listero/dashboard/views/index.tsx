@@ -5,6 +5,7 @@ import Header from './Header';
 import GlobalSummary from './GlobalSummary';
 import { Label, Flex } from '../../../../shared/components';
 import { useDashboard } from '../../dashboard/hooks/useDashboard';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function Dashboard() {
   const {
@@ -42,73 +43,89 @@ export default function Dashboard() {
   }
 
   const filterOptions = [
-    { label: 'Todos', value: 'all' as const },
     { label: 'Abierto', value: 'open' as const },
     { label: 'Cerrado', value: 'closed' as const },
-    { label: 'Próximos', value: 'closing_soon' as const },
+    { label: 'Premiados', value: 'rewarded' as const },
+     { label: 'Todos', value: 'all' as const }
   ];
 
-  return (
-    <ScrollView style={styles.container} stickyHeaderIndices={[1]}>
-      <Header onRefresh={refresh} />
-      
-      <View style={styles.filtersWrapper}>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false} 
-          contentContainerStyle={styles.filtersContainer}
+  const renderFilterOptions = () => (
+    <ScrollView 
+      horizontal 
+      showsHorizontalScrollIndicator={false} 
+      contentContainerStyle={styles.filtersContainer}
+    >
+      {filterOptions.map((option) => (
+        <TouchableOpacity
+          key={option.value}
+          onPress={() => setStatusFilter(option.value)}
+          style={[
+            styles.filterTab,
+            statusFilter === option.value && styles.activeFilterTab
+          ]}
         >
-          {filterOptions.map((option) => (
-            <TouchableOpacity
-              key={option.value}
-              onPress={() => setStatusFilter(option.value)}
-              style={[
-                styles.filterTab,
-                statusFilter === option.value && styles.activeFilterTab
-              ]}
-            >
-              <Label 
-                style={[
-                  styles.filterLabel,
-                  statusFilter === option.value && styles.activeFilterLabel
-                ]}
-              >
-                {option.label}
-              </Label>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-
-      <GlobalSummary totals={dailyTotals} />
-      
-      <View style={styles.content}>
-        <Flex justify="between" align="center" style={styles.sectionHeader}>
-          <Label style={styles.sectionTitle}>Sorteos</Label>
-          <Label type="detail" style={styles.drawCount}>
-            {draws.data?.length || 0} disponibles
+          <Label 
+            style={[
+              styles.filterLabel,
+              statusFilter === option.value && styles.activeFilterLabel
+            ]}
+          >
+            {option.label}
           </Label>
+        </TouchableOpacity>
+      ))}
+    </ScrollView>
+  );
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <Header onRefresh={refresh} />
+      <ScrollView 
+        style={styles.container} 
+        contentContainerStyle={styles.scrollContent}
+        stickyHeaderIndices={[1]}
+      >
+        <GlobalSummary totals={dailyTotals} />
+        
+        <Flex style={styles.filtersWrapper}>
+          {renderFilterOptions()}
         </Flex>
 
-        {draws.data?.map((draw, index) => (
-          <DrawItem
-            key={draw.id}
-            draw={draw}
-            index={index}
-            onPress={goToRules}
-            onRewardsPress={goToRewards}
-            onBetsListPress={goToBetsList}
-            onCreateBetPress={goToCreateBet}
-          />
-        ))}
-        
-        {!draws.loading && draws.data?.length === 0 && (
-          <View style={styles.emptyContainer}>
-            <Label style={styles.emptyText}>No hay sorteos para mostrar</Label>
-          </View>
-        )}
-      </View>
-    </ScrollView>
+        <View style={styles.content}>
+          <Flex justify="between" align="center" style={styles.sectionHeader}>
+            <Label style={styles.sectionTitle}>Sorteos</Label>
+            <Label type="detail" style={styles.drawCount}>
+              {draws.data?.length || 0} disponibles
+            </Label>
+          </Flex>
+
+          {draws.data?.map((draw, index) => (
+            <DrawItem
+              key={draw.id}
+              draw={draw}
+              index={index}
+              onPress={goToRules}
+              onRewardsPress={goToRewards}
+              onBetsListPress={goToBetsList}
+              onCreateBetPress={goToCreateBet}
+            />
+          ))}
+
+          {draws.loading && (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color="#00C48C" />
+              <Label style={styles.loadingText}>Actualizando sorteos...</Label>
+            </View>
+          )}
+
+          {!draws.loading && draws.data?.length === 0 && (
+            <View style={styles.emptyContainer}>
+              <Label style={styles.emptyText}>No hay sorteos para mostrar</Label>
+            </View>
+          )}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -116,6 +133,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8F9FB',
+  },
+  scrollContent: {
+    paddingBottom: 40,
   },
   filtersWrapper: {
     backgroundColor: '#FFF',
@@ -171,5 +191,17 @@ const styles = StyleSheet.create({
   emptyText: {
     color: '#8F9BB3',
     fontSize: 14,
-  }
+  },
+  loadingContainer: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 10,
+  },
+  loadingText: {
+    color: '#00C48C',
+    fontSize: 14,
+    fontWeight: '500',
+  },
 });

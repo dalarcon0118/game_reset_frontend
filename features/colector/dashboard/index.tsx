@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
 import { StyleSheet, SafeAreaView } from 'react-native';
 
-import { COLORS } from '../../../shared/components/constants';
-import { Flex } from '../../../shared/components/flex';
+import { COLORS } from '@/shared/components/constants';
+import { Flex } from '@/shared/components/flex';
 import { useAuth } from '../../auth';
 import { useDataFetch } from '@/shared/hooks/useDataFetch';
 import { StructureService, ChildStructure } from '@/shared/services/Structure';

@@ -81,5 +81,10 @@ export const effectHandlers = {
         } else {
             router.push({ pathname: pathname as any, params });
         }
+    },
+    'SLEEP': async (payload: { ms: number, msg: any }, dispatch: (msg: any) => void) => {
+        const { ms, msg } = payload;
+        await new Promise(resolve => setTimeout(resolve, ms));
+        dispatch(msg);
     }
 };

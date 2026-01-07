@@ -5,9 +5,12 @@ export interface ErrorInfo {
     status?: number;
 }
 
+export type StatusFilter = 'all' | 'open' | 'closed' | 'closing_soon' | 'rewarded';
+
 export interface Model {
     draws: {
         data: DrawType[] | null;
+        filteredData: DrawType[];
         loading: boolean;
         error: ErrorInfo | null;
     };
@@ -16,7 +19,15 @@ export interface Model {
         loading: boolean;
         error: ErrorInfo | null;
     };
+    dailyTotals: {
+        totalCollected: number;
+        premiumsPaid: number;
+        netResult: number;
+        estimatedCommission: number;
+    };
     userStructureId: null | string;
+    statusFilter: StatusFilter;
+    appliedFilter: StatusFilter;
 }
 
 export enum MsgType {
@@ -27,6 +38,8 @@ export enum MsgType {
     FETCH_SUMMARY_FAILED = 'FETCH_SUMMARY_FAILED',
     REFRESH_CLICKED = 'REFRESH_CLICKED',
     SET_USER_STRUCTURE = 'SET_USER_STRUCTURE',
+    STATUS_FILTER_CHANGED = 'STATUS_FILTER_CHANGED',
+    APPLY_STATUS_FILTER = 'APPLY_STATUS_FILTER',
     RULES_CLICKED = 'RULES_CLICKED',
     REWARDS_CLICKED = 'REWARDS_CLICKED',
     BETS_LIST_CLICKED = 'BETS_LIST_CLICKED',
@@ -42,11 +55,17 @@ export type Msg =
     | { type: MsgType.FETCH_SUMMARY_FAILED; error: ErrorInfo }
     | { type: MsgType.REFRESH_CLICKED }
     | { type: MsgType.SET_USER_STRUCTURE; id: string }
+    | { type: MsgType.STATUS_FILTER_CHANGED; filter: StatusFilter }
+    | { type: MsgType.APPLY_STATUS_FILTER; filter: StatusFilter }
     | { type: MsgType.RULES_CLICKED; drawId: string }
     | { type: MsgType.REWARDS_CLICKED; drawId: string; title: string }
     | { type: MsgType.BETS_LIST_CLICKED; drawId: string; title: string }
     | { type: MsgType.CREATE_BET_CLICKED; drawId: string; title: string }
     | { type: MsgType.NAVIGATE_TO_ERROR };
+
+// Action Creators
+export const STATUS_FILTER_CHANGED = (filter: StatusFilter) => ({ type: MsgType.STATUS_FILTER_CHANGED, filter } as const);
+export const APPLY_STATUS_FILTER = (filter: StatusFilter) => ({ type: MsgType.APPLY_STATUS_FILTER, filter } as const);
 
 // Action Creators
 export const FETCH_DATA_REQUESTED = () => ({ type: MsgType.FETCH_DATA_REQUESTED } as const);

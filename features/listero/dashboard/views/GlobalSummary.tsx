@@ -13,6 +13,13 @@ interface GlobalSummaryProps {
 }
 
 export default function GlobalSummary({ totals }: GlobalSummaryProps) {
+  const {
+    estimatedCommission = 0,
+    totalCollected = 0,
+    premiumsPaid = 0,
+    netResult = 0
+  } = totals || {};
+
   return (
     <View style={styles.container}>
       <Label style={styles.sectionTitle}>Resumen del Día</Label>
@@ -26,7 +33,7 @@ export default function GlobalSummary({ totals }: GlobalSummaryProps) {
               </View>
               <View>
                 <Label type="detail">Mi Comisión Est.</Label>
-                <Label style={styles.commissionValue}>${totals.estimatedCommission.toFixed(2)}</Label>
+                <Label style={styles.commissionValue}>${estimatedCommission.toFixed(2)}</Label>
               </View>
             </Flex>
             <View style={styles.badge}>
@@ -43,7 +50,7 @@ export default function GlobalSummary({ totals }: GlobalSummaryProps) {
                 <ReceiptText size={16} color="#8F9BB3" />
                 <Label type="detail">Ventas Totales</Label>
               </Flex>
-              <Label style={styles.statValue}>${totals.totalCollected.toFixed(2)}</Label>
+              <Label style={styles.statValue}>${totalCollected.toFixed(2)}</Label>
             </View>
 
             <View style={styles.statItem}>
@@ -51,7 +58,7 @@ export default function GlobalSummary({ totals }: GlobalSummaryProps) {
                 <TrendingUp size={16} color="#8F9BB3" />
                 <Label type="detail">Premios</Label>
               </Flex>
-              <Label style={[styles.statValue, { color: '#FF3D71' }]}>${totals.premiumsPaid.toFixed(2)}</Label>
+              <Label style={[styles.statValue, { color: '#FF3D71' }]}>${premiumsPaid.toFixed(2)}</Label>
             </View>
 
             <View style={styles.statItem}>
@@ -59,8 +66,8 @@ export default function GlobalSummary({ totals }: GlobalSummaryProps) {
                 <Wallet size={16} color="#8F9BB3" />
                 <Label type="detail">Balance</Label>
               </Flex>
-              <Label style={[styles.statValue, { color: totals.netResult >= 0 ? '#00C48C' : '#FF3D71' }]}>
-                ${totals.netResult.toFixed(2)}
+              <Label style={[styles.statValue, { color: netResult >= 0 ? '#00C48C' : '#FF3D71' }]}>
+                ${netResult.toFixed(2)}
               </Label>
             </View>
           </Flex>
