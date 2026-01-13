@@ -2,6 +2,8 @@ import { Model } from './model';
 import { initialCreateState } from '../features/create-bet/create.types';
 import { initialEditState } from '../features/edit-bet/edit.types';
 import { initialParletState } from '../features/parlet/parlet.types';
+import { initialCentenaState } from '../features/centena/centena.types';
+import { initialRulesState } from '../features/rules/rules.types';
 import { initialListState } from '../features/bet-list/list.types';
 import { initialManagementState } from '../features/management/management.types';
 import { rewardsCache, rulesCache } from '../features/rewards-rules/rewards.types';
@@ -17,6 +19,8 @@ export const initialModel: Model = {
     createSession: initialCreateState,
     editSession: initialEditState,
     parletSession: initialParletState,
+    centenaSession: initialCentenaState,
+    rulesSession: initialRulesState,
     listSession: initialListState,
     managementSession: initialManagementState,
 

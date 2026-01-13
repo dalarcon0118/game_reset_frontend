@@ -1,14 +1,16 @@
 // Combined MsgType enum and Msg union type
 import { GameType } from '@/types';
-import { ManagementMsg } from '../features/management/management.types';
-import { KeyboardMsg } from '../features/keyboard/keyboard.types';
-import { ParletMsg } from '../features/parlet/parlet.types';
-import { ListMsg } from '../features/bet-list/list.types';
-import { CreateMsg } from '../features/create-bet/create.types';
-import { EditMsg } from '../features/edit-bet/edit.types';
-import { RewardsRulesMsg } from '../features/rewards-rules/rewards.types';
-import { UiMsg } from '../features/bet-ui/ui.types';
-import { FijosMsg } from '../features/fijos-corridos/fijos.types';
+import { ManagementFeatMsg } from '../features/management/management.types';
+import { KeyboardFeatMsg } from '../features/keyboard/keyboard.types';
+import { ParletFeatMsg } from '../features/parlet/parlet.types';
+import { CentenaFeatMsg } from '../features/centena/centena.types';
+import { RulesFeatMsg } from '../features/rules/rules.types';
+import { ListFeatMsg } from '../features/bet-list/list.types';
+import { CreateFeatMsg } from '../features/create-bet/create.types';
+import { EditFeatMsg } from '../features/edit-bet/edit.types';
+import { RewardsRulesFeatMsg } from '../features/rewards-rules/rewards.types';
+import { UiFeatMsg } from '../features/bet-ui/ui.types';
+import { FijosFeatMsg } from '../features/fijos-corridos/fijos.types';
 
 export * from './core.types';
 
@@ -17,12 +19,14 @@ export * from './core.types';
  * Each sub-module message is wrapped in its own variant.
  */
 export type Msg =
-    | { type: 'MANAGEMENT'; payload: ManagementMsg }
-    | { type: 'KEYBOARD'; payload: KeyboardMsg }
-    | { type: 'PARLET'; payload: ParletMsg }
-    | { type: 'LIST'; payload: ListMsg }
-    | { type: 'CREATE'; payload: CreateMsg }
-    | { type: 'EDIT'; payload: EditMsg }
-    | { type: 'REWARDS_RULES'; payload: RewardsRulesMsg }
-    | { type: 'UI'; payload: UiMsg }
-    | { type: 'FIJOS'; payload: FijosMsg };
+    | ManagementFeatMsg
+    | KeyboardFeatMsg
+    | ParletFeatMsg
+    | CentenaFeatMsg
+    | RulesFeatMsg
+    | ListFeatMsg
+    | CreateFeatMsg
+    | EditFeatMsg
+    | RewardsRulesFeatMsg
+    | UiFeatMsg
+    | FijosFeatMsg;

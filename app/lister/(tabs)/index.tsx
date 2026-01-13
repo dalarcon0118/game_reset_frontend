@@ -5,7 +5,7 @@ import Colors from '@/constants/Colors';
 import { DashboardScreen as ListeroDashboard } from '../../../features/listero';
 
 
-export default function DashboardScreen() {
+export default function ListeroTab() {
   const colorScheme = useColorScheme() ?? 'light';
 
 

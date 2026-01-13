@@ -1,6 +1,6 @@
 import { match } from 'ts-pattern';
 import { Model } from './model';
-import { Msg } from './msg';
+import { initialModel, Msg } from './msg';
 import { Cmd } from '@/shared/core/cmd';
 import { Return, singleton } from '@/shared/core/return';
 
@@ -10,15 +10,39 @@ import { updateList } from '../features/bet-list/list.update';
 import { updateCreate } from '../features/create-bet/create.update';
 import { updateEdit } from '../features/edit-bet/edit.update';
 import { updateParlet } from '../features/parlet/parlet.update';
+import { updateCentena } from '../features/centena/centena.update';
+import { updateRules } from '../features/rules/rules.update';
 import { updateRewardsRules } from '../features/rewards-rules/rewards.update';
 import { updateUi } from '../features/bet-ui/ui.update';
 import { updateFijos } from '../features/fijos-corridos/fijos.update';
+import { ManagementMsgType } from '../features/management/management.types';
 
 /**
  * Curried constructor helper for the Model.
- * Sub-modules operate on the full Model in this architecture.
  */
 const makeModel = (m: Model) => m;
+
+export const init = (params?: string | { drawId: string, fetchExistingBets?: boolean }): [Model, Cmd] => {
+    const model = initialModel;
+
+    if (!params) return [model, Cmd.none];
+
+    let drawId: string;
+    let fetchExistingBets = true;
+
+    if (typeof params === 'string') {
+        drawId = params;
+    } else {
+        drawId = params.drawId;
+        fetchExistingBets = params.fetchExistingBets ?? true;
+    }
+
+    if (!drawId) return [model, Cmd.none];
+
+    // Reutilizamos la lógica de MANAGEMENT.INIT
+    const result = updateManagement(model, { type: ManagementMsgType.INIT, drawId, fetchExistingBets });
+    return [result.model, result.cmd];
+};
 
 /**
  * Main update function using Hierarchical Message Composition.
@@ -66,6 +90,20 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
             singleton(makeModel).andMapCmd(
                 (sub) => ({ type: 'PARLET', payload: sub }),
                 updateParlet(model, payload)
+            )
+        )
+
+        .with({ type: 'CENTENA' }, ({ payload }) =>
+            singleton(makeModel).andMapCmd(
+                (sub) => ({ type: 'CENTENA', payload: sub }),
+                updateCentena(model, payload)
+            )
+        )
+
+        .with({ type: 'RULES' }, ({ payload }) =>
+            singleton(makeModel).andMapCmd(
+                (sub) => ({ type: 'RULES', payload: sub }),
+                updateRules(model, payload)
             )
         )
 

@@ -48,7 +48,7 @@ export const LoginService = () => {
     try {
       // Llamada al backend para eliminar la cookie de refresh
       try {
-        await apiClient.post(settings.api.endpoints.logout(), {});
+        await apiClient.post(settings.api.endpoints.logout(), {}, { skipAuthHandler: true });
       } catch (e) {
         console.warn('Failed to logout from server, clearing local session anyway.', e);
       }

@@ -1,11 +1,14 @@
 // Auth update function - pure TEA authentication logic
 import { match } from 'ts-pattern';
 import { AuthModel, AuthMsg, AuthMsgType } from './types';
-import { mockUsers } from '../../../data/mockData';
-import { Cmd } from '../../../shared/core/cmd';
-import type { TaskConfig } from '../../../shared/core/cmd';
-import { LoginService } from '../../../shared/services/auth/LoginService';
-import apiClient from '../../../shared/services/ApiClient';
+import { Cmd } from '@/shared/core/cmd';
+import type { TaskConfig } from '@/shared/core/cmd';
+import { LoginService } from '@/shared/services/auth/LoginService';
+import apiClient from '@/shared/services/ApiClient';
+import settings from '@/config/settings';
+import { RemoteDataHttp } from '@/shared/core/remote.data.http';
+import { RemoteData } from '@/shared/core/remote.data';
+import { TokenService } from '@/shared/services/TokenService';
 
 const loginService = LoginService();
 
@@ -24,48 +27,61 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
                 },
             };
 
-            // Return command to perform authentication
+            // Return command to perform authentication using RemoteDataHttp.fetch
             return [
                 loadingModel,
-                Cmd.task({
-                    task: loginService.login,
-                    args: [username, pin],
-                    onSuccess: (user: any) => ({
-                        type: AuthMsgType.LOGIN_SUCCEEDED,
-                        user
-                    } as AuthMsg),
-                    onFailure: (error: any) => ({
-                        type: AuthMsgType.LOGIN_FAILED,
-                        error: error.message || 'Error de conexión'
+                RemoteDataHttp.fetch(
+                    () => loginService.login(username, pin),
+                    (webData) => ({
+                        type: AuthMsgType.LOGIN_RESPONSE_RECEIVED,
+                        webData
                     } as AuthMsg)
-                }),
+                ),
             ] as [AuthModel, Cmd];
         })
 
-        .with({ type: AuthMsgType.LOGIN_SUCCEEDED }, ({ user }) => {
-            return [
-                {
-                    ...model,
-                    user,
-                    isAuthenticated: true,
-                    isLoading: false,
-                    error: null,
-                    loginSession: {
-                        ...model.loginSession,
-                        pin: '',
-                        isSubmitting: false,
+        .with({ type: AuthMsgType.LOGIN_RESPONSE_RECEIVED }, ({ webData }) => {
+            return match(webData)
+                .with({ type: 'Success' }, ({ data }) => [
+                    {
+                        ...model,
+                        user: data,
+                        isAuthenticated: true,
+                        isLoading: false,
+                        error: null,
+                        loginSession: {
+                            ...model.loginSession,
+                            pin: '',
+                            isSubmitting: false,
+                        },
                     },
-                },
-                Cmd.task({
-                    task: async () => {
-                        if (user.username) {
-                            await apiClient.saveLastUsername(user.username);
-                        }
+                    Cmd.task({
+                        task: async () => {
+                            // Save last username using TokenService
+                            if (data.username) {
+                                await TokenService.saveLastUsername(data.username);
+                            }
+                        },
+                        onSuccess: () => ({ type: 'NONE' } as any),
+                        onFailure: () => ({ type: 'NONE' } as any),
+                    }),
+                ] as [AuthModel, Cmd])
+                .with({ type: 'Failure' }, ({ error }) => [
+                    {
+                        ...model,
+                        user: null,
+                        isAuthenticated: false,
+                        isLoading: false,
+                        error: error || 'Error de conexión',
+                        loginSession: {
+                            ...model.loginSession,
+                            pin: '',
+                            isSubmitting: false,
+                        },
                     },
-                    onSuccess: () => ({ type: 'NONE' } as any),
-                    onFailure: () => ({ type: 'NONE' } as any),
-                }),
-            ] as [AuthModel, Cmd];
+                    Cmd.none,
+                ] as [AuthModel, Cmd])
+                .otherwise(() => [model, Cmd.none] as [AuthModel, Cmd]);
         })
 
         .with({ type: AuthMsgType.LOGIN_FAILED }, ({ error }) => {
@@ -112,7 +128,7 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
                 Cmd.task({
                     task: async () => {
                         if (username) {
-                            await apiClient.saveLastUsername(username);
+                            await TokenService.saveLastUsername(username);
                         }
                     },
                     onSuccess: () => ({ type: 'NONE' } as any),
@@ -125,7 +141,7 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
             return [
                 model,
                 Cmd.task({
-                    task: () => apiClient.getLastUsername(),
+                    task: () => TokenService.getLastUsername(),
                     onSuccess: (username: string | null) => ({
                         type: AuthMsgType.SAVED_USERNAME_LOADED,
                         username
@@ -154,6 +170,8 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
         })
 
         .with({ type: AuthMsgType.LOGOUT_REQUESTED }, () => {
+            if (model.isLoggingOut) return [model, Cmd.none] as [AuthModel, Cmd];
+
             const logoutTask: TaskConfig = {
                 task: async () => await loginService.logout(),
                 onSuccess: () => ({ type: AuthMsgType.LOGOUT_SUCCEEDED } as AuthMsg),
@@ -195,21 +213,39 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
         .with({ type: AuthMsgType.CHECK_AUTH_STATUS_REQUESTED }, () => {
             return [
                 { ...model, isLoading: true },
-                Cmd.task({
-                    task: loginService.checkLoginStatus,
-                    onSuccess: (user: any) => {
-                        if (user) {
-                            return { type: AuthMsgType.LOGIN_SUCCEEDED, user } as AuthMsg;
-                        } else {
-                            return { type: AuthMsgType.SESSION_EXPIRED } as AuthMsg;
-                        }
-                    },
-                    onFailure: (error: any) => ({
-                        type: AuthMsgType.CHECK_AUTH_STATUS_FAILED,
-                        error: error.message || 'Sesión no válida'
-                    } as AuthMsg),
-                }),
+                RemoteDataHttp.fetch(
+                    () => loginService.checkLoginStatus(),
+                    (webData) => ({
+                        type: AuthMsgType.CHECK_AUTH_STATUS_RESPONSE_RECEIVED,
+                        webData
+                    } as AuthMsg)
+                ),
             ] as [AuthModel, Cmd];
+        })
+
+        .with({ type: AuthMsgType.CHECK_AUTH_STATUS_RESPONSE_RECEIVED }, ({ webData }) => {
+            return match(webData)
+                .with({ type: 'Success' }, ({ data }) => [
+                    {
+                        ...model,
+                        user: data,
+                        isAuthenticated: true,
+                        isLoading: false,
+                        error: null,
+                    },
+                    Cmd.none,
+                ] as [AuthModel, Cmd])
+                .with({ type: 'Failure' }, ({ error }) => [
+                    {
+                        ...model,
+                        user: null,
+                        isAuthenticated: false,
+                        isLoading: false,
+                        error: error || 'Sesión no válida'
+                    },
+                    Cmd.none
+                ] as [AuthModel, Cmd])
+                .otherwise(() => [model, Cmd.none] as [AuthModel, Cmd]);
         })
 
         .with({ type: AuthMsgType.CHECK_AUTH_STATUS_FAILED }, ({ error }) => {
@@ -233,7 +269,7 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
                     isAuthenticated: false,
                     isLoading: false,
                 },
-                Cmd.none, // No navigation here to avoid loops, the root layout handles initial state
+                Cmd.navigate({ pathname: '/login', method: 'replace' }),
             ] as [AuthModel, Cmd];
         })
 

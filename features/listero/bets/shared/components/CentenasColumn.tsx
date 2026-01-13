@@ -7,7 +7,10 @@ import { useBetsStore, selectBetsModel } from '../../core/store';
 
 export const CentenasColumn: React.FC = () => {
     const model = useBetsStore(selectBetsModel);
-    const { centenas: bets } = model.listSession;
+    const { listSession } = model;
+    const bets = listSession.remoteData.type === 'Success'
+        ? listSession.remoteData.data.centenas
+        : [];
 
     return (
         <View style={[styles.column, styles.colCentenas]}>

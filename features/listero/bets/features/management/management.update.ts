@@ -1,21 +1,53 @@
 import { match } from 'ts-pattern';
 import { Model as GlobalModel } from '../../core/model';
 import { ManagementMsgType, ManagementMsg } from './management.types';
+import { ListMsgType } from '../bet-list/list.types';
 import { Cmd } from '@/shared/core/cmd';
-import { DrawService } from '@/shared/services/Draw';
-import { BetService } from '@/shared/services/Bet';
 import { Return, ret, singleton } from '@/shared/core/return';
+import { RemoteData } from '@/shared/core/remote.data';
+import { BetService } from '@/shared/services/Bet';
 
 export const updateManagement = (model: GlobalModel, msg: ManagementMsg): Return<GlobalModel, ManagementMsg> => {
     return match<ManagementMsg, Return<GlobalModel, ManagementMsg>>(msg)
+        .with({ type: ManagementMsgType.INIT }, ({ drawId, fetchExistingBets = true }) => {
+            console.log('Management INIT called with drawId:', drawId, 'fetchExistingBets:', fetchExistingBets);
+
+            const commands: any[] = [
+                Cmd.http({ url: `/draw/draws/${drawId}/bet-types/` }, (data: any) => ({
+                    type: ManagementMsgType.FETCH_BET_TYPES_SUCCEEDED,
+                    betTypes: data
+                }))
+            ];
+
+            if (fetchExistingBets) {
+                commands.push({
+                    type: 'MSG',
+                    payload: {
+                        type: 'LIST',
+                        payload: {
+                            type: ListMsgType.FETCH_BETS_REQUESTED,
+                            drawId
+                        }
+                    }
+                });
+            }
+
+            return ret(
+                {
+                    ...model,
+                    drawId,
+                    managementSession: { ...model.managementSession, isLoading: true, error: null }
+                },
+                commands
+            );
+        })
         .with({ type: ManagementMsgType.FETCH_BET_TYPES_REQUESTED }, ({ drawId }) => {
             return ret(
-                model,
-                Cmd.task({
-                    task: () => DrawService.filterBetsTypeByDrawId(drawId),
-                    onSuccess: (betTypes) => ({ type: ManagementMsgType.FETCH_BET_TYPES_SUCCEEDED, betTypes }),
-                    onFailure: (err) => ({ type: ManagementMsgType.FETCH_BET_TYPES_FAILED, error: String(err) })
-                })
+                { ...model, managementSession: { ...model.managementSession, isLoading: true, error: null } },
+                Cmd.http({ url: `/draw/draws/${drawId}/bet-types/` }, (data) => ({
+                    type: ManagementMsgType.FETCH_BET_TYPES_SUCCEEDED,
+                    betTypes: data
+                }))
             );
         })
         .with({ type: ManagementMsgType.FETCH_BET_TYPES_SUCCEEDED }, ({ betTypes }) => {
@@ -27,61 +59,66 @@ export const updateManagement = (model: GlobalModel, msg: ManagementMsg): Return
             };
             return singleton({
                 ...model,
-                managementSession: { ...model.managementSession, betTypes: types },
+                managementSession: { ...model.managementSession, isLoading: false, betTypes: types },
             });
         })
         .with({ type: ManagementMsgType.FETCH_BET_TYPES_FAILED }, ({ error }) => {
             return singleton({
                 ...model,
-                managementSession: { ...model.managementSession, error },
+                managementSession: { ...model.managementSession, isLoading: false, error },
             });
         })
         .with({ type: ManagementMsgType.SAVE_BETS_REQUESTED }, ({ drawId }) => {
-            const allBets = {
-                fijosCorridos: model.listSession.fijosCorridos.map(b => ({
-                    ...b,
-                    betTypeId: b.fijoAmount ? model.managementSession.betTypes.fijo : model.managementSession.betTypes.corrido
-                })),
-                parlets: model.listSession.parlets.map(b => ({
-                    ...b,
-                    betTypeId: model.managementSession.betTypes.parlet
-                })),
-                centenas: model.listSession.centenas.map(b => ({
-                    ...b,
-                    betTypeId: model.managementSession.betTypes.centena
-                })),
-                drawId,
-            };
+            const listData = RemoteData.withDefault({ fijosCorridos: [], parlets: [], centenas: [] }, model.listSession.remoteData);
+            const { fijosCorridos, parlets, centenas } = listData;
+
             return ret(
-                {
-                    ...model,
-                    managementSession: { ...model.managementSession, isSaving: true, error: null }
-                },
+                { ...model, managementSession: { ...model.managementSession, isSaving: true, error: null } },
                 Cmd.task({
-                    task: () => BetService.create(allBets),
-                    onSuccess: (response) => ({ type: ManagementMsgType.SAVE_BETS_SUCCEEDED, response }),
-                    onFailure: (err) => ({ type: ManagementMsgType.SAVE_BETS_FAILED, error: String(err) })
+                    task: BetService.create,
+                    args: [{ drawId, fijosCorridos, parlets, centenas }],
+                    onSuccess: () => ({ type: ManagementMsgType.SAVE_BETS_SUCCEEDED }),
+                    onFailure: (error: any) => ({
+                        type: ManagementMsgType.SAVE_BETS_FAILED,
+                        error: error.message || 'Error al guardar apuestas'
+                    })
                 })
             );
         })
         .with({ type: ManagementMsgType.SAVE_BETS_SUCCEEDED }, () => {
-            return singleton({
-                ...model,
-                managementSession: { ...model.managementSession, isSaving: false, saveSuccess: true },
-                listSession: { ...model.listSession, fijosCorridos: [], parlets: [], centenas: [] }
-            });
+            return ret(
+                {
+                    ...model,
+                    managementSession: { ...model.managementSession, isSaving: false, saveSuccess: true },
+                    // Do not reset listSession here to keep bets visible
+                },
+                Cmd.alert({
+                    title: 'Apuestas Guardadas',
+                    message: 'Las apuestas han sido guardadas exitosamente.',
+                    buttons: [{
+                        text: 'OK',
+                        onPressMsg: null // Do not reset bets automatically
+                    }]
+                })
+            );
         })
         .with({ type: ManagementMsgType.SAVE_BETS_FAILED }, ({ error }) => {
-            return singleton({
-                ...model,
-                managementSession: { ...model.managementSession, isSaving: false, error },
-            });
+            return ret(
+                { ...model, managementSession: { ...model.managementSession, isSaving: false, error } },
+                Cmd.alert({
+                    title: 'Error',
+                    message: error || 'Hubo un error al guardar las apuestas.'
+                })
+            );
         })
         .with({ type: ManagementMsgType.RESET_BETS }, () => {
             return singleton({
                 ...model,
                 managementSession: { ...model.managementSession, saveSuccess: false, error: null },
-                listSession: { ...model.listSession, fijosCorridos: [], parlets: [], centenas: [] }
+                listSession: {
+                    ...model.listSession,
+                    remoteData: RemoteData.success({ fijosCorridos: [], parlets: [], centenas: [] })
+                }
             });
         })
         .with({ type: ManagementMsgType.CLEAR_MANAGEMENT_ERROR }, () => {

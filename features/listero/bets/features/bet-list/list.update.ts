@@ -1,10 +1,11 @@
 import { match } from 'ts-pattern';
 import { Model } from '../../core/model';
-import { ListMsgType, ListMsg } from './list.types';
+import { ListMsgType, ListMsg, ListState } from './list.types';
 import { Cmd } from '@/shared/core/cmd';
-import { BetService } from '@/shared/services/Bet';
 import { BetType } from '@/types';
 import { Return, ret, singleton } from '@/shared/core/return';
+import { RemoteData } from '@/shared/core/remote.data';
+import { BetService } from '@/shared/services/Bet';
 
 const transformBetTypeToFijosCorridos = (bets: BetType[]): any[] => {
     const fijosCorridosMap = new Map<number, any>();
@@ -169,57 +170,120 @@ const transformBetTypeToCentenas = (bets: BetType[]): any[] => {
 };
 
 export const updateList = (model: Model, msg: ListMsg): Return<Model, ListMsg> => {
-    return match(msg)
+    return match<ListMsg, Return<Model, ListMsg>>(msg)
         .with({ type: ListMsgType.FETCH_BETS_REQUESTED }, ({ drawId }) => {
+            console.log('LIST FETCH_BETS_REQUESTED called with drawId:', drawId);
+            const nextListSession: ListState = {
+                ...model.listSession,
+                remoteData: RemoteData.loading(),
+            };
             return ret(
                 {
                     ...model,
                     drawId,
-                    listSession: {
-                        ...model.listSession,
-                        isLoading: true,
-                    },
+                    listSession: nextListSession,
                 },
-                Cmd.task({
-                    task: () => BetService.list({ drawId }),
-                    onSuccess: (bets) => ({
-                        type: ListMsgType.FETCH_BETS_SUCCEEDED,
-                        fijosCorridos: transformBetTypeToFijosCorridos(bets),
-                        parlets: transformBetTypeToParlets(bets),
-                        centenas: transformBetTypeToCentenas(bets)
-                    }),
-                    onFailure: (err) => ({ type: ListMsgType.FETCH_BETS_FAILED, error: String(err) })
-                })
+                Cmd.task(
+                    {
+                        task: BetService.list,
+                        args: [{ drawId }],
+                        onSuccess: (bets: BetType[]) => {
+                            console.log('LIST FETCH_BETS_SUCCEEDED received bets:', bets?.length || 0);
+                            const fijosCorridos = transformBetTypeToFijosCorridos(bets);
+                            const parlets = transformBetTypeToParlets(bets);
+                            const centenas = transformBetTypeToCentenas(bets);
+                            console.log('Transformed data:', { fijosCorridos, parlets, centenas });
+                            return {
+                                type: ListMsgType.FETCH_BETS_SUCCEEDED,
+                                fijosCorridos,
+                                parlets,
+                                centenas
+                            };
+                        },
+                        onFailure: (error: any) => {
+                            console.log('LIST FETCH_BETS_FAILED error:', error);
+                            return {
+                                type: ListMsgType.FETCH_BETS_FAILED,
+                                error: error.message || 'Error al cargar apuestas'
+                            };
+                        }
+                    }
+                )
+            );
+        })
+        .with({ type: ListMsgType.REFRESH_BETS_REQUESTED }, ({ drawId }) => {
+            console.log('list.update: REFRESH_BETS_REQUESTED for drawId', drawId);
+            const nextListSession: ListState = {
+                ...model.listSession,
+                isRefreshing: true,
+            };
+            return ret(
+                {
+                    ...model,
+                    listSession: nextListSession,
+                },
+                Cmd.task(
+                    {
+                        task: BetService.list,
+                        args: [{ drawId }],
+                        onSuccess: (bets: BetType[]) => {
+                            console.log('list.update: FETCH_BETS_SUCCEEDED (refresh)');
+                            return {
+                                type: ListMsgType.FETCH_BETS_SUCCEEDED,
+                                fijosCorridos: transformBetTypeToFijosCorridos(bets),
+                                parlets: transformBetTypeToParlets(bets),
+                                centenas: transformBetTypeToCentenas(bets)
+                            };
+                        },
+                        onFailure: (error: any) => {
+                            console.log('list.update: FETCH_BETS_FAILED (refresh)', error);
+                            return {
+                                type: ListMsgType.FETCH_BETS_FAILED,
+                                error: error.message || 'Error al actualizar apuestas'
+                            };
+                        }
+                    }
+                )
             );
         })
         .with({ type: ListMsgType.FETCH_BETS_SUCCEEDED }, ({ fijosCorridos, parlets, centenas }) => {
-            return singleton({
+            console.log('LIST FETCH_BETS_SUCCEEDED processed:', { fijosCorridos, parlets, centenas });
+            const result = singleton({
                 ...model,
                 listSession: {
                     ...model.listSession,
-                    isLoading: false,
-                    fijosCorridos,
-                    parlets,
-                    centenas,
+                    remoteData: RemoteData.success({
+                        fijosCorridos,
+                        parlets,
+                        centenas
+                    }),
+                    isRefreshing: false,
                 },
             });
+            console.log('LIST state updated to SUCCESS');
+            return result;
         })
         .with({ type: ListMsgType.FETCH_BETS_FAILED }, ({ error }) => {
             return singleton({
                 ...model,
                 listSession: {
                     ...model.listSession,
-                    isLoading: false,
-                    error,
+                    remoteData: RemoteData.failure(error),
+                    isRefreshing: false,
                 },
             });
         })
         .with({ type: ListMsgType.REMOVE_BET }, ({ betId, category }) => {
+            const nextRemoteData = RemoteData.map((data) => ({
+                ...data,
+                [category]: data[category].filter((bet: any) => bet.id !== betId)
+            }), model.listSession.remoteData);
+
             return singleton({
                 ...model,
                 listSession: {
                     ...model.listSession,
-                    [category]: model.listSession[category].filter((bet: any) => bet.id !== betId),
+                    remoteData: nextRemoteData,
                 },
             });
         })
@@ -228,9 +292,11 @@ export const updateList = (model: Model, msg: ListMsg): Return<Model, ListMsg> =
                 ...model,
                 listSession: {
                     ...model.listSession,
-                    fijosCorridos: [],
-                    parlets: [],
-                    centenas: [],
+                    remoteData: RemoteData.success({
+                        fijosCorridos: [],
+                        parlets: [],
+                        centenas: []
+                    }),
                 },
             });
         })

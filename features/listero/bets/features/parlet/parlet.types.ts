@@ -7,7 +7,7 @@ export interface Model {
     activeParletBetId: string | null;
     isParletDrawerVisible: boolean;
     isParletModalVisible: boolean;
-    isAmmountDrawerVisible: boolean;
+    isAmountDrawerVisible: boolean;
     activeAnnotationType: string | null;
     activeGameType: GameType | null;
     canceledFromFijosyCorridoBet: boolean;
@@ -20,7 +20,7 @@ export const initialParletState: Model = {
     activeParletBetId: null,
     isParletDrawerVisible: false,
     isParletModalVisible: false,
-    isAmmountDrawerVisible: false,
+    isAmountDrawerVisible: false,
     activeAnnotationType: null,
     activeGameType: null,
     canceledFromFijosyCorridoBet: false,
@@ -37,6 +37,10 @@ export enum ParletMsgType {
     SHOW_PARLET_DRAWER = 'SHOW_PARLET_DRAWER',
     SHOW_PARLET_MODAL = 'SHOW_PARLET_MODAL',
     SHOW_PARLET_ALERT = 'SHOW_PARLET_ALERT',
+    PROCESS_BET_INPUT = 'PROCESS_BET_INPUT',
+    SUBMIT_AMOUNT_INPUT = 'SUBMIT_AMOUNT_INPUT',
+    KEY_PRESSED = 'KEY_PRESSED',
+    CONFIRM_INPUT = 'CONFIRM_INPUT',
 }
 
 export type ParletMsg =
@@ -49,4 +53,10 @@ export type ParletMsg =
     | { type: ParletMsgType.OPEN_PARLET_AMOUNT_KEYBOARD; betId: string }
     | { type: ParletMsgType.SHOW_PARLET_DRAWER; visible: boolean }
     | { type: ParletMsgType.SHOW_PARLET_MODAL; visible: boolean }
-    | { type: ParletMsgType.SHOW_PARLET_ALERT; visible: boolean };
+    | { type: ParletMsgType.SHOW_PARLET_ALERT; visible: boolean }
+    | { type: ParletMsgType.PROCESS_BET_INPUT; inputString: string }
+    | { type: ParletMsgType.SUBMIT_AMOUNT_INPUT; amountString: string }
+    | { type: ParletMsgType.KEY_PRESSED; key: string }
+    | { type: ParletMsgType.CONFIRM_INPUT };
+
+export type ParletFeatMsg = { type: 'PARLET'; payload: ParletMsg };

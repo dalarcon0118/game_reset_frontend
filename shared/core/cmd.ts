@@ -27,9 +27,9 @@ export const Cmd = {
         method?: 'GET' | 'POST' | 'PUT' | 'DELETE',
         body?: any,
         headers?: Record<string, string>
-    }, msgCreator: (data: any) => any): { type: string; payload: any } => ({
+    }, msgCreator: (data: any) => any, errorCreator?: (error: any) => any): { type: string; payload: any } => ({
         type: 'HTTP',
-        payload: { ...config, method: config.method || 'GET', msgCreator }
+        payload: { ...config, method: config.method || 'GET', msgCreator, errorCreator }
     }),
     task: (config: TaskConfig): CommandDescriptor => ({
         type: 'TASK',
@@ -50,5 +50,17 @@ export const Cmd = {
     sleep: (ms: number, msg: any): CommandDescriptor => ({
         type: 'SLEEP',
         payload: { ms, msg }
+    }),
+    alert: (config: {
+        title: string,
+        message: string,
+        buttons?: {
+            text: string,
+            onPressMsg?: any,
+            style?: 'default' | 'cancel' | 'destructive'
+        }[]
+    }): CommandDescriptor => ({
+        type: 'ALERT',
+        payload: config
     })
 };

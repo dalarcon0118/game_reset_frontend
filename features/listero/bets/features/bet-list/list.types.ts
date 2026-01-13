@@ -1,25 +1,27 @@
 import { FijosCorridosBet, ParletBet, CentenaBet } from '@/types';
+import { WebData, RemoteData } from '@/shared/core/remote.data';
 
-export interface ListState {
+export interface ListData {
     fijosCorridos: FijosCorridosBet[];
     parlets: ParletBet[];
     centenas: CentenaBet[];
-    isLoading: boolean;
-    error: string | null;
+}
+
+export interface ListState {
+    remoteData: WebData<ListData>;
     aliasFilter: string;
+    isRefreshing: boolean;
 }
 
 export const initialListState: ListState = {
-    fijosCorridos: [],
-    parlets: [],
-    centenas: [],
-    isLoading: false,
-    error: null,
+    remoteData: RemoteData.notAsked(),
     aliasFilter: '',
+    isRefreshing: false,
 };
 
 export enum ListMsgType {
     FETCH_BETS_REQUESTED = 'FETCH_BETS_REQUESTED',
+    REFRESH_BETS_REQUESTED = 'REFRESH_BETS_REQUESTED',
     FETCH_BETS_SUCCEEDED = 'FETCH_BETS_SUCCEEDED',
     FETCH_BETS_FAILED = 'FETCH_BETS_FAILED',
     REMOVE_BET = 'REMOVE_BET',
@@ -29,8 +31,11 @@ export enum ListMsgType {
 
 export type ListMsg =
     | { type: ListMsgType.FETCH_BETS_REQUESTED; drawId: string }
+    | { type: ListMsgType.REFRESH_BETS_REQUESTED; drawId: string }
     | { type: ListMsgType.FETCH_BETS_SUCCEEDED; fijosCorridos: FijosCorridosBet[]; parlets: ParletBet[]; centenas: CentenaBet[] }
     | { type: ListMsgType.FETCH_BETS_FAILED; error: string }
     | { type: ListMsgType.REMOVE_BET; betId: string; category: 'fijosCorridos' | 'parlets' | 'centenas' }
     | { type: ListMsgType.CLEAR_LIST }
     | { type: ListMsgType.UPDATE_LIST_FILTER; filter: string };
+
+export type ListFeatMsg = { type: 'LIST'; payload: ListMsg };

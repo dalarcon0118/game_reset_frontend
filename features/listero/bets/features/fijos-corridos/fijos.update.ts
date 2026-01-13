@@ -4,21 +4,35 @@ import { FijosMsg, FijosMsgType } from './fijos.types';
 import { Cmd } from '@/shared/core/cmd';
 import { FijosCorridosBet } from '@/types';
 import { Return, singleton } from '@/shared/core/return';
-import { AnnotationTypes, GameTypes } from '@/constants/Bet';
+import { AnnotationTypes } from '@/constants/Bet';
 import { splitStringToPairs, generateRandomId } from '../../shared/utils/numbers';
+import { RemoteData } from '@/shared/core/remote.data';
+import { ListData } from '../bet-list/list.types';
 
 type BetAmountType = 'fijo' | 'corrido';
 
 const updateSingleBetAmount = (model: Model, betId: string, type: BetAmountType, amount: number): Model => {
+    const nextRemoteData = RemoteData.map((data: ListData) => ({
+        ...data,
+        fijosCorridos: data.fijosCorridos.map((b: FijosCorridosBet) =>
+            b.id === betId
+                ? { ...b, [type === 'fijo' ? 'fijoAmount' : 'corridoAmount']: amount }
+                : b
+        )
+    }), model.listSession.remoteData);
+
     return {
         ...model,
         listSession: {
             ...model.listSession,
-            fijosCorridos: model.listSession.fijosCorridos.map(b =>
-                b.id === betId
-                    ? { ...b, [type === 'fijo' ? 'fijoAmount' : 'corridoAmount']: amount }
-                    : b
-            )
+            remoteData: nextRemoteData,
+        },
+        editSession: {
+            ...model.editSession,
+            currentInput: '',
+            showAmountKeyboard: false,
+            editingBetId: null,
+            editingAmountType: null,
         }
     };
 };
@@ -26,28 +40,63 @@ const updateSingleBetAmount = (model: Model, betId: string, type: BetAmountType,
 const updateBufferedBetsAmount = (model: Model, type: BetAmountType, amount: number): Model => {
     const { editSession, listSession } = model;
     const { betBuffer } = editSession;
-    const { fijosCorridos } = listSession;
+
+    const nextRemoteData = RemoteData.map((data: ListData) => ({
+        ...data,
+        fijosCorridos: data.fijosCorridos.map((b: FijosCorridosBet) =>
+            betBuffer.includes(b.bet)
+                ? { ...b, [type === 'fijo' ? 'fijoAmount' : 'corridoAmount']: amount }
+                : b
+        ),
+    }), listSession.remoteData);
 
     return {
         ...model,
         listSession: {
             ...listSession,
-            fijosCorridos: fijosCorridos.map(b =>
-                betBuffer.includes(b.bet)
-                    ? { ...b, [type === 'fijo' ? 'fijoAmount' : 'corridoAmount']: amount }
-                    : b
-            ),
+            remoteData: nextRemoteData,
         },
         editSession: {
             ...editSession,
-            betBuffer: [] // Clear buffer after applying
+            currentInput: '',
         }
     };
 };
 
+const getUniqueNumbersFromParlets = (parlets: any[]): number[] => {
+    const allNumbers = parlets.flatMap(p => p.bets);
+    return [...new Set(allNumbers)].sort((a, b) => a - b);
+};
+
 export const updateFijos = (model: Model, msg: FijosMsg): Return<Model, FijosMsg> => {
+    const listData = RemoteData.withDefault({ fijosCorridos: [], parlets: [], centenas: [] } as ListData, model.listSession.remoteData);
+
     return match<FijosMsg, Return<Model, FijosMsg>>(msg)
         .with({ type: FijosMsgType.OPEN_BET_KEYBOARD }, () => {
+            const parletNumbers = getUniqueNumbersFromParlets(listData.parlets);
+            const existingFijoNumbers = listData.fijosCorridos.map((b: FijosCorridosBet) => b.bet);
+            const missingNumbers = parletNumbers.filter(n => !existingFijoNumbers.includes(n));
+
+            if (missingNumbers.length > 0) {
+                return Return.val(
+                    {
+                        ...model,
+                        editSession: {
+                            ...model.editSession,
+                            showBetKeyboard: false,
+                        }
+                    },
+                    Cmd.alert({
+                        title: "¿Desea agregar los números de los Parlets?",
+                        message: `Se agregarán [${missingNumbers.join(', ')}] a la columna de Fijos y Corridos.`,
+                        buttons: [
+                            { text: "Cancelar", onPressMsg: { type: FijosMsgType.CANCEL_PARLET_AUTOFILL }, style: "cancel" },
+                            { text: "OK", onPressMsg: { type: FijosMsgType.CONFIRM_PARLET_AUTOFILL, numbers: missingNumbers } }
+                        ]
+                    })
+                );
+            }
+
             return singleton({
                 ...model,
                 editSession: {
@@ -57,6 +106,8 @@ export const updateFijos = (model: Model, msg: FijosMsg): Return<Model, FijosMsg
                     editingBetId: null,
                     editingAmountType: null,
                     amountConfirmationDetails: null,
+                    currentInput: '',
+                    betBuffer: [], // Iniciamos un nuevo buffer al abrir el teclado de apuestas
                 },
                 parletSession: {
                     ...model.parletSession,
@@ -88,7 +139,8 @@ export const updateFijos = (model: Model, msg: FijosMsg): Return<Model, FijosMsg
                     editingAmountType: amountType,
                     showAmountKeyboard: true,
                     showBetKeyboard: false,
-                    amountConfirmationDetails: null,
+                    amountConfirmationDetails: null, // Aseguramos que esté limpio al abrir
+                    currentInput: '',
                 },
                 parletSession: {
                     ...model.parletSession,
@@ -144,16 +196,22 @@ export const updateFijos = (model: Model, msg: FijosMsg): Return<Model, FijosMsg
             });
 
             if (newBets.length > 0) {
+                const nextRemoteData = RemoteData.map((data: ListData) => ({
+                    ...data,
+                    fijosCorridos: [...data.fijosCorridos, ...newBets]
+                }), model.listSession.remoteData);
+
                 return singleton({
                     ...model,
                     listSession: {
                         ...model.listSession,
-                        fijosCorridos: [...model.listSession.fijosCorridos, ...newBets],
+                        remoteData: nextRemoteData,
                     },
                     editSession: {
                         ...model.editSession,
                         betBuffer: [...model.editSession.betBuffer, ...newBetNumbers],
                         showBetKeyboard: false,
+                        currentInput: '',
                     },
                 });
             }
@@ -163,14 +221,15 @@ export const updateFijos = (model: Model, msg: FijosMsg): Return<Model, FijosMsg
                 editSession: {
                     ...model.editSession,
                     showBetKeyboard: false,
+                    currentInput: '',
                 },
             });
         })
         .with({ type: FijosMsgType.SUBMIT_AMOUNT_INPUT }, ({ amountString }) => {
-            const { parletSession, editSession, listSession } = model;
+            const { parletSession, editSession } = model;
             const { activeAnnotationType } = parletSession;
             const { editingAmountType, editingBetId, betBuffer } = editSession;
-            const { fijosCorridos } = listSession;
+            const { fijosCorridos } = listData;
 
             if (activeAnnotationType !== AnnotationTypes.Amount || !editingAmountType || amountString === '') {
                 return singleton({
@@ -181,6 +240,7 @@ export const updateFijos = (model: Model, msg: FijosMsg): Return<Model, FijosMsg
                         editingBetId: null,
                         editingAmountType: null,
                         amountConfirmationDetails: null,
+                        currentInput: '',
                     },
                     parletSession: {
                         ...parletSession,
@@ -199,6 +259,7 @@ export const updateFijos = (model: Model, msg: FijosMsg): Return<Model, FijosMsg
                         editingBetId: null,
                         editingAmountType: null,
                         amountConfirmationDetails: null,
+                        currentInput: '',
                     },
                     parletSession: {
                         ...parletSession,
@@ -207,7 +268,7 @@ export const updateFijos = (model: Model, msg: FijosMsg): Return<Model, FijosMsg
                 });
             }
 
-            const editingBetObject = fijosCorridos.find(b => b.id === editingBetId);
+            const editingBetObject = fijosCorridos.find((b: FijosCorridosBet) => b.id === editingBetId);
 
             if (betBuffer.length > 1 && editingBetId && editingBetObject && betBuffer.includes(editingBetObject.bet)) {
                 return singleton({
@@ -294,6 +355,96 @@ export const updateFijos = (model: Model, msg: FijosMsg): Return<Model, FijosMsg
                     activeAnnotationType: null,
                 },
             });
+        })
+        .with({ type: FijosMsgType.CONFIRM_PARLET_AUTOFILL }, ({ numbers }) => {
+            const newBets: FijosCorridosBet[] = numbers.map(n => ({
+                id: generateRandomId(),
+                bet: n,
+                fijoAmount: null,
+                corridoAmount: null,
+            }));
+
+            const nextRemoteData = RemoteData.map((data: ListData) => ({
+                ...data,
+                fijosCorridos: [...data.fijosCorridos, ...newBets]
+            }), model.listSession.remoteData);
+
+            return singleton({
+                ...model,
+                listSession: {
+                    ...model.listSession,
+                    remoteData: nextRemoteData,
+                },
+                editSession: {
+                    ...model.editSession,
+                    showBetKeyboard: true,
+                    betBuffer: [...model.editSession.betBuffer, ...numbers],
+                    currentInput: '',
+                },
+                parletSession: {
+                    ...model.parletSession,
+                    activeAnnotationType: AnnotationTypes.Bet,
+                    activeGameType: {
+                        id: 'fijos_corridos',
+                        name: 'Fijos y Corridos',
+                        code: 'fijo',
+                        description: 'Fijos y Corridos'
+                    },
+                },
+            });
+        })
+        .with({ type: FijosMsgType.CANCEL_PARLET_AUTOFILL }, () => {
+            return singleton({
+                ...model,
+                editSession: {
+                    ...model.editSession,
+                    showBetKeyboard: true,
+                    showAmountKeyboard: false,
+                    editingBetId: null,
+                    editingAmountType: null,
+                    amountConfirmationDetails: null,
+                    currentInput: '',
+                },
+                parletSession: {
+                    ...model.parletSession,
+                    activeAnnotationType: AnnotationTypes.Bet,
+                    activeGameType: {
+                        id: 'fijos_corridos',
+                        name: 'Fijos y Corridos',
+                        code: 'fijo',
+                        description: 'Fijos y Corridos'
+                    },
+                },
+            });
+        })
+        .with({ type: FijosMsgType.KEY_PRESSED }, ({ key }) => {
+            let newInput = model.editSession.currentInput;
+            if (key === 'backspace') {
+                newInput = newInput.slice(0, -1);
+            } else {
+                newInput += key;
+            }
+
+            return singleton({
+                ...model,
+                editSession: {
+                    ...model.editSession,
+                    currentInput: newInput,
+                }
+            });
+        })
+        .with({ type: FijosMsgType.CONFIRM_INPUT }, () => {
+            const { currentInput, showBetKeyboard, showAmountKeyboard } = model.editSession;
+
+            if (showBetKeyboard) {
+                return updateFijos(model, { type: FijosMsgType.PROCESS_BET_INPUT, inputString: currentInput });
+            }
+
+            if (showAmountKeyboard) {
+                return updateFijos(model, { type: FijosMsgType.SUBMIT_AMOUNT_INPUT, amountString: currentInput });
+            }
+
+            return singleton(model);
         })
         .exhaustive();
 };

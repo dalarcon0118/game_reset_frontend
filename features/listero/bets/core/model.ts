@@ -3,6 +3,8 @@ import { UiState } from '../features/bet-ui/ui.types';
 import { Model as CreateSession } from '../features/create-bet/create.types';
 import { Model as EditSession } from '../features/edit-bet/edit.types';
 import { Model as ParletSession } from '../features/parlet/parlet.types';
+import { Model as CentenaSession } from '../features/centena/centena.types';
+import { Model as RulesSession } from '../features/rules/rules.types';
 import { ListState } from '../features/bet-list/list.types';
 import { ManagementState } from '../features/management/management.types';
 import { RewardsCache, RulesCache } from '../features/rewards-rules/rewards.types';
@@ -17,6 +19,8 @@ export interface Model extends UiState {
     createSession: CreateSession;
     editSession: EditSession;
     parletSession: ParletSession;
+    centenaSession: CentenaSession;
+    rulesSession: RulesSession;
     listSession: ListState;
     managementSession: ManagementState;
 

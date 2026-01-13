@@ -36,7 +36,7 @@ export const updateUi = (model: Model, msg: UiMsg): Return<Model, UiMsg> => {
                     ...model.parletSession,
                     isParletDrawerVisible: false,
                     isParletModalVisible: false,
-                    isAmmountDrawerVisible: false,
+                    isAmountDrawerVisible: false,
                 },
                 editSession: {
                     ...model.editSession,

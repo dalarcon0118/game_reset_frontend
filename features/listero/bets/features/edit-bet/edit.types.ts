@@ -8,6 +8,7 @@ export interface Model {
     rangeStartNumber: string;
     showRangeDialog: boolean;
     rangeBets: number[];
+    currentInput: string;
 
     // Keyboard and UI states
     showBetKeyboard: boolean;
@@ -15,10 +16,10 @@ export interface Model {
     showParletKeyboard: boolean;
     betBuffer: number[];
     editingBetId: string | null;
-    editingAmountType: 'fijo' | 'corrido' | 'parlet' | null;
+    editingAmountType: 'fijo' | 'corrido' | 'parlet' | 'centena' | null;
     amountConfirmationDetails: {
         amountValue: number;
-        intendedAmountType: 'fijo' | 'corrido' | 'parlet';
+        intendedAmountType: 'fijo' | 'corrido' | 'parlet' | 'centena';
         intendedBetId: string | null;
     } | null;
 }
@@ -33,6 +34,7 @@ export const initialEditState: Model = {
     rangeStartNumber: '',
     showRangeDialog: false,
     rangeBets: [],
+    currentInput: '',
     showBetKeyboard: false,
     showAmountKeyboard: false,
     showParletKeyboard: false,
@@ -58,3 +60,5 @@ export type EditMsg =
     | { type: EditMsgType.SET_RANGE_TYPE; rangeType: 'continuous' | 'terminal' | null }
     | { type: EditMsgType.GENERATE_RANGE_BETS; start: string; end: string }
     | { type: EditMsgType.UPDATE_EDIT_INPUT; value: string };
+
+export type EditFeatMsg = { type: 'EDIT'; payload: EditMsg };

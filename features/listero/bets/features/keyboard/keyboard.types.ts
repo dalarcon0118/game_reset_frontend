@@ -20,3 +20,5 @@ export type KeyboardMsg =
     | { type: KeyboardMsgType.CONFIRM_APPLY_AMOUNT_ALL }
     | { type: KeyboardMsgType.CONFIRM_APPLY_AMOUNT_SINGLE }
     | { type: KeyboardMsgType.CANCEL_AMOUNT_CONFIRMATION };
+
+export type KeyboardFeatMsg = { type: 'KEYBOARD'; payload: KeyboardMsg };

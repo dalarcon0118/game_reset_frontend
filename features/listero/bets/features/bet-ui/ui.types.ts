@@ -17,3 +17,5 @@ export type UiMsg =
     | { type: UiMsgType.SET_ACTIVE_GAME_TYPE; gameType: GameType | null }
     | { type: UiMsgType.CLEAR_ERROR }
     | { type: UiMsgType.CLOSE_ALL_DRAWERS };
+
+export type UiFeatMsg = { type: 'UI'; payload: UiMsg };

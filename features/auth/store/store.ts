@@ -2,6 +2,7 @@
 import { AuthModel, AuthMsg } from './types';
 import { initialAuthModel } from './initial';
 import { updateAuth } from './update';
+import { authSubscriptions } from './subscriptions';
 import { createElmStore } from '../../../shared/core/engine';
 import { effectHandlers } from '../../../shared/core/effectHandlers';
 
@@ -9,7 +10,8 @@ import { effectHandlers } from '../../../shared/core/effectHandlers';
 export const useAuthStore = createElmStore<AuthModel, AuthMsg>(
     initialAuthModel,
     updateAuth,
-    effectHandlers as any
+    effectHandlers as any,
+    authSubscriptions
 );
 
 // Define the store type for selectors

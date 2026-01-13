@@ -5,7 +5,7 @@ const TOKEN_KEY = 'auth_access_token';
 const LAST_USER_KEY = 'auth_last_username';
 
 interface RequestOptions extends RequestInit {
-  // Podrías añadir aquí tipos específicos para tus opciones si es necesario
+  skipAuthHandler?: boolean;
 }
 
 interface ApiClientErrorData {
@@ -29,6 +29,17 @@ export class ApiClientError extends Error {
 
 // Token en memoria para evitar persistir el access token en el cliente
 let currentAccessToken: string | null = null;
+let isRefreshing = false;
+let refreshSubscribers: ((token: string) => void)[] = [];
+
+const subscribeTokenRefresh = (cb: (token: string) => void) => {
+  refreshSubscribers.push(cb);
+};
+
+const onTokenRefreshed = (token: string) => {
+  refreshSubscribers.map((cb) => cb(token));
+  refreshSubscribers = [];
+};
 
 // Error handler para que AuthContext maneje errores 401
 type ErrorHandlerResponse = { retry: boolean; newToken?: string } | null;
@@ -59,6 +70,13 @@ const getAuthToken = async (): Promise<string | null> => {
 
 const apiClient = {
   async refreshAccessToken(): Promise<string | null> {
+    if (isRefreshing) {
+      return new Promise((resolve) => {
+        subscribeTokenRefresh(resolve);
+      });
+    }
+
+    isRefreshing = true;
     try {
       const response = await fetch(`${settings.api.baseUrl}${settings.api.endpoints.refresh()}`, {
         method: 'POST',
@@ -78,21 +96,43 @@ const apiClient = {
       const newAccess = data?.access ?? null;
       if (newAccess) {
         await apiClient.setAuthToken(newAccess);
+        onTokenRefreshed(newAccess);
       } else {
         await apiClient.setAuthToken(null);
+        onTokenRefreshed('');
       }
       return currentAccessToken;
     } catch (error) {
       currentAccessToken = null;
+      onTokenRefreshed('');
       if (error instanceof ApiClientError) throw error;
       throw new ApiClientError(
         error instanceof Error ? error.message : 'Fallo al refrescar token',
         0,
         { detail: error instanceof Error ? error.message : 'Error desconocido' }
       );
+    } finally {
+      isRefreshing = false;
     }
   },
   async request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
+    // Si hay un refresh en curso, esperamos a que termine
+    if (isRefreshing && !endpoint.includes(settings.api.endpoints.refresh())) {
+      console.log('API Client: Refresh in progress, queuing request for:', endpoint);
+      return new Promise((resolve) => {
+        subscribeTokenRefresh(async (newToken) => {
+          const retryOptions = {
+            ...options,
+            headers: {
+              ...options.headers,
+              'Authorization': `Bearer ${newToken}`,
+            }
+          };
+          resolve(await this.request<T>(endpoint, retryOptions));
+        });
+      });
+    }
+
     const authToken = await getAuthToken();
     const defaultHeaders: HeadersInit = {
       'Content-Type': 'application/json',
@@ -143,7 +183,7 @@ const apiClient = {
         }
 
         // Call error handler for 401 errors
-        if ((response.status === 401 || response.status === 403) && errorHandler) {
+        if ((response.status === 401 || response.status === 403) && errorHandler && !options.skipAuthHandler) {
           const error = new ApiClientError(
             errorData.detail || `HTTP error! status: ${response.status}`,
             response.status,
@@ -243,6 +283,26 @@ const apiClient = {
     } catch (error) {
       console.error('Error persisting token to SecureStore:', error);
     }
+  },
+
+  isTokenExpired(token: string): boolean {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const now = Math.floor(Date.now() / 1000);
+      return payload.exp < now;
+    } catch (e) {
+      return true;
+    }
+  },
+
+  async checkTokenValidity(): Promise<boolean> {
+    const token = await getAuthToken();
+    if (!token) return false;
+    return !this.isTokenExpired(token);
+  },
+
+  async getAuthToken(): Promise<string | null> {
+    return getAuthToken();
   },
 
   async clearAuthToken() {

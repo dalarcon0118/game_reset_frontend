@@ -118,6 +118,48 @@ export class Return<Model, Msg> {
                 };
             }
 
+            // If it's an ALERT command, we need to wrap the onPressMsg of each button
+            if (cmd.type === 'ALERT' && cmd.payload && Array.isArray(cmd.payload.buttons)) {
+                return {
+                    ...cmd,
+                    payload: {
+                        ...cmd.payload,
+                        buttons: cmd.payload.buttons.map((btn: any) => ({
+                            ...btn,
+                            onPressMsg: btn.onPressMsg ? msgWrapper(btn.onPressMsg) : undefined
+                        }))
+                    }
+                };
+            }
+
+            // If it's a TASK command, we need to wrap onSuccess and onFailure
+            if (cmd.type === 'TASK' && cmd.payload) {
+                const originalSuccess = cmd.payload.onSuccess;
+                const originalFailure = cmd.payload.onFailure;
+                return {
+                    ...cmd,
+                    payload: {
+                        ...cmd.payload,
+                        onSuccess: originalSuccess ? (data: any) => msgWrapper(originalSuccess(data)) : undefined,
+                        onFailure: originalFailure ? (err: any) => msgWrapper(originalFailure(err)) : undefined
+                    }
+                };
+            }
+
+            // If it's an ATTEMPT command, same as TASK
+            if (cmd.type === 'ATTEMPT' && cmd.payload) {
+                const originalSuccess = cmd.payload.onSuccess;
+                const originalFailure = cmd.payload.onFailure;
+                return {
+                    ...cmd,
+                    payload: {
+                        ...cmd.payload,
+                        onSuccess: originalSuccess ? (data: any) => msgWrapper(originalSuccess(data)) : undefined,
+                        onFailure: originalFailure ? (err: any) => msgWrapper(originalFailure(err)) : undefined
+                    }
+                };
+            }
+
             // For other commands, we return as is or warn if mapping is not possible?
             // Depending on the architecture, we might just append them.
             return cmd;

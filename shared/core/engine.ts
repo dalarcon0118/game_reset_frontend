@@ -13,33 +13,52 @@ export type Cmd = CommandDescriptor | CommandDescriptor[] | null | undefined;
 export type UpdateResult<TModel, TMsg> = [TModel, Cmd?];
 
 export const createElmStore = <TModel, TMsg>(
-    initialModel: TModel,
+    initial: TModel | ((params?: any) => UpdateResult<TModel, TMsg>),
     update: (model: TModel, msg: TMsg) => UpdateResult<TModel, TMsg>,
     effectHandlers: Record<string, (payload: any, dispatch: (msg: TMsg) => void) => Promise<any>>,
     subscriptions?: (model: TModel) => SubDescriptor<TMsg>
 ) => {
-    const store = create<{ model: TModel; dispatch: (msg: TMsg) => void }>((set, get) => ({
-        model: initialModel,
-        dispatch: async (msg: TMsg) => {
-            // 1. Ejecutar lógica pura
-            const [nextModel, cmd] = update(get().model, msg);
-
-            // 2. Actualizar estado
-            set({ model: nextModel });
-
+    const store = create<{ 
+        model: TModel; 
+        dispatch: (msg: TMsg) => void;
+        init: (params?: any) => void;
+    }>((set, get) => {
+        const executeCmds = (cmd: Cmd) => {
             const cmdsToExecute = Array.isArray(cmd) ? cmd : cmd ? [cmd] : [];
-
-            // 3. Ejecutar comandos
             cmdsToExecute.forEach(async (singleCmd: any) => {
                 if (singleCmd && effectHandlers[singleCmd.type]) {
-                    const result = await effectHandlers[singleCmd.type](singleCmd.payload, get().dispatch);
-                    if (singleCmd.payload && singleCmd.payload.msgCreator) {
-                        get().dispatch(singleCmd.payload.msgCreator(result));
+                    try {
+                        const result = await effectHandlers[singleCmd.type](singleCmd.payload, get().dispatch);
+                        if (singleCmd.payload && singleCmd.payload.msgCreator) {
+                            get().dispatch(singleCmd.payload.msgCreator(result));
+                        }
+                    } catch (error) {
+                        if (singleCmd.payload && singleCmd.payload.errorCreator) {
+                            get().dispatch(singleCmd.payload.errorCreator(error));
+                        } else {
+                            console.error(`Unhandled error in Cmd ${singleCmd.type}:`, error);
+                        }
                     }
                 }
             });
-        },
-    }));
+        };
+
+        return {
+            model: typeof initial === 'function' ? (initial as any)()[0] : initial,
+            init: (params?: any) => {
+                if (typeof initial === 'function') {
+                    const [nextModel, cmd] = (initial as Function)(params);
+                    set({ model: nextModel });
+                    if (cmd) executeCmds(cmd);
+                }
+            },
+            dispatch: async (msg: TMsg) => {
+                const [nextModel, cmd] = update(get().model, msg);
+                set({ model: nextModel });
+                if (cmd) executeCmds(cmd);
+            },
+        };
+    });
 
     // Gestión de Subscripciones
     if (subscriptions) {

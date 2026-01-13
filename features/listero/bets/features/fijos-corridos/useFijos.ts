@@ -3,7 +3,7 @@ import { Alert } from 'react-native';
 import { FijosCorridosBet } from '@/types';
 import { GameTypes } from '@/constants/Bet';
 import { useBetsStore, selectBetsModel, selectDispatch } from '../../core/store';
-import { FijosMsgType } from './fijos.types';
+import { FijosCmd, FijosMsgType } from './fijos.types';
 
 /**
  * ViewModel hook para gestionar Fijos/Corridos usando el submódulo bet-fijos.
@@ -21,21 +21,25 @@ export const useFijos = ({ onSelectPlay }: { onSelectPlay?: (bets: FijosCorridos
     showBetKeyboard,
     showAmountKeyboard,
     amountConfirmationDetails,
+    currentInput,
   } = editSession;
 
-  const {
-    fijosCorridos,
-  } = listSession;
+  const fijosCorridos =
+    listSession.remoteData.type === 'Success'
+      ? listSession.remoteData.data.fijosCorridos
+      : [];
 
-  const openBetKeyboard = useCallback(() => dispatch({ type: 'FIJOS', payload: { type: FijosMsgType.OPEN_BET_KEYBOARD } }), [dispatch]);
-  const closeBetKeyboard = useCallback(() => dispatch({ type: 'FIJOS', payload: { type: FijosMsgType.CLOSE_BET_KEYBOARD } }), [dispatch]);
+  const openBetKeyboard = useCallback(() => dispatch(FijosCmd.OPEN_BET_KEYBOARD()), [dispatch]);
+  const closeBetKeyboard = useCallback(() => dispatch(FijosCmd.CLOSE_BET_KEYBOARD()), [dispatch]);
   const openAmountKeyboard = useCallback((betId: string, amountType: 'fijo' | 'corrido') => dispatch({ type: 'FIJOS', payload: { type: FijosMsgType.OPEN_AMOUNT_KEYBOARD, betId, amountType } }), [dispatch]);
-  const closeAmountKeyboard = useCallback(() => dispatch({ type: 'FIJOS', payload: { type: FijosMsgType.CLOSE_AMOUNT_KEYBOARD } }), [dispatch]);
-  const processBetInput = useCallback((inputString: string) => dispatch({ type: 'FIJOS', payload: { type: FijosMsgType.PROCESS_BET_INPUT, inputString } }), [dispatch]);
-  const submitAmountInput = useCallback((amountString: string) => dispatch({ type: 'FIJOS', payload: { type: FijosMsgType.SUBMIT_AMOUNT_INPUT, amountString } }), [dispatch]);
-  const confirmApplyAmountAll = useCallback(() => dispatch({ type: 'FIJOS', payload: { type: FijosMsgType.CONFIRM_APPLY_AMOUNT_ALL } }), [dispatch]);
-  const confirmApplyAmountSingle = useCallback(() => dispatch({ type: 'FIJOS', payload: { type: FijosMsgType.CONFIRM_APPLY_AMOUNT_SINGLE } }), [dispatch]);
-  const cancelAmountConfirmation = useCallback(() => dispatch({ type: 'FIJOS', payload: { type: FijosMsgType.CANCEL_AMOUNT_CONFIRMATION } }), [dispatch]);
+  const closeAmountKeyboard = useCallback(() => dispatch(FijosCmd.CLOSE_AMOUNT_KEYBOARD()), [dispatch]);
+  const processBetInput = useCallback((inputString: string) => dispatch(FijosCmd.PROCESS_BET_INPUT(inputString)), [dispatch]);
+  const submitAmountInput = useCallback((amountString: string) => dispatch(FijosCmd.SUBMIT_AMOUNT_INPUT(amountString)), [dispatch]);
+  const confirmApplyAmountAll = useCallback(() => dispatch(FijosCmd.CONFIRM_APPLY_AMOUNT_ALL()), [dispatch]);
+  const confirmApplyAmountSingle = useCallback(() => dispatch(FijosCmd.CONFIRM_APPLY_AMOUNT_SINGLE()), [dispatch]);
+  const cancelAmountConfirmation = useCallback(() => dispatch(FijosCmd.CANCEL_AMOUNT_CONFIRMATION()), [dispatch]);
+  const handleKeyPress = useCallback((key: string) => dispatch(FijosCmd.KEY_PRESSED(key)), [dispatch]);
+  const handleConfirmInput = useCallback(() => dispatch(FijosCmd.CONFIRM_INPUT()), [dispatch]);
 
   // Efecto para llamar a onSelectPlay cuando fijosCorridos cambia
   useEffect(() => {
@@ -65,11 +69,14 @@ export const useFijos = ({ onSelectPlay }: { onSelectPlay?: (bets: FijosCorridos
     fijosCorridosList: fijosCorridos,
     showBetKeyboard,
     showAmountKeyboard,
+    currentInput,
     handleAddBetPress: openBetKeyboard,
     handleAmountCirclePress: openAmountKeyboard,
     hideBetKeyboard: closeBetKeyboard,
     hideAmountKeyboard: closeAmountKeyboard,
     processBetInput,
     handleAmountKeyboardInput: submitAmountInput,
+    handleKeyPress,
+    handleConfirmInput,
   };
 };

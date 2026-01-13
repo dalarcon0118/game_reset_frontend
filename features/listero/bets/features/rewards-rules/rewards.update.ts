@@ -34,6 +34,7 @@ export const updateRewardsRules = (model: GlobalModel, msg: RewardsRulesMsg): Re
             });
         })
         .with({ type: RewardsRulesMsgType.FETCH_RULES_REQUESTED }, ({ drawId }) => {
+            console.log('RewardsRules update: FETCH_RULES_REQUESTED for drawId:', drawId);
             return ret(
                 {
                     ...model,
@@ -41,8 +42,14 @@ export const updateRewardsRules = (model: GlobalModel, msg: RewardsRulesMsg): Re
                 },
                 Cmd.task({
                     task: () => RulesService.getAllRulesForDraw(drawId),
-                    onSuccess: (rules) => ({ type: RewardsRulesMsgType.FETCH_RULES_SUCCEEDED, rules }),
-                    onFailure: (err) => ({ type: RewardsRulesMsgType.FETCH_RULES_FAILED, error: err })
+                    onSuccess: (rules) => {
+                        console.log('RewardsRules update: FETCH_RULES_SUCCEEDED with rules:', rules);
+                        return { type: RewardsRulesMsgType.FETCH_RULES_SUCCEEDED, rules };
+                    },
+                    onFailure: (err) => {
+                        console.error('RewardsRules update: FETCH_RULES_FAILED with error:', err);
+                        return { type: RewardsRulesMsgType.FETCH_RULES_FAILED, error: err };
+                    }
                 })
             );
         })

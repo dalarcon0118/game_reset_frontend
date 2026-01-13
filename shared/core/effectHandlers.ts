@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { Alert } from 'react-native';
 import { Cmd } from './cmd';
 import apiClient from '../services/ApiClient';
 export interface TaskPayload {
@@ -21,6 +22,9 @@ export interface HttpPayload {
     msgCreator?: any;
 }
 export const effectHandlers = {
+    'MSG': async (payload: any, dispatch: (msg: any) => void) => {
+        dispatch(payload);
+    },
     'HTTP': async (payload: HttpPayload) => {
         const { url, method, body, headers } = payload;
 
@@ -86,5 +90,24 @@ export const effectHandlers = {
         const { ms, msg } = payload;
         await new Promise(resolve => setTimeout(resolve, ms));
         dispatch(msg);
+    },
+    'ALERT': async (payload: {
+        title: string,
+        message: string,
+        buttons?: { text: string, onPressMsg?: any, style?: 'default' | 'cancel' | 'destructive' }[]
+    }, dispatch: (msg: any) => void) => {
+        const { title, message, buttons } = payload;
+
+        const rnButtons = buttons?.map(btn => ({
+            text: btn.text,
+            style: btn.style,
+            onPress: () => {
+                if (btn.onPressMsg) {
+                    dispatch(btn.onPressMsg);
+                }
+            }
+        }));
+
+        Alert.alert(title, message, rnButtons);
     }
 };

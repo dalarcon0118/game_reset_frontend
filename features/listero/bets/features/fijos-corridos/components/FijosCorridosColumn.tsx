@@ -4,39 +4,44 @@ import AmountCircle from '../../../shared/components/AmountCircle';
 import BetCircle from '../../../shared/components/BetCircle';
 import { FijosCorridosBet } from '@/types';
 import BottomDrawer from '@/components/ui/BottomDrawer';
-import { AnnotationTypes, GameTypes } from '@/constants/Bet';
 import Layout from '@/constants/Layout';
 import { useFijos } from '../useFijos';
-import { CustomNumericKeyboard } from '../../../shared/components/NumericKeyboard';
+import { BetNumericKeyboard, AmountNumericKeyboard } from '../../../shared/components/NumericKeyboard';
 
-interface FijosCorridosColumnProps {}
+export default function FijosCorridosColumn() {
+    const {
+        fijosCorridosList,
+        showBetKeyboard,
+        showAmountKeyboard,
+        currentInput,
+        handleAddBetPress,
+        handleAmountCirclePress,
+        hideBetKeyboard,
+        hideAmountKeyboard,
+        handleKeyPress,
+        handleConfirmInput,
+    } = useFijos();
 
-export default function FijosCorridosColumn({}: FijosCorridosColumnProps) {
-  const {
-    fijosCorridosList,
-    showBetKeyboard,
-    showAmountKeyboard,
-    handleAddBetPress,
-    handleAmountCirclePress,
-    hideBetKeyboard,
-    hideAmountKeyboard,
-    processBetInput,
-    handleAmountKeyboardInput,
-  } = useFijos();
 
   const renderKeyboard = () => {
     const isVisible = showBetKeyboard || showAmountKeyboard;
     const onClose = showBetKeyboard ? hideBetKeyboard : hideAmountKeyboard;
-    const onNumberPress = showBetKeyboard ? processBetInput : handleAmountKeyboardInput;
-    const annotationType = showBetKeyboard ? AnnotationTypes.Bet : AnnotationTypes.Amount;
 
     return (
-      <BottomDrawer isVisible={isVisible} onClose={onClose} title='' height={"50%"}>
-        <CustomNumericKeyboard
-          onNumberPress={(number: string) => onNumberPress(number)}
-          annotationType={annotationType}
-          gameType={GameTypes.FIJOS_CORRIDOS}
-        />
+      <BottomDrawer isVisible={isVisible} onClose={onClose} title='' height={"60%"}>
+        {showBetKeyboard ? (
+          <BetNumericKeyboard
+            onKeyPress={handleKeyPress}
+            onConfirm={handleConfirmInput}
+            currentInput={currentInput}
+          />
+        ) : (
+          <AmountNumericKeyboard
+            onKeyPress={handleKeyPress}
+            onConfirm={handleConfirmInput}
+            currentInput={currentInput}
+          />
+        )}
       </BottomDrawer>
     );
   };
@@ -61,7 +66,13 @@ export default function FijosCorridosColumn({}: FijosCorridosColumnProps) {
       <View style={styles.columnContent}>
         {renderBets()}
         <View style={styles.fijoRow}>
-          <BetCircle value={"+"} onPress={handleAddBetPress} />
+          <BetCircle 
+            value={"+"} 
+            onPress={() => {
+              console.log('BetCircle + pressed');
+              handleAddBetPress?.();
+            }} 
+          />
           <AmountCircle amount={null} onPress={() => {}} />
           <AmountCircle amount={null} onPress={() => {}} />
         </View>
@@ -73,9 +84,6 @@ export default function FijosCorridosColumn({}: FijosCorridosColumnProps) {
 
 const styles = StyleSheet.create({
   column: {
-    borderRightWidth: 1,
-    borderRightColor: '#E8E8E8',
-    flex: 1,
     paddingTop: 12
   },
   colFijos: {

@@ -30,6 +30,8 @@ export type RewardsRulesMsg =
     | { type: RewardsRulesMsgType.FETCH_RULES_SUCCEEDED; rules: UnifiedRulesResponse | null }
     | { type: RewardsRulesMsgType.FETCH_RULES_FAILED; error: any };
 
+export type RewardsRulesFeatMsg = { type: 'REWARDS_RULES'; payload: RewardsRulesMsg };
+
 // Initial values
 export const rewardsCache: RewardsCache = { data: null, isLoading: false, error: null };
 export const rulesCache: RulesCache = { data: null, isLoading: false, error: null };

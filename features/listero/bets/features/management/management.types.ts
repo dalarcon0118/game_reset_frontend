@@ -33,9 +33,11 @@ export enum ManagementMsgType {
     SAVE_BETS_FAILED = 'SAVE_BETS_FAILED',
     RESET_BETS = 'RESET_BETS',
     CLEAR_MANAGEMENT_ERROR = 'CLEAR_MANAGEMENT_ERROR',
+    INIT = 'INIT',
 }
 
 export type ManagementMsg =
+    | { type: ManagementMsgType.INIT; drawId: string; fetchExistingBets?: boolean }
     | { type: ManagementMsgType.FETCH_BET_TYPES_REQUESTED; drawId: string }
     | { type: ManagementMsgType.FETCH_BET_TYPES_SUCCEEDED; betTypes: GameType[] }
     | { type: ManagementMsgType.FETCH_BET_TYPES_FAILED; error: string }
@@ -44,3 +46,5 @@ export type ManagementMsg =
     | { type: ManagementMsgType.SAVE_BETS_FAILED; error: string }
     | { type: ManagementMsgType.RESET_BETS }
     | { type: ManagementMsgType.CLEAR_MANAGEMENT_ERROR };
+
+export type ManagementFeatMsg = { type: 'MANAGEMENT'; payload: ManagementMsg };

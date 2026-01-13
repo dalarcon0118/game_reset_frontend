@@ -1,25 +1,49 @@
 import React from 'react';
-import { View, StyleSheet, useColorScheme, TouchableOpacity } from 'react-native';
+import { StyleSheet, useColorScheme, TouchableOpacity } from 'react-native';
 import StyledText from '@/components/typography/StyledText';
 import Colors from '@/constants/Colors';
 
 interface BetCircleProps {
   value: number | string;
-  onPress?: () => void; // Added onPress prop
+  onPress?: () => void;
 }
 
-const CIRCLE_SIZE = 40;
+const BASE_SIZE = 40;
+
+const getSizeForValue = (value: number | string): number => {
+  const length = String(value).length;
+  if (length <= 2) return BASE_SIZE;
+  if (length === 3) return BASE_SIZE + 8;
+  return BASE_SIZE + 16; // 4+ digits
+};
+
+const getFontSize = (value: number | string): number => {
+  const length = String(value).length;
+  if (length <= 2) return 16;
+  if (length === 3) return 14;
+  return 12; // 4+ digits
+};
 
 export default function BetCircle({ value, onPress }: BetCircleProps) {
   const colorScheme = useColorScheme() ?? 'light';
+  const size = getSizeForValue(value);
+  
   return (
-    // Changed View to TouchableOpacity and added onPress
     <TouchableOpacity 
-      style={[value === "+" ? styles.circle : styles.circleWithValue, { borderColor: Colors[colorScheme].primary }]}
+      style={[
+        value === "+" ? styles.circle : styles.circleWithValue,
+        { 
+          borderColor: Colors[colorScheme].primary,
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+        }
+      ]}
       onPress={onPress} 
-      disabled={!onPress} // Disable touch if no onPress is provided
+      disabled={!onPress}
+      activeOpacity={0.7}
     >
-      <StyledText variant="caption" >
+      <StyledText variant="caption" style={{ fontSize: getFontSize(value) }}>
         {value}
       </StyledText>
     </TouchableOpacity>
@@ -28,9 +52,6 @@ export default function BetCircle({ value, onPress }: BetCircleProps) {
 
 const styles = StyleSheet.create({
   circle: {
-    width: CIRCLE_SIZE,
-    height: CIRCLE_SIZE,
-    borderRadius: CIRCLE_SIZE / 2,
     borderWidth: 1,
     borderStyle: 'dashed',
     justifyContent: 'center',
@@ -38,9 +59,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
   circleWithValue: {
-    width: CIRCLE_SIZE,
-    height: CIRCLE_SIZE,
-    borderRadius: CIRCLE_SIZE / 2,
     borderWidth: 0,
     justifyContent: 'center',
     alignItems: 'center',
