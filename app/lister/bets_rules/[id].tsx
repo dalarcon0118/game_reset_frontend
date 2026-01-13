@@ -1,7 +1,7 @@
-import RulesScreen from '@/features/listero/bets/views/rules';
+import { RulesScreen } from '@/features/listero/bets/screens/RulesScreen';
 import { useLocalSearchParams } from 'expo-router';
 
-export default function BetsListScreen() {
+export default function BetsRulesScreen() {
   const { id } = useLocalSearchParams();
   return <RulesScreen drawId={id as string} />;
 }

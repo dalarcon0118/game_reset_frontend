@@ -18,5 +18,8 @@
     ".expo/types/**/*.ts",
     "expo-env.d.ts",
     "nativewind-env.d.ts"
-, "features/banker/common/header"  ]
+, "features/banker/common/header"  ],
+  "exclude": [
+    "**/legacy/**"
+  ]
 }

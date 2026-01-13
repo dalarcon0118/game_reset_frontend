@@ -1,11 +1,22 @@
 import { match, P } from 'ts-pattern';
 import { Model, Msg, MsgType } from './types';
 import { Cmd } from '@/shared/core/cmd';
+import { Sub } from '@/shared/core/sub';
 import { UpdateResult } from '@/shared/core/engine';
 import { DrawService } from '@/shared/services/Draw';
+import { routes } from '@/config';
 import { FinancialSummaryService } from '@/shared/services/FinancialSummary';
 import { ApiClientError } from '@/shared/services/ApiClient';
 import { pipe, createStream, toArray } from '@/shared/utils/generators';
+
+// --- Subscriptions ---
+export const subscriptions = (model: Model) => {
+    // Si tenemos datos, refrescar cada 10 segundos para actualizar expiración y contadores
+    if (model.draws.data && (model.draws.data as any[]).length > 0) {
+        return Sub.every(10000, { type: MsgType.TICK }, 'dashboard-tick');
+    }
+    return Sub.none();
+};
 
 export const initialState: Model = {
     draws: { data: null, filteredData: [], loading: false, error: null },
@@ -15,10 +26,12 @@ export const initialState: Model = {
         premiumsPaid: 0,
         netResult: 0,
         estimatedCommission: 0,
+        amountToRemit: 0,
     },
     userStructureId: null,
     statusFilter: 'open',
     appliedFilter: 'open',
+    commissionRate: 0.1, // 10% por defecto según especificación
 };
 
 const isClosingSoon = (bettingEndTime?: string) => {
@@ -26,24 +39,40 @@ const isClosingSoon = (bettingEndTime?: string) => {
     const now = new Date();
     const endTime = new Date(bettingEndTime);
     const diff = endTime.getTime() - now.getTime();
-    return diff > 0 && diff < 30 * 60 * 1000; // 30 minutes
+    return diff > 0 && diff < 5 * 60 * 1000; // 5 minutes según feature spec
+};
+
+const isExpired = (bettingEndTime?: string) => {
+    if (!bettingEndTime) return false;
+    const now = new Date();
+    const endTime = new Date(bettingEndTime);
+    return now.getTime() >= endTime.getTime();
 };
 
 const applyFiltersAndTotals = (model: Model): Model => {
     const data = (model.draws.data as any[]) || [];
     const filteredData = data.filter((draw) => {
+        const expired = isExpired(draw.betting_end_time);
+
         if (model.appliedFilter === 'all') return true;
-        if (model.appliedFilter === 'open') return draw.status === 'open';
+
+        if (model.appliedFilter === 'open') {
+            return draw.status === 'open' && !expired;
+        }
+
         if (model.appliedFilter === 'closed') {
             return (
                 draw.status === 'closed' ||
                 draw.status === 'completed' ||
-                draw.status === 'cancelled'
+                draw.status === 'cancelled' ||
+                (draw.status === 'open' && expired)
             );
         }
+
         if (model.appliedFilter === 'closing_soon') {
             return draw.status === 'open' && isClosingSoon(draw.betting_end_time);
         }
+
         if (model.appliedFilter === 'rewarded') {
             return (draw.premiumsPaid || 0) > 0;
         }
@@ -52,15 +81,26 @@ const applyFiltersAndTotals = (model: Model): Model => {
 
     const dailyTotals = filteredData.reduce(
         (acc, draw) => {
+            const collected = draw.totalCollected || 0;
+            const premiums = draw.premiumsPaid || 0;
+            const net = draw.netResult || (collected - premiums);
+            const commission = collected * model.commissionRate;
+
             return {
-                totalCollected: acc.totalCollected + (draw.totalCollected || 0),
-                premiumsPaid: acc.premiumsPaid + (draw.premiumsPaid || 0),
-                netResult: acc.netResult + (draw.netResult || 0),
-                estimatedCommission:
-                    acc.estimatedCommission + (draw.totalCollected || 0) * 0.1,
+                totalCollected: acc.totalCollected + collected,
+                premiumsPaid: acc.premiumsPaid + premiums,
+                netResult: acc.netResult + net,
+                estimatedCommission: acc.estimatedCommission + commission,
+                amountToRemit: acc.amountToRemit + (net - commission),
             };
         },
-        { totalCollected: 0, premiumsPaid: 0, netResult: 0, estimatedCommission: 0 }
+        {
+            totalCollected: 0,
+            premiumsPaid: 0,
+            netResult: 0,
+            estimatedCommission: 0,
+            amountToRemit: 0
+        }
     );
 
     return {
@@ -128,13 +168,13 @@ export const update = (model: Model, msg: Msg): UpdateResult<Model, Msg> => {
     // 1. Manejar mensajes de navegación (solo Comandos, no cambian el modelo)
     const navResult = match<Msg, Cmd>(msg)
         .with({ type: MsgType.RULES_CLICKED }, ({ drawId }) =>
-            Cmd.navigate({ pathname: '/lister/bets_rules/[id]', params: { id: drawId } }))
+            Cmd.navigate({ pathname: routes.lister.bets_rules.screen, params: { id: drawId } }))
         .with({ type: MsgType.REWARDS_CLICKED }, ({ drawId, title }) =>
-            Cmd.navigate({ pathname: '/lister/rewards/[id]', params: { id: drawId, title } }))
+            Cmd.navigate({ pathname: routes.lister.rewards.screen, params: { id: drawId, title } }))
         .with({ type: MsgType.BETS_LIST_CLICKED }, ({ drawId, title }) =>
-            Cmd.navigate({ pathname: '/lister/bets_list/[id]', params: { id: drawId, title } }))
+            Cmd.navigate({ pathname: routes.lister.bets_list.screen, params: { id: drawId, title } }))
         .with({ type: MsgType.CREATE_BET_CLICKED }, ({ drawId, title }) =>
-            Cmd.navigate({ pathname: '/lister/bets_create/[id]', params: { id: drawId, title } }))
+            Cmd.navigate({ pathname: routes.lister.bets_create.screen, params: { id: drawId, title } }))
         .with({ type: MsgType.NAVIGATE_TO_ERROR }, () =>
             Cmd.navigate({ pathname: '/error' }))
         .otherwise(() => null);
@@ -158,6 +198,9 @@ export const update = (model: Model, msg: Msg): UpdateResult<Model, Msg> => {
 
         .with({ type: MsgType.REFRESH_CLICKED }, () =>
             [model, { type: MsgType.FETCH_DATA_REQUESTED } as any])
+
+        .with({ type: MsgType.TICK }, () =>
+            [model, Cmd.none])
 
         .with({
             type: P.union(

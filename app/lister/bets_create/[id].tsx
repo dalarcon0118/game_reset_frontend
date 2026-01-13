@@ -1,14 +1,11 @@
 import React from 'react';
-
 import { useLocalSearchParams } from 'expo-router';
-import BetEditScreen from '@/features/listero/bets/views/edit_list';
+import { EditListScreen } from '@/features/listero/bets/screens/EditListScreen';
 
-export default function ListerBetsScreen({
-  drawId
-}: any) {
-  const { id,title } = useLocalSearchParams();
+export default function ListerBetsScreen() {
+  const { id, title } = useLocalSearchParams();
 
   return (
-    <BetEditScreen drawId={id} title={title} />
+    <EditListScreen drawId={id as string} title={title as string} />
   );
 }

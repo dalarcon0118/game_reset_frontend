@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Label, Card, Flex, ButtonKit, Badge } from '../../../../shared/components';
-import { CalendarClock, Clock3, ChevronRight } from 'lucide-react-native';
+import { CalendarClock, Clock3, ChevronRight, AlarmClock } from 'lucide-react-native';
 import { DrawType } from '@/types';
 import SummaryCard from './SummaryCard';
 
@@ -21,7 +21,6 @@ export default function DrawItem({
    onBetsListPress,
    onCreateBetPress,
    index }: DrawItemProps) {
-  const [effectiveStatus, setEffectiveStatus] = useState(draw.status);
   
   const handleRewardsPress = () => {
     onRewardsPress(draw.id.toString(), draw.source || '');
@@ -35,36 +34,42 @@ export default function DrawItem({
     onCreateBetPress(draw.id.toString(), draw.source || '');
   }
 
-  // Verificar si el sorteo debe cerrarse automáticamente (10 min antes del betting_end_time)
-  useEffect(() => {
-    const checkDrawStatus = () => {
-      if (!draw.betting_end_time) return;
+  const getDrawStatus = () => {
+    if (!draw.betting_end_time) return draw.status;
+    const now = new Date();
+    const endTime = new Date(draw.betting_end_time);
+    if (now >= endTime) return 'closed';
+    return draw.status;
+  };
 
-      const now = new Date();
-      const bettingEndTime = new Date(draw.betting_end_time);
-      const tenMinutesBeforeEnd = new Date(bettingEndTime.getTime() - 10 * 60 * 1000);
+  const effectiveStatus = getDrawStatus();
 
-      // Si faltan 10 minutos o menos para el cierre, marcar como cerrado
-      if (now >= tenMinutesBeforeEnd && (draw.status === 'open' || draw.status === 'scheduled')) {
-        setEffectiveStatus('closed');
-      } else {
-        setEffectiveStatus(draw.status);
-      }
-    };
+  const getClosingTimeInfo = () => {
+    if (!draw.betting_end_time || effectiveStatus !== 'open') return null;
+    
+    const now = new Date();
+    const endTime = new Date(draw.betting_end_time);
+    const diffMs = endTime.getTime() - now.getTime();
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffSecs = Math.floor((diffMs % (1000 * 60)) / 1000);
 
-    // Verificar inmediatamente
-    checkDrawStatus();
+    if (diffMs > 0 && diffMs < 5 * 60 * 1000) {
+      return {
+        isCritical: true,
+        timeLeft: `${diffMins}:${diffSecs.toString().padStart(2, '0')}`
+      };
+    }
+    return null;
+  };
 
-    // Verificar cada minuto
-    const interval = setInterval(checkDrawStatus, 60000);
-
-    return () => clearInterval(interval);
-  }, [draw.betting_end_time, draw.status])
+  const closingInfo = getClosingTimeInfo();
 
   const getStatusBadge = () => {
     switch (effectiveStatus) {
       case 'open':
-        return <Badge status="success">Abierto</Badge>;
+        return <Badge status={closingInfo?.isCritical ? "danger" : "success"}>
+          {closingInfo?.isCritical ? `Cierra en ${closingInfo.timeLeft}` : "Abierto"}
+        </Badge>;
       case 'closed':
         return <Badge status="danger">Cerrado</Badge>;
       default:
@@ -85,7 +90,7 @@ export default function DrawItem({
   };
 
   return (
-    <Card style={styles.container}>
+    <Card style={[styles.container, closingInfo?.isCritical && styles.criticalContainer]}>
       {/* Header with Title and Status */}
       <Flex justify="between" align="center" style={styles.header}>
         <View>
@@ -99,7 +104,12 @@ export default function DrawItem({
             </Label>
           </Flex>
         </View>
-        {getStatusBadge()}
+        <Flex align="center" gap={8}>
+         
+          {closingInfo?.isCritical && (
+            <AlarmClock size={20} color="#FF3D71" />
+          )}
+        </Flex>
       </Flex>
 
       {/* Financial Row - Compact */}
@@ -178,6 +188,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
+  },
+  criticalContainer: {
+    backgroundColor: '#FFF5F8',
   },
   header: {
     marginBottom: 12,

@@ -9,15 +9,18 @@ interface GlobalSummaryProps {
     premiumsPaid: number;
     netResult: number;
     estimatedCommission: number;
+    amountToRemit: number;
   };
+  commissionRate: number;
 }
 
-export default function GlobalSummary({ totals }: GlobalSummaryProps) {
+export default function GlobalSummary({ totals, commissionRate }: GlobalSummaryProps) {
   const {
     estimatedCommission = 0,
     totalCollected = 0,
     premiumsPaid = 0,
-    netResult = 0
+    netResult = 0,
+    amountToRemit = 0
   } = totals || {};
 
   return (
@@ -32,13 +35,26 @@ export default function GlobalSummary({ totals }: GlobalSummaryProps) {
                 <PiggyBank size={24} color="#00C48C" />
               </View>
               <View>
-                <Label type="detail">Mi Comisión Est.</Label>
+                <Label type="detail">Mi Ganancia Est.</Label>
                 <Label style={styles.commissionValue}>${estimatedCommission.toFixed(2)}</Label>
               </View>
             </Flex>
             <View style={styles.badge}>
-              <Label style={styles.badgeText}>10%</Label>
+              <Label style={styles.badgeText}>{(commissionRate * 100).toFixed(0)}%</Label>
             </View>
+          </Flex>
+
+          {/* Amount to Remit (To Collector) */}
+          <Flex align="center" justify="between" style={styles.remitRow}>
+            <Flex align="center" gap={12}>
+              <View style={[styles.iconBox, { backgroundColor: '#F4F6FF' }]}>
+                <Wallet size={24} color="#3366FF" />
+              </View>
+              <View>
+                <Label type="detail">Monto a Entregar al Colector</Label>
+                <Label style={styles.remitValue}>${amountToRemit.toFixed(2)}</Label>
+              </View>
+            </Flex>
           </Flex>
 
           <View style={styles.divider} />
@@ -107,9 +123,17 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   commissionValue: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#00C48C',
+    color: '#2E3A59',
+  },
+  remitRow: {
+    paddingTop: 4,
+  },
+  remitValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#3366FF',
   },
   badge: {
     backgroundColor: '#E6F9F3',

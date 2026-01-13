@@ -13,6 +13,7 @@ export default function Dashboard() {
     summary,
     dailyTotals,
     statusFilter,
+    commissionRate,
     setStatusFilter,
     refresh,
     goToRules,
@@ -85,7 +86,7 @@ export default function Dashboard() {
         contentContainerStyle={styles.scrollContent}
         stickyHeaderIndices={[1]}
       >
-        <GlobalSummary totals={dailyTotals} />
+        <GlobalSummary totals={dailyTotals} commissionRate={commissionRate} />
         
         <Flex style={styles.filtersWrapper}>
           {renderFilterOptions()}

@@ -28,6 +28,7 @@ export const useDashboard = () => {
     const dispatch = useDashboardStore(selectDispatch);
     const statusFilter = useDashboardStore(selectStatusFilter);
     const dailyTotals = useDashboardStore(selectDailyTotals);
+    const commissionRate = useDashboardStore(state => state.model.commissionRate);
 
     const setStatusFilter = useCallback((filter: StatusFilter) => {
         dispatch(STATUS_FILTER_CHANGED(filter));
@@ -69,6 +70,7 @@ export const useDashboard = () => {
         summary,
         dailyTotals,
         statusFilter,
+        commissionRate,
         setStatusFilter,
         refresh,
         goToRules,

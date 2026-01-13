@@ -1,8 +1,8 @@
 import { BetType } from '@/types';
 import apiClient from '@/shared/services/ApiClient';
 import settings from '@/config/settings';
-
-
+import NetInfo from '@react-native-community/netinfo';
+import { OfflineStorage } from './OfflineStorage';
 
 // DTO for creating a new bet
 export interface CreateBetDTO {
@@ -57,6 +57,26 @@ export class BetService {
      */
     static async create(betData: CreateBetDTO): Promise<BetType> {
         console.log('Creating bet with data:', betData);
+        
+        const state = await NetInfo.fetch();
+        const isOnline = state.isConnected && state.isInternetReachable !== false;
+
+        if (!isOnline) {
+            console.log('Offline mode detected. Saving bet locally...');
+            await OfflineStorage.savePendingBet(betData);
+            
+            // Retornamos un objeto BetType ficticio con estado pendiente
+            return {
+                id: `offline-${Math.random().toString(36).substring(7)}`,
+                type: 'Fijo', // Valor por defecto para el placeholder
+                numbers: JSON.stringify(betData.numbers_played || []),
+                amount: betData.amount || 0,
+                draw: (betData.draw || betData.drawId || '').toString(),
+                createdAt: new Date().toLocaleTimeString(),
+                isPending: true // Nuevo campo opcional para la UI
+            };
+        }
+
         const response = await apiClient.post<BackendBet[]>(settings.api.endpoints.bets, betData);
 
         // Si el backend devuelve un array, tomamos el primer elemento

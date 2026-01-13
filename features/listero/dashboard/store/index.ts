@@ -1,12 +1,13 @@
 import { createElmStore } from '@/shared/core/engine';
 import { effectHandlers } from '@/shared/core/effectHandlers';
 import { Model, Msg } from './types';
-import { update, initialState } from './update';
+import { update, initialState, subscriptions } from './update';
 
 export const useDashboardStore = createElmStore<Model, Msg>(
     initialState,
     update,
-    effectHandlers as any
+    effectHandlers as any,
+    subscriptions
 );
 
 // Selectores

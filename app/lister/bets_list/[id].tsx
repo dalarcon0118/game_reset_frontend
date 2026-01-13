@@ -1,7 +1,7 @@
-import BetsList from '@/features/listero/bets/views/list/index';
+import { BetsListScreen } from '@/features/listero/bets/screens/BetsListScreen';
 import { useLocalSearchParams } from 'expo-router';
 
-export default function BetsListScreen() {
-  const { id,title } = useLocalSearchParams();
-  return <BetsList drawId={id as string} title={title}/>;
+export default function BetsListPage() {
+  const { id, title } = useLocalSearchParams();
+  return <BetsListScreen drawId={id as string} title={title as string} />;
 }

@@ -5,6 +5,13 @@ import { listerRoutes } from './routes/lister';
 import { colectorRoutes } from './routes/colector';
 import { bankerRoutes } from './routes/banker';
 
+export default {
+  ...loginRoutes,
+  ...adminRoutes,
+  ...listerRoutes,
+  ...colectorRoutes,
+  ...bankerRoutes
+};
 export const routes = {
   ...loginRoutes,
   ...adminRoutes,
@@ -12,6 +19,7 @@ export const routes = {
   ...colectorRoutes,
   ...bankerRoutes,
 }
+
 
 export const roleToScreenMap: Record<UserRole | string, string> = {
   admin: '(admin)',

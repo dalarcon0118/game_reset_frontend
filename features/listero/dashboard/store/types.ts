@@ -24,10 +24,12 @@ export interface Model {
         premiumsPaid: number;
         netResult: number;
         estimatedCommission: number;
+        amountToRemit: number;
     };
     userStructureId: null | string;
     statusFilter: StatusFilter;
     appliedFilter: StatusFilter;
+    commissionRate: number;
 }
 
 export enum MsgType {
@@ -45,6 +47,7 @@ export enum MsgType {
     BETS_LIST_CLICKED = 'BETS_LIST_CLICKED',
     CREATE_BET_CLICKED = 'CREATE_BET_CLICKED',
     NAVIGATE_TO_ERROR = 'NAVIGATE_TO_ERROR',
+    TICK = 'TICK',
 }
 
 export type Msg =
@@ -61,7 +64,8 @@ export type Msg =
     | { type: MsgType.REWARDS_CLICKED; drawId: string; title: string }
     | { type: MsgType.BETS_LIST_CLICKED; drawId: string; title: string }
     | { type: MsgType.CREATE_BET_CLICKED; drawId: string; title: string }
-    | { type: MsgType.NAVIGATE_TO_ERROR };
+    | { type: MsgType.NAVIGATE_TO_ERROR }
+    | { type: MsgType.TICK };
 
 // Action Creators
 export const STATUS_FILTER_CHANGED = (filter: StatusFilter) => ({ type: MsgType.STATUS_FILTER_CHANGED, filter } as const);
@@ -76,3 +80,4 @@ export const REWARDS_CLICKED = (drawId: string, title: string) => ({ type: MsgTy
 export const BETS_LIST_CLICKED = (drawId: string, title: string) => ({ type: MsgType.BETS_LIST_CLICKED, drawId, title } as const);
 export const CREATE_BET_CLICKED = (drawId: string, title: string) => ({ type: MsgType.CREATE_BET_CLICKED, drawId, title } as const);
 export const NAVIGATE_TO_ERROR = () => ({ type: MsgType.NAVIGATE_TO_ERROR } as const);
+export const TICK = () => ({ type: MsgType.TICK } as const);
