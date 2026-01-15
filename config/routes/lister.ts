@@ -46,5 +46,25 @@ export const listerRoutes = {
         freezeOnBlur: true,
       },
     },
+    profile: {
+      screen: 'lister/profile',
+      options: {
+        headerShown: true,
+        headerTitle: 'Perfil',
+        headerBackTitle: 'Atrás',
+        headerBackVisible: true,
+        freezeOnBlur: true,
+      },
+    },
+    change_password: {
+      screen: 'lister/change_password',
+      options: {
+        headerShown: true,
+        headerTitle: 'Cambiar PIN',
+        headerBackTitle: 'Perfil',
+        headerBackVisible: true,
+        freezeOnBlur: true,
+      },
+    },
   },
 };

@@ -1,136 +1,191 @@
 import React, { useEffect } from 'react';
-import { View, StyleSheet, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Layout, Text, Button, Icon, Divider, Card, ListItem } from '@ui-kitten/components';
-import { match } from 'ts-pattern';
-import Colors from '@/constants/Colors';
-import LayoutConstants from '@/constants/Layout';
-import { ProfileMsgType } from '../profile.types';
+import { Text, Card, Avatar, Button, Divider, Spinner } from '@ui-kitten/components';
+import { User, AlertTriangle, Key, LogOut, ChevronRight } from 'lucide-react-native';
 import { useProfileStore, selectProfileModel, selectDispatch, selectInit } from '../store';
-import { ArchiveIcon, ArrowRightIcon, ListIcon, PrinterIcon, LockIcon, LogOutIcon } from 'lucide-react-native';
+import { ProfileMsgType } from '../profile.types';
+import { RemoteData } from '@/shared/core/remote.data';
+import { useAuth } from '../../../auth/hooks/useAuth';
+import { IncidentList } from '../components/IncidentList';
+import LayoutConstants from '@/constants/Layout';
 
-export const ProfileScreen = () => {
+export const ProfileScreen: React.FC = () => {
     const model = useProfileStore(selectProfileModel);
     const dispatch = useProfileStore(selectDispatch);
     const init = useProfileStore(selectInit);
+    const { logout } = useAuth();
 
-    // Initial fetch on mount
     useEffect(() => {
         init();
     }, [init]);
 
-    // Safety check for model initialization
-    if (!model) {
+    const { user } = model;
+
+    const handleLogout = () => {
+        Alert.alert(
+            'Cerrar Sesión',
+            '¿Estás seguro de que quieres cerrar sesión?',
+            [
+                {
+                    text: 'Cancelar',
+                    style: 'cancel',
+                },
+                {
+                    text: 'Cerrar Sesión',
+                    style: 'destructive',
+                    onPress: logout,
+                },
+            ]
+        );
+    };
+
+    const handleChangePassword = () => {
+        dispatch({ type: ProfileMsgType.CHANGE_PASSWORD_REQUESTED });
+    };
+
+    const handleViewIncidents = () => {
+        // This could navigate to a full incidents screen or just scroll to the incidents section
+        // For now, we'll keep everything in one screen
+    };
+
+    if (RemoteData.isLoading(user)) {
         return (
-            <SafeAreaView style={styles.container}>
-                <View style={styles.centerContainer}>
-                    <ActivityIndicator size="large" />
+            <SafeAreaView style={styles.container} edges={['bottom']}>
+                <View style={styles.loadingContainer}>
+                    <Spinner size="large" />
+                    <Text style={styles.loadingText}>Cargando perfil...</Text>
                 </View>
             </SafeAreaView>
         );
     }
 
-    const renderContent = () => {
-        return match(model.user)
-            .with({ type: 'Loading' }, () => (
-                <View style={styles.centerContainer}>
-                    <ActivityIndicator size="large" />
-                </View>
-            ))
-            .with({ type: 'Failure' }, ({ error }) => (
-                <View style={styles.centerContainer}>
-                    <Text status="danger">{error}</Text>
+    if (RemoteData.isFailure(user)) {
+        return (
+            <SafeAreaView style={styles.container} edges={['bottom']}>
+                <View style={styles.errorContainer}>
+                    <Text style={styles.errorText}>Error al cargar el perfil</Text>
                     <Button
-                        size="small"
                         onPress={() => dispatch({ type: ProfileMsgType.INIT })}
-                        style={{ marginTop: 10 }}
+                        style={styles.retryButton}
                     >
                         Reintentar
                     </Button>
                 </View>
-            ))
-            .with({ type: 'Success' }, ({ data: user }) => (
-                <ScrollView style={styles.contentContainer}>
-                    {/* Identity Header */}
-                    <View style={styles.headerSection}>
-                        <View style={styles.avatarPlaceholder}>
-                            <Text category="h4" style={{ color: 'white' }}>
-                                {user.firstName.charAt(0)}{user.alias.charAt(0)}
-                            </Text>
-                        </View>
-                        <Text category="h5" style={styles.nameText}>{user.firstName}</Text>
-                        <Text category="s1" appearance="hint">"{user.alias}"</Text>
-                        <View style={styles.badgeContainer}>
-                            <Text status={user.status === 'ACTIVE' ? 'success' : 'basic'} category="c1">
-                                {user.status}
-                            </Text>
-                            <Text category="c1" appearance="hint"> • {user.zone}</Text>
-                        </View>
-                    </View>
+            </SafeAreaView>
+        );
+    }
 
-                    <Divider />
-
-                    {/* Management Tools */}
-                    <View style={styles.section}>
-                        <Text category="h6" style={styles.sectionTitle}>Herramientas de Gestión</Text>
-                        <Card style={styles.card} disabled>
-                            <ListItem
-                                title="Cierre de Caja"
-                                description="Registrar entrega de efectivo"
-                                accessoryLeft={(props) => <ArchiveIcon color='#8F9BB3' size={24} />}
-                                accessoryRight={(props) => <ArrowRightIcon color='#8F9BB3' size={24} />}
-                                onPress={() => dispatch({ type: ProfileMsgType.NAVIGATE_TO, route: 'close-register' })}
-                            />
-                            <Divider />
-                            <ListItem
-                                title="Historial de Cierres"
-                                description="Ver entregas pasadas"
-                                accessoryLeft={(props) => <ListIcon color='#8F9BB3' size={24} />}
-                                accessoryRight={(props) => <ArrowRightIcon color='#8F9BB3' size={24} />}
-                                onPress={() => dispatch({ type: ProfileMsgType.NAVIGATE_TO, route: 'history' })}
-                            />
-                            <Divider />
-
-                        </Card>
-                    </View>
-
-                    {/* Security */}
-                    <View style={styles.section}>
-                        <Text category="h6" style={styles.sectionTitle}>Seguridad</Text>
-                        <Card style={styles.card} disabled>
-                            <ListItem
-                                title="Cambiar Contraseña"
-                                accessoryLeft={(props) => <LockIcon color='#8F9BB3' size={24} />}
-                                accessoryRight={(props) => <ArrowRightIcon color='#8F9BB3' size={24} />}
-                                onPress={() => dispatch({ type: ProfileMsgType.NAVIGATE_TO, route: 'change-password' })}
-                            />
-                            <Divider />
-                            <ListItem
-                                title="Cerrar Sesión"
-                                accessoryLeft={(props) => <LogOutIcon color='#8F9BB3' size={24} />}
-                                onPress={() => Alert.alert('Cerrar Sesión', '¿Estás seguro?', [
-                                    { text: 'Cancelar', style: 'cancel' },
-                                    { text: 'Salir', style: 'destructive', onPress: () => dispatch({ type: ProfileMsgType.LOGOUT_REQUESTED }) }
-                                ])}
-                            />
-                        </Card>
-                    </View>
-
-                    <Text appearance="hint" category="c1" style={styles.versionText}>
-                        Versión 1.0.0
-                    </Text>
-
-                </ScrollView>
-            ))
-            .with({ type: 'NotAsked' }, () => null) // Should not happen due to initial loading
-            .exhaustive();
-    };
+    const userData = RemoteData.withDefault({
+        id: '',
+        firstName: 'Usuario',
+        alias: '',
+        zone: '',
+        status: 'ACTIVE' as const
+    }, user);
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
-            <Layout style={styles.container} level="2">
-                {renderContent()}
-            </Layout>
+        <SafeAreaView style={styles.container} edges={['bottom']}>
+            <ScrollView
+                style={styles.scrollView}
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+            >
+                {/* Profile Header */}
+                <Card style={styles.profileCard}>
+                    <View style={styles.profileHeader}>
+                        <Avatar
+                            size="large"
+                            source={{ uri: 'https://via.placeholder.com/80x80/667eea/ffffff?text=U' }}
+                            style={styles.avatar}
+                        />
+                        <View style={styles.profileInfo}>
+                            <Text category="h5" style={styles.userName}>
+                                {userData.firstName}
+                            </Text>
+                            {userData.alias && (
+                                <Text category="s1" style={styles.userAlias}>
+                                    "{userData.alias}"
+                                </Text>
+                            )}
+                            <Text category="p2" style={styles.userZone}>
+                                {userData.zone}
+                            </Text>
+                            <View style={styles.statusContainer}>
+                                <View
+                                    style={[
+                                        styles.statusIndicator,
+                                        userData.status === 'ACTIVE' && styles.statusActive,
+                                        userData.status === 'INACTIVE' && styles.statusInactive,
+                                    ]}
+                                />
+                                <Text
+                                    category="c2"
+                                    style={[
+                                        styles.statusText,
+                                        userData.status === 'ACTIVE' && styles.statusTextActive,
+                                        userData.status === 'INACTIVE' && styles.statusTextInactive,
+                                    ]}
+                                >
+                                    {userData.status === 'ACTIVE' ? 'Activo' : 'Inactivo'}
+                                </Text>
+                            </View>
+                        </View>
+                    </View>
+                </Card>
+
+                {/* Menu Options */}
+                <Card style={styles.menuCard}>
+                    <Text category="h6" style={styles.menuTitle}>Opciones de Cuenta</Text>
+
+                    <TouchableOpacity
+                        style={styles.menuItem}
+                        onPress={handleChangePassword}
+                    >
+                        <View style={styles.menuItemLeft}>
+                            <View style={[styles.menuIconContainer, { backgroundColor: '#E8F4FD' }]}>
+                                <Key size={20} color="#007AFF" />
+                            </View>
+                            <View style={styles.menuItemContent}>
+                                <Text category="s1" style={styles.menuItemTitle}>
+                                    Cambiar Contraseña
+                                </Text>
+                                <Text category="c2" style={styles.menuItemSubtitle}>
+                                    Actualiza tu contraseña de acceso
+                                </Text>
+                            </View>
+                        </View>
+                        <ChevronRight size={20} color="#8F9BB3" />
+                    </TouchableOpacity>
+
+                    <Divider style={styles.divider} />
+
+                    <TouchableOpacity
+                        style={styles.menuItem}
+                        onPress={handleLogout}
+                    >
+                        <View style={styles.menuItemLeft}>
+                            <View style={[styles.menuIconContainer, { backgroundColor: '#FFEEEE' }]}>
+                                <LogOut size={20} color="#FF3D71" />
+                            </View>
+                            <View style={styles.menuItemContent}>
+                                <Text category="s1" style={[styles.menuItemTitle, { color: '#FF3D71' }]}>
+                                    Cerrar Sesión
+                                </Text>
+                                <Text category="c2" style={styles.menuItemSubtitle}>
+                                    Salir de tu cuenta
+                                </Text>
+                            </View>
+                        </View>
+                        <ChevronRight size={20} color="#8F9BB3" />
+                    </TouchableOpacity>
+                </Card>
+
+                {/* Incidents Section */}
+                <View style={styles.incidentsSection}>
+                    <IncidentList />
+                </View>
+            </ScrollView>
         </SafeAreaView>
     );
 };
@@ -138,60 +193,170 @@ export const ProfileScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        backgroundColor: '#F7F9FC',
     },
-    centerContainer: {
+    scrollView: {
+        flex: 1,
+    },
+    scrollContent: {
+        flexGrow: 1,
+        paddingBottom: LayoutConstants.spacing.xl,
+    },
+    loadingContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+        padding: LayoutConstants.spacing.lg,
     },
-    contentContainer: {
-        paddingBottom: 40,
-    },
-    headerSection: {
-        backgroundColor: 'white',
-        alignItems: 'center',
-        paddingVertical: 24,
-        marginBottom: 16,
-    },
-    avatarPlaceholder: {
-        width: 64,
-        height: 64,
-        borderRadius: 32,
-        backgroundColor: Colors.light.primary,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 12,
-    },
-    nameText: {
-        fontWeight: 'bold',
-        marginBottom: 4,
-    },
-    badgeContainer: {
-        flexDirection: 'row',
-        marginTop: 8,
-        alignItems: 'center',
-        backgroundColor: '#F7F9FC',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 12,
-    },
-    section: {
-        marginBottom: 24,
-        paddingHorizontal: 16,
-    },
-    sectionTitle: {
-        marginBottom: 8,
-        marginLeft: 4,
+    loadingText: {
+        marginTop: LayoutConstants.spacing.md,
+        textAlign: 'center',
+        fontSize: 16,
+        fontWeight: '500',
         color: '#8F9BB3',
     },
-    card: {
-        padding: 0,
-        borderRadius: 8,
-        borderWidth: 0,
+    errorContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: LayoutConstants.spacing.lg,
     },
-    versionText: {
+    errorText: {
         textAlign: 'center',
-        marginTop: 16,
-        marginBottom: 32,
+        color: '#FF3D71',
+        fontSize: 16,
+        fontWeight: '500',
+        marginBottom: LayoutConstants.spacing.md,
+    },
+    retryButton: {
+        marginTop: LayoutConstants.spacing.md,
+    },
+    profileCard: {
+        marginHorizontal: LayoutConstants.spacing.md,
+        marginTop: LayoutConstants.spacing.md,
+        padding: LayoutConstants.spacing.md,
+        backgroundColor: '#ffffff',
+        borderRadius: LayoutConstants.borderRadius.md,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+    },
+    profileHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    avatar: {
+        marginRight: LayoutConstants.spacing.md,
+    },
+    profileInfo: {
+        flex: 1,
+    },
+    userName: {
+        fontSize: 20,
+        fontWeight: '700',
+        color: '#2E3A59',
+        marginBottom: 2,
+    },
+    userAlias: {
+        fontSize: 14,
+        fontWeight: '500',
+        color: '#8F9BB3',
+        fontStyle: 'italic',
+        marginBottom: 2,
+    },
+    userZone: {
+        fontSize: 14,
+        color: '#8F9BB3',
+        marginBottom: LayoutConstants.spacing.xs,
+    },
+    statusContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    statusIndicator: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        marginRight: LayoutConstants.spacing.xs,
+    },
+    statusActive: {
+        backgroundColor: '#00C48C',
+    },
+    statusInactive: {
+        backgroundColor: '#FF3D71',
+    },
+    statusText: {
+        fontSize: 12,
+        fontWeight: '600',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    statusTextActive: {
+        color: '#00C48C',
+    },
+    statusTextInactive: {
+        color: '#FF3D71',
+    },
+    menuCard: {
+        marginHorizontal: LayoutConstants.spacing.md,
+        marginTop: LayoutConstants.spacing.md,
+        padding: LayoutConstants.spacing.md,
+        backgroundColor: '#ffffff',
+        borderRadius: LayoutConstants.borderRadius.md,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+    },
+    menuTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#2E3A59',
+        marginBottom: LayoutConstants.spacing.sm,
+    },
+    menuItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: LayoutConstants.spacing.sm,
+    },
+    menuItemLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    menuIconContainer: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: LayoutConstants.spacing.md,
+    },
+    menuItemContent: {
+        flex: 1,
+    },
+    menuItemTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#2E3A59',
+        marginBottom: 2,
+    },
+    menuItemSubtitle: {
+        fontSize: 14,
+        color: '#8F9BB3',
+    },
+    divider: {
+        marginVertical: LayoutConstants.spacing.sm,
+        backgroundColor: '#F7F9FC',
+    },
+    incidentsSection: {
+        flex: 1,
+        marginTop: LayoutConstants.spacing.md,
     },
 });
+
+export default ProfileScreen;

@@ -46,6 +46,7 @@ export const settings = {
       bets: '/bets/',
       draws: '/draw/draws/',
       incidents: '/incidents/',
+      changePin: '/auth/change-pin/',
       // ...otros endpoints de tu API
     },
   },
