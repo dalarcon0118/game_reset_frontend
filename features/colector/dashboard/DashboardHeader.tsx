@@ -2,9 +2,9 @@ import React from 'react';
 import { StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Calendar, RefreshCw, User } from 'lucide-react-native';
 
-import { COLORS } from '../../../shared/components/constants';
-import { Flex } from '../../../shared/components/flex';
-import { Label } from '../../../shared/components/label';
+import { COLORS } from '@/shared/components/constants';
+import { Flex } from '@/shared/components/flex';
+import { Label } from '@/shared/components/label';
 import { useAuth } from '../../auth';
 
 interface DashboardHeaderProps {

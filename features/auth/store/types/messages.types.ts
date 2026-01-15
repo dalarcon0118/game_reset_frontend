@@ -1,5 +1,6 @@
 // Auth message types - TEA messages for authentication
 import { User } from './auth.types';
+import { WebData } from '@/shared/core/remote.data';
 
 export enum AuthMsgType {
     // Login flow
@@ -33,12 +34,14 @@ export type AuthMsg =
     | { type: AuthMsgType.LOGIN_REQUESTED; username: string; pin: string }
     | { type: AuthMsgType.LOGIN_PIN_UPDATED; pin: string }
     | { type: AuthMsgType.LOGIN_USERNAME_UPDATED; username: string }
+    | { type: AuthMsgType.LOGIN_RESPONSE_RECEIVED; webData: WebData<User | null> }
     | { type: AuthMsgType.LOGIN_SUCCEEDED; user: User }
     | { type: AuthMsgType.LOGIN_FAILED; error: string }
     | { type: AuthMsgType.LOGOUT_REQUESTED }
     | { type: AuthMsgType.LOGOUT_SUCCEEDED }
     | { type: AuthMsgType.LOGOUT_FAILED; error: string }
     | { type: AuthMsgType.CHECK_AUTH_STATUS_REQUESTED }
+    | { type: AuthMsgType.CHECK_AUTH_STATUS_RESPONSE_RECEIVED; webData: WebData<User | null> }
     | { type: AuthMsgType.CHECK_AUTH_STATUS_FAILED; error: string }
     | { type: AuthMsgType.SESSION_EXPIRED }
     | { type: AuthMsgType.ROLE_CHECK_REQUESTED; role: string }

@@ -14,7 +14,7 @@ import {
 import LayoutConstants from '@/constants/Layout';
 import { Flex, Label, Card, IconBox, ButtonKit } from '@/shared/components';
 import { useAuth } from '../../auth';
-import { withDataView } from '@/shared/components/withDataView';
+import { withDataView } from '@/shared/components/with_Data_View';
 import { User as UserType } from '@/data/mockData';
 import { useSettings } from './hooks/hook.settings';
 

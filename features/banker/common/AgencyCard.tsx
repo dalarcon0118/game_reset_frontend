@@ -2,12 +2,12 @@ import React from 'react';
 import { View, StyleSheet, TouchableOpacity, GestureResponderEvent } from 'react-native';
 import { Building2, Users } from 'lucide-react-native';
 import { COLORS } from '../../../shared/components/constants';
-import { Flex } from '../../../shared/components/flex';
-import { Card } from '../../../shared/components/card';
-import { IconBox } from '../../../shared/components/icon-box';
-import { Badge } from '../../../shared/components/badge';
-import { Label } from '../../../shared/components/label';
-import { ButtonKit } from '../../../shared/components/button';
+import { Flex } from '@/shared/components/flex';  
+import { Card } from '@/shared/components/card';
+import { IconBox } from '@/shared/components/icon-box';
+import { Badge } from '@/shared/components/badge';
+import { Label } from '@/shared/components/label';
+import { ButtonKit } from '@/shared/components/button';
 import { es } from '../../language/es';
 
 interface Agency {

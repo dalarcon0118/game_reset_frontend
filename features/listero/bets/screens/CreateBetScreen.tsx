@@ -9,7 +9,7 @@ import { GameTypeCodes } from '@/constants/Bet';
 
 import { BetSummary } from '../features/create-bet/components/BetSummary';
 import { useCreate } from '../features/create-bet/useCreate';
-import { NumberDisplay } from '@/shared/components/NumberDisplay';
+import { NumberDisplay } from '@/shared/components/number_display';
 import { CustomNumericKeyboard } from '../features/create-bet/components/CustomNumericKeyboard';
 import { QuickAmountButtons } from '../features/create-bet/components/QuickAmountButtons';
 

@@ -2,9 +2,9 @@ import React from 'react';
 import { StyleSheet, Dimensions } from 'react-native';
 import { TrendingUp, Coins, BarChart3, Percent } from 'lucide-react-native';
 
-import { COLORS } from '../../../shared/components/constants';
-import { Flex } from '../../../shared/components/flex';
-import { Label } from '../../../shared/components/label';
+import { COLORS } from '@/shared/components/constants';
+import { Flex } from '@/shared/components/flex';
+import { Label } from '@/shared/components/label';
 import { GridStatCard } from '../common/GridStatCard';
 
 const { width } = Dimensions.get('window');

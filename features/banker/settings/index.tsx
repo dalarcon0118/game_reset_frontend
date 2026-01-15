@@ -17,7 +17,7 @@ import {
 import LayoutConstants from '@/constants/Layout';
 import { Flex, Label, Card, IconBox, ButtonKit } from '@/shared/components';
 import { useTheme } from '@/shared/hooks/useTheme';
-import { withDataView } from '@/shared/components/withDataView';
+import { withDataView } from '@/shared/components/with_Data_View';
 import { useSettings } from './hooks/hook.settings';
 import { TOGGLE_SECTION, SECURITY_FIELD_UPDATED, CHANGE_PASSWORD_REQUESTED, THEME_TOGGLED, ROUTER_BACK, FETCH_RULES_REQUESTED, TOGGLE_RULE_REQUESTED, MODIFY_RULE_REQUESTED } from './store/types';
 

@@ -1,6 +1,6 @@
 import { Stack, ErrorBoundary } from "expo-router";
 import { routes } from "../../config/routes";
-import { SyncManager } from "../../shared/components/SyncManager";
+import { SyncManager } from "../../shared/components/sync_manager";
 import { View } from "react-native";
 
 export { ErrorBoundary };

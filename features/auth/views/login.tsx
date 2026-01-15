@@ -93,8 +93,6 @@ export default function LoginScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <Flex flex={1} vertical justify="between" align="center" padding="xl">
-        
-        {/* Top Section: Logo/Branding */}
         <Flex vertical align="center" style={{ marginTop: 60 }} gap={16}>
              <View style={styles.iconContainer}>
                <Lock size={32} color={THEME.accent} />
@@ -141,14 +139,16 @@ export default function LoginScreen() {
                     style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 8 }}
                  >
                     <Text category="s1" style={{ color: THEME.textSecondary }}>
-                        Hola, <Text category="s1" style={{ color: THEME.text, fontWeight: 'bold' }}>{loginSession.username}</Text>
+                        Hola,{' '}
+                        <Text category="s1" style={{ color: THEME.text, fontWeight: 'bold' }}>
+                            {loginSession.username}
+                        </Text>
                     </Text>
                     <Edit2 size={14} color={THEME.textSecondary} />
                  </TouchableOpacity>
              )}
         </Flex>
 
-        {/* Middle Section: PIN Dots */}
         <Flex vertical align="center" gap={40} style={{ width: '100%' }}>
           <View style={{ height: 24, justifyContent: 'center' }}>
             {isLoading ? (
@@ -190,9 +190,9 @@ export default function LoginScreen() {
             {renderKey('9')}
           </View>
           <View style={styles.row}>
-             <View style={styles.key} /> {/* Empty spacer */}
+            <View style={styles.key} />
             {renderKey('0')}
-             <TouchableOpacity
+            <TouchableOpacity
               style={[styles.key, { opacity: isLoading ? 0.3 : 1 }]}
               onPress={handleDelete}
               activeOpacity={0.5}

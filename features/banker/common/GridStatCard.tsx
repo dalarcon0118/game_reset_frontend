@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, StyleSheet, ViewStyle, StyleProp } from 'react-native';
-import { Card } from '../../../shared/components/card';
-import { Flex } from '../../../shared/components/flex';
-import { Label } from '../../../shared/components/label';
+import { Card } from '@/shared/components/card';
+import { Flex } from '@/shared/components/flex';
+import { Label } from '@/shared/components/label';
 
 interface GridStatCardProps {
   label: string;

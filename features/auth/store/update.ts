@@ -2,12 +2,8 @@
 import { match } from 'ts-pattern';
 import { AuthModel, AuthMsg, AuthMsgType } from './types';
 import { Cmd } from '@/shared/core/cmd';
-import type { TaskConfig } from '@/shared/core/cmd';
 import { LoginService } from '@/shared/services/auth/LoginService';
-import apiClient from '@/shared/services/ApiClient';
-import settings from '@/config/settings';
 import { RemoteDataHttp } from '@/shared/core/remote.data.http';
-import { RemoteData } from '@/shared/core/remote.data';
 import { TokenService } from '@/shared/services/TokenService';
 
 const loginService = LoginService();
@@ -35,7 +31,7 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
                     (webData) => ({
                         type: AuthMsgType.LOGIN_RESPONSE_RECEIVED,
                         webData
-                    } as AuthMsg)
+                    })
                 ),
             ] as [AuthModel, Cmd];
         })
@@ -46,7 +42,7 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
                     {
                         ...model,
                         user: data,
-                        isAuthenticated: true,
+                        isAuthenticated: !!data,
                         isLoading: false,
                         error: null,
                         loginSession: {
@@ -58,7 +54,7 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
                     Cmd.task({
                         task: async () => {
                             // Save last username using TokenService
-                            if (data.username) {
+                            if (data && data.username) {
                                 await TokenService.saveLastUsername(data.username);
                             }
                         },
@@ -66,21 +62,30 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
                         onFailure: () => ({ type: 'NONE' } as any),
                     }),
                 ] as [AuthModel, Cmd])
-                .with({ type: 'Failure' }, ({ error }) => [
-                    {
-                        ...model,
-                        user: null,
-                        isAuthenticated: false,
-                        isLoading: false,
-                        error: error || 'Error de conexión',
-                        loginSession: {
-                            ...model.loginSession,
-                            pin: '',
-                            isSubmitting: false,
+                .with({ type: 'Failure' }, ({ error }) => {
+                    const errorMessage = typeof error === 'string'
+                        ? error
+                        : (error?.message || 'Error de conexión');
+
+                    return [
+                        {
+                            ...model,
+                            user: null,
+                            isAuthenticated: false,
+                            isLoading: false,
+                            error: errorMessage,
+                            loginSession: {
+                                ...model.loginSession,
+                                pin: '',
+                                isSubmitting: false,
+                            },
                         },
-                    },
-                    Cmd.none,
-                ] as [AuthModel, Cmd])
+                        Cmd.navigate({
+                            pathname: '/error',
+                            params: { message: errorMessage }
+                        }),
+                    ] as [AuthModel, Cmd];
+                })
                 .otherwise(() => [model, Cmd.none] as [AuthModel, Cmd]);
         })
 
@@ -218,7 +223,7 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
                     (webData) => ({
                         type: AuthMsgType.CHECK_AUTH_STATUS_RESPONSE_RECEIVED,
                         webData
-                    } as AuthMsg)
+                    })
                 ),
             ] as [AuthModel, Cmd];
         })

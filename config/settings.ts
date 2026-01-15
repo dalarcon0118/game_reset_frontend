@@ -8,13 +8,27 @@
 
 // const manifest = Constants.manifest;
 
+import Constants from 'expo-constants';
+
 // API Configuration
-const API_BASE_URL_DEVELOPMENT = 'http://10.0.0.169:8000/api'; // URL de tu backend en desarrollo (Docker container port mapping)
-const API_BASE_URL_PRODUCTION = 'https://your-production-api.com/api'; // URL de tu backend en producción
+const API_BASE_URL_DEVELOPMENT = 'http://localhost:8000/api'; // URL local
+const API_BASE_URL_PRODUCTION = 'https://game-reset-backend.onrender.com/api'; // URL de Render
 
 // Determinar si estamos en modo de desarrollo o producción
-// Esto puede variar dependiendo de cómo construyas tu app (ej. variables de entorno)
-const IS_DEVELOPMENT = process.env.NODE_ENV === 'development'; // O __DEV__ para React Native
+// Intentamos obtener APP_ENV de múltiples fuentes para mayor robustez en Expo
+const APP_ENV =
+  process.env.EXPO_PUBLIC_APP_ENV ||
+  process.env.APP_ENV ||
+  Constants.expoConfig?.extra?.APP_ENV ||
+  (process.env.NODE_ENV === 'production' ? 'production' : 'development');
+
+console.log('Detected APP_ENV:', APP_ENV);
+
+// Si APP_ENV es production, forzamos IS_DEVELOPMENT a false independientemente de __DEV__
+const IS_DEVELOPMENT = APP_ENV === 'production' ? false : (APP_ENV === 'development' || __DEV__);
+
+console.log('IS_DEVELOPMENT mode:', IS_DEVELOPMENT);
+console.log('Using API URL:', IS_DEVELOPMENT ? API_BASE_URL_DEVELOPMENT : API_BASE_URL_PRODUCTION);
 
 export const settings = {
   api: {

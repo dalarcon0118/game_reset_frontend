@@ -4,8 +4,11 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "EXPO_NO_TELEMETRY=1 EXPO_ROUTER_APP_ROOT=app expo start",
     "start": "EXPO_ROUTER_APP_ROOT=app expo start",
+    "start:dev": "EXPO_PUBLIC_APP_ENV=development EXPO_NO_TELEMETRY=1 EXPO_ROUTER_APP_ROOT=app expo start",
+    "start:render": "EXPO_PUBLIC_APP_ENV=production EXPO_NO_TELEMETRY=1 EXPO_ROUTER_APP_ROOT=app expo start",
+    "dev": "npm run start:dev",
+    "render": "npm run start:render",
     "build:web": "EXPO_ROUTER_APP_ROOT=app expo export --platform web",
     "lint": "expo lint",
     "postinstall": "cp patches/expo-router-fix/_ctx.android.js node_modules/expo-router/_ctx.android.js"
