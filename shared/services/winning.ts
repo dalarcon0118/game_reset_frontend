@@ -13,7 +13,7 @@ export class WinningService {
     static async getWinningNumber(drawId: string): Promise<WinningRecord | null> {
         try {
             const response = await apiClient.get<WinningRecord>(
-                `${settings.api.endpoints.draws}${drawId}/get-winning-numbers/`
+                `${settings.api.endpoints.draws()}${drawId}/get-winning-numbers/`
             );
 
             console.info(`[Winning number for drawId: ${drawId}]`, JSON.stringify(response));

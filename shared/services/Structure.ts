@@ -48,7 +48,7 @@ export class StructureService {
             params.append('draw', 'true');
             params.append('today', 'true');
 
-            const endpoint = `${settings.api.endpoints.structures}${id}/children/?${params.toString()}`;
+            const endpoint = `${settings.api.endpoints.structures()}${id}/children/?${params.toString()}`;
             return await apiClient.get<ChildStructure[]>(endpoint);
         } catch (error) {
             console.error('Error fetching children structures:', error);
@@ -58,7 +58,7 @@ export class StructureService {
 
     static async getListeroDetails(id: number, date?: string): Promise<ListeroDetails> {
         try {
-            let endpoint = `${settings.api.endpoints.structures}${id}/listero_details/`;
+            let endpoint = `${settings.api.endpoints.structures()}${id}/listero_details/`;
             if (date) {
                 endpoint += `?date=${date}`;
             }

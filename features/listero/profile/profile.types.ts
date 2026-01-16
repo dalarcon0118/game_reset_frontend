@@ -32,6 +32,7 @@ export interface ChangePasswordSession {
 
 export interface ProfileModel {
     user: WebData<UserProfile>;
+    userData: UserProfile;
     incidents: WebData<Incident[]>;
     isLoggingOut: boolean;
     changePasswordSession: ChangePasswordSession;
@@ -39,12 +40,11 @@ export interface ProfileModel {
 
 export enum ProfileMsgType {
     INIT = 'INIT',
-    FETCH_PROFILE_SUCCEEDED = 'FETCH_PROFILE_SUCCEEDED',
-    FETCH_PROFILE_FAILED = 'FETCH_PROFILE_FAILED',
+    FETCH_PROFILE_RESPONSE = 'FETCH_PROFILE_RESPONSE',
     FETCH_INCIDENTS_REQUESTED = 'FETCH_INCIDENTS_REQUESTED',
-    FETCH_INCIDENTS_SUCCEEDED = 'FETCH_INCIDENTS_SUCCEEDED',
-    FETCH_INCIDENTS_FAILED = 'FETCH_INCIDENTS_FAILED',
+    FETCH_INCIDENTS_RESPONSE = 'FETCH_INCIDENTS_RESPONSE',
     LOGOUT_REQUESTED = 'LOGOUT_REQUESTED',
+    SUBMIT_LOGOUT = 'SUBMIT_LOGOUT',
     NAVIGATE_TO = 'NAVIGATE_TO',
     CHANGE_PASSWORD_REQUESTED = 'CHANGE_PASSWORD_REQUESTED',
     NEW_PIN_CHANGED = 'NEW_PIN_CHANGED',
@@ -57,12 +57,11 @@ export enum ProfileMsgType {
 
 export type ProfileMsg =
     | { type: ProfileMsgType.INIT }
-    | { type: ProfileMsgType.FETCH_PROFILE_SUCCEEDED; profile: UserProfile }
-    | { type: ProfileMsgType.FETCH_PROFILE_FAILED; error: string }
+    | { type: ProfileMsgType.FETCH_PROFILE_RESPONSE; webData: WebData<UserProfile> }
     | { type: ProfileMsgType.FETCH_INCIDENTS_REQUESTED }
-    | { type: ProfileMsgType.FETCH_INCIDENTS_SUCCEEDED; incidents: Incident[] }
-    | { type: ProfileMsgType.FETCH_INCIDENTS_FAILED; error: string }
+    | { type: ProfileMsgType.FETCH_INCIDENTS_RESPONSE; webData: WebData<Incident[]> }
     | { type: ProfileMsgType.LOGOUT_REQUESTED }
+    | { type: ProfileMsgType.SUBMIT_LOGOUT }
     | { type: ProfileMsgType.NAVIGATE_TO; route: string; params?: Record<string, any> }
     | { type: ProfileMsgType.CHANGE_PASSWORD_REQUESTED }
     | { type: ProfileMsgType.NEW_PIN_CHANGED; pin: string }
@@ -72,8 +71,17 @@ export type ProfileMsg =
     | { type: ProfileMsgType.CHANGE_PASSWORD_FAILED; error: string }
     | { type: ProfileMsgType.RESET_CHANGE_PASSWORD };
 
+export const DEFAULT_USER_PROFILE: UserProfile = {
+    id: '',
+    firstName: 'Usuario',
+    alias: '',
+    zone: '',
+    status: 'ACTIVE',
+};
+
 export const initialProfileModel: ProfileModel = {
     user: { type: 'NotAsked' },
+    userData: DEFAULT_USER_PROFILE,
     incidents: { type: 'NotAsked' },
     isLoggingOut: false,
     changePasswordSession: {

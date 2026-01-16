@@ -1,41 +1,47 @@
 import { match } from 'ts-pattern';
-import { ProfileModel, ProfileMsg, ProfileMsgType, initialProfileModel, UserProfile, Incident } from './profile.types';
+import { ProfileModel, ProfileMsg, ProfileMsgType, initialProfileModel, UserProfile, Incident, DEFAULT_USER_PROFILE } from './profile.types';
 import { Cmd } from '@/shared/core/cmd';
 import { Return, ret } from '@/shared/core/return';
 import apiClient from '@/shared/services/ApiClient';
 import settings from '@/config/settings';
+import { User } from '@/features/auth/store/types/auth.types';
+import { RemoteDataHttp } from '@/shared/core/remote.data.http';
+import { RemoteData } from '@/shared/core/remote.data';
+import { hashString } from '@/shared/utils/crypto';
 
-// Mock API call for now, can be replaced with real service later
+// Fetch real profile data from me endpoint using RemoteDataHttp
 const fetchProfileCmd = () => {
-    // Simulating API delay
-    return Cmd.task({
-        task: () => new Promise<UserProfile>((resolve) => {
-            setTimeout(() => {
-                resolve({
-                    id: '123',
-                    firstName: 'José Pérez',
-                    alias: 'El Rápido',
-                    zone: 'Occidental / Habana / Centro',
-                    status: 'ACTIVE'
-                });
-            }, 1000);
-        }),
-        onSuccess: (profile) => ({ type: ProfileMsgType.FETCH_PROFILE_SUCCEEDED, profile }),
-        onFailure: (error) => ({ type: ProfileMsgType.FETCH_PROFILE_FAILED, error: String(error) })
-    });
+    return RemoteDataHttp.fetch(
+        () => apiClient.get<User>(settings.api.endpoints.me()),
+        (webData) => ({
+            type: ProfileMsgType.FETCH_PROFILE_RESPONSE,
+            webData: RemoteData.map((user: User): UserProfile => ({
+                id: String(user.id),
+                firstName: user.name || user.username,
+                alias: user.username,
+                zone: user.structure?.name || 'N/A',
+                status: 'ACTIVE'
+            }), webData)
+        })
+    );
 };
 
 const fetchIncidentsCmd = () => {
-    return Cmd.task({
-        task: () => apiClient.get<Incident[]>(settings.api.endpoints.incidents),
-        onSuccess: (incidents) => ({ type: ProfileMsgType.FETCH_INCIDENTS_SUCCEEDED, incidents }),
-        onFailure: (error) => ({ type: ProfileMsgType.FETCH_INCIDENTS_FAILED, error: String(error) })
-    });
+    return RemoteDataHttp.fetch(
+        () => apiClient.get<Incident[]>(settings.api.endpoints.incidents()),
+        (webData) => ({
+            type: ProfileMsgType.FETCH_INCIDENTS_RESPONSE,
+            webData
+        })
+    );
 };
 
 const changePasswordCmd = (newPin: string) => {
     return Cmd.task({
-        task: () => apiClient.post(settings.api.endpoints.changePin, { pin: newPin }),
+        task: async () => {
+            const hashedPin = await hashString(newPin);
+            return apiClient.post(settings.api.endpoints.changePin(), { pin: hashedPin });
+        },
         onSuccess: () => ({ type: ProfileMsgType.CHANGE_PASSWORD_SUCCEEDED }),
         onFailure: (error) => ({ type: ProfileMsgType.CHANGE_PASSWORD_FAILED, error: String(error) })
     });
@@ -45,12 +51,13 @@ export const init = (params?: any): [ProfileModel, Cmd] => {
     const result = ret(
         {
             ...initialProfileModel,
-            user: { type: 'Loading' } as any,
-            incidents: { type: 'Loading' } as any
+            user: RemoteData.loading<any, UserProfile>(),
+            userData: DEFAULT_USER_PROFILE,
+            incidents: RemoteData.loading<any, Incident[]>()
         },
-        [fetchProfileCmd(), fetchIncidentsCmd()]
+        [fetchProfileCmd() as any, fetchIncidentsCmd() as any]
     );
-    return [result.model, result.cmd];
+    return [result.model, result.cmd as any];
 };
 
 export const updateProfile = (model: ProfileModel, msg: ProfileMsg): [ProfileModel, Cmd] => {
@@ -59,45 +66,50 @@ export const updateProfile = (model: ProfileModel, msg: ProfileMsg): [ProfileMod
             return ret(
                 {
                     ...model,
-                    user: { type: 'Loading' } as any,
-                    incidents: { type: 'Loading' } as any
+                    user: RemoteData.loading<any, UserProfile>(),
+                    userData: DEFAULT_USER_PROFILE,
+                    incidents: RemoteData.loading<any, Incident[]>(),
+                    isLoggingOut: false
                 },
-                [fetchProfileCmd(), fetchIncidentsCmd()]
+                [fetchProfileCmd() as any, fetchIncidentsCmd() as any]
             );
         })
-        .with({ type: ProfileMsgType.FETCH_PROFILE_SUCCEEDED }, ({ profile }) => {
-            return ret(
-                { ...model, user: { type: 'Success', data: profile } },
-                []
-            );
+        .with({ type: ProfileMsgType.FETCH_PROFILE_RESPONSE }, ({ webData }) => {
+            return ret({
+                ...model,
+                user: webData,
+                userData: RemoteData.withDefault(DEFAULT_USER_PROFILE, webData)
+            }, []);
         })
-        .with({ type: ProfileMsgType.FETCH_PROFILE_FAILED }, ({ error }) => {
-            return ret(
-                { ...model, user: { type: 'Failure', error } },
-                []
-            );
-        })
-        .with({ type: ProfileMsgType.FETCH_INCIDENTS_SUCCEEDED }, ({ incidents }) => {
-            return ret(
-                { ...model, incidents: { type: 'Success', data: incidents } },
-                []
-            );
+        .with({ type: ProfileMsgType.FETCH_INCIDENTS_RESPONSE }, ({ webData }) => {
+            return ret({ ...model, incidents: webData }, []);
         })
         .with({ type: ProfileMsgType.FETCH_INCIDENTS_REQUESTED }, () => {
             return ret(
-                { ...model, incidents: { type: 'Loading' } as any },
-                [fetchIncidentsCmd()]
-            );
-        })
-        .with({ type: ProfileMsgType.FETCH_INCIDENTS_FAILED }, ({ error }) => {
-            return ret(
-                { ...model, incidents: { type: 'Failure', error } },
-                []
+                { ...model, incidents: RemoteData.loading<any, Incident[]>() },
+                [fetchIncidentsCmd() as any]
             );
         })
         .with({ type: ProfileMsgType.LOGOUT_REQUESTED }, () => {
-            // Here we would dispatch a global logout command or call auth service
-            console.log('Logging out...');
+            return ret({ ...model, isLoggingOut: true }, [
+                Cmd.alert({
+                    title: 'Cerrar Sesión',
+                    message: '¿Estás seguro de que quieres cerrar sesión?',
+                    buttons: [
+                        {
+                            text: 'Cancelar',
+                            style: 'cancel',
+                        },
+                        {
+                            text: 'Cerrar Sesión',
+                            style: 'destructive',
+                            onPressMsg: { type: ProfileMsgType.SUBMIT_LOGOUT },
+                        },
+                    ],
+                }),
+            ]);
+        })
+        .with({ type: ProfileMsgType.SUBMIT_LOGOUT }, () => {
             return ret({ ...model, isLoggingOut: true }, []);
         })
         .with({ type: ProfileMsgType.CHANGE_PASSWORD_REQUESTED }, () => {

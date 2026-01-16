@@ -1,8 +1,9 @@
 import React, { useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Text, Card, Avatar, Button, Divider, Spinner } from '@ui-kitten/components';
-import { User, AlertTriangle, Key, LogOut, ChevronRight } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { Text, Card, Avatar, Button, Divider, Spinner, Layout, TopNavigation, TopNavigationAction } from '@ui-kitten/components';
+import { Key, LogOut, ChevronRight, ArrowLeft } from 'lucide-react-native';
 import { useProfileStore, selectProfileModel, selectDispatch, selectInit } from '../store';
 import { ProfileMsgType } from '../profile.types';
 import { RemoteData } from '@/shared/core/remote.data';
@@ -15,43 +16,52 @@ export const ProfileScreen: React.FC = () => {
     const dispatch = useProfileStore(selectDispatch);
     const init = useProfileStore(selectInit);
     const { logout } = useAuth();
+    const router = useRouter();
 
     useEffect(() => {
         init();
     }, [init]);
 
-    const { user } = model;
+    const { user, isLoggingOut } = model;
+
+    useEffect(() => {
+        if (isLoggingOut) {
+            logout();
+        }
+    }, [isLoggingOut, logout]);
 
     const handleLogout = () => {
-        Alert.alert(
-            'Cerrar Sesión',
-            '¿Estás seguro de que quieres cerrar sesión?',
-            [
-                {
-                    text: 'Cancelar',
-                    style: 'cancel',
-                },
-                {
-                    text: 'Cerrar Sesión',
-                    style: 'destructive',
-                    onPress: logout,
-                },
-            ]
-        );
+        dispatch({ type: ProfileMsgType.LOGOUT_REQUESTED });
     };
 
     const handleChangePassword = () => {
         dispatch({ type: ProfileMsgType.CHANGE_PASSWORD_REQUESTED });
     };
 
-    const handleViewIncidents = () => {
-        // This could navigate to a full incidents screen or just scroll to the incidents section
-        // For now, we'll keep everything in one screen
-    };
+    const renderBackAction = () => (
+        <TopNavigationAction
+            icon={(props: any) => (
+                <View style={props?.style as any}>
+                    <ArrowLeft size={24} color="#2E3A59" />
+                </View>
+            )}
+            onPress={() => router.back()}
+        />
+    );
+
+    const renderHeader = () => (
+        <TopNavigation
+            title={(props) => <Text {...props} style={[props?.style, styles.headerTitle]}>Mi Perfil</Text>}
+            alignment='center'
+            accessoryLeft={renderBackAction}
+            style={styles.header}
+        />
+    );
 
     if (RemoteData.isLoading(user)) {
         return (
-            <SafeAreaView style={styles.container} edges={['bottom']}>
+            <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+                {renderHeader()}
                 <View style={styles.loadingContainer}>
                     <Spinner size="large" />
                     <Text style={styles.loadingText}>Cargando perfil...</Text>
@@ -62,7 +72,8 @@ export const ProfileScreen: React.FC = () => {
 
     if (RemoteData.isFailure(user)) {
         return (
-            <SafeAreaView style={styles.container} edges={['bottom']}>
+            <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+                {renderHeader()}
                 <View style={styles.errorContainer}>
                     <Text style={styles.errorText}>Error al cargar el perfil</Text>
                     <Button
@@ -76,16 +87,11 @@ export const ProfileScreen: React.FC = () => {
         );
     }
 
-    const userData = RemoteData.withDefault({
-        id: '',
-        firstName: 'Usuario',
-        alias: '',
-        zone: '',
-        status: 'ACTIVE' as const
-    }, user);
+    const { userData } = model;
 
     return (
-        <SafeAreaView style={styles.container} edges={['bottom']}>
+        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+            {renderHeader()}
             <ScrollView
                 style={styles.scrollView}
                 contentContainerStyle={styles.scrollContent}
@@ -197,6 +203,16 @@ const styles = StyleSheet.create({
     },
     scrollView: {
         flex: 1,
+    },
+    header: {
+        borderBottomWidth: 1,
+        borderBottomColor: '#E4E9F2',
+        backgroundColor: '#FFFFFF',
+    },
+    headerTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#2E3A59',
     },
     scrollContent: {
         flexGrow: 1,

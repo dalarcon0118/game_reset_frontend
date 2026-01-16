@@ -10,6 +10,8 @@
     "dev": "npm run start:dev",
     "render": "npm run start:render",
     "build:web": "EXPO_ROUTER_APP_ROOT=app expo export --platform web",
+    "build:apk": "eas build --profile preview --platform android",
+    "build:prod": "eas build --profile production --platform android",
     "lint": "expo lint",
     "postinstall": "cp patches/expo-router-fix/_ctx.android.js node_modules/expo-router/_ctx.android.js"
   },
@@ -27,6 +29,7 @@
     "expo-blur": "~14.0.3",
     "expo-camera": "~16.0.18",
     "expo-constants": "^17.0.5",
+    "expo-crypto": "^15.0.8",
     "expo-font": "~13.0.4",
     "expo-haptics": "~14.0.1",
     "expo-linear-gradient": "~14.0.2",

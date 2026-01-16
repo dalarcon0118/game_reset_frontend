@@ -24,9 +24,7 @@ export const LoginService = () => {
     }
 
     try {
-      console.log('Login request:', { username, password });
       const data = await apiClient.post<LoginResponse>(settings.api.endpoints.login(), { username, password });
-      console.log('Login response:', data);
       // Persistir el access token de forma segura
       await apiClient.setAuthToken(data.access);
       // Con cookies habilitadas, el refresh token se maneja vía cookies HttpOnly

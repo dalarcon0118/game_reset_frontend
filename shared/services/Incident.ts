@@ -24,7 +24,7 @@ export class IncidentService {
      * Create a new incident report
      */
     static async create(data: IncidentCreateData): Promise<Incident> {
-        return await apiClient.post<Incident>(settings.api.endpoints.incidents || '/api/incidents/', data);
+        return await apiClient.post<Incident>(settings.api.endpoints.incidents(), data);
     }
 
     /**
@@ -43,7 +43,7 @@ export class IncidentService {
         }
 
         const queryString = queryParams.toString();
-        const baseUrl = settings.api.endpoints.incidents || '/api/incidents/';
+        const baseUrl = settings.api.endpoints.incidents();
         const url = queryString ? `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}${queryString}` : baseUrl;
         
         return await apiClient.get<Incident[]>(url);
@@ -53,7 +53,7 @@ export class IncidentService {
      * Update an incident status
      */
     static async updateStatus(id: string | number, status: string, notes: string): Promise<Incident> {
-        return await apiClient.patch<Incident>(`${settings.api.endpoints.incidents || '/api/incidents/'}${id}/`, {
+        return await apiClient.patch<Incident>(`${settings.api.endpoints.incidents()}${id}/`, {
             status: status,
             notes: notes
         });

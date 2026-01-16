@@ -57,14 +57,14 @@ export class BetService {
      */
     static async create(betData: CreateBetDTO): Promise<BetType> {
         console.log('Creating bet with data:', betData);
-        
+
         const state = await NetInfo.fetch();
         const isOnline = state.isConnected && state.isInternetReachable !== false;
 
         if (!isOnline) {
             console.log('Offline mode detected. Saving bet locally...');
             await OfflineStorage.savePendingBet(betData);
-            
+
             // Retornamos un objeto BetType ficticio con estado pendiente
             return {
                 id: `offline-${Math.random().toString(36).substring(7)}`,
@@ -77,7 +77,7 @@ export class BetService {
             };
         }
 
-        const response = await apiClient.post<BackendBet[]>(settings.api.endpoints.bets, betData);
+        const response = await apiClient.post<BackendBet[]>(settings.api.endpoints.bets(), betData);
 
         // Si el backend devuelve un array, tomamos el primer elemento
         if (Array.isArray(response) && response.length > 0) {
@@ -104,7 +104,7 @@ export class BetService {
                 params.append('draw', filters.drawId);
             }
 
-            const endpoint = `${settings.api.endpoints.bets}${params.toString() ? `?${params.toString()}` : ''}`;
+            const endpoint = `${settings.api.endpoints.bets()}${params.toString() ? `?${params.toString()}` : ''}`;
             console.info(`[BetService -> list] ${endpoint}`)
             const response = await apiClient.get<BackendBet[]>(endpoint);
             console.log('Raw response from bets API:', JSON.stringify(response));
@@ -142,7 +142,7 @@ export class BetService {
     }
 
     static async filterBetsTypeByDrawId(drawId: string): Promise<BetType[]> {
-        const response = await apiClient.get<BackendBet[]>(`${settings.api.endpoints.bets}/draw/${drawId}`);
+        const response = await apiClient.get<BackendBet[]>(`${settings.api.endpoints.bets()}draw/${drawId}`);
         if (!Array.isArray(response)) return [];
         return response.map(bet => BetService.mapBackendBetToFrontend(bet));
     }

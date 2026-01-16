@@ -153,7 +153,7 @@ export class RulesService {
   static async getAllRulesForDraw(drawId: string): Promise<UnifiedRulesResponse | null> {
     try {
       const response = await ApiClient.get<UnifiedRulesResponse>(
-        `${settings.api.endpoints.draws}${drawId}/rules-for-current-user/`
+        `${settings.api.endpoints.draws()}${drawId}/rules-for-current-user/`
       );
       console.info(`[Unified Rules for drawId: ${drawId}]`, JSON.stringify(response));
       return response;

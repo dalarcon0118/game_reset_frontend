@@ -72,7 +72,7 @@ export class DrawService {
   // Get a single draw by ID
   static async getOne(id: string): Promise<ExtendedDrawType | null> {
     try {
-      const response = await apiClient.get<BackendDraw>(`${settings.api.endpoints.draws}${id}/`);
+      const response = await apiClient.get<BackendDraw>(`${settings.api.endpoints.draws()}${id}/`);
 
       return {
         // Backend fields
@@ -130,7 +130,7 @@ export class DrawService {
       const params = new URLSearchParams();
       params.append('today', 'true');
 
-      const endpoint = `${settings.api.endpoints.draws}?${params.toString()}`;
+      const endpoint = `${settings.api.endpoints.draws()}?${params.toString()}`;
 
       // Build headers with owner_structure if provided
       const headers: Record<string, string> = {};
@@ -248,7 +248,7 @@ export class DrawService {
   }
 
   static async filterBetsTypeByDrawId(drawId: string): Promise<GameType[]> {
-    const response = await apiClient.get<any[]>(`${settings.api.endpoints.draws}${drawId}/bet-types/`);
+    const response = await apiClient.get<any[]>(`${settings.api.endpoints.draws()}${drawId}/bet-types/`);
     console.info(`[Bettype for drawId: ${drawId}]`, JSON.stringify(response));
     return response.map(t => ({
       id: t.id.toString(),
@@ -274,7 +274,7 @@ export class DrawService {
   } | null> {
     try {
       const response = await apiClient.get<any>(
-        `${settings.api.endpoints.draws}${drawId}/rules-for-current-user/`
+        `${settings.api.endpoints.draws()}${drawId}/rules-for-current-user/`
       );
       console.info(`[Rules for drawId: ${drawId}]`, JSON.stringify(response));
       return response;
@@ -303,7 +303,7 @@ export class DrawService {
   } | null> {
     try {
       const response = await apiClient.post<any>(
-        `${settings.api.endpoints.draws}${drawId}/add-winning-numbers/`,
+        `${settings.api.endpoints.draws()}${drawId}/add-winning-numbers/`,
         data
       );
       console.info(`[Winning numbers added for drawId: ${drawId}]`, JSON.stringify(response));
@@ -323,7 +323,7 @@ export class DrawService {
   static async updateStatus(drawId: string | number, status: 'success' | 'reported'): Promise<void> {
     try {
       await apiClient.patch(
-        `${settings.api.endpoints.draws}${drawId}/`,
+        `${settings.api.endpoints.draws()}${drawId}/`,
         { status_closed: status }
       );
       console.info(`[Status updated for drawId: ${drawId}] to ${status}`);

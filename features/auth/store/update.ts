@@ -5,6 +5,7 @@ import { Cmd } from '@/shared/core/cmd';
 import { LoginService } from '@/shared/services/auth/LoginService';
 import { RemoteDataHttp } from '@/shared/core/remote.data.http';
 import { TokenService } from '@/shared/services/TokenService';
+import { hashString } from '@/shared/utils/crypto';
 
 const loginService = LoginService();
 
@@ -27,7 +28,10 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
             return [
                 loadingModel,
                 RemoteDataHttp.fetch(
-                    () => loginService.login(username, pin),
+                    async () => {
+                        const hashedPin = await hashString(pin);
+                        return loginService.login(username, hashedPin);
+                    },
                     (webData) => ({
                         type: AuthMsgType.LOGIN_RESPONSE_RECEIVED,
                         webData
