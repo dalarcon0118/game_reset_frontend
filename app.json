@@ -11,6 +11,13 @@
     "ios": {
       "supportsTablet": true
     },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "usesCleartextTraffic": true
+    },
     "web": {
       "bundler": "metro",
       "output": "single",

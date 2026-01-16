@@ -102,7 +102,7 @@ export type UserRole = 'listero' | 'colector' | 'admin';
 
 // User interface
 export interface User {
-  id: string;
+  id: number | string;
   username: string;
   name: string;
   role: UserRole;

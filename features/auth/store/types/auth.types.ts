@@ -2,7 +2,7 @@
 import { UserRole } from '../../../../data/mockData';
 
 export interface User {
-    id: string;
+    id: number | string;
     username: string;
     role: UserRole;
     name?: string;

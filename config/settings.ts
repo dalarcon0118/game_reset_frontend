@@ -8,10 +8,22 @@
 
 // const manifest = Constants.manifest;
 
+import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
 // API Configuration
-const API_BASE_URL_DEVELOPMENT = 'http://localhost:8000/api'; // URL local
+// En emuladores de Android, localhost es el propio emulador. 
+// Para acceder al host (tu máquina), usa 10.0.2.2
+const getDevelopmentBaseUrl = () => {
+  if (Platform.OS === 'android') {
+    // Intentar primero con la IP de la red local del host si 10.0.2.2 falla
+    // Tu IP local detectada es 10.0.0.169
+    return 'http://10.0.0.169:8000/api';
+  }
+  return 'http://localhost:8000/api';
+};
+
+const API_BASE_URL_DEVELOPMENT = getDevelopmentBaseUrl();
 const API_BASE_URL_PRODUCTION = 'https://game-reset-backend.onrender.com/api'; // URL de Render
 
 // Determinar si estamos en modo de desarrollo o producción
