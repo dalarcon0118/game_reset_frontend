@@ -5,6 +5,7 @@ import { initialParletState } from '../features/parlet/parlet.types';
 import { initialCentenaState } from '../features/centena/centena.types';
 import { initialRulesState } from '../features/rules/rules.types';
 import { initialListState } from '../features/bet-list/list.types';
+import { initialLoteriaState } from '@/features/listero/games/loteria/loteria.types';
 import { initialManagementState } from '../features/management/management.types';
 import { rewardsCache, rulesCache } from '../features/rewards-rules/rewards.types';
 
@@ -21,6 +22,7 @@ export const initialModel: Model = {
     parletSession: initialParletState,
     centenaSession: initialCentenaState,
     rulesSession: initialRulesState,
+    loteriaSession: initialLoteriaState,
     listSession: initialListState,
     managementSession: initialManagementState,
 

@@ -6,6 +6,7 @@ export interface ManagementState {
         corrido: string | null;
         parlet: string | null;
         centena: string | null;
+        loteria: string | null;
     };
     isSaving: boolean;
     saveSuccess: boolean;
@@ -18,6 +19,7 @@ export const initialManagementState: ManagementState = {
         corrido: null,
         parlet: null,
         centena: null,
+        loteria: null,
     },
     isSaving: false,
     saveSuccess: false,

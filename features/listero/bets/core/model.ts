@@ -5,6 +5,7 @@ import { Model as EditSession } from '../features/edit-bet/edit.types';
 import { Model as ParletSession } from '../features/parlet/parlet.types';
 import { Model as CentenaSession } from '../features/centena/centena.types';
 import { Model as RulesSession } from '../features/rules/rules.types';
+import { LoteriaState } from '@/features/listero/games/loteria/loteria.types';
 import { ListState } from '../features/bet-list/list.types';
 import { ManagementState } from '../features/management/management.types';
 import { RewardsCache, RulesCache } from '../features/rewards-rules/rewards.types';
@@ -21,6 +22,7 @@ export interface Model extends UiState {
     parletSession: ParletSession;
     centenaSession: CentenaSession;
     rulesSession: RulesSession;
+    loteriaSession: LoteriaState;
     listSession: ListState;
     managementSession: ManagementState;
 

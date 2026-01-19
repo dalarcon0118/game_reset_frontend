@@ -1,7 +1,7 @@
 import { match } from 'ts-pattern';
 import { Model as GlobalModel } from '../../core/model';
 import { ManagementMsgType, ManagementMsg } from './management.types';
-import { ListMsgType } from '../bet-list/list.types';
+import { ListMsgType, ListData } from '../bet-list/list.types';
 import { Cmd } from '@/shared/core/cmd';
 import { Return, ret, singleton } from '@/shared/core/return';
 import { RemoteData } from '@/shared/core/remote.data';
@@ -56,6 +56,7 @@ export const updateManagement = (model: GlobalModel, msg: ManagementMsg): Return
                 corrido: betTypes.find(t => t.name === 'Corrido')?.id?.toString() || null,
                 parlet: betTypes.find(t => t.name === 'Parlet')?.id?.toString() || null,
                 centena: betTypes.find(t => t.name === 'Centena')?.id?.toString() || null,
+                loteria: betTypes.find(t => t.name === 'Loteria')?.id?.toString() || null,
             };
             return singleton({
                 ...model,
@@ -69,15 +70,17 @@ export const updateManagement = (model: GlobalModel, msg: ManagementMsg): Return
             });
         })
         .with({ type: ManagementMsgType.SAVE_BETS_REQUESTED }, ({ drawId }) => {
-            const listData = RemoteData.withDefault({ fijosCorridos: [], parlets: [], centenas: [] }, model.listSession.remoteData);
-            const { fijosCorridos, parlets, centenas } = listData;
+            const listData = model.listSession.remoteData.type === 'Success'
+                ? model.listSession.remoteData.data
+                : { fijosCorridos: [], parlets: [], centenas: [], loteria: [] };
+            const { fijosCorridos, parlets, centenas, loteria } = listData;
 
             return ret(
                 { ...model, managementSession: { ...model.managementSession, isSaving: true, error: null } },
                 Cmd.task({
                     task: BetService.create,
-                    args: [{ drawId, fijosCorridos, parlets, centenas }],
-                    onSuccess: () => ({ type: ManagementMsgType.SAVE_BETS_SUCCEEDED }),
+                    args: [{ drawId, fijosCorridos, parlets, centenas, loteria }],
+                    onSuccess: (response: any) => ({ type: ManagementMsgType.SAVE_BETS_SUCCEEDED, response }),
                     onFailure: (error: any) => ({
                         type: ManagementMsgType.SAVE_BETS_FAILED,
                         error: error.message || 'Error al guardar apuestas'
@@ -117,7 +120,7 @@ export const updateManagement = (model: GlobalModel, msg: ManagementMsg): Return
                 managementSession: { ...model.managementSession, saveSuccess: false, error: null },
                 listSession: {
                     ...model.listSession,
-                    remoteData: RemoteData.success({ fijosCorridos: [], parlets: [], centenas: [] })
+                    remoteData: RemoteData.success({ fijosCorridos: [], parlets: [], centenas: [], loteria: [] })
                 }
             });
         })

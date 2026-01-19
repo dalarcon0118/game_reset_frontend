@@ -1,0 +1,173 @@
+import React, { useEffect, useMemo } from 'react';
+import { View, StyleSheet, Alert, useColorScheme } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Layout, Text, Button } from '@ui-kitten/components';
+import { useNavigation } from 'expo-router';
+import Colors from '@/constants/Colors';
+import LayoutConstants from '@/constants/Layout';
+import { LoteriaColumn } from '../components/LoteriaColumn';
+import { useBetsStore, selectBetsModel, selectDispatch } from '@/features/listero/bets/core/store';
+import { ManagementMsgType } from '@/features/listero/bets/features/management/management.types';
+import { SumRowComponent } from '@/features/listero/bets/shared/components/SumRowComponent';
+
+interface LoteriaEntryScreenProps {
+    drawId?: string;
+    title?: string;
+}
+
+const LoteriaEntryScreen: React.FC<LoteriaEntryScreenProps> = ({ drawId, title }) => {
+    const colorScheme = useColorScheme() ?? 'light';
+    const themeColors = Colors[colorScheme as keyof typeof Colors];
+    const model = useBetsStore(selectBetsModel);
+    const dispatch = useBetsStore(selectDispatch);
+    const navigation = useNavigation();
+
+    useEffect(() => {
+        if (drawId) {
+            dispatch({
+                type: 'MANAGEMENT',
+                payload: {
+                    type: ManagementMsgType.INIT,
+                    drawId,
+                    fetchExistingBets: true
+                }
+            });
+        }
+    }, [drawId, dispatch]);
+
+    const hasBets = useMemo(() => {
+        const { loteria } = model.listSession.remoteData.type === 'Success'
+            ? model.listSession.remoteData.data
+            : { loteria: [] };
+        return loteria.length > 0;
+    }, [model.listSession.remoteData]);
+
+    const loteriaTotal = useMemo(() => {
+        const { loteria } = model.listSession.remoteData.type === 'Success'
+            ? model.listSession.remoteData.data
+            : { loteria: [] };
+        return loteria.reduce((total, bet) => total + (bet.amount || 0), 0);
+    }, [model.listSession.remoteData]);
+
+    React.useEffect(() => {
+        const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+            if (!hasBets) {
+                return;
+            }
+
+            e.preventDefault();
+
+            Alert.alert(
+                'Descartar cambios',
+                'Tienes apuestas en la lista sin guardar. ¿Estás seguro que deseas salir? Las apuestas se perderán.',
+                [
+                    { text: 'Cancelar', style: 'cancel', onPress: () => { } },
+                    {
+                        text: 'Salir',
+                        style: 'destructive',
+                        onPress: () => navigation.dispatch(e.data.action),
+                    },
+                ]
+            );
+        });
+
+        return unsubscribe;
+    }, [navigation, hasBets]);
+
+    const handleSave = () => {
+        if (!drawId) return;
+
+        Alert.alert(
+            'Confirmar Guardado',
+            'Una vez guardadas las apuestas no podrán deshacerse. ¿Deseas continuar?',
+            [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                    text: 'Guardar',
+                    onPress: () => {
+                        dispatch({
+                            type: 'MANAGEMENT',
+                            payload: { type: ManagementMsgType.SAVE_BETS_REQUESTED, drawId }
+                        });
+                    }
+                }
+            ]
+        );
+    };
+
+    const renderSavingFooterBar = () => {
+        if (!hasBets) return null;
+
+        const { managementSession: { isSaving } } = model;
+
+        return (
+            <Layout style={[styles.footer, { borderTopColor: themeColors.border }]} level='1'>
+                <View style={styles.grandTotalContainer}>
+                    <SumRowComponent
+                        label="Total Lista"
+                        total={loteriaTotal}
+                    />
+                </View>
+                <View style={styles.saveButtonContainer}>
+                    <Button
+                        status='primary'
+                        onPress={handleSave}
+                        size="medium"
+                        disabled={isSaving}
+                        style={styles.footerButton}
+                    >
+                        {isSaving ? 'Guardando...' : 'Salvar'}
+                    </Button>
+                </View>
+            </Layout>
+        );
+    };
+
+    return (
+        <SafeAreaView style={[styles.container, { backgroundColor: Colors[colorScheme].background }]} edges={['bottom']}>
+            <Layout style={[styles.header, { borderBottomColor: Colors[colorScheme].border }]} level='1'>
+                <Text category='h6' style={styles.headerText}>{title || 'Lotería'}</Text>
+            </Layout>
+            <View style={styles.content}>
+                <LoteriaColumn />
+            </View>
+            {renderSavingFooterBar()}
+        </SafeAreaView>
+    );
+};
+
+const styles = StyleSheet.create({
+    container: { flex: 1 },
+    header: {
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: 16,
+        paddingHorizontal: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.light.border,
+    },
+    headerText: { textAlign: 'center' },
+    content: {
+        flex: 1,
+        paddingTop: 16,
+    },
+    footer: {
+        borderTopWidth: 1,
+        paddingHorizontal: LayoutConstants.spacing.sm,
+        paddingVertical: LayoutConstants.spacing.sm,
+        backgroundColor: '#FFFFFF',
+    },
+    grandTotalContainer: {
+        marginBottom: LayoutConstants.spacing.xs,
+        borderTopWidth: 2,
+        borderTopColor: '#E8E8E8',
+        paddingTop: LayoutConstants.spacing.xs,
+    },
+    saveButtonContainer: {
+        marginTop: LayoutConstants.spacing.md,
+        paddingHorizontal: LayoutConstants.spacing.sm,
+    },
+    footerButton: { width: '100%' },
+});
+
+export default LoteriaEntryScreen;

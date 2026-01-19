@@ -169,6 +169,57 @@ const transformBetTypeToCentenas = (bets: BetType[]): any[] => {
         });
 };
 
+const transformBetTypeToLoteria = (bets: BetType[]): any[] => {
+    return bets
+        .filter(bet => (bet.type as string) === 'Loteria')
+        .map((bet) => {
+            try {
+                let parsedNumbers: any;
+                try {
+                    parsedNumbers = JSON.parse(bet.numbers);
+                } catch {
+                    parsedNumbers = bet.numbers;
+                }
+
+                const extractSingleNumber = (val: any): number | null => {
+                    if (typeof val === 'number') return val;
+                    if (typeof val === 'string') {
+                        const n = parseInt(val, 10);
+                        return isNaN(n) ? null : n;
+                    }
+                    if (Array.isArray(val) && val.length > 0) {
+                        const first = val[0];
+                        const n = typeof first === 'number' ? first : parseInt(first, 10);
+                        return isNaN(n) ? null : n;
+                    }
+                    if (val && typeof val === 'object') {
+                        if ('number' in val) return extractSingleNumber(val.number);
+                        if ('bet' in val) return extractSingleNumber(val.bet);
+                    }
+                    return null;
+                };
+
+                const number = extractSingleNumber(parsedNumbers);
+
+                if (number !== null && !isNaN(number)) {
+                    return {
+                        id: bet.id,
+                        bet: number,
+                        amount: bet.amount,
+                    };
+                }
+            } catch (e) {
+                console.warn('Error parsing loteria bet:', bet.numbers, e);
+            }
+            return null;
+        })
+        .filter((bet): bet is NonNullable<typeof bet> => bet !== null)
+        .sort((a: any, b: any) => {
+            if (a.amount === b.amount) return a.bet - b.bet;
+            return (a.amount || 0) - (b.amount || 0);
+        });
+};
+
 export const updateList = (model: Model, msg: ListMsg): Return<Model, ListMsg> => {
     return match<ListMsg, Return<Model, ListMsg>>(msg)
         .with({ type: ListMsgType.FETCH_BETS_REQUESTED }, ({ drawId }) => {
@@ -192,12 +243,14 @@ export const updateList = (model: Model, msg: ListMsg): Return<Model, ListMsg> =
                             const fijosCorridos = transformBetTypeToFijosCorridos(bets);
                             const parlets = transformBetTypeToParlets(bets);
                             const centenas = transformBetTypeToCentenas(bets);
-                            console.log('Transformed data:', { fijosCorridos, parlets, centenas });
+                            const loteria = transformBetTypeToLoteria(bets);
+                            console.log('Transformed data:', { fijosCorridos, parlets, centenas, loteria });
                             return {
                                 type: ListMsgType.FETCH_BETS_SUCCEEDED,
                                 fijosCorridos,
                                 parlets,
-                                centenas
+                                centenas,
+                                loteria
                             };
                         },
                         onFailure: (error: any) => {
@@ -232,7 +285,8 @@ export const updateList = (model: Model, msg: ListMsg): Return<Model, ListMsg> =
                                 type: ListMsgType.FETCH_BETS_SUCCEEDED,
                                 fijosCorridos: transformBetTypeToFijosCorridos(bets),
                                 parlets: transformBetTypeToParlets(bets),
-                                centenas: transformBetTypeToCentenas(bets)
+                                centenas: transformBetTypeToCentenas(bets),
+                                loteria: transformBetTypeToLoteria(bets)
                             };
                         },
                         onFailure: (error: any) => {
@@ -246,8 +300,8 @@ export const updateList = (model: Model, msg: ListMsg): Return<Model, ListMsg> =
                 )
             );
         })
-        .with({ type: ListMsgType.FETCH_BETS_SUCCEEDED }, ({ fijosCorridos, parlets, centenas }) => {
-            console.log('LIST FETCH_BETS_SUCCEEDED processed:', { fijosCorridos, parlets, centenas });
+        .with({ type: ListMsgType.FETCH_BETS_SUCCEEDED }, ({ fijosCorridos, parlets, centenas, loteria }) => {
+            console.log('LIST FETCH_BETS_SUCCEEDED processed:', { fijosCorridos, parlets, centenas, loteria });
             const result = singleton({
                 ...model,
                 listSession: {
@@ -255,7 +309,8 @@ export const updateList = (model: Model, msg: ListMsg): Return<Model, ListMsg> =
                     remoteData: RemoteData.success({
                         fijosCorridos,
                         parlets,
-                        centenas
+                        centenas,
+                        loteria
                     }),
                     isRefreshing: false,
                 },
@@ -274,7 +329,7 @@ export const updateList = (model: Model, msg: ListMsg): Return<Model, ListMsg> =
             });
         })
         .with({ type: ListMsgType.REMOVE_BET }, ({ betId, category }) => {
-            const nextRemoteData = RemoteData.map((data) => ({
+            const nextRemoteData = RemoteData.map<any, ListData, ListData>((data) => ({
                 ...data,
                 [category]: data[category].filter((bet: any) => bet.id !== betId)
             }), model.listSession.remoteData);
@@ -288,15 +343,17 @@ export const updateList = (model: Model, msg: ListMsg): Return<Model, ListMsg> =
             });
         })
         .with({ type: ListMsgType.CLEAR_LIST }, () => {
+            const emptyData: ListData = {
+                fijosCorridos: [],
+                parlets: [],
+                centenas: [],
+                loteria: []
+            };
             return singleton({
                 ...model,
                 listSession: {
                     ...model.listSession,
-                    remoteData: RemoteData.success({
-                        fijosCorridos: [],
-                        parlets: [],
-                        centenas: []
-                    }),
+                    remoteData: RemoteData.success<any, ListData>(emptyData),
                 },
             });
         })

@@ -3,7 +3,7 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, useTheme } from '@ui-kitten/components';
 import { X, Delete } from 'lucide-react-native';
 
-type BetType = 'fijo-corrido' | 'parlet' | 'centena';
+type BetType = 'fijo-corrido' | 'parlet' | 'centena' | 'loteria';
 
 interface BetNumericKeyboardProps {
     onNumberPress?: (number: string) => void;
@@ -38,6 +38,11 @@ export const BetNumericKeyboard: React.FC<BetNumericKeyboardProps> = ({
                 const centenaMatches = input.match(/.{1,3}/g);
                 if (!centenaMatches) return '';
                 return centenaMatches.map(m => `(${m})`).join(' ');
+            case 'loteria':
+                // Format loteria bets as four-digit numbers (1234)
+                const loteriaMatches = input.match(/.{1,4}/g);
+                if (!loteriaMatches) return '';
+                return loteriaMatches.map(m => `(${m})`).join(' ');
             case 'fijo-corrido':
             case 'parlet':
             default:
@@ -91,7 +96,10 @@ export const BetNumericKeyboard: React.FC<BetNumericKeyboardProps> = ({
         <View style={styles.keyboard}>
             <View style={[styles.displayContainer, { backgroundColor: theme['background-basic-color-3'] }]}>
                 <Text category="h5" style={styles.displayText}>
-                    {formatBetInput(currentInput) || 'Introducir Apuestas'}
+                    {formatBetInput(currentInput) || 
+                      (betType === 'centena' ? 'Introducir Centenas' : 
+                       betType === 'loteria' ? 'Introducir Lotería' : 
+                       'Introducir Apuestas')}
                 </Text>
             </View>
             {rows.map((row, idx) => (

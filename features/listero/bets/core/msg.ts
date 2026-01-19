@@ -11,6 +11,7 @@ import { EditFeatMsg } from '../features/edit-bet/edit.types';
 import { RewardsRulesFeatMsg } from '../features/rewards-rules/rewards.types';
 import { UiFeatMsg } from '../features/bet-ui/ui.types';
 import { FijosFeatMsg } from '../features/fijos-corridos/fijos.types';
+import { LoteriaFeatMsg } from '@/features/listero/games/loteria/loteria.types';
 
 export * from './core.types';
 
@@ -29,4 +30,5 @@ export type Msg =
     | EditFeatMsg
     | RewardsRulesFeatMsg
     | UiFeatMsg
-    | FijosFeatMsg;
+    | FijosFeatMsg
+    | LoteriaFeatMsg;

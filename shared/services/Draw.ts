@@ -27,6 +27,7 @@ interface BackendDraw {
     id: number;
     name: string;
     description: string;
+    code: string;
   };
   total_collected: number;
   name: string;  // Nombre del sorteo (Miami, Florida, etc.)
@@ -89,6 +90,7 @@ export class DrawService {
           response.betting_end_time
         ),
         draw_type: response.draw_type,
+        draw_type_details: response.draw_type_details,
         owner_structure: response.owner_structure,
         winning_numbers: response.winning_numbers,
         created_at: response.created_at,

@@ -1,10 +1,11 @@
-import { FijosCorridosBet, ParletBet, CentenaBet } from '@/types';
+import { FijosCorridosBet, ParletBet, CentenaBet, LoteriaBet } from '@/types';
 import { WebData, RemoteData } from '@/shared/core/remote.data';
 
 export interface ListData {
     fijosCorridos: FijosCorridosBet[];
     parlets: ParletBet[];
     centenas: CentenaBet[];
+    loteria: LoteriaBet[];
 }
 
 export interface ListState {
@@ -32,9 +33,9 @@ export enum ListMsgType {
 export type ListMsg =
     | { type: ListMsgType.FETCH_BETS_REQUESTED; drawId: string }
     | { type: ListMsgType.REFRESH_BETS_REQUESTED; drawId: string }
-    | { type: ListMsgType.FETCH_BETS_SUCCEEDED; fijosCorridos: FijosCorridosBet[]; parlets: ParletBet[]; centenas: CentenaBet[] }
+    | { type: ListMsgType.FETCH_BETS_SUCCEEDED; fijosCorridos: FijosCorridosBet[]; parlets: ParletBet[]; centenas: CentenaBet[]; loteria: LoteriaBet[] }
     | { type: ListMsgType.FETCH_BETS_FAILED; error: string }
-    | { type: ListMsgType.REMOVE_BET; betId: string; category: 'fijosCorridos' | 'parlets' | 'centenas' }
+    | { type: ListMsgType.REMOVE_BET; betId: string; category: 'fijosCorridos' | 'parlets' | 'centenas' | 'loteria' }
     | { type: ListMsgType.CLEAR_LIST }
     | { type: ListMsgType.UPDATE_LIST_FILTER; filter: string };
 

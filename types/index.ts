@@ -72,4 +72,11 @@ export interface CentenaBet {
   bet: number;
   amount: number;
 }
+
+export interface LoteriaBet {
+  id: string;
+  bet: number;
+  amount: number | null;
+}
+
 export * from "./rules"

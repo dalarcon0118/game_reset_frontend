@@ -17,6 +17,7 @@ export interface CreateBetDTO {
     centenas?: any[];
     fijosCorridos?: any[];
     parlets?: any[];
+    loteria?: any[];
 }
 
 // Backend response interface matching BetSerializer

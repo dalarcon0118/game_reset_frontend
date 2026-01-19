@@ -15,6 +15,7 @@ import { updateRules } from '../features/rules/rules.update';
 import { updateRewardsRules } from '../features/rewards-rules/rewards.update';
 import { updateUi } from '../features/bet-ui/ui.update';
 import { updateFijos } from '../features/fijos-corridos/fijos.update';
+import { updateLoteria } from '@/features/listero/games/loteria/loteria.update';
 import { ManagementMsgType } from '../features/management/management.types';
 
 /**
@@ -124,6 +125,12 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
             singleton(makeModel).andMapCmd(
                 (sub) => ({ type: 'FIJOS', payload: sub }),
                 updateFijos(model, payload)
+            )
+        )
+        .with({ type: 'LOTERIA' }, ({ payload }) =>
+            singleton(makeModel).andMapCmd(
+                (sub) => ({ type: 'LOTERIA', payload: sub }),
+                updateLoteria(model, payload)
             )
         )
 
