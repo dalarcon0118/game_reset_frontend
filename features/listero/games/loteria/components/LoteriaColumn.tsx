@@ -58,20 +58,39 @@ export const LoteriaColumn: React.FC = () => {
         );
     };
 
-    const formatLoteriaNumber = (num: number | string) => {
+    const getLoteriaGroups = (num: number | string): string[] => {
         const s = String(num);
-        if (!s) return '';
+        if (!s || !/^\d+$/.test(s)) return [];
         
         // Formato (X)-(XX)-(XX) agrupando de derecha a izquierda
-        const matches = s.split('').reverse().join('').match(/.{1,2}/g);
-        if (!matches) return s;
+        const reversed = s.split('').reverse().join('');
+        const matches = reversed.match(/.{1,2}/g);
+        if (!matches) return [s];
         
-        const formatted = matches
-            .map(m => `(${m.split('').reverse().join('')})`)
-            .reverse()
-            .join('-');
-            
-        return formatted;
+        return matches.map(m => m.split('').reverse().join('')).reverse();
+    };
+
+    const formatLoteriaNumber = (num: string): string => {
+        const groups = getLoteriaGroups(num);
+        if (groups.length === 0) return '';
+        return groups.map(g => `(${g})`).join('-');
+    };
+
+    const renderLoteriaCircles = (num: number | string) => {
+        const groups = getLoteriaGroups(num);
+        return (
+            <View style={styles.circlesContainer}>
+                {groups.map((group, index) => (
+                    <React.Fragment key={`${num}-${index}`}>
+                        <BetCircle
+                            value={group}
+                            onPress={() => {}} // Could add edit bet logic later
+                        />
+                        
+                    </React.Fragment>
+                ))}
+            </View>
+        );
     };
 
     const hasFixedAmount = fixedAmount !== null && fixedAmount > 0;
@@ -91,10 +110,7 @@ export const LoteriaColumn: React.FC = () => {
             <View style={styles.listContent}>
                 {loteriaList.map((item) => (
                     <View key={item.id} style={[styles.betRow, hasFixedAmount && styles.betRowCentered]}>
-                        <BetCircle
-                            value={formatLoteriaNumber(item.bet)}
-                            onPress={() => {}} // Could add edit bet logic later
-                        />
+                        {renderLoteriaCircles(item.bet)}
                         {!hasFixedAmount && (
                             <AmountCircle
                                 amount={item.amount || 0}
@@ -152,12 +168,23 @@ const styles = StyleSheet.create({
     },
     betRow: {
         flexDirection: 'row',
-        justifyContent: 'space-around',
+        justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: Layout.spacing.md,
+        paddingHorizontal: Layout.spacing.lg,
     },
     betRowCentered: {
         justifyContent: 'center',
+    },
+    circlesContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    separator: {
+        marginHorizontal: 8,
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: Colors.light.tint,
     },
     totalRow: {
         flexDirection: 'row',

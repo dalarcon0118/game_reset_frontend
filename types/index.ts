@@ -40,6 +40,7 @@ export interface BetType {
   draw: string;
   createdAt: string;
   isPending?: boolean;
+  receiptCode?: string;
 }
 export type GameType = {
   id: string;

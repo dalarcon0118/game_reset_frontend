@@ -1,5 +1,4 @@
 import { useCallback } from 'react';
-import { Alert } from 'react-native';
 import { GameType } from '@/types';
 import { useBetsStore, selectBetsModel, selectDispatch } from '../../core/store';
 import { CreateMsgType } from './create.types';
@@ -68,28 +67,11 @@ export const useCreate = (drawId: string) => {
     }, [dispatch]);
 
     const confirmClearBets = useCallback(() => {
-        if (tempBets.length > 0) {
-            Alert.alert(
-                'Confirmar',
-                '¿Está seguro que desea limpiar todas las apuestas?',
-                [
-                    { text: 'Cancelar', style: 'cancel' },
-                    {
-                        text: 'Limpiar',
-                        onPress: () => dispatch({
-                            type: 'CREATE',
-                            payload: { type: CreateMsgType.CONFIRM_CLEAR_BETS }
-                        }),
-                    },
-                ]
-            );
-        } else {
-            dispatch({
-                type: 'CREATE',
-                payload: { type: CreateMsgType.CONFIRM_CLEAR_BETS }
-            });
-        }
-    }, [dispatch, tempBets.length]);
+        dispatch({
+            type: 'CREATE',
+            payload: { type: CreateMsgType.REQUEST_CLEAR_BETS }
+        });
+    }, [dispatch]);
 
     return {
         // State

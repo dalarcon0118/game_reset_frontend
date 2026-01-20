@@ -28,6 +28,7 @@ export enum AuthMsgType {
     // Persistence
     LOAD_SAVED_USERNAME_REQUESTED = 'LOAD_SAVED_USERNAME_REQUESTED',
     SAVED_USERNAME_LOADED = 'SAVED_USERNAME_LOADED',
+    FORGOT_PIN_REQUESTED = 'FORGOT_PIN_REQUESTED',
 }
 
 export type AuthMsg =
@@ -46,4 +47,5 @@ export type AuthMsg =
     | { type: AuthMsgType.SESSION_EXPIRED }
     | { type: AuthMsgType.ROLE_CHECK_REQUESTED; role: string }
     | { type: AuthMsgType.LOAD_SAVED_USERNAME_REQUESTED }
-    | { type: AuthMsgType.SAVED_USERNAME_LOADED; username: string | null };
+    | { type: AuthMsgType.SAVED_USERNAME_LOADED; username: string | null }
+    | { type: AuthMsgType.FORGOT_PIN_REQUESTED };

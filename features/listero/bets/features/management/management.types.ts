@@ -1,4 +1,5 @@
-import { FijosCorridosBet, ParletBet, CentenaBet, GameType } from '@/types';
+import { FijosCorridosBet, ParletBet, CentenaBet, GameType, BetType } from '@/types';
+import { WebData, RemoteData } from '@/shared/core/remote.data';
 
 export interface ManagementState {
     betTypes: {
@@ -8,9 +9,8 @@ export interface ManagementState {
         centena: string | null;
         loteria: string | null;
     };
-    isSaving: boolean;
+    saveStatus: WebData<BetType | BetType[]>;
     saveSuccess: boolean;
-    error: string | null;
 }
 
 export const initialManagementState: ManagementState = {
@@ -21,9 +21,8 @@ export const initialManagementState: ManagementState = {
         centena: null,
         loteria: null,
     },
-    isSaving: false,
+    saveStatus: RemoteData.notAsked(),
     saveSuccess: false,
-    error: null,
 };
 
 export enum ManagementMsgType {
@@ -31,11 +30,15 @@ export enum ManagementMsgType {
     FETCH_BET_TYPES_SUCCEEDED = 'FETCH_BET_TYPES_SUCCEEDED',
     FETCH_BET_TYPES_FAILED = 'FETCH_BET_TYPES_FAILED',
     SAVE_BETS_REQUESTED = 'SAVE_BETS_REQUESTED',
-    SAVE_BETS_SUCCEEDED = 'SAVE_BETS_SUCCEEDED',
-    SAVE_BETS_FAILED = 'SAVE_BETS_FAILED',
+    SAVE_BETS_RESPONSE = 'SAVE_BETS_RESPONSE',
+    SHOW_SAVE_CONFIRMATION = 'SHOW_SAVE_CONFIRMATION',
     RESET_BETS = 'RESET_BETS',
     CLEAR_MANAGEMENT_ERROR = 'CLEAR_MANAGEMENT_ERROR',
     INIT = 'INIT',
+    NAVIGATE_REQUESTED = 'NAVIGATE_REQUESTED',
+    DISCARD_CHANGES_CONFIRMED = 'DISCARD_CHANGES_CONFIRMED',
+    SHARE_FAILED = 'SHARE_FAILED',
+    NONE = 'NONE',
 }
 
 export type ManagementMsg =
@@ -44,9 +47,13 @@ export type ManagementMsg =
     | { type: ManagementMsgType.FETCH_BET_TYPES_SUCCEEDED; betTypes: GameType[] }
     | { type: ManagementMsgType.FETCH_BET_TYPES_FAILED; error: string }
     | { type: ManagementMsgType.SAVE_BETS_REQUESTED; drawId: string }
-    | { type: ManagementMsgType.SAVE_BETS_SUCCEEDED; response: any }
-    | { type: ManagementMsgType.SAVE_BETS_FAILED; error: string }
+    | { type: ManagementMsgType.SAVE_BETS_RESPONSE; response: WebData<BetType | BetType[]> }
+    | { type: ManagementMsgType.SHOW_SAVE_CONFIRMATION; drawId: string }
     | { type: ManagementMsgType.RESET_BETS }
-    | { type: ManagementMsgType.CLEAR_MANAGEMENT_ERROR };
+    | { type: ManagementMsgType.CLEAR_MANAGEMENT_ERROR }
+    | { type: ManagementMsgType.NAVIGATE_REQUESTED; onConfirm: () => void }
+    | { type: ManagementMsgType.DISCARD_CHANGES_CONFIRMED; onConfirm: () => void }
+    | { type: ManagementMsgType.SHARE_FAILED; error: string }
+    | { type: ManagementMsgType.NONE };
 
 export type ManagementFeatMsg = { type: 'MANAGEMENT'; payload: ManagementMsg };

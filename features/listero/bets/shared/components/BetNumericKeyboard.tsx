@@ -32,7 +32,7 @@ export const BetNumericKeyboard: React.FC<BetNumericKeyboardProps> = ({
     };
 
     const formatBetInput = (input: string) => {
-        if (!input) return '';
+        if (!input || !/^\d+$/.test(input)) return '';
         if (formatInput) return formatInput(input);
 
         switch (betType) {

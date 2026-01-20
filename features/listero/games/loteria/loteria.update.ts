@@ -47,15 +47,16 @@ export const updateLoteria = (model: GlobalModel, msg: LoteriaMsg): Return<Globa
         .with({ type: LoteriaMsgType.KEY_PRESSED }, ({ key }) => {
             const currentInput = model.editSession.currentInput;
             let nextInput = currentInput;
+            const normalizedKey = key.toUpperCase();
 
-            if (key === 'BACKSPACE') {
+            if (normalizedKey === 'BACKSPACE') {
                 nextInput = currentInput.slice(0, -1);
-            } else if (key === 'CLEAR') {
+            } else if (normalizedKey === 'CLEAR') {
                 nextInput = '';
             } else {
                 // Max length for Loteria is 5 for (X)-(XX)-(XX) format
                 const maxLength = model.loteriaSession.isBetKeyboardVisible ? 5 : 6;
-                if (currentInput.length < maxLength) {
+                if (currentInput.length < maxLength && /^\d+$/.test(key)) {
                     nextInput = currentInput + key;
                 }
             }

@@ -1,7 +1,7 @@
 // Auth update function - pure TEA authentication logic
 import { match } from 'ts-pattern';
 import { AuthModel, AuthMsg, AuthMsgType } from './types';
-import { Cmd } from '@/shared/core/cmd';
+import { Cmd, TaskConfig } from '@/shared/core/cmd';
 import { LoginService } from '@/shared/services/auth/LoginService';
 import { RemoteDataHttp } from '@/shared/core/remote.data.http';
 import { TokenService } from '@/shared/services/TokenService';
@@ -178,10 +178,21 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
             ] as [AuthModel, Cmd];
         })
 
+        .with({ type: AuthMsgType.FORGOT_PIN_REQUESTED }, () => {
+            return [
+                model,
+                Cmd.alert({
+                    title: 'Info',
+                    message: 'Contacte al administrador para restablecer su PIN',
+                    buttons: [{ text: 'OK' }]
+                })
+            ] as [AuthModel, Cmd];
+        })
+
         .with({ type: AuthMsgType.LOGOUT_REQUESTED }, () => {
             if (model.isLoggingOut) return [model, Cmd.none] as [AuthModel, Cmd];
 
-            const logoutTask: TaskConfig = {
+            const logoutTask = {
                 task: async () => await loginService.logout(),
                 onSuccess: () => ({ type: AuthMsgType.LOGOUT_SUCCEEDED } as AuthMsg),
                 onFailure: (error: any) => ({

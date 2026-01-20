@@ -1,13 +1,23 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useBetsStore, selectBetsModel, selectDispatch } from '../../core/store';
 import { ManagementMsgType } from './management.types';
+import { RemoteData } from '@/shared/core/remote.data';
 
 export const useManagement = (drawId: string) => {
     const model = useBetsStore(selectBetsModel);
     const dispatch = useBetsStore(selectDispatch);
 
     const { managementSession } = model;
-    const { betTypes, isSaving, saveSuccess, error } = managementSession;
+    const { betTypes, saveStatus, saveSuccess } = managementSession;
+
+    // Derive flags from saveStatus for backward compatibility or easier UI usage
+    const isSaving = useMemo(() => RemoteData.isLoading(saveStatus), [saveStatus]);
+    const error = useMemo(() => {
+        if (RemoteData.isFailure(saveStatus)) {
+            return (saveStatus as any).error?.message || 'Error al guardar';
+        }
+        return null;
+    }, [saveStatus]);
 
     const fetchBetTypes = useCallback(() => {
         dispatch({
@@ -41,6 +51,7 @@ export const useManagement = (drawId: string) => {
         betTypes,
         isSaving,
         saveSuccess,
+        saveStatus,
         error,
         fetchBetTypes,
         saveBets,

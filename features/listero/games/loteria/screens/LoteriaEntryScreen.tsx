@@ -39,11 +39,26 @@ const LoteriaEntryScreen: React.FC<LoteriaEntryScreenProps> = ({ drawId, title }
     */
 
     const hasBets = useMemo(() => {
+        // Si ya se guardó con éxito, no consideramos que haya apuestas pendientes por guardar
+        // BUT we should still show the save button if there are bets to save
+        console.log('[LoteriaEntryScreen] Checking hasBets:', {
+            saveSuccess: model.managementSession.saveSuccess,
+            listSessionType: model.listSession.remoteData.type
+        });
+
+        if (model.managementSession.saveSuccess) {
+            console.log('[LoteriaEntryScreen] Save was successful, checking if we should reset for new bets');
+            // Only return false if we actually saved and there are no new bets
+            // For now, let's always allow saving if there are bets, regardless of previous success
+        }
+
         const { loteria } = model.listSession.remoteData.type === 'Success'
             ? model.listSession.remoteData.data
             : { loteria: [] };
+
+        console.log('[LoteriaEntryScreen] Loteria bets count:', loteria.length);
         return loteria.length > 0;
-    }, [model.listSession.remoteData]);
+    }, [model.listSession.remoteData, model.managementSession.saveSuccess]);
 
     const loteriaTotal = useMemo(() => {
         const { loteria } = model.listSession.remoteData.type === 'Success'
@@ -52,7 +67,7 @@ const LoteriaEntryScreen: React.FC<LoteriaEntryScreenProps> = ({ drawId, title }
         return loteria.reduce((total, bet) => total + (bet.amount || 0), 0);
     }, [model.listSession.remoteData]);
 
-    React.useEffect(() => {
+    useEffect(() => {
         const unsubscribe = navigation.addListener('beforeRemove', (e) => {
             if (!hasBets) {
                 return;
@@ -60,18 +75,13 @@ const LoteriaEntryScreen: React.FC<LoteriaEntryScreenProps> = ({ drawId, title }
 
             e.preventDefault();
 
-            Alert.alert(
-                'Descartar cambios',
-                'Tienes apuestas en la lista sin guardar. ¿Estás seguro que deseas salir? Las apuestas se perderán.',
-                [
-                    { text: 'Cancelar', style: 'cancel', onPress: () => { } },
-                    {
-                        text: 'Salir',
-                        style: 'destructive',
-                        onPress: () => navigation.dispatch(e.data.action),
-                    },
-                ]
-            );
+            dispatch({
+                type: 'MANAGEMENT',
+                payload: {
+                    type: ManagementMsgType.NAVIGATE_REQUESTED,
+                    onConfirm: () => navigation.dispatch(e.data.action)
+                }
+            });
         });
 
         return unsubscribe;
@@ -80,28 +90,16 @@ const LoteriaEntryScreen: React.FC<LoteriaEntryScreenProps> = ({ drawId, title }
     const handleSave = () => {
         if (!drawId) return;
 
-        Alert.alert(
-            'Confirmar Guardado',
-            'Una vez guardadas las apuestas no podrán deshacerse. ¿Deseas continuar?',
-            [
-                { text: 'Cancelar', style: 'cancel' },
-                {
-                    text: 'Guardar',
-                    onPress: () => {
-                        dispatch({
-                            type: 'MANAGEMENT',
-                            payload: { type: ManagementMsgType.SAVE_BETS_REQUESTED, drawId }
-                        });
-                    }
-                }
-            ]
-        );
+        dispatch({
+            type: 'MANAGEMENT',
+            payload: { type: ManagementMsgType.SHOW_SAVE_CONFIRMATION, drawId }
+        });
     };
 
     const renderSavingFooterBar = () => {
         if (!hasBets) return null;
 
-        const { managementSession: { isSaving } } = model;
+        const isSaving = model.managementSession.saveStatus.type === 'Loading';
 
         return (
             <Layout style={[styles.footer, { borderTopColor: themeColors.border }]} level='1'>

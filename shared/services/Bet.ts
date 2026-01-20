@@ -32,6 +32,7 @@ interface BackendBet {
     is_winner: boolean;
     payout_amount: string;
     owner_structure: number;
+    receipt_code?: string;
 
     draw_details?: {
         id: number;
@@ -54,16 +55,17 @@ export class BetService {
     /**
      * Create a new bet
      * @param betData - The bet data to send to the backend
-     * @returns Promise with the created BetType
+     * @returns Promise with the created BetType or BetType[]
      */
-    static async create(betData: CreateBetDTO): Promise<BetType> {
-        console.log('Creating bet with data:', betData);
+    static async create(betData: CreateBetDTO): Promise<BetType | BetType[]> {
+        console.log('[BetService.create] Creating bet with data:', JSON.stringify(betData, null, 2));
 
         const state = await NetInfo.fetch();
         const isOnline = state.isConnected && state.isInternetReachable !== false;
+        console.log('[BetService.create] Network state:', { isConnected: state.isConnected, isInternetReachable: state.isInternetReachable, isOnline });
 
         if (!isOnline) {
-            console.log('Offline mode detected. Saving bet locally...');
+            console.log('[BetService.create] Offline mode detected. Saving bet locally...');
             await OfflineStorage.savePendingBet(betData);
 
             // Retornamos un objeto BetType ficticio con estado pendiente
@@ -78,18 +80,22 @@ export class BetService {
             };
         }
 
-        const response = await apiClient.post<BackendBet[]>(settings.api.endpoints.bets(), betData);
+        try {
+            console.log('[BetService.create] Making API call to:', settings.api.endpoints.bets());
+            const response = await apiClient.post<BackendBet | BackendBet[]>(settings.api.endpoints.bets(), betData);
+            console.log('[BetService.create] API response received:', JSON.stringify(response, null, 2));
 
-        // Si el backend devuelve un array, tomamos el primer elemento
-        if (Array.isArray(response) && response.length > 0) {
-            console.log('Taking first element from array response');
-            return BetService.mapBackendBetToFrontend(response[0]);
-        } else if (!Array.isArray(response)) {
-            // Si es un solo objeto, lo mapeamos directamente
-            return BetService.mapBackendBetToFrontend(response);
-        } else {
-            // Si es un array vacío o algo inesperado, lanzamos error
-            throw new Error('Invalid response format from backend');
+            if (Array.isArray(response)) {
+                if (response.length === 0) {
+                    throw new Error('No se crearon apuestas. El servidor no devolvió datos de confirmación.');
+                }
+                return response.map(bet => BetService.mapBackendBetToFrontend(bet));
+            } else {
+                return BetService.mapBackendBetToFrontend(response);
+            }
+        } catch (error) {
+            console.error('[BetService.create] API call failed:', error);
+            throw error;
         }
     }
 
@@ -134,7 +140,8 @@ export class BetService {
                 createdAt: backendBet.created_at ? new Date(backendBet.created_at).toLocaleTimeString('es-ES', {
                     hour: '2-digit',
                     minute: '2-digit'
-                }) : new Date().toLocaleTimeString()
+                }) : new Date().toLocaleTimeString(),
+                receiptCode: backendBet.receipt_code || '-----'
             };
         } catch (error) {
             console.error('Error mapping bet:', error, backendBet);

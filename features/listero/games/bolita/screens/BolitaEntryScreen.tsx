@@ -48,9 +48,7 @@ const BolitaEntryScreen: React.FC<BolitaEntryScreenProps> = ({ drawId, title }) 
     );
     */
 
-    const {
-        managementSession: { isSaving }
-    } = model;
+    const isSaving = model.managementSession.saveStatus.type === 'Loading';
 
     const renderSavingFooterBar = ({ fijosCorridos, parlets, centenas, handleSave, isSaving, themeColors, fijosCorridosTotal, parletsTotal, centenasTotal, grandTotal }: { fijosCorridos: any[], parlets: any[], centenas: any[], handleSave: () => void, isSaving: boolean, themeColors: any, fijosCorridosTotal: number, parletsTotal: number, centenasTotal: number, grandTotal: number }) => {
         return (fijosCorridos.length > 0 || parlets.length > 0 || centenas.length > 0) && (
@@ -99,11 +97,16 @@ const BolitaEntryScreen: React.FC<BolitaEntryScreenProps> = ({ drawId, title }) 
 
 
     const hasBets = React.useMemo(() => {
+        // Si ya se guardó con éxito, no consideramos que haya apuestas pendientes por guardar
+        if (model.managementSession.saveSuccess) {
+            return false;
+        }
+
         const { fijosCorridos, parlets, centenas } = model.listSession.remoteData.type === 'Success'
             ? model.listSession.remoteData.data
             : { fijosCorridos: [], parlets: [], centenas: [] };
         return fijosCorridos.length > 0 || parlets.length > 0 || centenas.length > 0;
-    }, [model.listSession.remoteData]);
+    }, [model.listSession.remoteData, model.managementSession.saveSuccess]);
 
     React.useEffect(() => {
         const unsubscribe = navigation.addListener('beforeRemove', (e) => {
@@ -113,18 +116,13 @@ const BolitaEntryScreen: React.FC<BolitaEntryScreenProps> = ({ drawId, title }) 
 
             e.preventDefault();
 
-            Alert.alert(
-                'Descartar cambios',
-                'Tienes apuestas en la lista sin guardar. ¿Estás seguro que deseas salir? Las apuestas se perderán.',
-                [
-                    { text: 'Cancelar', style: 'cancel', onPress: () => { } },
-                    {
-                        text: 'Salir',
-                        style: 'destructive',
-                        onPress: () => navigation.dispatch(e.data.action),
-                    },
-                ]
-            );
+            dispatch({
+                type: 'MANAGEMENT',
+                payload: {
+                    type: ManagementMsgType.NAVIGATE_REQUESTED,
+                    onConfirm: () => navigation.dispatch(e.data.action)
+                }
+            });
         });
 
         return unsubscribe;
@@ -133,22 +131,10 @@ const BolitaEntryScreen: React.FC<BolitaEntryScreenProps> = ({ drawId, title }) 
     const handleSave = () => {
         if (!drawId) return;
 
-        Alert.alert(
-            'Confirmar Guardado',
-            'Una vez guardadas las apuestas no podrán deshacerse. ¿Deseas continuar?',
-            [
-                { text: 'Cancelar', style: 'cancel' },
-                {
-                    text: 'Guardar',
-                    onPress: () => {
-                        dispatch({
-                            type: 'MANAGEMENT',
-                            payload: { type: ManagementMsgType.SAVE_BETS_REQUESTED, drawId }
-                        });
-                    }
-                }
-            ]
-        );
+        dispatch({
+            type: 'MANAGEMENT',
+            payload: { type: ManagementMsgType.SHOW_SAVE_CONFIRMATION, drawId }
+        });
     };
 
     const renderContent = () => {

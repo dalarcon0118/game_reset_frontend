@@ -16,6 +16,7 @@ import { updateRewardsRules } from '../features/rewards-rules/rewards.update';
 import { RewardsRulesMsgType } from '../features/rewards-rules/rewards.types';
 import { updateUi } from '../features/bet-ui/ui.update';
 import { updateFijos } from '../features/fijos-corridos/fijos.update';
+import { updateSuccess } from '../features/success/success.update';
 import { updateLoteria } from '@/features/listero/games/loteria/loteria.update';
 import { ManagementMsgType } from '../features/management/management.types';
 import { CoreMsgType } from './msg';
@@ -208,6 +209,13 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
                 updateLoteria(model, payload)
             )
         )
+        .with({ type: 'SUCCESS' }, ({ payload }) => {
+            console.log('[core.update] Routing to SUCCESS feature:', payload.type);
+            return singleton(makeModel).andMapCmd(
+                (sub) => ({ type: 'SUCCESS', payload: sub }),
+                updateSuccess(payload, model)
+            )
+        })
 
         .exhaustive();
 

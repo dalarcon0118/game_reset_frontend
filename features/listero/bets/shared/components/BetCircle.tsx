@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
   circleWithValue: {
-    borderWidth: 0,
+    borderWidth: 1.5,
     justifyContent: 'center',
     alignItems: 'center',
     marginHorizontal: 4,

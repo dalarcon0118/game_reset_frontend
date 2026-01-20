@@ -1,10 +1,11 @@
 import { match } from 'ts-pattern';
 import { Model as GlobalModel } from '../../core/model';
 import { ManagementMsgType, ManagementMsg } from './management.types';
-import { ListMsgType, ListData } from '../bet-list/list.types';
+import { ListMsgType } from '../bet-list/list.types';
 import { Cmd } from '@/shared/core/cmd';
 import { Return, ret, singleton } from '@/shared/core/return';
 import { RemoteData } from '@/shared/core/remote.data';
+import { RemoteDataHttp } from '@/shared/core/remote.data.http';
 import { BetService } from '@/shared/services/Bet';
 
 export const updateManagement = (model: GlobalModel, msg: ManagementMsg): Return<GlobalModel, ManagementMsg> => {
@@ -48,18 +49,22 @@ export const updateManagement = (model: GlobalModel, msg: ManagementMsg): Return
                 });
             }
 
-            return ret(
+            return ret<GlobalModel, ManagementMsg>(
                 {
                     ...model,
                     drawId,
-                    managementSession: { ...model.managementSession, isLoading: true, error: null }
+                    managementSession: {
+                        ...model.managementSession,
+                        saveStatus: RemoteData.notAsked(),
+                        saveSuccess: false
+                    }
                 },
                 commands
             );
         })
         .with({ type: ManagementMsgType.FETCH_BET_TYPES_REQUESTED }, ({ drawId }) => {
-            return ret(
-                { ...model, managementSession: { ...model.managementSession, isLoading: true, error: null } },
+            return ret<GlobalModel, ManagementMsg>(
+                { ...model },
                 Cmd.http({ url: `/draw/draws/${drawId}/bet-types/` }, (data) => ({
                     type: ManagementMsgType.FETCH_BET_TYPES_SUCCEEDED,
                     betTypes: data
@@ -90,16 +95,16 @@ export const updateManagement = (model: GlobalModel, msg: ManagementMsg): Return
 
             console.log('[ManagementUpdate] Identified BetTypes:', JSON.stringify(types, null, 2));
 
-            return singleton({
+            return singleton<GlobalModel>(({
                 ...model,
-                managementSession: { ...model.managementSession, isLoading: false, betTypes: types },
-            });
+                managementSession: { ...model.managementSession, betTypes: types },
+            }) as GlobalModel);
         })
-        .with({ type: ManagementMsgType.FETCH_BET_TYPES_FAILED }, ({ error }) => {
-            return singleton({
+        .with({ type: ManagementMsgType.FETCH_BET_TYPES_FAILED }, () => {
+            return singleton<GlobalModel>({
                 ...model,
-                managementSession: { ...model.managementSession, isLoading: false, error },
-            });
+                managementSession: { ...model.managementSession },
+            } as GlobalModel);
         })
         .with({ type: ManagementMsgType.SAVE_BETS_REQUESTED }, ({ drawId }) => {
             const listData = model.listSession.remoteData.type === 'Success'
@@ -107,60 +112,132 @@ export const updateManagement = (model: GlobalModel, msg: ManagementMsg): Return
                 : { fijosCorridos: [], parlets: [], centenas: [], loteria: [] };
             const { fijosCorridos, parlets, centenas, loteria } = listData;
 
-            return ret(
-                { ...model, managementSession: { ...model.managementSession, isSaving: true, error: null } },
-                Cmd.task({
-                    task: BetService.create,
-                    args: [{ drawId, fijosCorridos, parlets, centenas, loteria }],
-                    onSuccess: (response: any) => ({ type: ManagementMsgType.SAVE_BETS_SUCCEEDED, response }),
-                    onFailure: (error: any) => ({
-                        type: ManagementMsgType.SAVE_BETS_FAILED,
-                        error: error.message || 'Error al guardar apuestas'
-                    })
+            console.log('[ManagementUpdate] SAVE_BETS_REQUESTED - Payload:', {
+                drawId,
+                fijosCorridos: fijosCorridos?.length || 0,
+                parlets: parlets?.length || 0,
+                centenas: centenas?.length || 0,
+                loteria: loteria?.length || 0
+            });
+
+            return ret<GlobalModel, ManagementMsg>(
+                { ...model, managementSession: { ...model.managementSession, saveStatus: RemoteData.loading() } },
+                RemoteDataHttp.fetch(
+                    () => BetService.create({ drawId, fijosCorridos, parlets, centenas, loteria }),
+                    (response) => ({ type: ManagementMsgType.SAVE_BETS_RESPONSE, response })
+                )
+            );
+        })
+        .with({ type: ManagementMsgType.SHOW_SAVE_CONFIRMATION }, ({ drawId }) => {
+            return ret<GlobalModel, ManagementMsg>(
+                model,
+                Cmd.alert({
+                    title: 'Confirmar Guardado',
+                    message: 'Una vez guardadas las apuestas no podrán deshacerse. ¿Deseas continuar?',
+                    buttons: [
+                        { text: 'Cancelar', style: 'cancel' },
+                        {
+                            text: 'Guardar',
+                            onPressMsg: { type: ManagementMsgType.SAVE_BETS_REQUESTED, drawId }
+                        }
+                    ]
                 })
             );
         })
-        .with({ type: ManagementMsgType.SAVE_BETS_SUCCEEDED }, () => {
-            return ret(
-                {
-                    ...model,
-                    managementSession: { ...model.managementSession, isSaving: false, saveSuccess: true },
-                    // Do not reset listSession here to keep bets visible
-                },
-                Cmd.alert({
-                    title: 'Apuestas Guardadas',
-                    message: 'Las apuestas han sido guardadas exitosamente.',
-                    buttons: [{
-                        text: 'OK',
-                        onPressMsg: null // Do not reset bets automatically
-                    }]
+        .with({ type: ManagementMsgType.SAVE_BETS_RESPONSE }, ({ response }) => {
+            console.log('[ManagementUpdate] SAVE_BETS_RESPONSE received:', JSON.stringify(response, null, 2));
+
+            return match(response)
+                .with({ type: 'Success' }, ({ data }) => {
+                    console.log('[ManagementUpdate] Save successful, navigating to success page');
+                    const betId = Array.isArray(data) && data.length > 0 ? data[0].id : (data as any)?.id;
+                    const drawId = model.drawId;
+
+                    return ret<GlobalModel, ManagementMsg>(
+                        {
+                            ...model,
+                            managementSession: { ...model.managementSession, saveStatus: response, saveSuccess: true },
+                        },
+                        Cmd.navigate({
+                            pathname: '/lister/bets/success',
+                            params: { drawId, betId },
+                            method: 'push'
+                        })
+                    );
                 })
-            );
-        })
-        .with({ type: ManagementMsgType.SAVE_BETS_FAILED }, ({ error }) => {
-            return ret(
-                { ...model, managementSession: { ...model.managementSession, isSaving: false, error } },
-                Cmd.alert({
-                    title: 'Error',
-                    message: error || 'Hubo un error al guardar las apuestas.'
+                .with({ type: 'Failure' }, ({ error }) => {
+                    console.error('[ManagementUpdate] Save failed:', error);
+                    const errorMessage = error?.message || error?.detail || 'Ocurrió un error al guardar las apuestas';
+                    console.error('[ManagementUpdate] Error message:', errorMessage);
+
+                    return ret<GlobalModel, ManagementMsg>(
+                        { ...model, managementSession: { ...model.managementSession, saveStatus: response } },
+                        Cmd.alert({
+                            title: 'Error al guardar',
+                            message: errorMessage
+                        })
+                    );
                 })
-            );
+                .otherwise(() => {
+                    console.warn('[ManagementUpdate] SAVE_BETS_RESPONSE with unexpected response type');
+                    return singleton<GlobalModel>(model as GlobalModel);
+                });
         })
         .with({ type: ManagementMsgType.RESET_BETS }, () => {
-            return singleton({
+            return singleton<GlobalModel>({
                 ...model,
-                managementSession: { ...model.managementSession, saveSuccess: false, error: null },
+                managementSession: { ...model.managementSession, saveSuccess: false, saveStatus: RemoteData.notAsked() },
                 listSession: {
                     ...model.listSession,
                     remoteData: RemoteData.success({ fijosCorridos: [], parlets: [], centenas: [], loteria: [] })
                 }
-            });
+            } as GlobalModel);
         })
         .with({ type: ManagementMsgType.CLEAR_MANAGEMENT_ERROR }, () => {
-            return singleton({
+            return singleton<GlobalModel>({
                 ...model,
-                managementSession: { ...model.managementSession, error: null },
-            });
+                managementSession: { ...model.managementSession, saveStatus: RemoteData.notAsked() },
+            } as GlobalModel);
         })
+        .with({ type: ManagementMsgType.NAVIGATE_REQUESTED }, ({ onConfirm }) => {
+            return ret<GlobalModel, ManagementMsg>(
+                model,
+                Cmd.alert({
+                    title: 'Descartar cambios',
+                    message: 'Tienes apuestas en la lista sin guardar. ¿Estás seguro que deseas salir? Las apuestas se perderán.',
+                    buttons: [
+                        { text: 'Cancelar', style: 'cancel' },
+                        {
+                            text: 'Salir',
+                            style: 'destructive',
+                            onPressMsg: { type: ManagementMsgType.DISCARD_CHANGES_CONFIRMED, onConfirm }
+                        }
+                    ]
+                })
+            );
+        })
+        .with({ type: ManagementMsgType.DISCARD_CHANGES_CONFIRMED }, ({ onConfirm }) => {
+            return ret<GlobalModel, ManagementMsg>(
+                model,
+                Cmd.task({
+                    task: async () => {
+                        onConfirm();
+                        return { type: ManagementMsgType.NONE };
+                    },
+                    onSuccess: (msg) => msg,
+                    onFailure: () => ({ type: ManagementMsgType.NONE })
+                })
+            );
+        })
+        .with({ type: ManagementMsgType.SHARE_FAILED }, ({ error }) => {
+            return ret<GlobalModel, ManagementMsg>(
+                model,
+                Cmd.alert({
+                    title: 'Error',
+                    message: error
+                })
+            );
+        })
+        .with({ type: ManagementMsgType.NONE }, () => singleton(model))
         .exhaustive();
 };

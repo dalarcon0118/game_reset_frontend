@@ -1,5 +1,4 @@
 import { useEffect, useCallback } from 'react';
-import { Alert } from 'react-native';
 import { FijosCorridosBet } from '@/types';
 import { GameTypes } from '@/constants/Bet';
 import { useBetsStore, selectBetsModel, selectDispatch } from '../../core/store';
@@ -49,23 +48,6 @@ export const useFijos = ({ onSelectPlay }: { onSelectPlay?: (bets: FijosCorridos
       onSelectPlay(fijosCorridos);
     }
   }, [fijosCorridos, onSelectPlay]);
-
-  // Efecto para mostrar el Alert cuando amountConfirmationDetails cambia
-  useEffect(() => {
-    if (amountConfirmationDetails) {
-      const { amountValue, intendedAmountType } = amountConfirmationDetails;
-      Alert.alert(
-        "Confirmar Monto",
-        `Desea colocar ${amountValue} a todos los números anteriores en ${intendedAmountType === 'fijo' ? GameTypes.FIJO : GameTypes.CORRIDO}?`,
-        [
-          { text: "Cancelar", onPress: cancelAmountConfirmation, style: "cancel" },
-          { text: "Sólo a éste", onPress: confirmApplyAmountSingle },
-          { text: "Sí, a todos", onPress: confirmApplyAmountAll }
-        ],
-        { cancelable: false }
-      );
-    }
-  }, [amountConfirmationDetails, confirmApplyAmountAll, confirmApplyAmountSingle, cancelAmountConfirmation]);
 
   return {
     fijosCorridosList: fijosCorridos,
