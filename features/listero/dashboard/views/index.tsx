@@ -3,7 +3,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, View, TouchableOpacity } fro
 import DrawItem from './DrawItem';
 import Header from './Header';
 import GlobalSummary from './GlobalSummary';
-import { Label, Flex } from '../../../../shared/components';
+import { Label, Flex } from '@/shared/components';
 import { useDashboard } from '../../dashboard/hooks/useDashboard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 

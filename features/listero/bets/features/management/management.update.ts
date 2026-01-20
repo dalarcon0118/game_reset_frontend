@@ -30,6 +30,22 @@ export const updateManagement = (model: GlobalModel, msg: ManagementMsg): Return
                         }
                     }
                 });
+            } else {
+                // Si no se solicitan las apuestas existentes, inicializamos la lista con arrays vacíos
+                // para que la interfaz pueda renderizar las columnas correctamente.
+                commands.push({
+                    type: 'MSG',
+                    payload: {
+                        type: 'LIST',
+                        payload: {
+                            type: ListMsgType.FETCH_BETS_SUCCEEDED,
+                            fijosCorridos: [],
+                            parlets: [],
+                            centenas: [],
+                            loteria: []
+                        }
+                    }
+                });
             }
 
             return ret(
@@ -51,13 +67,29 @@ export const updateManagement = (model: GlobalModel, msg: ManagementMsg): Return
             );
         })
         .with({ type: ManagementMsgType.FETCH_BET_TYPES_SUCCEEDED }, ({ betTypes }) => {
-            const types = {
-                fijo: betTypes.find(t => t.name === 'Fijo')?.id?.toString() || null,
-                corrido: betTypes.find(t => t.name === 'Corrido')?.id?.toString() || null,
-                parlet: betTypes.find(t => t.name === 'Parlet')?.id?.toString() || null,
-                centena: betTypes.find(t => t.name === 'Centena')?.id?.toString() || null,
-                loteria: betTypes.find(t => t.name === 'Loteria')?.id?.toString() || null,
+            console.log('[ManagementUpdate] FETCH_BET_TYPES_SUCCEEDED:', JSON.stringify(betTypes, null, 2));
+            const findType = (names: string[]) => {
+                const type = betTypes.find(t => {
+                    const tName = (t.name || '').toUpperCase();
+                    const tCode = (t.code || '').toUpperCase();
+                    return names.some(name => {
+                        const searchName = name.toUpperCase();
+                        return tName.includes(searchName) || tCode === searchName;
+                    });
+                });
+                return type?.id?.toString() || null;
             };
+
+            const types = {
+                fijo: findType(['FIJO']),
+                corrido: findType(['CORRIDO']),
+                parlet: findType(['PARLET']),
+                centena: findType(['CENTENA']),
+                loteria: findType(['LOTERIA', 'LOTERÍA', 'CUATERNA', 'LS_WEEKLY', 'SEMANAL']),
+            };
+
+            console.log('[ManagementUpdate] Identified BetTypes:', JSON.stringify(types, null, 2));
+
             return singleton({
                 ...model,
                 managementSession: { ...model.managementSession, isLoading: false, betTypes: types },

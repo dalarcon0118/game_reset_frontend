@@ -8,6 +8,7 @@ import { initialListState } from '../features/bet-list/list.types';
 import { initialLoteriaState } from '@/features/listero/games/loteria/loteria.types';
 import { initialManagementState } from '../features/management/management.types';
 import { rewardsCache, rulesCache } from '../features/rewards-rules/rewards.types';
+import { RemoteData } from '@/shared/core/remote.data';
 
 export const initialModel: Model = {
     // UiState
@@ -15,6 +16,7 @@ export const initialModel: Model = {
 
     // Core data
     drawId: null,
+    drawTypeCode: RemoteData.notAsked(),
 
     // Sessions
     createSession: initialCreateState,

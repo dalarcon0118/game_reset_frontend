@@ -2,7 +2,7 @@ import { match } from 'ts-pattern';
 import { Model } from './model';
 import { initialModel, Msg } from './msg';
 import { Cmd } from '@/shared/core/cmd';
-import { Return, singleton } from '@/shared/core/return';
+import { singleton, ret } from '@/shared/core/return';
 
 import { updateManagement } from '../features/management/management.update';
 import { updateKeyboard } from '../features/keyboard/keyboard.update';
@@ -13,10 +13,15 @@ import { updateParlet } from '../features/parlet/parlet.update';
 import { updateCentena } from '../features/centena/centena.update';
 import { updateRules } from '../features/rules/rules.update';
 import { updateRewardsRules } from '../features/rewards-rules/rewards.update';
+import { RewardsRulesMsgType } from '../features/rewards-rules/rewards.types';
 import { updateUi } from '../features/bet-ui/ui.update';
 import { updateFijos } from '../features/fijos-corridos/fijos.update';
 import { updateLoteria } from '@/features/listero/games/loteria/loteria.update';
 import { ManagementMsgType } from '../features/management/management.types';
+import { CoreMsgType } from './msg';
+import { DrawService } from '@/shared/services/Draw';
+import { RemoteDataHttp } from '@/shared/core/remote.data.http';
+import { RemoteData } from '@/shared/core/remote.data';
 
 /**
  * Curried constructor helper for the Model.
@@ -42,7 +47,41 @@ export const init = (params?: string | { drawId: string, fetchExistingBets?: boo
 
     // Reutilizamos la lógica de MANAGEMENT.INIT
     const result = updateManagement(model, { type: ManagementMsgType.INIT, drawId, fetchExistingBets });
-    return [result.model, result.cmd];
+
+    // Agregamos el comando para obtener la info del sorteo
+    const drawInfoCmd = RemoteDataHttp.fetch(
+        async () => {
+            const draw = await DrawService.getOne(drawId);
+            if (!draw) {
+                throw new Error('No se encontró el sorteo');
+            }
+            if (!draw.draw_type_details?.code) {
+                throw new Error('El sorteo no tiene código de tipo');
+            }
+            return draw.draw_type_details.code;
+        },
+        (webData) => ({
+            type: 'CORE',
+            payload: { type: CoreMsgType.DRAW_INFO_RECEIVED, webData }
+        })
+    );
+
+    // Agregamos el comando para obtener las reglas de validación
+    const fetchRulesCmd = {
+        type: 'MSG',
+        payload: {
+            type: 'REWARDS_RULES',
+            payload: {
+                type: RewardsRulesMsgType.FETCH_RULES_REQUESTED,
+                drawId
+            }
+        }
+    };
+
+    return [
+        { ...result.model, drawId },
+        [result.cmd, drawInfoCmd, fetchRulesCmd] as Cmd
+    ];
 };
 
 /**
@@ -51,7 +90,43 @@ export const init = (params?: string | { drawId: string, fetchExistingBets?: boo
  * which are wrapped back into the global Msg type.
  */
 export const update = (model: Model, msg: Msg): [Model, Cmd] => {
-    const result: Return<Model, Msg> = match(msg)
+    const result = match(msg)
+        .with({ type: 'CORE' }, ({ payload }) => {
+            return match(payload)
+                .with({ type: CoreMsgType.DRAW_INFO_REQUESTED }, ({ drawId }) => {
+                    const nextModel: Model = {
+                        ...model,
+                        drawTypeCode: RemoteData.loading<any, string>()
+                    };
+
+                    const cmd = RemoteDataHttp.fetch(
+                        async () => {
+                            const draw = await DrawService.getOne(drawId);
+                            if (!draw) {
+                                throw new Error('No se encontró el sorteo');
+                            }
+                            if (!draw.draw_type_details?.code) {
+                                throw new Error('El sorteo no tiene código de tipo');
+                            }
+                            return draw.draw_type_details.code;
+                        },
+                        (webData) => ({
+                            type: 'CORE',
+                            payload: { type: CoreMsgType.DRAW_INFO_RECEIVED, webData }
+                        })
+                    );
+
+                    return ret(nextModel, cmd);
+                })
+                .with({ type: CoreMsgType.DRAW_INFO_RECEIVED }, ({ webData }) => {
+                    return singleton({
+                        ...model,
+                        drawTypeCode: webData as any
+                    } as Model);
+                })
+                .exhaustive();
+        })
+
         .with({ type: 'MANAGEMENT' }, ({ payload }) =>
             singleton(makeModel).andMapCmd(
                 (sub) => ({ type: 'MANAGEMENT', payload: sub }),

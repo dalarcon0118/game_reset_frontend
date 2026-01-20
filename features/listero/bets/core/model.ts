@@ -9,12 +9,14 @@ import { LoteriaState } from '@/features/listero/games/loteria/loteria.types';
 import { ListState } from '../features/bet-list/list.types';
 import { ManagementState } from '../features/management/management.types';
 import { RewardsCache, RulesCache } from '../features/rewards-rules/rewards.types';
+import { WebData } from '@/shared/core/remote.data';
 
 export type { CreateSession, EditSession };
 
 export interface Model extends UiState {
     // Core data
     drawId: string | null;
+    drawTypeCode: WebData<string>;
 
     // Sessions
     createSession: CreateSession;

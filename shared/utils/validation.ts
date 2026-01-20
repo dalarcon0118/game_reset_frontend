@@ -76,12 +76,13 @@ export function validateBets(
  */
 export function filterRulesByBetType(
     rules: ValidationRule[],
-    betTypeId: string
+    betTypeId: string | number
 ): ValidationRule[] {
+    const betTypeStr = String(betTypeId);
     return rules.filter(
         (rule) =>
             rule.bet_types.length === 0 || // Rules with no bet types apply to all
-            rule.bet_types.includes(betTypeId)
+            rule.bet_types.map(String).includes(betTypeStr)
     );
 }
 
@@ -90,4 +91,58 @@ export function filterRulesByBetType(
  */
 export function getValidationErrors(result: ValidationResult): string[] {
     return result.failedRules.map((fr) => fr.message);
+}
+
+/**
+ * Tries to extract a fixed amount from validation rules.
+ * This looks for rules that enforce an exact amount, like {"==": [{"var": "amount"}, 150]}
+ */
+export function getFixedAmountFromRules(rules: ValidationRule[]): number | null {
+    for (const rule of rules) {
+        if (!rule.is_active) continue;
+
+        const logic = rule.json_logic;
+
+        // Case: {"==": [{"var": "amount"}, 150]}
+        if (logic && logic["=="]) {
+            const ops = logic["=="];
+            if (Array.isArray(ops) && ops.length === 2) {
+                const varOp = ops[0];
+                const value = ops[1];
+
+                if (varOp && varOp["var"] === "amount" && typeof value === "number") {
+                    return value;
+                }
+                
+                // Also check reverse order: { "==": [150, { "var": "amount" }] }
+                const varOpRev = ops[1];
+                const valueRev = ops[0];
+                if (varOpRev && varOpRev["var"] === "amount" && typeof valueRev === "number") {
+                    return valueRev;
+                }
+            }
+        }
+
+        // Case: {"===": [{"var": "amount"}, 150]}
+        if (logic && logic["==="]) {
+            const ops = logic["==="];
+            if (Array.isArray(ops) && ops.length === 2) {
+                const varOp = ops[0];
+                const value = ops[1];
+
+                if (varOp && varOp["var"] === "amount" && typeof value === "number") {
+                    return value;
+                }
+
+                // Also check reverse order
+                const varOpRev = ops[1];
+                const valueRev = ops[0];
+                if (varOpRev && varOpRev["var"] === "amount" && typeof valueRev === "number") {
+                    return valueRev;
+                }
+            }
+        }
+    }
+
+    return null;
 }

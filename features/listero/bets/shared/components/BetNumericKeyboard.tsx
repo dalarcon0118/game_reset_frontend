@@ -12,6 +12,7 @@ interface BetNumericKeyboardProps {
     currentInput?: string;
     onConfirm?: () => void;
     betType?: BetType;
+    formatInput?: (input: string) => string;
 }
 
 export const BetNumericKeyboard: React.FC<BetNumericKeyboardProps> = ({
@@ -21,6 +22,7 @@ export const BetNumericKeyboard: React.FC<BetNumericKeyboardProps> = ({
     currentInput = '',
     onConfirm,
     betType = 'fijo-corrido',
+    formatInput,
 }) => {
     const theme = useTheme();
 
@@ -31,6 +33,7 @@ export const BetNumericKeyboard: React.FC<BetNumericKeyboardProps> = ({
 
     const formatBetInput = (input: string) => {
         if (!input) return '';
+        if (formatInput) return formatInput(input);
 
         switch (betType) {
             case 'centena':

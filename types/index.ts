@@ -27,6 +27,7 @@ export interface DrawType {
   source?: string; // Alias de 'name' para compatibilidad
   date?: string; // Fecha formateada
   time?: string; // Hora formateada
+  is_betting_open?: boolean;
 }
 
 

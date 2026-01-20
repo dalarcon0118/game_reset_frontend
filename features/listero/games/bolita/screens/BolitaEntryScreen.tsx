@@ -22,6 +22,7 @@ interface BolitaEntryScreenProps {
 
 
 const BolitaEntryScreen: React.FC<BolitaEntryScreenProps> = ({ drawId, title }) => {
+    console.log('BolitaEntryScreen rendering...');
     const colorScheme = useColorScheme() ?? 'light';
     const themeColors = Colors[colorScheme as keyof typeof Colors];
     const model = useBetsStore(selectBetsModel);
@@ -30,7 +31,8 @@ const BolitaEntryScreen: React.FC<BolitaEntryScreenProps> = ({ drawId, title }) 
 
     const navigation = useNavigation();
 
-    // Reset state and re-init when screen comes into focus
+    // Ya no inicializamos aquí, lo hace EditListScreen
+    /*
     useFocusEffect(
         React.useCallback(() => {
             if (drawId) {
@@ -44,6 +46,7 @@ const BolitaEntryScreen: React.FC<BolitaEntryScreenProps> = ({ drawId, title }) 
             }
         }, [drawId, init, dispatch])
     );
+    */
 
     const {
         managementSession: { isSaving }
@@ -185,9 +188,18 @@ const BolitaEntryScreen: React.FC<BolitaEntryScreenProps> = ({ drawId, title }) 
 
                 const grandTotal = fijosCorridosTotal + parletsTotal + centenasTotal;
 
+                console.log('BolitaEntryScreen: Rendering Success state with data:', {
+                    fijosCorridos: fijosCorridos.length,
+                    parlets: parlets.length,
+                    centenas: centenas.length
+                });
+
                 return (
                     <>
-                        <ScrollView style={styles.scrollContainer}>
+                        <ScrollView 
+                            style={styles.scrollContainer}
+                            contentContainerStyle={styles.scrollContent}
+                        >
                             <View style={styles.betContainer}>
                                 <View style={styles.columnsContainer}>
                                     <View style={styles.columnWrapperFijos}>
@@ -221,13 +233,10 @@ const BolitaEntryScreen: React.FC<BolitaEntryScreenProps> = ({ drawId, title }) 
     };
 
     return (
-        <SafeAreaView style={[styles.container, { backgroundColor: Colors[colorScheme].background }]} edges={['bottom']}>
-            <Layout style={[styles.header, { borderBottomColor: Colors[colorScheme].border }]} level='1'>
-                <Text category='h6' style={styles.headerText}>{title}</Text>
-            </Layout>
+        <View style={[styles.container, { backgroundColor: Colors[colorScheme].background }]}>
             <ColumnHeaders />
             {renderContent()}
-        </SafeAreaView>
+        </View>
     );
 };
 
@@ -244,6 +253,7 @@ const styles = StyleSheet.create({
     },
     headerText: { textAlign: 'center' },
     scrollContainer: { flex: 1 },
+    scrollContent: { flexGrow: 1 },
     betContainer: { flexDirection: "column" },
     columnsContainer: { flexDirection: 'row', flex: 1 },
     footer: {

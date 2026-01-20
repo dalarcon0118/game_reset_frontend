@@ -24,6 +24,8 @@ export const useFijos = ({ onSelectPlay }: { onSelectPlay?: (bets: FijosCorridos
     currentInput,
   } = editSession;
 
+  console.log('useFijos state:', { showBetKeyboard, showAmountKeyboard, currentInput });
+
   const fijosCorridos =
     listSession.remoteData.type === 'Success'
       ? listSession.remoteData.data.fijosCorridos

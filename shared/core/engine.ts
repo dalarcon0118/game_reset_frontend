@@ -24,10 +24,19 @@ export const createElmStore = <TModel, TMsg>(
         init: (params?: any) => void;
     }>((set, get) => {
         const executeCmds = (cmd: Cmd) => {
-            const cmdsToExecute = Array.isArray(cmd) ? cmd : cmd ? [cmd] : [];
+            const flattenCmds = (c: Cmd): CommandDescriptor[] => {
+                if (!c) return [];
+                if (Array.isArray(c)) {
+                    return c.flatMap(flattenCmds);
+                }
+                return [c];
+            };
+
+            const cmdsToExecute = flattenCmds(cmd);
             cmdsToExecute.forEach(async (singleCmd: any) => {
                 if (singleCmd && effectHandlers[singleCmd.type]) {
                     try {
+                        console.log(`Engine: Executing Cmd ${singleCmd.type}`, singleCmd.payload ? '(with payload)' : '');
                         const result = await effectHandlers[singleCmd.type](singleCmd.payload, get().dispatch);
                         if (singleCmd.payload && singleCmd.payload.msgCreator) {
                             get().dispatch(singleCmd.payload.msgCreator(result));

@@ -42,22 +42,25 @@ const isClosingSoon = (bettingEndTime?: string) => {
     return diff > 0 && diff < 5 * 60 * 1000; // 5 minutes según feature spec
 };
 
-const isExpired = (bettingEndTime?: string) => {
-    if (!bettingEndTime) return false;
+const isExpired = (draw: any) => {
+    // Si el backend dice que está abierto, no está expirado, sin importar el tiempo
+    if (draw.is_betting_open === true) return false;
+
+    if (!draw.betting_end_time) return false;
     const now = new Date();
-    const endTime = new Date(bettingEndTime);
+    const endTime = new Date(draw.betting_end_time);
     return now.getTime() >= endTime.getTime();
 };
 
 const applyFiltersAndTotals = (model: Model): Model => {
     const data = (model.draws.data as any[]) || [];
     const filteredData = data.filter((draw) => {
-        const expired = isExpired(draw.betting_end_time);
+        const expired = isExpired(draw);
 
         if (model.appliedFilter === 'all') return true;
 
         if (model.appliedFilter === 'open') {
-            return draw.status === 'open' && !expired;
+            return (draw.status === 'open' || draw.is_betting_open === true) && !expired;
         }
 
         if (model.appliedFilter === 'closed') {
@@ -70,7 +73,7 @@ const applyFiltersAndTotals = (model: Model): Model => {
         }
 
         if (model.appliedFilter === 'closing_soon') {
-            return draw.status === 'open' && isClosingSoon(draw.betting_end_time);
+            return (draw.status === 'open' || draw.is_betting_open === true) && isClosingSoon(draw.betting_end_time);
         }
 
         if (model.appliedFilter === 'rewarded') {

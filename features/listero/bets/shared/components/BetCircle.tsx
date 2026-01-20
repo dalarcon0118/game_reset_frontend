@@ -14,6 +14,7 @@ const getSizeForValue = (value: number | string): number => {
   const length = String(value).length;
   if (length <= 2) return BASE_SIZE;
   if (length === 3) return BASE_SIZE + 8;
+  if (length >= 10) return BASE_SIZE + 60; // Aumentado para dar más espacio
   return BASE_SIZE + 16; // 4+ digits
 };
 
@@ -21,12 +22,14 @@ const getFontSize = (value: number | string): number => {
   const length = String(value).length;
   if (length <= 2) return 16;
   if (length === 3) return 14;
+  if (length >= 10) return 14; // Aumentado de 10 a 14 para mejor legibilidad
   return 12; // 4+ digits
 };
 
 export default function BetCircle({ value, onPress }: BetCircleProps) {
   const colorScheme = useColorScheme() ?? 'light';
   const size = getSizeForValue(value);
+  const isFormattedLoteria = String(value).length >= 10;
   
   return (
     <TouchableOpacity 
@@ -43,7 +46,13 @@ export default function BetCircle({ value, onPress }: BetCircleProps) {
       disabled={!onPress}
       activeOpacity={0.7}
     >
-      <StyledText variant="caption" style={{ fontSize: getFontSize(value) }}>
+      <StyledText 
+        variant="caption" 
+        style={{ 
+          fontSize: getFontSize(value),
+          fontWeight: isFormattedLoteria ? 'bold' : 'normal' 
+        }}
+      >
         {value}
       </StyledText>
     </TouchableOpacity>

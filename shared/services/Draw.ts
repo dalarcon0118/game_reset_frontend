@@ -17,6 +17,13 @@ export interface ExtendedDrawType extends DrawType {
     reported_issue: number;
     rejected: number;
   };
+  is_betting_open?: boolean;
+  draw_type_details?: {
+    id: number;
+    name: string;
+    description: string;
+    code: string;
+  };
 }
 
 // Backend response type
@@ -48,6 +55,7 @@ interface BackendDraw {
     reported_issue: number;
     rejected: number;
   };
+  is_betting_open: boolean;
 }
 
 // Draw closure confirmation types
@@ -87,7 +95,8 @@ export class DrawService {
         status: DrawService.mapStatus(
           response.status,
           response.betting_start_time,
-          response.betting_end_time
+          response.betting_end_time,
+          response.is_betting_open
         ),
         draw_type: response.draw_type,
         draw_type_details: response.draw_type_details,
@@ -99,6 +108,7 @@ export class DrawService {
         // Hierarchical closure fields
         hierarchical_closure_status: response.hierarchical_closure_status,
         closure_confirmations_count: response.closure_confirmations_count,
+        is_betting_open: response.is_betting_open,
 
         // Computed UI fields for compatibility
         source: response.name,
@@ -157,7 +167,8 @@ export class DrawService {
         status: DrawService.mapStatus(
           backendDraw.status,
           backendDraw.betting_start_time,
-          backendDraw.betting_end_time
+          backendDraw.betting_end_time,
+          backendDraw.is_betting_open
         ),
         draw_type: backendDraw.draw_type,
         owner_structure: backendDraw.owner_structure,
@@ -168,6 +179,7 @@ export class DrawService {
         // Hierarchical closure fields
         hierarchical_closure_status: backendDraw.hierarchical_closure_status,
         closure_confirmations_count: backendDraw.closure_confirmations_count,
+        is_betting_open: backendDraw.is_betting_open,
 
         // Computed UI fields for compatibility
         source: backendDraw.name,
@@ -186,10 +198,16 @@ export class DrawService {
   private static mapStatus(
     backendStatus: string,
     bettingStart: string | null,
-    bettingEnd: string | null
+    bettingEnd: string | null,
+    isBettingOpen?: boolean
   ): 'open' | 'pending' | 'closed' {
     if (backendStatus === 'completed' || backendStatus === 'cancelled') {
       return 'closed';
+    }
+
+    // Si el backend nos dice explícitamente que está abierto, lo priorizamos
+    if (isBettingOpen === true) {
+      return 'open';
     }
 
     if (bettingStart && bettingEnd) {

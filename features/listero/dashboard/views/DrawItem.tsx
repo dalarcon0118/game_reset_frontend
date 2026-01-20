@@ -35,6 +35,10 @@ export default function DrawItem({
   }
 
   const getDrawStatus = () => {
+    // Si el backend nos dice explícitamente que las apuestas están abiertas, lo respetamos.
+    // Esto es vital para sorteos con ventanas de apuestas largas (ej: Lotería Semanal)
+    if (draw.is_betting_open === true) return 'open';
+    
     if (!draw.betting_end_time) return draw.status;
     const now = new Date();
     const endTime = new Date(draw.betting_end_time);
@@ -67,13 +71,29 @@ export default function DrawItem({
   const getStatusBadge = () => {
     switch (effectiveStatus) {
       case 'open':
-        return <Badge status={closingInfo?.isCritical ? "danger" : "success"}>
-          {closingInfo?.isCritical ? `Cierra en ${closingInfo.timeLeft}` : "Abierto"}
-        </Badge>;
+        return (
+          <Badge 
+            color={closingInfo?.isCritical ? "#FF3D71" : "#00D68F"} 
+            textColor="#FFFFFF"
+            content={closingInfo?.isCritical ? `Cierra en ${closingInfo.timeLeft}` : "Abierto"}
+          />
+        );
       case 'closed':
-        return <Badge status="danger">Cerrado</Badge>;
+        return (
+          <Badge 
+            color="#FF3D71" 
+            textColor="#FFFFFF"
+            content="Cerrado"
+          />
+        );
       default:
-        return <Badge status="basic">{effectiveStatus}</Badge>;
+        return (
+          <Badge 
+            color="#8F9BB3" 
+            textColor="#FFFFFF"
+            content={effectiveStatus}
+          />
+        );
     }
   };
 

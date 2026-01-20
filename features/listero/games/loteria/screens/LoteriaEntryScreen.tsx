@@ -22,6 +22,8 @@ const LoteriaEntryScreen: React.FC<LoteriaEntryScreenProps> = ({ drawId, title }
     const dispatch = useBetsStore(selectDispatch);
     const navigation = useNavigation();
 
+    // Ya no inicializamos aquí, lo hace EditListScreen
+    /*
     useEffect(() => {
         if (drawId) {
             dispatch({
@@ -34,6 +36,7 @@ const LoteriaEntryScreen: React.FC<LoteriaEntryScreenProps> = ({ drawId, title }
             });
         }
     }, [drawId, dispatch]);
+    */
 
     const hasBets = useMemo(() => {
         const { loteria } = model.listSession.remoteData.type === 'Success'
@@ -124,15 +127,12 @@ const LoteriaEntryScreen: React.FC<LoteriaEntryScreenProps> = ({ drawId, title }
     };
 
     return (
-        <SafeAreaView style={[styles.container, { backgroundColor: Colors[colorScheme].background }]} edges={['bottom']}>
-            <Layout style={[styles.header, { borderBottomColor: Colors[colorScheme].border }]} level='1'>
-                <Text category='h6' style={styles.headerText}>{title || 'Lotería'}</Text>
-            </Layout>
+        <View style={[styles.container, { backgroundColor: Colors[colorScheme].background }]}>
             <View style={styles.content}>
                 <LoteriaColumn />
             </View>
             {renderSavingFooterBar()}
-        </SafeAreaView>
+        </View>
     );
 };
 

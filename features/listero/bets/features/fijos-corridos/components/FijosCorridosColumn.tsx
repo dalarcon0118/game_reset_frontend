@@ -22,10 +22,14 @@ export default function FijosCorridosColumn() {
         handleConfirmInput,
     } = useFijos();
 
+    console.log('FijosCorridosColumn rendering body... list length:', fijosCorridosList?.length);
+
 
   const renderKeyboard = () => {
     const isVisible = showBetKeyboard || showAmountKeyboard;
     const onClose = showBetKeyboard ? hideBetKeyboard : hideAmountKeyboard;
+
+    console.log('FijosCorridosColumn: Rendering Keyboard. showBetKeyboard:', showBetKeyboard, 'showAmountKeyboard:', showAmountKeyboard, 'isVisible:', isVisible);
 
     return (
       <BottomDrawer isVisible={isVisible} onClose={onClose} title='' height={"60%"}>
