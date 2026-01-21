@@ -36,11 +36,11 @@ export default function GlobalSummary({ totals, commissionRate }: GlobalSummaryP
               </View>
               <View>
                 <Label type="detail">Mi Ganancia Est.</Label>
-                <Label style={styles.commissionValue}>${estimatedCommission.toFixed(2)}</Label>
+                <Label style={styles.commissionValue}>{`$${estimatedCommission.toFixed(2)}`}</Label>
               </View>
             </Flex>
             <View style={styles.badge}>
-              <Label style={styles.badgeText}>{(commissionRate * 100).toFixed(0)}%</Label>
+              <Label style={styles.badgeText}>{`${(commissionRate * 100).toFixed(0)}%`}</Label>
             </View>
           </Flex>
 
@@ -52,7 +52,7 @@ export default function GlobalSummary({ totals, commissionRate }: GlobalSummaryP
               </View>
               <View>
                 <Label type="detail">Monto a Entregar al Colector</Label>
-                <Label style={styles.remitValue}>${amountToRemit.toFixed(2)}</Label>
+                <Label style={styles.remitValue}>{`$${amountToRemit.toFixed(2)}`}</Label>
               </View>
             </Flex>
           </Flex>
@@ -66,7 +66,7 @@ export default function GlobalSummary({ totals, commissionRate }: GlobalSummaryP
                 <ReceiptText size={16} color="#8F9BB3" />
                 <Label type="detail">Ventas Totales</Label>
               </Flex>
-              <Label style={styles.statValue}>${totalCollected.toFixed(2)}</Label>
+              <Label style={styles.statValue}>{`$${totalCollected.toFixed(2)}`}</Label>
             </View>
 
             <View style={styles.statItem}>
@@ -74,7 +74,7 @@ export default function GlobalSummary({ totals, commissionRate }: GlobalSummaryP
                 <TrendingUp size={16} color="#8F9BB3" />
                 <Label type="detail">Premios</Label>
               </Flex>
-              <Label style={[styles.statValue, { color: '#FF3D71' }]}>${premiumsPaid.toFixed(2)}</Label>
+              <Label style={[styles.statValue, { color: '#FF3D71' }]}>{`$${premiumsPaid.toFixed(2)}`}</Label>
             </View>
 
             <View style={styles.statItem}>
@@ -83,7 +83,7 @@ export default function GlobalSummary({ totals, commissionRate }: GlobalSummaryP
                 <Label type="detail">Balance</Label>
               </Flex>
               <Label style={[styles.statValue, { color: netResult >= 0 ? '#00C48C' : '#FF3D71' }]}>
-                ${netResult.toFixed(2)}
+                {`$${netResult.toFixed(2)}`}
               </Label>
             </View>
           </Flex>

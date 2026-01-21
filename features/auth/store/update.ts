@@ -94,13 +94,17 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
         })
 
         .with({ type: AuthMsgType.LOGIN_FAILED }, ({ error }) => {
+            const errorMessage = typeof error === 'string'
+                ? error
+                : (error?.message || 'Error de conexión');
+
             return [
                 {
                     ...model,
                     user: null,
                     isAuthenticated: false,
                     isLoading: false,
-                    error,
+                    error: errorMessage,
                     loginSession: {
                         ...model.loginSession,
                         pin: '',
@@ -255,27 +259,37 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
                     },
                     Cmd.none,
                 ] as [AuthModel, Cmd])
-                .with({ type: 'Failure' }, ({ error }) => [
-                    {
-                        ...model,
-                        user: null,
-                        isAuthenticated: false,
-                        isLoading: false,
-                        error: error || 'Sesión no válida'
-                    },
-                    Cmd.none
-                ] as [AuthModel, Cmd])
+                .with({ type: 'Failure' }, ({ error }) => {
+                    const errorMessage = typeof error === 'string'
+                        ? error
+                        : (error?.message || 'Sesión no válida');
+
+                    return [
+                        {
+                            ...model,
+                            user: null,
+                            isAuthenticated: false,
+                            isLoading: false,
+                            error: errorMessage
+                        },
+                        Cmd.none
+                    ] as [AuthModel, Cmd];
+                })
                 .otherwise(() => [model, Cmd.none] as [AuthModel, Cmd]);
         })
 
         .with({ type: AuthMsgType.CHECK_AUTH_STATUS_FAILED }, ({ error }) => {
+            const errorMessage = typeof error === 'string'
+                ? error
+                : (error?.message || 'Error de conexión');
+
             return [
                 {
                     ...model,
                     user: null,
                     isAuthenticated: false,
                     isLoading: false,
-                    error
+                    error: errorMessage
                 },
                 Cmd.none
             ] as [AuthModel, Cmd];

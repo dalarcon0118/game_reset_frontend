@@ -18,8 +18,8 @@ export const createElmStore = <TModel, TMsg>(
     effectHandlers: Record<string, (payload: any, dispatch: (msg: TMsg) => void) => Promise<any>>,
     subscriptions?: (model: TModel) => SubDescriptor<TMsg>
 ) => {
-    const store = create<{ 
-        model: TModel; 
+    const store = create<{
+        model: TModel;
         dispatch: (msg: TMsg) => void;
         init: (params?: any) => void;
     }>((set, get) => {
@@ -61,10 +61,14 @@ export const createElmStore = <TModel, TMsg>(
                     if (cmd) executeCmds(cmd);
                 }
             },
-            dispatch: async (msg: TMsg) => {
-                const [nextModel, cmd] = update(get().model, msg);
-                set({ model: nextModel });
-                if (cmd) executeCmds(cmd);
+            dispatch: (msg: TMsg) => {
+                let cmdToRun: Cmd = null;
+                set((state) => {
+                    const [nextModel, cmd] = update(state.model, msg);
+                    cmdToRun = cmd;
+                    return { model: nextModel };
+                });
+                if (cmdToRun) executeCmds(cmdToRun);
             },
         };
     });
@@ -112,7 +116,7 @@ export const createElmStore = <TModel, TMsg>(
         store.subscribe((state) => {
             const currentSub = subscriptions(state.model);
             const currentIds = getActiveIds(currentSub);
-            
+
             cleanupSubs(currentIds);
             processSub(currentSub, state.dispatch);
         });

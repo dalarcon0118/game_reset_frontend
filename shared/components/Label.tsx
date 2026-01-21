@@ -38,9 +38,30 @@ export const Label: React.FC<LabelProps> = ({ style, children, value, type = 'de
 
   const content = value !== undefined ? value : children;
 
+  // Prevent rendering objects as children, which causes React errors in Native
+  let safeContent = content;
+  if (Array.isArray(content)) {
+    // If it's an array, filter out null/undefined/objects and join without spaces
+    safeContent = content
+      .filter(item => 
+        item !== null && 
+        item !== undefined && 
+        typeof item !== 'boolean'
+      )
+      .map(item => 
+        (typeof item === 'object' && !React.isValidElement(item))
+          ? ''
+          : item
+      )
+      .join('');
+  } else if (typeof content === 'object' && content !== null && !React.isValidElement(content)) {
+    // If it's a single object that isn't a React element, don't render it
+    safeContent = '';
+  }
+
   return (
     <Text style={[getStyleByType(type), style]} {...props}>
-      {content as any}
+      {safeContent as any}
     </Text>
   );
 };

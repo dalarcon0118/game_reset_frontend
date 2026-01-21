@@ -13,11 +13,9 @@ export { default as DashboardScreen } from './dashboard/views';
 export { RulesScreen } from './bets/screens/RulesScreen';
 export { RewardsScreen } from './bets/screens/RewardsScreen';
 
-// Export hooks for external use
-export { useDashboard } from './dashboard/hooks/useDashboard';
-
 // Export stores for advanced usage (if needed)
 export { useBetsStore, selectBetsModel, selectDispatch } from './bets/store';
+export { useDashboardStore } from './dashboard/store';
 
 // Export types for TypeScript support
 export type {

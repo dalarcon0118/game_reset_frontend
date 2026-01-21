@@ -39,7 +39,7 @@ export default function SummaryCard({
       <Label
         style={[styles.value, { color: getTextColor() }]}
       >
-        ${Math.abs(amount).toFixed(2)}
+        {`$${Math.abs(amount).toFixed(2)}`}
       </Label>
     </View>
   );
