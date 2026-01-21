@@ -9,6 +9,7 @@ export enum LoteriaMsgType {
     CONFIRM_INPUT = 'CONFIRM_INPUT',
     PROCESS_BET_INPUT = 'PROCESS_BET_INPUT',
     SUBMIT_AMOUNT_INPUT = 'SUBMIT_AMOUNT_INPUT',
+    EDIT_LOTERIA_BET = 'EDIT_LOTERIA_BET',
 }
 
 export type LoteriaMsg =
@@ -19,7 +20,8 @@ export type LoteriaMsg =
     | { type: LoteriaMsgType.KEY_PRESSED; key: string }
     | { type: LoteriaMsgType.CONFIRM_INPUT }
     | { type: LoteriaMsgType.PROCESS_BET_INPUT; input: string }
-    | { type: LoteriaMsgType.SUBMIT_AMOUNT_INPUT; amount: string };
+    | { type: LoteriaMsgType.SUBMIT_AMOUNT_INPUT; amount: string }
+    | { type: LoteriaMsgType.EDIT_LOTERIA_BET; betId: string };
 
 export interface LoteriaState {
     isBetKeyboardVisible: boolean;

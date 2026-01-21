@@ -19,6 +19,7 @@ const SuccessScreen = () => {
         bets, 
         totalAmount, 
         drawId, 
+        metadata,
         handleShare, 
         handleBack 
     } = useSuccess();
@@ -28,18 +29,18 @@ const SuccessScreen = () => {
             <Stack.Screen options={{ title: 'Voucher' }} />
             <Layout style={styles.container} level='1'>
                 <ScrollView contentContainerStyle={styles.scrollContent}>
-                    <SuccessHeader receiptCode={receiptCode} />
-
                     <ViewShot 
                         ref={viewShotRef} 
                         options={{ format: 'png', quality: 0.9 }}
                         style={styles.viewShotContainer}
                     >
+                        <SuccessHeader receiptCode={receiptCode} />
                         <SuccessVoucher 
                             drawId={drawId} 
                             receiptCode={receiptCode}
                             bets={bets as any} 
                             totalAmount={totalAmount} 
+                            metadata={metadata}
                         />
                     </ViewShot>
 
@@ -58,15 +59,22 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     scrollContent: {
-        padding: 20,
+        padding: 10,
         alignItems: 'center',
+        flexGrow: 1,
     },
     viewShotContainer: {
         width: '100%',
-        padding: 10,
-        backgroundColor: '#FFFFFF',
-        borderRadius: 12,
+       
     }
 });
 
 export default SuccessScreen;
+/* //  padding: 16,
+      //  backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+         shadowColor: '#000',
+       //  shadowOffset: { width: 0, height: 4 },
+       // shadowOpacity: 0.1,
+       // shadowRadius: 12,
+        elevation: 5,*/

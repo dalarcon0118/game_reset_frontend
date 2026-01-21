@@ -17,19 +17,31 @@ export const SuccessActions: React.FC<SuccessActionsProps> = ({ onShare, onDone 
                 onPress={onShare} 
                 style={styles.shareButton}
                 size='large'
-                accessoryLeft={() => <Share2 size={20} color="#FFFFFF" />}
+                status='primary'
+                accessoryLeft={(props: any) => (
+                    <Share2 
+                        size={20} 
+                        color={props.style?.tintColor || '#FFFFFF'} 
+                    />
+                )}
             >
-                Compartir Voucher
+                Compartir Recibo
             </Button>
 
             <Button 
                 onPress={onDone} 
                 style={styles.doneButton}
-                appearance='ghost'
+                appearance='outline'
                 status='basic'
-                accessoryLeft={() => <Home size={20} color={theme['text-basic-color']} />}
+                size='medium'
+                accessoryLeft={(props: any) => (
+                    <Home 
+                        size={20} 
+                        color={props.style?.tintColor || theme['text-basic-color']} 
+                    />
+                )}
             >
-                Volver al Inicio
+                Nueva Apuesta
             </Button>
         </>
     );
@@ -38,10 +50,18 @@ export const SuccessActions: React.FC<SuccessActionsProps> = ({ onShare, onDone 
 const styles = StyleSheet.create({
     shareButton: {
         width: '100%',
-        marginTop: 30,
-        marginBottom: 10,
+        marginTop: 40,
+        marginBottom: 12,
+        borderRadius: 12,
+        shadowColor: '#3366FF',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 4,
     },
     doneButton: {
         width: '100%',
+        borderRadius: 12,
+        marginBottom: 40,
     }
 });

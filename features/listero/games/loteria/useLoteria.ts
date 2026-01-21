@@ -9,6 +9,10 @@ export const useLoteria = () => {
 
     const { loteriaSession, editSession, listSession, managementSession, rules } = model;
 
+    const drawDetails = managementSession.drawDetails.type === 'Success'
+        ? managementSession.drawDetails.data
+        : null;
+
     const loteriaList = listSession.remoteData.type === 'Success'
         ? listSession.remoteData.data.loteria
         : [];
@@ -66,6 +70,10 @@ export const useLoteria = () => {
         dispatch({ type: 'LOTERIA', payload: { type: LoteriaMsgType.CONFIRM_INPUT } }),
         [dispatch]);
 
+    const editLoteriaBet = useCallback((betId: string) =>
+        dispatch({ type: 'LOTERIA', payload: { type: LoteriaMsgType.EDIT_LOTERIA_BET, betId } }),
+        [dispatch]);
+
     return {
         loteriaList,
         fixedAmount,
@@ -78,5 +86,7 @@ export const useLoteria = () => {
         closeAmountKeyboard,
         handleKeyPress,
         handleConfirmInput,
+        editLoteriaBet,
+        drawDetails,
     };
 };

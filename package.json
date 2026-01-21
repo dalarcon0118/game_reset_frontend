@@ -13,6 +13,10 @@
     "build:apk": "eas build --profile preview --platform android",
     "build:prod": "eas build --profile production --platform android",
     "lint": "expo lint",
+    "test": "jest",
+    "test:all": "jest Tests",
+    "test:feature": "node -e \"const feature = process.env.npm_config_feature; if (!feature) { console.error('Please specify a feature: npm run test:feature --feature=draws'); process.exit(1); } require('child_process').spawnSync('jest', ['Tests/features/admin/' + feature], { stdio: 'inherit', shell: true });\"",
+    "test:watch": "jest --watch",
     "postinstall": "cp patches/expo-router-fix/_ctx.android.js node_modules/expo-router/_ctx.android.js"
   },
   "dependencies": {
@@ -64,6 +68,9 @@
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
+    "@testing-library/jest-native": "^5.4.3",
+    "@testing-library/react-native": "^13.3.3",
+    "@types/jest": "^30.0.0",
     "@types/json-logic-js": "^2.0.8",
     "@types/react": "~18.3.12",
     "@types/react-native": "^0.72.8",
@@ -72,6 +79,10 @@
     "eslint-config-expo": "~8.0.1",
     "eslint-import-resolver-typescript": "^4.4.4",
     "hermes-parser": "^0.23.1",
+    "jest": "^30.2.0",
+    "jest-cucumber": "^4.5.0",
+    "jest-expo": "^54.0.16",
+    "ts-jest": "^29.4.6",
     "typescript": "^5.3.3"
   }
 }

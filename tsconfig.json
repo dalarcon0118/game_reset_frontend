@@ -9,6 +9,12 @@
       ],
       "@shared/*": [
         "shared/*"
+      ],
+      "@features/*": [
+        "features/*"
+      ],
+      "@core/*": [
+        "shared/core/*"
       ]
     }
   },

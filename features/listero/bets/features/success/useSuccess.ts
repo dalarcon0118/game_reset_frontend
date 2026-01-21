@@ -1,14 +1,113 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useState, useEffect } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import { selectBetsModel, selectDispatch, useBetsStore } from '../../core/store';
-import { SuccessMsgType } from './success.types';
+import { SuccessMsgType, VoucherMetadata } from './success.types';
 import ViewShot from 'react-native-view-shot';
+import { DrawService } from '@/shared/services/Draw';
+import { ExtendedDrawType } from '@/shared/services/Draw';
 
 export const useSuccess = () => {
     const model = useBetsStore(selectBetsModel);
     const dispatch = useBetsStore(selectDispatch);
+    const [drawDetails, setDrawDetails] = useState<ExtendedDrawType | null>(null);
 
     const { betId } = useLocalSearchParams<{ betId: string }>();
+    const drawId = model.drawId;
+
+    useEffect(() => {
+        if (drawId) {
+            DrawService.getOne(drawId).then(details => {
+                if (details) setDrawDetails(details);
+            });
+        }
+    }, [drawId]);
+
+    const metadata = useMemo<VoucherMetadata>(() => {
+        const now = new Date();
+        const issueDate = now.toLocaleDateString('es-ES', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+
+        const awardDate = drawDetails?.draw_datetime
+            ? new Date(drawDetails.draw_datetime).toLocaleDateString('es-ES', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            })
+            : 'Pendiente';
+
+        // Intentamos obtener el premio de los metadatos del sorteo (Jackpot)
+        let totalPrize = 'Según Reglas';
+
+        // Función auxiliar para obtener datos de extra_data (manejando posible string)
+        const getExtraDataValue = (obj: any, key: string) => {
+            if (!obj) return undefined;
+            let data = obj;
+            if (typeof obj === 'string') {
+                try {
+                    data = JSON.parse(obj);
+                } catch (e) {
+                    return undefined;
+                }
+            }
+            return data[key];
+        };
+
+        const jackpotFromDraw = getExtraDataValue(drawDetails?.extra_data, 'jackpot_amount');
+        const jackpotFromType = getExtraDataValue((drawDetails as any)?.draw_type_details?.extra_data, 'jackpot_amount');
+
+        const jackpot = jackpotFromDraw !== undefined ? jackpotFromDraw : jackpotFromType;
+
+        const currency = getExtraDataValue(drawDetails?.extra_data, 'currency') ||
+            getExtraDataValue((drawDetails as any)?.draw_type_details?.extra_data, 'currency') ||
+            'DOP';
+
+        if (jackpot !== undefined && jackpot !== null && jackpot !== '') {
+            try {
+                const amount = typeof jackpot === 'string' ? parseFloat(jackpot) : Number(jackpot);
+                if (!isNaN(amount)) {
+                    totalPrize = new Intl.NumberFormat('es-DO', {
+                        style: 'currency',
+                        currency: currency,
+                        minimumFractionDigits: 2
+                    }).format(amount);
+                }
+            } catch (e) {
+                console.error('[useSuccess] Error formatting jackpot:', e);
+                totalPrize = `${currency} ${jackpot}`;
+            }
+        }
+
+        // Si después de intentar el jackpot sigue siendo "Según Reglas", probamos con las reglas
+        if (totalPrize === 'Según Reglas' && model.rules.data?.reward_rules) {
+            // Buscamos una regla que parezca indicar el premio máximo o principal
+            const mainRule = model.rules.data.reward_rules.find(r =>
+                r.name.toLowerCase().includes('fijo') ||
+                r.name.toLowerCase().includes('exacta')
+            );
+
+            if (mainRule && (mainRule as any).prizesPerDollar) {
+                const prizes = (mainRule as any).prizesPerDollar;
+                const maxPrize = Math.max(prizes.fijo || 0, prizes.corrido || 0, prizes.parlet || 0, prizes.centena || 0);
+                if (maxPrize > 0) {
+                    totalPrize = `$${maxPrize} por cada $1`;
+                }
+            }
+        }
+
+        return {
+            issueDate,
+            awardDate,
+            totalPrize,
+            disclaimer: 'Este comprobante contiene los números de premiación, es personal e intransferible, debe preservarse hasta la fecha en que se emita la premiación. Es importante mantener estas informaciones dependientes del id del sorteo, porque en otros tipos de sorteos estos datos pueden cambiar.'
+        };
+    }, [drawDetails, model.rules.data]);
 
     const managementData = useMemo(() => {
         const status = model.managementSession.saveStatus;
@@ -71,16 +170,13 @@ export const useSuccess = () => {
     }, [managementData, model.listSession.remoteData, betId]);
 
     const bets = useMemo(() => {
-        const formatNumbers = (numbers_played: any) => {
-            console.log('[formatNumbers] input numbers_played:', numbers_played);
-            let parsed = numbers_played;
-            if (typeof numbers_played === 'string') {
+        const formatNumbers = (numbers: any): string[] => {
+            let parsed = numbers;
+            if (typeof numbers === 'string' && (numbers.startsWith('{') || numbers.startsWith('['))) {
                 try {
-                    if (numbers_played.startsWith('[') || numbers_played.startsWith('{')) {
-                        parsed = JSON.parse(numbers_played);
-                    }
-                } catch (_e) {
-                    parsed = numbers_played;
+                    parsed = JSON.parse(numbers);
+                } catch {
+                    // Si falla el parseo, lo tratamos como string normal
                 }
             }
             console.log('[formatNumbers] parsed:', parsed);
@@ -186,8 +282,8 @@ export const useSuccess = () => {
             dispatch({
                 type: 'SUCCESS',
                 payload: {
-                    type: SuccessMsgType.SHARE_VOUCHER_FAILED,
-                    error: 'Error al capturar la imagen del voucher'
+                    type: SuccessMsgType.SHARE_VOUCHER_RESPONSE,
+                    webData: { type: 'Failure', error: 'Error al capturar la imagen del voucher' }
                 }
             });
         }
@@ -201,6 +297,7 @@ export const useSuccess = () => {
         receiptCode,
         bets,
         totalAmount,
+        metadata,
         handleShare,
         handleBack,
         drawId: model.drawId

@@ -28,14 +28,14 @@ export const EditListScreen: React.FC<EditListScreenProps> = ({ drawId, title })
     });
 
     React.useEffect(() => {
-        // Solo inicializar si tenemos un drawId y es diferente al que ya está en el modelo
-        // o si el estado de los datos es NotAsked (para asegurar que siempre cargue)
-        const isNotInitialized = model.listSession.remoteData.type === 'NotAsked';
-        if (drawId && (model.drawId !== drawId || isNotInitialized)) {
-            console.log('EditListScreen: Initializing bets store for drawId:', drawId);
+        // Siempre inicializar con fetchExistingBets: false al entrar en la pantalla de anotación.
+        // Esto garantiza que la interfaz de anotación siempre empiece limpia,
+        // cumpliendo con el requerimiento de que cada sesión de anotación sea independiente.
+        if (drawId) {
+            console.log('EditListScreen: Forcing clean initialization for drawId:', drawId);
             init({ drawId, fetchExistingBets: false });
         }
-    }, [drawId, model.drawId, model.listSession.remoteData.type, init]);
+    }, [drawId, init]); // Eliminamos la dependencia de model.drawId y remoteData.type para forzar el reinicio
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: Colors[colorScheme].background }]} edges={['bottom']}>

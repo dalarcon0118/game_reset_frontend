@@ -14,6 +14,7 @@ export interface Draw {
     status_closed?: 'success' | 'reported';
     winning_numbers?: number; // ForeignKey to WinningRecord
     winning_numbers_string?: string; // For display
+    extra_data?: any; // Dynamic metadata like jackpot, currency, etc.
     created_at: string;
     updated_at: string;
     closure_confirmations?: DrawClosureConfirmation[];
@@ -43,6 +44,7 @@ export interface DrawType {
     period: any; // JSONField with scheduling rules
     created_at: string;
     updated_at: string;
+    extra_data?: any; // Dynamic metadata like ui_theme, jackpot_display, etc.
     bet_types?: BetType[];
 }
 

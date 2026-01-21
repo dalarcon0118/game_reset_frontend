@@ -28,6 +28,13 @@ export interface DrawType {
   date?: string; // Fecha formateada
   time?: string; // Hora formateada
   is_betting_open?: boolean;
+  extra_data?: {
+    jackpot_amount?: number;
+    currency?: string;
+    award_date?: string;
+    disclaimer?: string;
+    [key: string]: any;
+  };
 }
 
 

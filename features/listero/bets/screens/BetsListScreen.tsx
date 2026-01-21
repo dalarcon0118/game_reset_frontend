@@ -9,11 +9,7 @@ import Colors from '@/constants/Colors';
 import LayoutConstants from '@/constants/Layout';
 
 import { useBetsStore, selectBetsModel, selectInit, selectDispatch } from '../core/store';
-import { ColumnHeaders } from '../shared/components/ColumnHeaders';
-import FijosCorridosColumn from '../features/fijos-corridos/components/FijosCorridosColumn';
-import { ParletColumn } from '../features/parlet/components/ParletColumn';
-import { CentenasColumn } from '../shared/components/CentenasColumn';
-import { SumRowComponent } from '../shared/components/SumRowComponent';
+import { getGameListComponent } from '@/features/listero/games/registry';
 import { ListMsgType } from '../features/bet-list/list.types';
 
 interface BetsListScreenProps {
@@ -67,6 +63,24 @@ export const BetsListScreen = ({ drawId, title }: BetsListScreenProps) => {
     }, [drawId, dispatch]);
 
     const renderContent = () => {
+        // Wait for draw type info before deciding what to render
+        if (model.drawTypeCode.type === 'Loading') {
+            return (
+                <View style={styles.centerContainer}>
+                    <ActivityIndicator size="large" color={Colors[colorScheme].primary} />
+                    <Text style={styles.loadingText}>Cargando información del sorteo...</Text>
+                </View>
+            );
+        }
+
+        if (model.drawTypeCode.type === 'Failure') {
+            return (
+                <View style={styles.centerContainer}>
+                    <Text status="danger">Error cargando info del sorteo: {model.drawTypeCode.error}</Text>
+                </View>
+            );
+        }
+
         return match(model.listSession.remoteData)
             .with({ type: 'NotAsked' }, () => null)
             .with({ type: 'Loading' }, () => (
@@ -80,67 +94,22 @@ export const BetsListScreen = ({ drawId, title }: BetsListScreenProps) => {
                     <Text status="danger">Error: {error}</Text>
                 </View>
             ))
-            .with({ type: 'Success' }, ({ data }) => {
-                const { fijosCorridos, parlets, centenas } = data;
+            .with({ type: 'Success' }, () => {
+                const drawTypeCode = model.drawTypeCode.type === 'Success' 
+                    ? model.drawTypeCode.data 
+                    : 'BL';
+                
+                console.log('BetsListScreen Success: drawTypeCode =', drawTypeCode);
+                const GameListComponent = getGameListComponent(drawTypeCode);
 
-                const fijosCorridosTotal = fijosCorridos.reduce((total, bet) => {
-                    const fijoAmount = bet.fijoAmount || 0;
-                    const corridoAmount = bet.corridoAmount || 0;
-                    return total + fijoAmount + corridoAmount;
-                }, 0);
-
-                const parletsTotal = parlets.reduce((total, parlet) => {
-                    if (parlet.bets && parlet.bets.length > 0 && parlet.amount) {
-                        const numBets = parlet.bets.length;
-                        const parletTotal = numBets * (numBets - 1) * parlet.amount;
-                        return total + parletTotal;
-                    }
-                    return total;
-                }, 0);
-
-                const centenasTotal = centenas.reduce((total, centena) => {
-                    return total + (centena.amount || 0);
-                }, 0);
-
-                const grandTotal = fijosCorridosTotal + parletsTotal + centenasTotal;
+                if (GameListComponent) {
+                    return <GameListComponent drawId={drawId} title={title} />;
+                }
 
                 return (
-                    <View style={{ flex: 1 }}>
-                        <ScrollView
-                            style={{ flex: 1 }}
-                            contentContainerStyle={{
-                                flexGrow: 1,
-                                minHeight: '101%',
-                            }}
-                            alwaysBounceVertical={true}
-                            scrollEventThrottle={16}
-                            refreshControl={
-                                <RefreshControl
-                                    refreshing={!!isRefreshing}
-                                    onRefresh={() => {
-                                        console.log('Refresh triggered');
-                                        handleRefresh();
-                                    }}
-                                    tintColor={Colors[colorScheme].primary}
-                                />
-                            }
-                        >
-                            <View style={styles.gridContainer}>
-                                <FijosCorridosColumn />
-                                <ParletColumn fijosCorridosList={fijosCorridos} />
-                                <CentenasColumn />
-                            </View>
-                        </ScrollView>
-                        <View style={styles.footer}>
-                            <View style={styles.totalsContainer}>
-                                <SumRowComponent label="Fijos/Corr." total={fijosCorridosTotal} />
-                                <SumRowComponent label="Parlets" total={parletsTotal} />
-                                <SumRowComponent label="Centenas" total={centenasTotal} />
-                            </View>
-                            <View style={styles.grandTotalContainer}>
-                                <SumRowComponent label="Total Lista" total={grandTotal} />
-                            </View>
-                        </View>
+                    <View style={styles.centerContainer}>
+                        <Text category='h6'>Tipo de sorteo no soportado</Text>
+                        <Text appearance='hint'>{drawTypeCode}</Text>
                     </View>
                 );
             })
@@ -150,9 +119,8 @@ export const BetsListScreen = ({ drawId, title }: BetsListScreenProps) => {
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: Colors[colorScheme].background }]} edges={['bottom']}>
             <Layout style={[styles.header, { borderBottomColor: Colors[colorScheme].border }]} level='1'>
-                <Text category='h6' style={styles.title}>{title} - {drawId}</Text>
+                <Text category='h6' style={styles.title}>{title || ''} - {drawId || ''}</Text>
             </Layout>
-            <ColumnHeaders />
             {renderContent()}
         </SafeAreaView>
     );

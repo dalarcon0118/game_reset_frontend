@@ -171,7 +171,7 @@ const transformBetTypeToCentenas = (bets: BetType[]): any[] => {
 
 const transformBetTypeToLoteria = (bets: BetType[]): any[] => {
     return bets
-        .filter(bet => (bet.type as string) === 'Loteria')
+        .filter(bet => (bet.type as string) === 'Loteria' || (bet.type as string) === 'Cuaterna Semanal')
         .map((bet) => {
             try {
                 let parsedNumbers: any;

@@ -20,8 +20,10 @@ export const SuccessHeader: React.FC<SuccessHeaderProps> = ({ receiptCode }) => 
             </View>
             <Text category='h4' style={styles.title}>Apuesta creada correctamente</Text>
             <View style={styles.receiptContainer}>
-                <Text appearance='hint'>Código de Recibo</Text>
-                <Text category='h2' style={styles.receiptCode}>{receiptCode}</Text>
+                <Text category='c1' style={styles.receiptLabel}>CÓDIGO DE RECIBO</Text>
+                <View style={styles.codeWrapper}>
+                    <Text category='h1' style={styles.receiptCode}>{receiptCode}</Text>
+                </View>
             </View>
         </View>
     );
@@ -42,14 +44,35 @@ const styles = StyleSheet.create({
     },
     receiptContainer: {
         alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.05)',
-        padding: 15,
-        borderRadius: 12,
+        backgroundColor: '#F7F9FC',
+        padding: 20,
+        borderRadius: 16,
         width: '100%',
+        borderWidth: 1,
+        borderColor: '#E4E9F2',
+    },
+    receiptLabel: {
+        color: '#8F9BB3',
+        letterSpacing: 2,
+        fontWeight: 'bold',
+        marginBottom: 10,
+    },
+    codeWrapper: {
+        backgroundColor: '#FFFFFF',
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#EDF1F7',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
     },
     receiptCode: {
-        letterSpacing: 4,
-        fontWeight: 'bold',
-        marginTop: 5,
+        letterSpacing: 6,
+        fontWeight: '900',
+        color: '#222B45',
     },
 });

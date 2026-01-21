@@ -23,6 +23,8 @@ export const LoteriaColumn: React.FC = () => {
         closeAmountKeyboard,
         handleKeyPress,
         handleConfirmInput,
+        editLoteriaBet,
+        drawDetails,
     } = useLoteria();
 
     const totalAmount = loteriaList.reduce((sum, item) => {
@@ -76,7 +78,7 @@ export const LoteriaColumn: React.FC = () => {
         return groups.map(g => `(${g})`).join('-');
     };
 
-    const renderLoteriaCircles = (num: number | string) => {
+    const renderLoteriaCircles = (num: number | string, betId: string) => {
         const groups = getLoteriaGroups(num);
         return (
             <View style={styles.circlesContainer}>
@@ -84,7 +86,7 @@ export const LoteriaColumn: React.FC = () => {
                     <React.Fragment key={`${num}-${index}`}>
                         <BetCircle
                             value={group}
-                            onPress={() => {}} // Could add edit bet logic later
+                            onPress={() => editLoteriaBet(betId)} 
                         />
                         
                     </React.Fragment>
@@ -97,6 +99,14 @@ export const LoteriaColumn: React.FC = () => {
 
     return (
         <View style={styles.container}>
+            {drawDetails?.extra_data?.jackpot_amount && (
+                <View style={styles.jackpotBanner}>
+                    <StyledText style={styles.jackpotLabel}>PREMIO MAYOR:</StyledText>
+                    <StyledText style={styles.jackpotValue}>
+                        ${drawDetails.extra_data.jackpot_amount.toLocaleString()} {drawDetails.extra_data.currency || 'DOP'}
+                    </StyledText>
+                </View>
+            )}
             <View style={styles.header}>
                 <StyledText style={styles.headerText}>Número</StyledText>
                 {!hasFixedAmount && (
@@ -110,7 +120,7 @@ export const LoteriaColumn: React.FC = () => {
             <View style={styles.listContent}>
                 {loteriaList.map((item) => (
                     <View key={item.id} style={[styles.betRow, hasFixedAmount && styles.betRowCentered]}>
-                        {renderLoteriaCircles(item.bet)}
+                        {renderLoteriaCircles(item.bet, item.id)}
                         {!hasFixedAmount && (
                             <AmountCircle
                                 amount={item.amount || 0}
@@ -144,6 +154,28 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         paddingHorizontal: Layout.spacing.md,
+    },
+    jackpotBanner: {
+        backgroundColor: Colors.light.tint + '15', // Transparent tint
+        padding: Layout.spacing.sm,
+        borderRadius: 8,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: Layout.spacing.md,
+        borderWidth: 1,
+        borderColor: Colors.light.tint + '30',
+    },
+    jackpotLabel: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: Colors.light.text,
+        marginRight: 8,
+    },
+    jackpotValue: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: Colors.light.tint,
     },
     header: {
         flexDirection: 'row',

@@ -3,10 +3,17 @@ import { match } from 'ts-pattern';
 
 // Import components directly (lazy loading can be added later if needed)
 import BolitaEntryScreen from './bolita/screens/BolitaEntryScreen';
+import BolitaListPlays from './bolita/screens/BolitaListPlays';
 import LoteriaEntryScreen from './loteria/screens/LoteriaEntryScreen';
+import LoteriaListPlays from './loteria/screens/LoteriaListPlays';
 
 // Game component type
 export type GameEntryComponent = React.ComponentType<{
+    drawId?: string;
+    title?: string;
+}>;
+
+export type GameListComponent = React.ComponentType<{
     drawId?: string;
     title?: string;
 }>;
@@ -17,6 +24,11 @@ const GAME_REGISTRY: Record<string, GameEntryComponent> = {
     'LS_WEEKLY': LoteriaEntryScreen,
 };
 
+const GAME_LIST_REGISTRY: Record<string, GameListComponent> = {
+    'BL': BolitaListPlays,
+    'LS_WEEKLY': LoteriaListPlays,
+};
+
 /**
  * Get the appropriate game component for a given draw type code
  * @param drawTypeCode - The code of the draw type (e.g., 'BL', 'LS_WEEKLY')
@@ -24,6 +36,15 @@ const GAME_REGISTRY: Record<string, GameEntryComponent> = {
  */
 export function getGameComponent(drawTypeCode: string): GameEntryComponent | null {
     return GAME_REGISTRY[drawTypeCode] || null;
+}
+
+/**
+ * Get the appropriate game list component for a given draw type code
+ * @param drawTypeCode - The code of the draw type (e.g., 'BL', 'LS_WEEKLY')
+ * @returns The corresponding React component or null if not found
+ */
+export function getGameListComponent(drawTypeCode: string): GameListComponent | null {
+    return GAME_LIST_REGISTRY[drawTypeCode] || null;
 }
 
 /**

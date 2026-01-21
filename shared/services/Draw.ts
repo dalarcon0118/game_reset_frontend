@@ -56,6 +56,7 @@ interface BackendDraw {
     rejected: number;
   };
   is_betting_open: boolean;
+  extra_data: any;
 }
 
 // Draw closure confirmation types
@@ -104,6 +105,7 @@ export class DrawService {
         winning_numbers: response.winning_numbers,
         created_at: response.created_at,
         updated_at: response.updated_at,
+        extra_data: response.extra_data,
 
         // Hierarchical closure fields
         hierarchical_closure_status: response.hierarchical_closure_status,
@@ -122,6 +124,13 @@ export class DrawService {
       console.error('Error fetching draw:', error);
       return null;
     }
+  }
+
+  /**
+   * Get bet types for a specific draw
+   */
+  static async getBetTypes(drawId: string): Promise<GameType[]> {
+    return apiClient.get<GameType[]>(`${settings.api.endpoints.draws()}${drawId}/bet-types/`);
   }
 
   /**
@@ -175,6 +184,7 @@ export class DrawService {
         winning_numbers: backendDraw.winning_numbers,
         created_at: backendDraw.created_at,
         updated_at: backendDraw.updated_at,
+        extra_data: backendDraw.extra_data,
 
         // Hierarchical closure fields
         hierarchical_closure_status: backendDraw.hierarchical_closure_status,

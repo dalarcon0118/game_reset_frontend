@@ -1,7 +1,8 @@
-import { FijosCorridosBet, ParletBet, CentenaBet, GameType, BetType } from '@/types';
+import { FijosCorridosBet, ParletBet, CentenaBet, GameType, BetType, DrawType } from '@/types';
 import { WebData, RemoteData } from '@/shared/core/remote.data';
 
 export interface ManagementState {
+    drawDetails: WebData<DrawType>;
     betTypes: {
         fijo: string | null;
         corrido: string | null;
@@ -14,6 +15,7 @@ export interface ManagementState {
 }
 
 export const initialManagementState: ManagementState = {
+    drawDetails: RemoteData.notAsked(),
     betTypes: {
         fijo: null,
         corrido: null,
@@ -27,8 +29,8 @@ export const initialManagementState: ManagementState = {
 
 export enum ManagementMsgType {
     FETCH_BET_TYPES_REQUESTED = 'FETCH_BET_TYPES_REQUESTED',
-    FETCH_BET_TYPES_SUCCEEDED = 'FETCH_BET_TYPES_SUCCEEDED',
-    FETCH_BET_TYPES_FAILED = 'FETCH_BET_TYPES_FAILED',
+    FETCH_BET_TYPES_RESPONSE = 'FETCH_BET_TYPES_RESPONSE',
+    FETCH_DRAW_DETAILS_RESPONSE = 'FETCH_DRAW_DETAILS_RESPONSE',
     SAVE_BETS_REQUESTED = 'SAVE_BETS_REQUESTED',
     SAVE_BETS_RESPONSE = 'SAVE_BETS_RESPONSE',
     SHOW_SAVE_CONFIRMATION = 'SHOW_SAVE_CONFIRMATION',
@@ -44,8 +46,8 @@ export enum ManagementMsgType {
 export type ManagementMsg =
     | { type: ManagementMsgType.INIT; drawId: string; fetchExistingBets?: boolean }
     | { type: ManagementMsgType.FETCH_BET_TYPES_REQUESTED; drawId: string }
-    | { type: ManagementMsgType.FETCH_BET_TYPES_SUCCEEDED; betTypes: GameType[] }
-    | { type: ManagementMsgType.FETCH_BET_TYPES_FAILED; error: string }
+    | { type: ManagementMsgType.FETCH_BET_TYPES_RESPONSE; response: WebData<GameType[]> }
+    | { type: ManagementMsgType.FETCH_DRAW_DETAILS_RESPONSE; response: WebData<DrawType> }
     | { type: ManagementMsgType.SAVE_BETS_REQUESTED; drawId: string }
     | { type: ManagementMsgType.SAVE_BETS_RESPONSE; response: WebData<BetType | BetType[]> }
     | { type: ManagementMsgType.SHOW_SAVE_CONFIRMATION; drawId: string }

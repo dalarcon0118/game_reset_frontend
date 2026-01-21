@@ -8,6 +8,7 @@ import { Model as RulesSession } from '../features/rules/rules.types';
 import { LoteriaState } from '@/features/listero/games/loteria/loteria.types';
 import { ListState } from '../features/bet-list/list.types';
 import { ManagementState } from '../features/management/management.types';
+import { SuccessState } from '../features/success/success.types';
 import { RewardsCache, RulesCache } from '../features/rewards-rules/rewards.types';
 import { WebData } from '@/shared/core/remote.data';
 
@@ -27,6 +28,7 @@ export interface Model extends UiState {
     loteriaSession: LoteriaState;
     listSession: ListState;
     managementSession: ManagementState;
+    successSession: SuccessState;
 
     // Cache
     rewards: RewardsCache;

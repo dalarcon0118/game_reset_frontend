@@ -2,6 +2,7 @@ import settings from '@/config/settings';
 import * as SecureStore from 'expo-secure-store';
 
 const TOKEN_KEY = 'auth_access_token';
+const REFRESH_TOKEN_KEY = 'auth_refresh_token';
 const LAST_USER_KEY = 'auth_last_username';
 
 interface RequestOptions extends RequestInit {
@@ -76,33 +77,48 @@ const apiClient = {
       });
     }
 
+    const refreshToken = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+    if (!refreshToken) {
+      console.warn('API Client: No refresh token available');
+      return null;
+    }
+
     isRefreshing = true;
     try {
+      console.log('API Client: Attempting token refresh...');
       const response = await fetch(`${settings.api.baseUrl}${settings.api.endpoints.refresh()}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        credentials: 'include',
-        body: JSON.stringify({}),
+        body: JSON.stringify({ refresh: refreshToken }),
       });
+
       if (!response.ok) {
         let errorData: ApiClientErrorData = { detail: `Error ${response.status}` };
         try { errorData = await response.json(); } catch { }
+        console.error('API Client: Refresh token failed', response.status, errorData);
         throw new ApiClientError(errorData.detail || 'Error en refresh token', response.status, errorData);
       }
+
       const data = await response.json();
       const newAccess = data?.access ?? null;
+      const newRefresh = data?.refresh ?? null;
+
       if (newAccess) {
-        await apiClient.setAuthToken(newAccess);
+        console.log('API Client: Token refreshed successfully');
+        await apiClient.setAuthToken(newAccess, newRefresh);
         onTokenRefreshed(newAccess);
+        return newAccess;
       } else {
-        await apiClient.setAuthToken(null);
+        console.warn('API Client: Refresh response did not contain new access token');
+        await apiClient.setAuthToken(null, null);
         onTokenRefreshed('');
+        return null;
       }
-      return currentAccessToken;
     } catch (error) {
+      console.error('API Client: Refresh error', error);
       currentAccessToken = null;
       onTokenRefreshed('');
       if (error instanceof ApiClientError) throw error;
@@ -271,8 +287,8 @@ const apiClient = {
     return this.request<T>(endpoint, { ...options, method: 'PATCH', body: JSON.stringify(body) });
   },
 
-  // Permite configurar el access token en memoria y persistirlo
-  async setAuthToken(token: string | null) {
+  // Permite configurar el access token en memoria y persistirlo junto con el refresh token opcionalmente
+  async setAuthToken(token: string | null, refreshToken: string | null = null) {
     currentAccessToken = token;
     try {
       if (token) {
@@ -280,8 +296,15 @@ const apiClient = {
       } else {
         await SecureStore.deleteItemAsync(TOKEN_KEY);
       }
+
+      if (refreshToken) {
+        await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, refreshToken);
+      } else if (token === null) {
+        // Solo borramos el refresh token si estamos haciendo logout explícito (token null)
+        await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+      }
     } catch (error) {
-      console.error('Error persisting token to SecureStore:', error);
+      console.error('Error persisting tokens to SecureStore:', error);
     }
   },
 

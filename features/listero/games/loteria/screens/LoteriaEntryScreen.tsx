@@ -69,12 +69,8 @@ const LoteriaEntryScreen: React.FC<LoteriaEntryScreenProps> = ({ drawId, title }
 
     useEffect(() => {
         const unsubscribe = navigation.addListener('beforeRemove', (e) => {
-            if (!hasBets) {
-                return;
-            }
-
+            if (!hasBets)return;
             e.preventDefault();
-
             dispatch({
                 type: 'MANAGEMENT',
                 payload: {
@@ -98,9 +94,7 @@ const LoteriaEntryScreen: React.FC<LoteriaEntryScreenProps> = ({ drawId, title }
 
     const renderSavingFooterBar = () => {
         if (!hasBets) return null;
-
         const isSaving = model.managementSession.saveStatus.type === 'Loading';
-
         return (
             <Layout style={[styles.footer, { borderTopColor: themeColors.border }]} level='1'>
                 <View style={styles.grandTotalContainer}>

@@ -62,7 +62,9 @@ export const ParletColumn: React.FC<ParletColumnProps> = ({ fijosCorridosList })
                 <View key={item.id} style={styles.parletBlock}>
                     <View style={styles.parletNumbers}>
                         {item.bets.map((bet: number, index: number) => (
-                            <BetCircle key={index} value={bet.toString().padStart(2, '0')} onPress={() => editParletBet(item.id)} />
+                            <View key={index} style={styles.circleWrapper}>
+                                <BetCircle value={bet.toString().padStart(2, '0')} onPress={() => editParletBet(item.id)} />
+                            </View>
                         ))}
                     </View>
                     <AmountCircle amount={item.amount} onPress={() => editAmountKeyboard(item.id)} />
@@ -78,9 +80,12 @@ export const ParletColumn: React.FC<ParletColumnProps> = ({ fijosCorridosList })
             <View style={styles.columnContent}>
                 <View style={styles.parletBlock}>
                     <View style={styles.parletNumbers}>
-                        <BetCircle value={"+"} onPress={() => pressAddParlet()} />
+                        <View style={styles.circleWrapper}>
+                            <BetCircle value={"+"} onPress={() => pressAddParlet()} />
+                        </View>
                     </View>
-                    <AmountCircle amount={"$"} />
+                    
+                        <AmountCircle amount={"$"} />
                 </View>
             </View>
             {renderKeyboard(AnnotationTypes.Bet)}
@@ -93,8 +98,8 @@ const styles = StyleSheet.create({
     column: {
     },
     colParlet: {
-        flex: 2,
-        paddingHorizontal: Layout.spacing.xs,
+        flex: 3,
+        paddingHorizontal: Layout.spacing.sm,
     },
     columnContent: {
         paddingVertical: Layout.spacing.xs,
@@ -111,6 +116,12 @@ const styles = StyleSheet.create({
     },
     parletNumbers: {
         flex: 1,
-        marginRight: Layout.spacing.xs,
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        marginRight: Layout.spacing.sm,
+    },
+    circleWrapper: {
+        margin: 5,
+        marginLeft: -8,
     },
 });

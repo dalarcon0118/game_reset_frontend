@@ -83,6 +83,7 @@ export const updateLoteria = (model: GlobalModel, msg: LoteriaMsg): Return<Globa
         })
         .with({ type: LoteriaMsgType.PROCESS_BET_INPUT }, ({ input }) => {
             const betValue = parseInt(input, 10);
+            const editingBetId = model.loteriaSession.editingBetId;
 
             // Check for fixed amount rules
             const loteriaBetTypeId = model.managementSession.betTypes.loteria;
@@ -102,19 +103,39 @@ export const updateLoteria = (model: GlobalModel, msg: LoteriaMsg): Return<Globa
             const fixedAmount = getFixedAmountFromRules(betTypeRules);
             console.log('[loteria.update] Detected fixedAmount:', fixedAmount);
 
-            const newBet = {
-                id: Math.random().toString(36).substr(2, 9),
-                bet: betValue,
-                amount: fixedAmount || 0 // Use fixed amount if found, else 0 for user to input
-            };
+            let nextRemoteData;
+            let shouldShowAmountKeyboard = false;
+            let finalEditingBetId = null;
 
-            const nextRemoteData = RemoteData.map<any, ListData, ListData>(data => ({
-                ...data,
-                loteria: [...data.loteria, newBet]
-            }), model.listSession.remoteData);
+            if (editingBetId) {
+                // Update existing bet
+                nextRemoteData = RemoteData.map<any, ListData, ListData>(data => ({
+                    ...data,
+                    loteria: data.loteria.map(bet =>
+                        bet.id === editingBetId ? { ...bet, bet: betValue } : bet
+                    )
+                }), model.listSession.remoteData);
 
-            // If we have a fixed amount, we don't need to show the amount keyboard
-            const shouldShowAmountKeyboard = fixedAmount === null;
+                // When editing, we usually don't need to re-enter amount if it's already set or fixed
+                shouldShowAmountKeyboard = false;
+                finalEditingBetId = null;
+            } else {
+                // Create new bet
+                const newBet = {
+                    id: Math.random().toString(36).substr(2, 9),
+                    bet: betValue,
+                    amount: fixedAmount || 0 // Use fixed amount if found, else 0 for user to input
+                };
+
+                nextRemoteData = RemoteData.map<any, ListData, ListData>(data => ({
+                    ...data,
+                    loteria: [...data.loteria, newBet]
+                }), model.listSession.remoteData);
+
+                // If we have a fixed amount, we don't need to show the amount keyboard
+                shouldShowAmountKeyboard = fixedAmount === null;
+                finalEditingBetId = shouldShowAmountKeyboard ? newBet.id : null;
+            }
 
             return ret(
                 {
@@ -124,7 +145,7 @@ export const updateLoteria = (model: GlobalModel, msg: LoteriaMsg): Return<Globa
                         ...model.loteriaSession,
                         isBetKeyboardVisible: false,
                         isAmountKeyboardVisible: shouldShowAmountKeyboard,
-                        editingBetId: shouldShowAmountKeyboard ? newBet.id : null
+                        editingBetId: finalEditingBetId
                     },
                     editSession: { ...model.editSession, currentInput: '' }
                 },
@@ -153,6 +174,30 @@ export const updateLoteria = (model: GlobalModel, msg: LoteriaMsg): Return<Globa
                     editingBetId: null
                 },
                 editSession: { ...model.editSession, currentInput: '' }
+            });
+        })
+        .with({ type: LoteriaMsgType.EDIT_LOTERIA_BET }, ({ betId }) => {
+            const listData = RemoteData.withDefault<any, ListData>({
+                fijosCorridos: [],
+                parlets: [],
+                centenas: [],
+                loteria: []
+            }, model.listSession.remoteData);
+            const betToEdit = listData.loteria.find(b => b.id === betId);
+
+            if (!betToEdit) return singleton(model);
+
+            return singleton({
+                ...model,
+                loteriaSession: {
+                    ...model.loteriaSession,
+                    isBetKeyboardVisible: true,
+                    editingBetId: betId
+                },
+                editSession: {
+                    ...model.editSession,
+                    currentInput: String(betToEdit.bet)
+                }
             });
         })
         .otherwise(() => singleton(model));
