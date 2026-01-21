@@ -229,11 +229,9 @@ export const useSuccess = () => {
             return result;
         };
 
-        if (managementData) {
-            const dataArray = Array.isArray(managementData) ? managementData : [managementData];
-
-            return dataArray.map(b => {
-                const numbers = formatNumbers(b.numbers);
+        const processRawBets = (data: any[]): any[] => {
+            return data.map(b => {
+                const numbers = formatNumbers(b.numbers || b.bet || b.bets);
                 let displayType: string = b.type;
                 if (b.type === 'Fijo' || b.type === 'Corrido') {
                     displayType = 'Fijo/Corrido';
@@ -244,22 +242,68 @@ export const useSuccess = () => {
                     type: displayType,
                     numbers,
                     amount: b.amount || ((b as any).fijoAmount || 0) + ((b as any).corridoAmount || 0),
+                    fijoAmount: b.fijoAmount,
+                    corridoAmount: b.corridoAmount,
                 };
             });
+        };
+
+        if (managementData) {
+            const dataArray = Array.isArray(managementData) ? managementData : [managementData];
+            return processRawBets(dataArray);
         }
 
         if (model.listSession.remoteData.type === 'Success') {
             const data = model.listSession.remoteData.data;
 
-            return [
-                ...data.fijosCorridos.map(b => ({ id: b.id || Math.random().toString(), type: 'Fijo/Corrido', numbers: formatNumbers(b.bet), amount: (b.fijoAmount || 0) + (b.corridoAmount || 0) })),
-                ...data.parlets.map(b => ({ id: b.id || Math.random().toString(), type: 'Parlet', numbers: b.bets.map(String), amount: b.amount || 0 })),
-                ...data.centenas.map(b => ({ id: b.id || Math.random().toString(), type: 'Centena', numbers: formatNumbers(b.bet), amount: b.amount })),
-                ...data.loteria.map(b => ({ id: b.id || Math.random().toString(), type: 'Lotería', numbers: formatNumbers(b.bet), amount: b.amount || 0 }))
-            ];
+            const fijos = data.fijosCorridos.map(b => ({
+                id: b.id || Math.random().toString(),
+                type: 'Fijo/Corrido',
+                numbers: formatNumbers(b.bet),
+                amount: (b.fijoAmount || 0) + (b.corridoAmount || 0),
+                fijoAmount: b.fijoAmount,
+                corridoAmount: b.corridoAmount
+            }));
+
+            const parlets = data.parlets.map(b => ({
+                id: b.id || Math.random().toString(),
+                type: 'Parlet',
+                numbers: b.bets.map(String),
+                amount: b.amount || 0
+            }));
+
+            const centenas = data.centenas.map(b => ({
+                id: b.id || Math.random().toString(),
+                type: 'Centena',
+                numbers: formatNumbers(b.bet),
+                amount: b.amount
+            }));
+
+            const loteria = data.loteria.map(b => ({
+                id: b.id || Math.random().toString(),
+                type: 'Lotería',
+                numbers: formatNumbers(b.bet),
+                amount: b.amount || 0
+            }));
+
+            return [...fijos, ...parlets, ...centenas, ...loteria];
         }
         return [];
     }, [managementData, model.listSession.remoteData]);
+
+    const isBolita = useMemo(() => {
+        return bets.some(b => b.type === 'Fijo/Corrido' || b.type === 'Parlet' || b.type === 'Centena');
+    }, [bets]);
+
+    const groupedBets = useMemo(() => {
+        if (!isBolita) return null;
+
+        return {
+            fijosCorridos: bets.filter(b => b.type === 'Fijo/Corrido'),
+            parlets: bets.filter(b => b.type === 'Parlet'),
+            centenas: bets.filter(b => b.type === 'Centena'),
+        };
+    }, [bets, isBolita]);
 
     const totalAmount = useMemo(() => {
         return bets.reduce((acc, curr: any) => acc + (curr.amount || 0), 0);
@@ -296,6 +340,8 @@ export const useSuccess = () => {
     return {
         receiptCode,
         bets,
+        groupedBets,
+        isBolita,
         totalAmount,
         metadata,
         handleShare,

@@ -20,6 +20,8 @@ const SuccessScreen = () => {
         totalAmount, 
         drawId, 
         metadata,
+        isBolita,
+        groupedBets,
         handleShare, 
         handleBack 
     } = useSuccess();
@@ -41,6 +43,8 @@ const SuccessScreen = () => {
                             bets={bets as any} 
                             totalAmount={totalAmount} 
                             metadata={metadata}
+                            isBolita={isBolita}
+                            groupedBets={groupedBets}
                         />
                     </ViewShot>
 
