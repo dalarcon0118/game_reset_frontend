@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { Alert } from 'react-native';
 import { Cmd } from './cmd';
 import apiClient from '../services/ApiClient';
+import { logger } from '../utils/logger';
 export interface TaskPayload {
     task: (...args: any[]) => Promise<any>,
     args?: any[],
@@ -28,17 +29,15 @@ export const effectHandlers = {
     'HTTP': async (payload: HttpPayload) => {
         const { url, method, body, headers } = payload;
 
-        // El apiClient ya tiene los interceptores para inyectar el Token
-        // y manejar la renovación del mismo.
         try {
             const response = await apiClient.request(url, {
                 method,
                 body: body,
-                headers: headers // Puedes mezclar headers específicos con los globales
+                headers: headers
             });
             return response;
         } catch (error) {
-            // Aquí podrías normalizar el error antes de devolverlo
+            logger.error(`HTTP Request failed`, 'HTTP', error, { method, url });
             throw error;
         }
     },
@@ -46,12 +45,10 @@ export const effectHandlers = {
         const { task, args, onSuccess, onFailure } = payload;
 
         try {
-            // Ejecutamos la tarea (servicio)
             const result = await task(...(args || []));
-            // Si tiene éxito, disparamos el mensaje de éxito
             dispatch(onSuccess(result));
         } catch (error) {
-            // Si falla, disparamos el mensaje de error
+            logger.error(`Task execution failed`, 'TASK', error, { args });
             dispatch(onFailure(error));
         }
     },
@@ -59,16 +56,16 @@ export const effectHandlers = {
         const { task, args, onSuccess, onFailure } = payload;
 
         try {
-            // Ejecutamos la tarea que devuelve [error, data]
             const [error, data] = await task(...(args || []));
 
             if (error) {
+                logger.warn(`Attempt failed with error`, 'ATTEMPT', error);
                 dispatch(onFailure(error));
             } else {
                 dispatch(onSuccess(data));
             }
         } catch (error) {
-            // Error inesperado fuera del safeAwait
+            logger.error(`Attempt crashed unexpectedly`, 'ATTEMPT', error, { args });
             dispatch(onFailure(error));
         }
     },

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { SubDescriptor } from './sub';
+import { logger } from '../utils/logger';
 
 // Un comando es un descriptor que el Engine puede ejecutar usando effectHandlers
 export interface CommandDescriptor {
@@ -36,7 +37,7 @@ export const createElmStore = <TModel, TMsg>(
             cmdsToExecute.forEach(async (singleCmd: any) => {
                 if (singleCmd && effectHandlers[singleCmd.type]) {
                     try {
-                        console.log(`Engine: Executing Cmd ${singleCmd.type}`, singleCmd.payload ? '(with payload)' : '');
+                        logger.debug(`Executing Cmd: ${singleCmd.type}`, 'ENGINE', singleCmd.payload);
                         const result = await effectHandlers[singleCmd.type](singleCmd.payload, get().dispatch);
                         if (singleCmd.payload && singleCmd.payload.msgCreator) {
                             get().dispatch(singleCmd.payload.msgCreator(result));
@@ -45,9 +46,11 @@ export const createElmStore = <TModel, TMsg>(
                         if (singleCmd.payload && singleCmd.payload.errorCreator) {
                             get().dispatch(singleCmd.payload.errorCreator(error));
                         } else {
-                            console.error(`Unhandled error in Cmd ${singleCmd.type}:`, error);
+                            logger.error(`Unhandled error in Cmd: ${singleCmd.type}`, 'ENGINE', error, { payload: singleCmd.payload });
                         }
                     }
+                } else if (singleCmd) {
+                    logger.warn(`Unknown Cmd type: ${singleCmd.type}`, 'ENGINE');
                 }
             });
         };
@@ -63,6 +66,7 @@ export const createElmStore = <TModel, TMsg>(
             },
             dispatch: (msg: TMsg) => {
                 let cmdToRun: Cmd = null;
+                logger.debug(`Dispatching Msg: ${(msg as any).type || 'UNKNOWN'}`, 'ENGINE', msg);
                 set((state) => {
                     const [nextModel, cmd] = update(state.model, msg);
                     cmdToRun = cmd;

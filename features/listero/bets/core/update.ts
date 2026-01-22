@@ -46,8 +46,12 @@ export const init = (params?: string | { drawId: string, fetchExistingBets?: boo
 
     if (!drawId) return [model, Cmd.none];
 
-    // Reutilizamos la lógica de MANAGEMENT.INIT
-    const result = updateManagement(model, { type: ManagementMsgType.INIT, drawId, fetchExistingBets });
+    // Reutilizamos la lógica de MANAGEMENT.INIT envolviendo los comandos correctamente
+    const result = singleton(makeModel)
+        .andMapCmd(
+            (sub) => ({ type: 'MANAGEMENT', payload: sub }),
+            updateManagement(model, { type: ManagementMsgType.INIT, drawId, fetchExistingBets })
+        );
 
     // Agregamos el comando para obtener la info del sorteo
     const drawInfoCmd = RemoteDataHttp.fetch(

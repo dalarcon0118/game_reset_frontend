@@ -12,9 +12,10 @@ import { useParlet } from '../useParlet';
 
 interface ParletColumnProps {
     fijosCorridosList: FijosCorridosBet[];
+    editable?: boolean;
 }
 
-export const ParletColumn: React.FC<ParletColumnProps> = ({ fijosCorridosList }) => {
+export const ParletColumn: React.FC<ParletColumnProps> = ({ fijosCorridosList, editable = false }) => {
     const {
         parletList,
         editingAmountType,
@@ -63,11 +64,17 @@ export const ParletColumn: React.FC<ParletColumnProps> = ({ fijosCorridosList })
                     <View style={styles.parletNumbers}>
                         {item.bets.map((bet: number, index: number) => (
                             <View key={index} style={styles.circleWrapper}>
-                                <BetCircle value={bet.toString().padStart(2, '0')} onPress={() => editParletBet(item.id)} />
+                                <BetCircle 
+                                    value={bet.toString().padStart(2, '0')} 
+                                    onPress={editable ? () => editParletBet(item.id) : undefined} 
+                                />
                             </View>
                         ))}
                     </View>
-                    <AmountCircle amount={item.amount} onPress={() => editAmountKeyboard(item.id)} />
+                    <AmountCircle 
+                        amount={item.amount} 
+                        onPress={editable ? () => editAmountKeyboard(item.id) : undefined} 
+                    />
                 </View>
             ))}
         </View>
@@ -77,19 +84,21 @@ export const ParletColumn: React.FC<ParletColumnProps> = ({ fijosCorridosList })
         <View style={[styles.column, styles.colParlet]}>
             {renderParletList()}
 
-            <View style={styles.columnContent}>
-                <View style={styles.parletBlock}>
-                    <View style={styles.parletNumbers}>
-                        <View style={styles.circleWrapper}>
-                            <BetCircle value={"+"} onPress={() => pressAddParlet()} />
+            {editable && (
+                <View style={styles.columnContent}>
+                    <View style={styles.parletBlock}>
+                        <View style={styles.parletNumbers}>
+                            <View style={styles.circleWrapper}>
+                                <BetCircle value={"+"} onPress={() => pressAddParlet()} />
+                            </View>
                         </View>
+                        
+                            <AmountCircle amount={"$"} />
                     </View>
-                    
-                        <AmountCircle amount={"$"} />
                 </View>
-            </View>
-            {renderKeyboard(AnnotationTypes.Bet)}
-            {renderKeyboard(AnnotationTypes.Amount)}
+            )}
+            {editable && renderKeyboard(AnnotationTypes.Bet)}
+            {editable && renderKeyboard(AnnotationTypes.Amount)}
         </View>
     );
 };

@@ -1,5 +1,6 @@
 import settings from '@/config/settings';
 import * as SecureStore from 'expo-secure-store';
+import { logger } from '../utils/logger';
 
 const TOKEN_KEY = 'auth_access_token';
 const REFRESH_TOKEN_KEY = 'auth_refresh_token';
@@ -64,7 +65,7 @@ const getAuthToken = async (): Promise<string | null> => {
     }
     return savedToken;
   } catch (error) {
-    console.error('Error reading from SecureStore:', error);
+    logger.error('Error reading from SecureStore', 'API', error);
     return null;
   }
 };
@@ -79,13 +80,13 @@ const apiClient = {
 
     const refreshToken = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
     if (!refreshToken) {
-      console.warn('API Client: No refresh token available');
+      logger.warn('No refresh token available', 'API');
       return null;
     }
 
     isRefreshing = true;
     try {
-      console.log('API Client: Attempting token refresh...');
+      logger.debug('Attempting token refresh...', 'API');
       const response = await fetch(`${settings.api.baseUrl}${settings.api.endpoints.refresh()}`, {
         method: 'POST',
         headers: {
@@ -98,7 +99,7 @@ const apiClient = {
       if (!response.ok) {
         let errorData: ApiClientErrorData = { detail: `Error ${response.status}` };
         try { errorData = await response.json(); } catch { }
-        console.error('API Client: Refresh token failed', response.status, errorData);
+        logger.error('Refresh token failed', 'API', errorData, { status: response.status });
         throw new ApiClientError(errorData.detail || 'Error en refresh token', response.status, errorData);
       }
 
@@ -107,18 +108,18 @@ const apiClient = {
       const newRefresh = data?.refresh ?? null;
 
       if (newAccess) {
-        console.log('API Client: Token refreshed successfully');
+        logger.info('Token refreshed successfully', 'API');
         await apiClient.setAuthToken(newAccess, newRefresh);
         onTokenRefreshed(newAccess);
         return newAccess;
       } else {
-        console.warn('API Client: Refresh response did not contain new access token');
+        logger.warn('Refresh response did not contain new access token', 'API');
         await apiClient.setAuthToken(null, null);
         onTokenRefreshed('');
         return null;
       }
     } catch (error) {
-      console.error('API Client: Refresh error', error);
+      logger.error('Refresh error', 'API', error);
       currentAccessToken = null;
       onTokenRefreshed('');
       if (error instanceof ApiClientError) throw error;
@@ -134,7 +135,7 @@ const apiClient = {
   async request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
     // Si hay un refresh en curso, esperamos a que termine
     if (isRefreshing && !endpoint.includes(settings.api.endpoints.refresh())) {
-      console.log('API Client: Refresh in progress, queuing request for:', endpoint);
+      logger.debug('Refresh in progress, queuing request', 'API', { endpoint });
       return new Promise((resolve) => {
         subscribeTokenRefresh(async (newToken) => {
           const retryOptions = {
@@ -170,7 +171,7 @@ const apiClient = {
     };
 
     try {
-      console.log('Making API Request:', `${settings.api.baseUrl}${endpoint}`, config);
+      logger.debug(`Requesting: ${endpoint}`, 'API', { method: config.method || 'GET' });
       const response = await fetch(`${settings.api.baseUrl}${endpoint}`, config);
 
       // Check for new token in Authorization header and update if present
@@ -178,7 +179,7 @@ const apiClient = {
       if (authHeader && authHeader.startsWith('Bearer ')) {
         const newToken = authHeader.substring(7);
         if (newToken) {
-          console.log('Updating token from response header');
+          logger.debug('Updating token from response header', 'API');
           apiClient.setAuthToken(newToken);
         }
       }
@@ -193,9 +194,9 @@ const apiClient = {
         }
 
         if (response.status !== 401 || !errorHandler) {
-          console.error('API Client Error:', response.status, errorData);
+          logger.error(`API Error ${response.status}`, 'API', errorData, { endpoint, method: config.method });
         } else {
-          console.log('API Client: 401 received, delegating to error handler');
+          logger.debug('401 received, delegating to error handler', 'API', { endpoint });
         }
 
         // Call error handler for 401 errors
@@ -207,7 +208,7 @@ const apiClient = {
           );
 
           try {
-            console.log(`API Client: ${response.status} received, delegating to error handler`);
+            logger.debug(`Delegating ${response.status} to error handler`, 'API', { endpoint });
             const handlerResponse = await errorHandler(error, endpoint, config);
             if (handlerResponse?.retry) {
               // Retry the request with potentially new token
@@ -218,7 +219,7 @@ const apiClient = {
                   ...(handlerResponse.newToken ? { Authorization: `Bearer ${handlerResponse.newToken}` } : {}),
                 },
               };
-              console.log('API Client: Retrying request after handler response');
+              logger.debug('Retrying request after handler response', 'API', { endpoint });
               const retryResp = await fetch(`${settings.api.baseUrl}${endpoint}`, retryConfig);
               if (retryResp.ok) {
                 if (retryResp.status === 204) return undefined as T;
@@ -231,7 +232,7 @@ const apiClient = {
             }
           } catch (handlerError) {
             // If error handler itself fails, continue to throw original error
-            console.error('Error handler failed:', handlerError);
+            logger.error('Error handler failed', 'API', handlerError);
             if (handlerError instanceof ApiClientError) throw handlerError;
           }
         }
@@ -245,15 +246,17 @@ const apiClient = {
 
       // Si la respuesta es 204 No Content, no intentamos parsear JSON
       if (response.status === 204) {
-        console.log('API Response: 204 No Content');
+        logger.debug('Response: 204 No Content', 'API', { endpoint });
         return undefined as T; // O lo que sea apropiado para una respuesta vacía
       }
 
       const responseData = await response.json() as T;
-      console.log('API Response Data:', responseData);
+      logger.debug('Response Success', 'API', { endpoint, data: responseData });
       return responseData;
     } catch (error) {
-      console.error('API Request Failed:', error);
+      if (!(error instanceof ApiClientError)) {
+        logger.error('Network Request Failed', 'API', error, { endpoint, method: config.method });
+      }
       if (error instanceof ApiClientError) {
         throw error; // Re-lanzar el error personalizado
       }

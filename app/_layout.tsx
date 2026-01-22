@@ -12,9 +12,26 @@ import * as eva from '@eva-design/eva'; // Import eva
 import { ApplicationProvider, Button } from '@ui-kitten/components';
 import { roleToScreenMap, routes } from '../config/routes';
 import { ArrowLeft } from "lucide-react-native";
+import { logger } from '../shared/utils/logger';
+
+// Register global error handlers
+if (!__DEV__) {
+  // Catch unhandled promise rejections
+  const originalHandler = (global as any).onunhandledrejection;
+  (global as any).onunhandledrejection = (error: any) => {
+    logger.error('Unhandled Promise Rejection', 'GLOBAL', error);
+    if (originalHandler) originalHandler(error);
+  };
+}
 
 // Re-export ErrorBoundary for Expo Router to catch internal errors
-export const ErrorBoundary = ExpoErrorBoundary;
+export const ErrorBoundary = (props: any) => {
+  useEffect(() => {
+    logger.error('Expo Router ErrorBoundary caught an error', 'ROUTER', props.error);
+  }, [props.error]);
+
+  return <ExpoErrorBoundary {...props} />;
+};
 
 // Root layout wrapper
 export default function RootLayoutNav() {

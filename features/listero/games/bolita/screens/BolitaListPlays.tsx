@@ -7,7 +7,7 @@ import { useBetsStore, selectBetsModel, selectDispatch } from '@/features/lister
 import { ColumnHeaders } from '@/features/listero/bets/shared/components/ColumnHeaders';
 import FijosCorridosColumn from '@/features/listero/bets/features/fijos-corridos/components/FijosCorridosColumn';
 import { ParletColumn } from '@/features/listero/bets/features/parlet/components/ParletColumn';
-import { CentenasColumn } from '@/features/listero/bets/shared/components/CentenasColumn';
+import { CentenaColumn } from '@/features/listero/bets/features/centena/components/CentenaColumn';
 import { SumRowComponent } from '@/features/listero/bets/shared/components/SumRowComponent';
 import { ListMsgType } from '@/features/listero/bets/features/bet-list/list.types';
 
@@ -81,16 +81,28 @@ export const BolitaListPlays: React.FC<BolitaListPlaysProps> = ({ drawId }) => {
                 }
             >
                 <View style={styles.gridContainer}>
-                    <FijosCorridosColumn />
-                    <ParletColumn fijosCorridosList={fijosCorridos} />
-                    <CentenasColumn />
+                    <View style={styles.columnWrapperFijos}>
+                        <FijosCorridosColumn editable={false} />
+                    </View>
+                    <View style={styles.columnWrapperParlet}>
+                        <ParletColumn fijosCorridosList={fijosCorridos} editable={false} />
+                    </View>
+                    <View style={styles.columnWrapperCentena}>
+                        <CentenaColumn editable={false} />
+                    </View>
                 </View>
             </ScrollView>
             <View style={styles.footer}>
-                <View style={styles.totalsContainer}>
-                    <SumRowComponent label="Fijos/Corr." total={fijosCorridosTotal} />
-                    <SumRowComponent label="Parlets" total={parletsTotal} />
-                    <SumRowComponent label="Centenas" total={centenasTotal} />
+                <View style={styles.totalsRowContainer}>
+                    <View style={styles.columnWrapperFijos}>
+                        <SumRowComponent label="F/C" total={fijosCorridosTotal} />
+                    </View>
+                    <View style={styles.columnWrapperParlet}>
+                        <SumRowComponent label="P" total={parletsTotal} />
+                    </View>
+                    <View style={styles.columnWrapperCentena}>
+                        <SumRowComponent label="C" total={centenasTotal} />
+                    </View>
                 </View>
                 <View style={styles.grandTotalContainer}>
                     <SumRowComponent label="Total Lista" total={grandTotal} />
@@ -105,13 +117,17 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         paddingHorizontal: 8,
     },
+    columnWrapperFijos: { flex: 3, borderRightWidth: 1, borderRightColor: '#E8E8E8', },
+    columnWrapperParlet: { flex: 2, borderRightWidth: 1, borderRightColor: '#E8E8E8' },
+    columnWrapperCentena: { flex: 2 },
     footer: {
         padding: LayoutConstants.spacing.sm,
         borderTopWidth: 1,
         borderTopColor: '#E8E8E8',
         backgroundColor: '#FFFFFF',
     },
-    totalsContainer: {
+    totalsRowContainer: {
+        flexDirection: 'row',
         marginBottom: LayoutConstants.spacing.xs,
     },
     grandTotalContainer: {

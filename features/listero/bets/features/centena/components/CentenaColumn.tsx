@@ -9,7 +9,11 @@ import { BetNumericKeyboard, AmountNumericKeyboard } from '../../../shared/compo
 import { AnnotationType, AnnotationTypes } from '@/constants/Bet';
 import { useCentena } from '../useCentena';
 
-export const CentenaColumn: React.FC = () => {
+interface CentenaColumnProps {
+    editable?: boolean;
+}
+
+export const CentenaColumn: React.FC<CentenaColumnProps> = ({ editable = false }) => {
     const {
         centenaList,
         editingAmountType,
@@ -59,9 +63,12 @@ export const CentenaColumn: React.FC = () => {
                 <View key={item.id} style={styles.centenaBlock}>
                     <BetCircle
                         value={item.bet.toString().padStart(3, '0')}
-                        onPress={() => editCentenaBet(item.id)}
+                        onPress={editable ? () => editCentenaBet(item.id) : undefined}
                     />
-                    <AmountCircle amount={item.amount} onPress={() => editAmountKeyboard(item.id)} />
+                    <AmountCircle 
+                        amount={item.amount} 
+                        onPress={editable ? () => editAmountKeyboard(item.id) : undefined} 
+                    />
                 </View>
             ))}
         </View>
@@ -71,14 +78,16 @@ export const CentenaColumn: React.FC = () => {
         <View style={[styles.column, styles.colCentena]}>
             {renderCentenaList()}
 
-            <View style={styles.columnContent}>
-                <View style={styles.centenaBlock}>
-                    <BetCircle value={"+"} onPress={() => pressAddCentena()} />
-                    <AmountCircle amount={"$"} />
+            {editable && (
+                <View style={styles.columnContent}>
+                    <View style={styles.centenaBlock}>
+                        <BetCircle value={"+"} onPress={() => pressAddCentena()} />
+                        <AmountCircle amount={"$"} />
+                    </View>
                 </View>
-            </View>
-            {renderKeyboard(AnnotationTypes.Bet)}
-            {renderKeyboard(AnnotationTypes.Amount)}
+            )}
+            {editable && renderKeyboard(AnnotationTypes.Bet)}
+            {editable && renderKeyboard(AnnotationTypes.Amount)}
         </View>
     );
 };

@@ -9,6 +9,7 @@ import { DrawService } from '@/shared/services/Draw';
 import { FinancialSummaryService } from '@/shared/services/FinancialSummary';
 import { routes } from '@/config';
 import { isClosingSoon, isExpired, DailyTotals } from './core.types';
+import { FinancialSummary } from '@/types';
 import { singleton, ret, Return } from '@/shared/core/return';
 
 export const subscriptions = (model: Model) => {
@@ -18,6 +19,45 @@ export const subscriptions = (model: Model) => {
             rd.data.length > 0 ? Sub.every(10000, { type: 'TICK' }, 'dashboard-tick') : Sub.none()
         )
         .otherwise(() => Sub.none());
+};
+
+const summaryToTotals = (summary: FinancialSummary, commissionRate: number): DailyTotals => {
+    const collected = summary.totalCollected || 0;
+    const premiums = summary.premiumsPaid || 0;
+    const net = summary.netResult || (collected - premiums);
+    const commission = collected * commissionRate;
+
+    return {
+        totalCollected: collected,
+        premiumsPaid: premiums,
+        netResult: net,
+        estimatedCommission: commission,
+        amountToRemit: net - commission,
+    };
+};
+
+/**
+ * Enriches draws with financial information from a summary.
+ */
+const enrichDraws = (draws: any[], summary: FinancialSummary | null): any[] => {
+    if (!summary || !summary.draws) return draws;
+
+    const financialMap = new Map(
+        summary.draws.map(d => [d.id_sorteo.toString(), d])
+    );
+
+    return draws.map(draw => {
+        const financial = financialMap.get(draw.id.toString());
+        if (financial) {
+            return {
+                ...draw,
+                totalCollected: financial.colectado,
+                premiumsPaid: financial.pagado,
+                netResult: financial.neto,
+            };
+        }
+        return draw;
+    });
 };
 
 const calculateTotals = (draws: any[], commissionRate: number): DailyTotals => {
@@ -58,10 +98,10 @@ const fetchDrawsCmd = (structureId: string | null): Cmd => {
     );
 };
 
-const fetchSummaryCmd = (): Cmd => {
-    console.log('fetchSummaryCmd: Requesting financial summary');
+const fetchSummaryCmd = (structureId: string | null): Cmd => {
+    console.log('fetchSummaryCmd: Requesting financial summary for structure', structureId);
     return RemoteDataHttp.fetch(
-        () => FinancialSummaryService.get(),
+        () => FinancialSummaryService.get(structureId),
         (webData) => {
             console.log('fetchSummaryCmd: Received SUMMARY_RECEIVED', webData.type);
             return { type: 'SUMMARY_RECEIVED', webData };
@@ -96,22 +136,36 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
                     draws: RemoteData.loading(),
                     summary: RemoteData.loading()
                 },
-                [fetchDrawsCmd(id), fetchSummaryCmd()] as Cmd
+                [fetchDrawsCmd(id), fetchSummaryCmd(id)] as Cmd
             );
         })
 
         .with({ type: 'DRAWS_RECEIVED' }, ({ webData }) => {
             console.log('update: DRAWS_RECEIVED state', webData.type);
-            const nextModel = { ...model, draws: webData };
 
-            // Si el resumen ya falló o tuvo éxito, y los sorteos también, 
-            // ya no deberíamos estar en estado global de carga (manejado individualmente por cada RemoteData)
+            let enrichedWebData = webData;
+            if (webData.type === 'Success') {
+                const summary = model.summary.type === 'Success' ? model.summary.data : null;
+                enrichedWebData = {
+                    ...webData,
+                    data: enrichDraws(webData.data, summary)
+                };
+            }
+
+            const nextModel = { ...model, draws: enrichedWebData };
 
             // Recalculate totals if success
-            if (webData.type === 'Success') {
-                const filtered = filterDraws(webData.data, model.appliedFilter);
+            if (enrichedWebData.type === 'Success') {
+                const filtered = filterDraws(enrichedWebData.data, model.appliedFilter);
                 nextModel.filteredDraws = filtered;
-                nextModel.dailyTotals = calculateTotals(filtered, model.commissionRate);
+
+                // Prioritize summary data for daily totals if available
+                if (model.summary.type === 'Success') {
+                    console.log('update: Prioritizing summary data over draws calculation');
+                    nextModel.dailyTotals = summaryToTotals(model.summary.data, model.commissionRate);
+                } else {
+                    nextModel.dailyTotals = calculateTotals(filtered, model.commissionRate);
+                }
             } else {
                 nextModel.filteredDraws = [];
             }
@@ -120,15 +174,33 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
 
         .with({ type: 'SUMMARY_RECEIVED' }, ({ webData }) => {
             console.log('update: SUMMARY_RECEIVED state', webData.type);
-            return singleton({ ...model, summary: webData });
+            const nextModel = { ...model, summary: webData };
+
+            // Si el resumen es exitoso, actualizamos los totales diarios prioritariamente
+            if (webData.type === 'Success') {
+                console.log('update: Updating dailyTotals from real-time summary', webData.data);
+                nextModel.dailyTotals = summaryToTotals(webData.data, model.commissionRate);
+
+                // Also enrich existing draws with new summary info
+                if (model.draws.type === 'Success') {
+                    const enrichedDrawsList = enrichDraws(model.draws.data, webData.data);
+                    nextModel.draws = {
+                        ...model.draws,
+                        data: enrichedDrawsList
+                    };
+                    nextModel.filteredDraws = filterDraws(enrichedDrawsList, model.appliedFilter);
+                }
+            }
+
+            return singleton(nextModel);
         })
 
         .with({ type: 'REFRESH_CLICKED' }, () =>
-            ret(model, [fetchDrawsCmd(model.userStructureId), fetchSummaryCmd()] as Cmd)
+            ret(model, [fetchDrawsCmd(model.userStructureId), fetchSummaryCmd(model.userStructureId)] as Cmd)
         )
 
         .with({ type: 'SET_USER_STRUCTURE' }, ({ id }) =>
-            ret({ ...model, userStructureId: id }, fetchDrawsCmd(id))
+            ret({ ...model, userStructureId: id }, [fetchDrawsCmd(id), fetchSummaryCmd(id)] as Cmd)
         )
 
         .with({ type: 'STATUS_FILTER_CHANGED' }, ({ filter }) =>
@@ -143,7 +215,13 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
             if (model.draws.type === 'Success') {
                 const filtered = filterDraws(model.draws.data, filter);
                 nextModel.filteredDraws = filtered;
-                nextModel.dailyTotals = calculateTotals(filtered, model.commissionRate);
+
+                // Prioritize summary data for daily totals if available
+                if (model.summary.type === 'Success') {
+                    nextModel.dailyTotals = summaryToTotals(model.summary.data, model.commissionRate);
+                } else {
+                    nextModel.dailyTotals = calculateTotals(filtered, model.commissionRate);
+                }
             }
             return singleton(nextModel);
         })
@@ -199,8 +277,9 @@ const filterDraws = (draws: any[], filter: string) => {
         }
 
         if (filter === 'rewarded') {
-            return (draw.premiumsPaid || 0) > 0;
+            return draw.status === 'rewarded' || draw.is_rewarded === true;
         }
+
         return true;
     });
 };

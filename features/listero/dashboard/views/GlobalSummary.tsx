@@ -15,13 +15,29 @@ interface GlobalSummaryProps {
 }
 
 export default function GlobalSummary({ totals, commissionRate }: GlobalSummaryProps) {
+  // Ensure totals is never undefined and all values are numbers
+  const safeTotals = totals || {
+    estimatedCommission: 0,
+    totalCollected: 0,
+    premiumsPaid: 0,
+    netResult: 0,
+    amountToRemit: 0
+  };
+
   const {
     estimatedCommission = 0,
     totalCollected = 0,
     premiumsPaid = 0,
     netResult = 0,
     amountToRemit = 0
-  } = totals || {};
+  } = safeTotals;
+
+  // Ensure all values are numbers to prevent toFixed errors
+  const safeEstimatedCommission = typeof estimatedCommission === 'number' && !isNaN(estimatedCommission) ? estimatedCommission : 0;
+  const safeTotalCollected = typeof totalCollected === 'number' && !isNaN(totalCollected) ? totalCollected : 0;
+  const safePremiumsPaid = typeof premiumsPaid === 'number' && !isNaN(premiumsPaid) ? premiumsPaid : 0;
+  const safeNetResult = typeof netResult === 'number' && !isNaN(netResult) ? netResult : 0;
+  const safeAmountToRemit = typeof amountToRemit === 'number' && !isNaN(amountToRemit) ? amountToRemit : 0;
 
   return (
     <View style={styles.container}>
@@ -36,7 +52,7 @@ export default function GlobalSummary({ totals, commissionRate }: GlobalSummaryP
               </View>
               <View>
                 <Label type="detail">Mi Ganancia Est.</Label>
-                <Label style={styles.commissionValue}>{`$${estimatedCommission.toFixed(2)}`}</Label>
+                <Label style={styles.commissionValue}>{`$${safeEstimatedCommission.toFixed(2)}`}</Label>
               </View>
             </Flex>
             <View style={styles.badge}>
@@ -52,7 +68,7 @@ export default function GlobalSummary({ totals, commissionRate }: GlobalSummaryP
               </View>
               <View>
                 <Label type="detail">Monto a Entregar al Colector</Label>
-                <Label style={styles.remitValue}>{`$${amountToRemit.toFixed(2)}`}</Label>
+                <Label style={styles.remitValue}>{`$${safeAmountToRemit.toFixed(2)}`}</Label>
               </View>
             </Flex>
           </Flex>
@@ -66,7 +82,7 @@ export default function GlobalSummary({ totals, commissionRate }: GlobalSummaryP
                 <ReceiptText size={16} color="#8F9BB3" />
                 <Label type="detail">Ventas Totales</Label>
               </Flex>
-              <Label style={styles.statValue}>{`$${totalCollected.toFixed(2)}`}</Label>
+              <Label style={styles.statValue}>{`$${safeTotalCollected.toFixed(2)}`}</Label>
             </View>
 
             <View style={styles.statItem}>
@@ -74,7 +90,7 @@ export default function GlobalSummary({ totals, commissionRate }: GlobalSummaryP
                 <TrendingUp size={16} color="#8F9BB3" />
                 <Label type="detail">Premios</Label>
               </Flex>
-              <Label style={[styles.statValue, { color: '#FF3D71' }]}>{`$${premiumsPaid.toFixed(2)}`}</Label>
+              <Label style={[styles.statValue, { color: '#FF3D71' }]}>{`$${safePremiumsPaid.toFixed(2)}`}</Label>
             </View>
 
             <View style={styles.statItem}>
@@ -82,8 +98,8 @@ export default function GlobalSummary({ totals, commissionRate }: GlobalSummaryP
                 <Wallet size={16} color="#8F9BB3" />
                 <Label type="detail">Balance</Label>
               </Flex>
-              <Label style={[styles.statValue, { color: netResult >= 0 ? '#00C48C' : '#FF3D71' }]}>
-                {`$${netResult.toFixed(2)}`}
+              <Label style={[styles.statValue, { color: safeNetResult >= 0 ? '#00C48C' : '#FF3D71' }]}>
+                {`$${safeNetResult.toFixed(2)}`}
               </Label>
             </View>
           </Flex>

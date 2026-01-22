@@ -2,11 +2,15 @@
 import { Cmd, CommandDescriptor } from './cmd';
 
 /**
- * Normalizes a Cmd into a flat array of CommandDescriptors.
+ * Normalizes a Cmd into a flat array of CommandDescriptors recursively.
  */
 function normalizeCmd(cmd: Cmd): CommandDescriptor[] {
     if (!cmd) return [];
-    if (Array.isArray(cmd)) return cmd;
+    if (Array.isArray(cmd)) {
+        return cmd.reduce((acc: CommandDescriptor[], c) => {
+            return acc.concat(normalizeCmd(c));
+        }, []);
+    }
     return [cmd];
 }
 

@@ -5,7 +5,11 @@ import Layout from '@/constants/Layout';
 import AmountCircle from './AmountCircle';
 import { useBetsStore, selectBetsModel } from '../../core/store';
 
-export const CentenasColumn: React.FC = () => {
+interface CentenasColumnProps {
+    editable?: boolean;
+}
+
+export const CentenasColumn: React.FC<CentenasColumnProps> = ({ editable = false }) => {
     const model = useBetsStore(selectBetsModel);
     const { listSession } = model;
     const bets = listSession.remoteData.type === 'Success'
@@ -18,7 +22,10 @@ export const CentenasColumn: React.FC = () => {
                 {bets.map((item) => (
                     <View key={item.id} style={styles.centenaRow}>
                         <StyledText style={styles.centenaBetText}>{item.bet}</StyledText>
-                        <AmountCircle amount={item.amount} />
+                        <AmountCircle 
+                            amount={item.amount} 
+                            onPress={editable ? () => { /* Add logic if needed */ } : undefined}
+                        />
                     </View>
                 ))}
             </View>

@@ -189,13 +189,13 @@ const BolitaEntryScreen: React.FC<BolitaEntryScreenProps> = ({ drawId, title }) 
                             <View style={styles.betContainer}>
                                 <View style={styles.columnsContainer}>
                                     <View style={styles.columnWrapperFijos}>
-                                        <FijosCorridosColumn />
+                                        <FijosCorridosColumn editable={true} />
                                     </View>
                                     <View style={styles.columnWrapperParlet}>
-                                        <ParletColumn fijosCorridosList={fijosCorridos} />
+                                        <ParletColumn fijosCorridosList={fijosCorridos} editable={true} />
                                     </View>
                                     <View style={styles.columnWrapperCentena}>
-                                        <CentenaColumn />
+                                        <CentenaColumn editable={true} />
                                     </View>
                                 </View>
                             </View>

@@ -60,6 +60,16 @@ export interface FinancialSummary {
   totalCollected: number;
   premiumsPaid: number;
   netResult: number;
+  draws?: DrawFinancialInfo[];
+}
+
+export interface DrawFinancialInfo {
+  id_sorteo: number;
+  nombre_sorteo: string;
+  numero_ganador: string;
+  colectado: number;
+  pagado: number;
+  neto: number;
 }
 
 export interface FijosCorridosBet {

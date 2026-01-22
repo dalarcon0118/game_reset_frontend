@@ -59,6 +59,7 @@ export const settings = {
       draws: () => '/draw/draws/',
       incidents: () => '/incidents/',
       changePin: () => '/auth/change-pin/',
+      financialStatement: () => '/financial-statement/summary/',
       // ...otros endpoints de tu API
     },
   },

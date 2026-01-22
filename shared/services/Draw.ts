@@ -171,7 +171,9 @@ export class DrawService {
         draw_datetime: backendDraw.draw_datetime,
         betting_start_time: backendDraw.betting_start_time,
         betting_end_time: backendDraw.betting_end_time,
-        total_collected: backendDraw.total_collected,
+        totalCollected: backendDraw.total_collected,
+        premiumsPaid: 0, // Will be enriched from summary
+        netResult: backendDraw.total_collected, // Will be enriched from summary
 
         status: DrawService.mapStatus(
           backendDraw.status,

@@ -8,7 +8,11 @@ import Layout from '@/constants/Layout';
 import { useFijos } from '../useFijos';
 import { BetNumericKeyboard, AmountNumericKeyboard } from '../../../shared/components/NumericKeyboard';
 
-export default function FijosCorridosColumn() {
+interface FijosCorridosColumnProps {
+    editable?: boolean;
+}
+
+export default function FijosCorridosColumn({ editable = false }: FijosCorridosColumnProps) {
     const {
         fijosCorridosList,
         showBetKeyboard,
@@ -52,14 +56,16 @@ export default function FijosCorridosColumn() {
  const renderBets =() =>(
   fijosCorridosList.map((item: FijosCorridosBet) => (
           <View key={item.id} style={styles.fijoRow}>
-            <BetCircle value={item.bet.toString().padStart(2, '0')} />
+            <BetCircle 
+              value={item.bet.toString().padStart(2, '0')} 
+            />
             <AmountCircle
               amount={item.fijoAmount}
-              onPress={() => handleAmountCirclePress(item.id, 'fijo')}
+              onPress={editable ? () => handleAmountCirclePress(item.id, 'fijo') : undefined}
             />
             <AmountCircle
               amount={item.corridoAmount}
-              onPress={() => handleAmountCirclePress(item.id, 'corrido')}
+              onPress={editable ? () => handleAmountCirclePress(item.id, 'corrido') : undefined}
             />
           </View>
         ))
@@ -69,19 +75,21 @@ export default function FijosCorridosColumn() {
     <View style={[styles.column, styles.colFijos]}>
       <View style={styles.columnContent}>
         {renderBets()}
-        <View style={styles.fijoRow}>
-          <BetCircle 
-            value={"+"} 
-            onPress={() => {
-              console.log('BetCircle + pressed');
-              handleAddBetPress?.();
-            }} 
-          />
-          <AmountCircle amount={null} onPress={() => {}} />
-          <AmountCircle amount={null} onPress={() => {}} />
-        </View>
+        {editable && (
+          <View style={styles.fijoRow}>
+            <BetCircle 
+              value={"+"} 
+              onPress={() => {
+                console.log('BetCircle + pressed');
+                handleAddBetPress?.();
+              }} 
+            />
+            <AmountCircle amount={null} onPress={() => {}} />
+            <AmountCircle amount={null} onPress={() => {}} />
+          </View>
+        )}
       </View>
-      {renderKeyboard()}
+      {editable && renderKeyboard()}
     </View>
   );
 }
