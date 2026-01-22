@@ -146,11 +146,7 @@ export default function DrawItem({
           type="paid"
         />
         <View style={styles.verticalDivider} />
-        <SummaryCard
-          title="Neto"
-          amount={draw.netResult ?? 0}
-          type="net"
-        />
+        
       </View>
 
       {/* Action Buttons */}

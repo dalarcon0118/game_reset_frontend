@@ -24,12 +24,6 @@ export default function Header({ onRefresh }: HeaderProps) {
         <View>
           <Flex align="center" gap={6}>
             <Label type="header" style={styles.welcome}>Hola,</Label>
-            {commissionRate > 0 && (
-              <View style={styles.commissionBadge}>
-                <Percent size={10} color="#00E096" />
-                <Label style={styles.commissionText}>{displayCommission}%</Label>
-              </View>
-            )}
           </Flex>
           <Label style={styles.userName}>{user?.username || 'Usuario'}</Label>
         </View>
