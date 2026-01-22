@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
-import { StyleSheet, View, ScrollView, RefreshControl, useColorScheme } from 'react-native';
-import { Text } from '@ui-kitten/components';
+import { StyleSheet, View, ScrollView, RefreshControl, useColorScheme, TouchableOpacity, Text } from 'react-native';
+import { Button } from '@ui-kitten/components';
 import Colors from '@/constants/Colors';
 import LayoutConstants from '@/constants/Layout';
 import { useBetsStore, selectBetsModel, selectDispatch } from '@/features/listero/bets/core/store';
@@ -10,6 +10,7 @@ import { ParletColumn } from '@/features/listero/bets/features/parlet/components
 import { CentenaColumn } from '@/features/listero/bets/features/centena/components/CentenaColumn';
 import { SumRowComponent } from '@/features/listero/bets/shared/components/SumRowComponent';
 import { ListMsgType } from '@/features/listero/bets/features/bet-list/list.types';
+import { useRouter } from 'expo-router';
 
 interface BolitaListPlaysProps {
     drawId?: string;
@@ -17,6 +18,7 @@ interface BolitaListPlaysProps {
 
 export const BolitaListPlays: React.FC<BolitaListPlaysProps> = ({ drawId }) => {
     const colorScheme = (useColorScheme() ?? 'light') as keyof typeof Colors;
+    const router = useRouter();
     const model = useBetsStore(selectBetsModel);
     const dispatch = useBetsStore(selectDispatch);
 
@@ -61,6 +63,19 @@ export const BolitaListPlays: React.FC<BolitaListPlaysProps> = ({ drawId }) => {
 
     const grandTotal = fijosCorridosTotal + parletsTotal + centenasTotal;
 
+    const handleViewReceipt = () => {
+        // Navigate to success screen with current draw context
+        // Pass the drawId as a parameter to ensure the success screen has the right context
+        if (drawId) {
+            router.push({
+                pathname: '/lister/bets/success',
+                params: { drawId }
+            });
+        } else {
+            router.push('/lister/bets/success');
+        }
+    };
+
     return (
         <View style={{ flex: 1 }}>
             <ColumnHeaders />
@@ -91,6 +106,16 @@ export const BolitaListPlays: React.FC<BolitaListPlaysProps> = ({ drawId }) => {
                         <CentenaColumn editable={false} />
                     </View>
                 </View>
+                
+                {/* Separador con botón "Ver comprobante" */}
+                <View style={styles.receiptSeparator}>
+                    <TouchableOpacity 
+                        style={[styles.receiptButton, { backgroundColor: Colors[colorScheme].primary }]} 
+                        onPress={handleViewReceipt}
+                    >
+                        <Text style={styles.receiptButtonText}>Ver comprobante</Text>
+                    </TouchableOpacity>
+                </View>
             </ScrollView>
             <View style={styles.footer}>
                 <View style={styles.totalsRowContainer}>
@@ -117,9 +142,26 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         paddingHorizontal: 8,
     },
-    columnWrapperFijos: { flex: 3, borderRightWidth: 1, borderRightColor: '#E8E8E8', },
+    columnWrapperFijos: { flex: 3, borderRightWidth: 1, borderRightColor: '#E8E8E8' },
     columnWrapperParlet: { flex: 2, borderRightWidth: 1, borderRightColor: '#E8E8E8' },
     columnWrapperCentena: { flex: 2 },
+    receiptSeparator: {
+        padding: 10,
+        backgroundColor: '#f0f0f0',
+        marginHorizontal: 8,
+        marginVertical: 5,
+        borderRadius: 8,
+    },
+    receiptButton: {
+        padding: 12,
+        borderRadius: 8,
+        alignItems: 'center',
+    },
+    receiptButtonText: {
+        color: 'white',
+        fontWeight: 'bold',
+        fontSize: 16,
+    },
     footer: {
         padding: LayoutConstants.spacing.sm,
         borderTopWidth: 1,

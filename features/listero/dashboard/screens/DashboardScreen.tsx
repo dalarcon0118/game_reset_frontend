@@ -2,7 +2,6 @@ import React, { useEffect } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { match } from 'ts-pattern';
-import { RemoteData } from '@/shared/core/remote.data';
 import { Label, Flex } from '@/shared/components';
 import { useAuth } from '@/features/auth';
 import { useDashboardStore } from '../core/store';

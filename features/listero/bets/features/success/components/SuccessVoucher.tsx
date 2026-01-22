@@ -70,42 +70,58 @@ export const SuccessVoucher: React.FC<SuccessVoucherProps> = ({
                 {/* Fila 2: Parlets */}
                 {groupedBets.parlets.length > 0 && (
                     <View style={styles.bolitaSection}>
+                        <View style={styles.divider} />
                         <Text category='s1' style={styles.sectionTitle}>PARLETS</Text>
-                        <View style={styles.parletsContainer}>
-                            {groupedBets.parlets.map((bet, index) => (
-                                <View key={index} style={styles.parletItemRow}>
+                        <View style={styles.fijoCorridoTableHeader}>
+                            <Text style={[styles.headerText, { flex: 1.5 }]}>Núm</Text>
+                            <Text style={[styles.headerText, { flex: 1 }]}>Monto</Text>
+                            <View style={{ flex: 1 }} />
+                        </View>
+                        {groupedBets.parlets.map((bet, index) => (
+                            <View key={index} style={styles.fijoCorridoTableRow}>
+                                <View style={[styles.tableCell, { flex: 1.5 }]}>
                                     <View style={styles.parletCirclesRow}>
                                         {bet.numbers.map((num: string, idx: number) => (
-                                            <View key={idx} style={styles.smallCircle}>
+                                            <View key={idx} style={styles.circle}>
                                                 <Text style={styles.smallCircleText}>{num}</Text>
                                             </View>
                                         ))}
                                     </View>
-                                    <View style={styles.parletAmountBadge}>
-                                        <Text style={styles.parletAmountText}>${bet.amount}</Text>
+                                </View>
+                                <View style={[styles.tableCell, { flex: 1 }]}>
+                                    <View style={styles.amountCircle}>
+                                        <Text style={styles.amountCircleText}>${bet.amount}</Text>
                                     </View>
                                 </View>
-                            ))}
-                        </View>
+                                <View style={{ flex: 1 }} />
+                            </View>
+                        ))}
                     </View>
                 )}
 
                 {/* Fila 3: Centenas */}
                 {groupedBets.centenas.length > 0 && (
                     <View style={styles.bolitaSection}>
+                        <View style={styles.divider} />
                         <Text category='s1' style={styles.sectionTitle}>CENTENAS</Text>
+                        <View style={styles.fijoCorridoTableHeader}>
+                            <Text style={[styles.headerText, { flex: 1.5 }]}>Núm</Text>
+                            <Text style={[styles.headerText, { flex: 1 }]}>Monto</Text>
+                            <View style={{ flex: 1 }} />
+                        </View>
                         {groupedBets.centenas.map((bet, index) => (
                             <View key={index} style={styles.fijoCorridoTableRow}>
                                 <View style={[styles.tableCell, { flex: 1.5 }]}>
                                     <View style={styles.circle}>
-                                        <Text category='s1' style={styles.circleText}>{bet.numbers[0]}</Text>
+                                        <Text category='s1' style={styles.circleText}>{bet.numbers.join('')}</Text>
                                     </View>
                                 </View>
-                                <View style={[styles.tableCell, { flex: 2 }]}>
+                                <View style={[styles.tableCell, { flex: 1 }]}>
                                     <View style={styles.amountCircle}>
                                         <Text style={styles.amountCircleText}>${bet.amount}</Text>
                                     </View>
                                 </View>
+                                <View style={{ flex: 1 }} />
                             </View>
                         ))}
                     </View>
@@ -251,7 +267,7 @@ const styles = StyleSheet.create({
         flexWrap: 'wrap',
     },
     circle: {
-        width: 36,
+        minWidth: 36,
         height: 36,
         borderRadius: 18,
         backgroundColor: '#FFFFFF',
@@ -260,6 +276,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         marginVertical: 4,
+        paddingHorizontal: 6,
     },
     circleText: {
         fontSize: 15,
@@ -350,34 +367,10 @@ const styles = StyleSheet.create({
     emptyDash: {
         color: '#C5CEE0',
     },
-    parletsContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'center',
-    },
-    parletItemRow: {
-        backgroundColor: '#F7F9FC',
-        borderRadius: 12,
-        padding: 8,
-        margin: 5,
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#E4E9F2',
-    },
     parletCirclesRow: {
         flexDirection: 'row',
-        marginBottom: 6,
-    },
-    parletAmountBadge: {
-        backgroundColor: '#2E5BFF',
-        borderRadius: 10,
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-    },
-    parletAmountText: {
-        color: '#FFFFFF',
-        fontSize: 11,
-        fontWeight: 'bold',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     smallCircle: {
         width: 26,
@@ -388,7 +381,7 @@ const styles = StyleSheet.create({
         borderColor: '#2E5BFF',
         justifyContent: 'center',
         alignItems: 'center',
-        marginHorizontal: 1,
+        marginHorizontal: 3,
     },
     smallCircleText: {
         fontSize: 11,

@@ -5,6 +5,8 @@ import { SuccessMsgType, VoucherMetadata } from './success.types';
 import ViewShot from 'react-native-view-shot';
 import { DrawService } from '@/shared/services/Draw';
 import { ExtendedDrawType } from '@/shared/services/Draw';
+import { BetService } from '@/shared/services/Bet';
+import { BetType } from '@/types';
 
 export const useSuccess = () => {
     const model = useBetsStore(selectBetsModel);
@@ -14,6 +16,7 @@ export const useSuccess = () => {
     const { betId } = useLocalSearchParams<{ betId: string }>();
     const drawId = model.drawId;
 
+    // Load draw details
     useEffect(() => {
         if (drawId) {
             DrawService.getOne(drawId).then(details => {
@@ -21,6 +24,72 @@ export const useSuccess = () => {
             });
         }
     }, [drawId]);
+
+    // State for fresh bets data from backend
+    const [freshBetsData, setFreshBetsData] = useState<any>(null);
+
+    // Load fresh bets data when drawId is available and we're accessing from list
+    useEffect(() => {
+        if (drawId && !betId) {
+            // Fetch fresh bets data from backend to ensure receipt codes are up-to-date
+            BetService.list({ drawId }).then(bets => {
+                if (bets.length > 0) {
+                    // Transform bets to match the expected format
+                    const transformedData = {
+                        fijosCorridos: bets
+                            .filter(bet => {
+                                const betType = typeof bet.type === 'string' ? bet.type.toLowerCase() : '';
+                                return betType === 'fijo' || betType === 'corrido';
+                            })
+                            .map(bet => ({
+                                id: bet.id,
+                                bet: parseInt(JSON.parse(bet.numbers)[0]) || 0,
+                                fijoAmount: typeof bet.type === 'string' && bet.type.toLowerCase() === 'fijo' ? bet.amount : null,
+                                corridoAmount: typeof bet.type === 'string' && bet.type.toLowerCase() === 'corrido' ? bet.amount : null,
+                                receiptCode: bet.receiptCode
+                            })),
+                        parlets: bets
+                            .filter(bet => {
+                                const betType = typeof bet.type === 'string' ? bet.type.toLowerCase() : '';
+                                return betType === 'parlet';
+                            })
+                            .map(bet => ({
+                                id: bet.id,
+                                bets: JSON.parse(bet.numbers),
+                                amount: bet.amount,
+                                receiptCode: bet.receiptCode
+                            })),
+                        centenas: bets
+                            .filter(bet => {
+                                const betType = typeof bet.type === 'string' ? bet.type.toLowerCase() : '';
+                                return betType === 'centena';
+                            })
+                            .map(bet => ({
+                                id: bet.id,
+                                bet: parseInt(JSON.parse(bet.numbers)[0]) || 0,
+                                amount: bet.amount,
+                                receiptCode: bet.receiptCode
+                            })),
+                        loteria: bets
+                            .filter(bet => {
+                                const betType = typeof bet.type === 'string' ? bet.type.toLowerCase() : '';
+                                return betType === 'loteria' || betType === 'cuaterna semanal';
+                            })
+                            .map(bet => ({
+                                id: bet.id,
+                                bet: parseInt(JSON.parse(bet.numbers)[0]) || 0,
+                                amount: bet.amount,
+                                receiptCode: bet.receiptCode
+                            }))
+                    };
+
+                    setFreshBetsData(transformedData);
+                }
+            }).catch(error => {
+                console.error('Error loading fresh bets data:', error);
+            });
+        }
+    }, [drawId, betId]);
 
     const metadata = useMemo<VoucherMetadata>(() => {
         const now = new Date();
@@ -121,12 +190,29 @@ export const useSuccess = () => {
     const receiptCode = useMemo(() => {
         console.log('[useSuccess] Computing receiptCode. betId from params:', betId);
         console.log('[useSuccess] managementData present:', !!managementData);
+        console.log('[useSuccess] freshBetsData present:', !!freshBetsData);
         if (managementData) {
             console.log('[useSuccess] managementData type:', Array.isArray(managementData) ? 'array' : typeof managementData);
             console.log('[useSuccess] managementData keys:', Object.keys(Array.isArray(managementData) ? (managementData[0] || {}) : managementData));
         }
 
-        // Primero intentamos sacar el código del estado de guardado reciente
+        // Primero intentamos sacar el código de los datos frescos del backend
+        if (freshBetsData) {
+            const allFreshBets = [
+                ...(freshBetsData.fijosCorridos || []),
+                ...(freshBetsData.parlets || []),
+                ...(freshBetsData.centenas || []),
+                ...(freshBetsData.loteria || [])
+            ];
+            const freshBetWithCode = allFreshBets.find((b: any) => b.receiptCode && b.receiptCode !== '-----');
+            if (freshBetWithCode) {
+                const code = freshBetWithCode.receiptCode;
+                console.log('[useSuccess] Found code in freshBetsData:', code);
+                return code;
+            }
+        }
+
+        // Si no está ahí, intentamos sacar el código del estado de guardado reciente
         if (managementData) {
             if (Array.isArray(managementData)) {
                 const betWithCode = managementData.find(b => (b as any).receiptCode || (b as any).receipt_code);
@@ -157,6 +243,15 @@ export const useSuccess = () => {
                 console.log('[useSuccess] Found code in listSession:', code);
                 return code;
             }
+
+            // Si no encontramos código en las apuestas, pero hay apuestas, usamos el ID de la primera como fallback
+            if (allBets.length > 0) {
+                const firstBet = allBets[0];
+                if (firstBet.id) {
+                    console.log('[useSuccess] Using first bet ID as fallback receipt code:', firstBet.id);
+                    return firstBet.id;
+                }
+            }
         }
 
         // Fallback al betId que viene por parámetros de navegación
@@ -167,7 +262,8 @@ export const useSuccess = () => {
 
         console.log('[useSuccess] No receipt code found, using default placeholder');
         return '-----';
-    }, [managementData, model.listSession.remoteData, betId]);
+    }, [managementData, model.listSession.remoteData, betId, freshBetsData]);
+
 
     const bets = useMemo(() => {
         const formatNumbers = (numbers: any): string[] => {
@@ -240,7 +336,7 @@ export const useSuccess = () => {
                 return {
                     id: b.id,
                     type: displayType,
-                    numbers,
+                    numbers: b.type === 'Centena' ? [numbers.join('')] : numbers,
                     amount: b.amount || ((b as any).fijoAmount || 0) + ((b as any).corridoAmount || 0),
                     fijoAmount: b.fijoAmount,
                     corridoAmount: b.corridoAmount,
@@ -275,7 +371,7 @@ export const useSuccess = () => {
             const centenas = data.centenas.map(b => ({
                 id: b.id || Math.random().toString(),
                 type: 'Centena',
-                numbers: formatNumbers(b.bet),
+                numbers: [formatNumbers(b.bet).join('')],
                 amount: b.amount
             }));
 
