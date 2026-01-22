@@ -1,7 +1,7 @@
 import { match } from 'ts-pattern';
 import { Model } from './model';
 import { Msg } from './msg';
-import { Cmd } from '@/shared/core/cmd';
+import { Cmd, CommandDescriptor } from '@/shared/core/cmd';
 import { Sub } from '@/shared/core/sub';
 import { RemoteDataHttp } from '@/shared/core/remote.data.http';
 import { RemoteData } from '@/shared/core/remote.data';
@@ -12,13 +12,26 @@ import { isClosingSoon, isExpired, DailyTotals } from './core.types';
 import { FinancialSummary } from '@/types';
 import { singleton, ret, Return } from '@/shared/core/return';
 
+import { useAuthStore } from '@/features/auth/store/store';
+import { AUTH_USER_SYNCED } from './msg';
+
 export const subscriptions = (model: Model) => {
     // Refresh every 10 seconds if we have data to update expiration and counters
-    return match(model.draws)
+    const tickSub = match(model.draws)
         .with({ type: 'Success' }, (rd) =>
             rd.data.length > 0 ? Sub.every(10000, { type: 'TICK' }, 'dashboard-tick') : Sub.none()
         )
         .otherwise(() => Sub.none());
+
+    // Sincronización automática con el store de Auth
+    const authSub = Sub.watchStore(
+        useAuthStore,
+        (state: any) => state.user,
+        (user) => AUTH_USER_SYNCED(user),
+        'dashboard-auth-sync'
+    );
+
+    return Sub.batch([tickSub, authSub]);
 };
 
 const summaryToTotals = (summary: FinancialSummary, commissionRate: number): DailyTotals => {
@@ -199,6 +212,42 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
             ret(model, [fetchDrawsCmd(model.userStructureId), fetchSummaryCmd(model.userStructureId)] as Cmd)
         )
 
+        .with({ type: 'AUTH_USER_SYNCED' }, ({ user }) => {
+            const structure = user?.structure;
+            const structureId = structure?.id?.toString() || null;
+            const backendRate = structure?.commission_rate || 0;
+            const currentCommissionRate = model.commissionRate;
+            const nextCommissionRate = backendRate / 100;
+
+            let nextModel = { ...model };
+            let cmds: CommandDescriptor[] = [];
+
+            // 1. Sincronizar ID de estructura si ha cambiado
+            if (structureId && structureId !== model.userStructureId) {
+                console.log('update: AUTH_USER_SYNCED new structure detected', structureId);
+                nextModel.userStructureId = structureId;
+                nextModel.draws = RemoteData.loading();
+                nextModel.summary = RemoteData.loading();
+                cmds.push(fetchDrawsCmd(structureId) as any);
+                cmds.push(fetchSummaryCmd(structureId) as any);
+            }
+
+            // 2. Sincronizar tasa de comisión si ha cambiado
+            if (nextCommissionRate !== currentCommissionRate) {
+                console.log('update: AUTH_USER_SYNCED new commission rate', backendRate);
+                nextModel.commissionRate = nextCommissionRate;
+
+                // Recalcular totales con la nueva tasa si ya tenemos datos
+                if (nextModel.summary.type === 'Success') {
+                    nextModel.dailyTotals = summaryToTotals(nextModel.summary.data, nextCommissionRate);
+                } else if (nextModel.draws.type === 'Success') {
+                    nextModel.dailyTotals = calculateTotals(nextModel.filteredDraws, nextCommissionRate);
+                }
+            }
+
+            return cmds.length > 0 ? ret(nextModel, cmds as any) : singleton(nextModel);
+        })
+
         .with({ type: 'SET_USER_STRUCTURE' }, ({ id }) =>
             ret({ ...model, userStructureId: id }, [fetchDrawsCmd(id), fetchSummaryCmd(id)] as Cmd)
         )
@@ -230,6 +279,21 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
             // Just trigger a re-render to update timers (isClosingSoon, isExpired)
             // In a more complex scenario, we could re-calculate totals here too
             return singleton(model);
+        })
+
+        .with({ type: 'SET_COMMISSION_RATE' }, ({ rate }) => {
+            // Convert to decimal (e.g. 30 -> 0.3)
+            const commissionRate = rate / 100;
+            const nextModel = { ...model, commissionRate };
+
+            // Recalculate totals with new rate if we have data
+            if (model.summary.type === 'Success') {
+                nextModel.dailyTotals = summaryToTotals(model.summary.data, commissionRate);
+            } else if (model.draws.type === 'Success') {
+                nextModel.dailyTotals = calculateTotals(model.filteredDraws, commissionRate);
+            }
+
+            return singleton(nextModel);
         })
 
         // Navigation

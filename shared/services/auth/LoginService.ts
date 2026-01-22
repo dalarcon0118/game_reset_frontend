@@ -1,6 +1,6 @@
 import { User } from '@/data/mockData';
 import settings from '@/config/settings';
-import apiClient, { ApiClientError } from '@/shared/services/ApiClient'; // Importamos nuestro ApiClient
+import apiClient, { ApiClientError, setupAuthErrorHandler } from '@/shared/services/ApiClient'; // Importamos nuestro ApiClient
 
 interface LoginResponse {
   access: string;
@@ -15,6 +15,25 @@ export const LoginService = () => {
     }
     return null;
   };
+
+  const logout = async (): Promise<void> => {
+    try {
+      // Llamada al backend para eliminar la cookie de refresh
+      try {
+        await apiClient.post(settings.api.endpoints.logout(), {}, { skipAuthHandler: true });
+      } catch (e) {
+        console.warn('Failed to logout from server, clearing local session anyway.', e);
+      }
+      await apiClient.clearAuthToken();
+
+    } catch (error) {
+      console.error('Logout error', error);
+      await apiClient.clearAuthToken();
+    }
+  };
+
+  // Setup the auth error handler when the service is initialized
+  setupAuthErrorHandler(logout);
 
   const login = async (username: string, password: string): Promise<User | null> => {
     const validationMessage = validateCredentials(username, password);
@@ -41,31 +60,17 @@ export const LoginService = () => {
     }
   };
 
-  const logout = async (): Promise<void> => {
-    try {
-      // Llamada al backend para eliminar la cookie de refresh
-      try {
-        await apiClient.post(settings.api.endpoints.logout(), {}, { skipAuthHandler: true });
-      } catch (e) {
-        console.warn('Failed to logout from server, clearing local session anyway.', e);
-      }
-      await apiClient.clearAuthToken();
-
-    } catch (error) {
-      console.error('Logout error', error);
-      await apiClient.clearAuthToken();
-    }
-  };
 
   const checkLoginStatus = async (): Promise<User | null> => {
     try {
       const me = await apiClient.get<User>(settings.api.endpoints.me());
       return me;
     } catch (error) {
-      console.error('Check login status error:', error);
-      // Solo limpiamos el token si es un error de autenticación (401/403)
       if (error instanceof ApiClientError && (error.status === 401 || error.status === 403)) {
+        console.log('Session expired or not found (401/403)');
         await logout();
+      } else {
+        console.error('Check login status error:', error);
       }
       return null;
     }

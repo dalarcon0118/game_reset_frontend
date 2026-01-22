@@ -31,10 +31,18 @@ export const Cmd = {
         type: 'HTTP',
         payload: { ...config, method: config.method || 'GET', msgCreator, errorCreator }
     }),
-    task: (config: TaskConfig): CommandDescriptor => ({
-        type: 'TASK',
-        payload: config
-    }),
+    task: (config: TaskConfig): CommandDescriptor => {
+        // Validate that the task is actually a function
+        if (typeof config.task !== 'function') {
+            console.error('[Cmd.task] Invalid task function - expected function, got:', typeof config.task, config.task);
+            // Replace with a safe error-throwing function
+            config.task = async () => { throw new Error('Invalid task function provided to Cmd.task'); };
+        }
+        return {
+            type: 'TASK',
+            payload: config
+        };
+    },
     attempt: (config: AttemptConfig): CommandDescriptor => ({
         type: 'ATTEMPT',
         payload: config

@@ -1,19 +1,16 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { match } from 'ts-pattern';
 import { Label, Flex } from '@/shared/components';
-import { useAuth } from '@/features/auth';
 import { useDashboardStore } from '../core/store';
 import { 
-    FETCH_DATA_REQUESTED, 
     STATUS_FILTER_CHANGED, 
     REFRESH_CLICKED,
     RULES_CLICKED,
     REWARDS_CLICKED,
     BETS_LIST_CLICKED,
-    CREATE_BET_CLICKED,
-    SET_USER_STRUCTURE
+    CREATE_BET_CLICKED
 } from '../core/msg';
 import Header from '../views/Header';
 import GlobalSummary from '../views/GlobalSummary';
@@ -21,7 +18,6 @@ import DrawItem from '../views/DrawItem';
 import { StatusFilter } from '../core/core.types';
 
 export default function DashboardScreen() {
-    const { user } = useAuth();
     
     // Using granular selectors for better performance and stability
     const draws = useDashboardStore((state) => state.model.draws);
@@ -40,20 +36,6 @@ export default function DashboardScreen() {
         filteredDraws: filteredDraws.length,
         userStructureId
     });
-
-    useEffect(() => {
-        console.log('DashboardScreen: Mounting');
-        useDashboardStore.getState().init();
-    }, []);
-
-    // Effect for requesting data when structure is detected
-    useEffect(() => {
-        const structureId = user?.structure?.id?.toString();
-        if (structureId && structureId !== userStructureId) {
-            console.log('DashboardScreen: New structure detected, requesting data', structureId);
-            dispatch(FETCH_DATA_REQUESTED(structureId));
-        }
-    }, [user?.structure?.id, userStructureId]);
 
     const filterOptions: { label: string; value: StatusFilter }[] = [
         { label: 'Abierto', value: 'open' },
@@ -156,7 +138,7 @@ export default function DashboardScreen() {
                                             key={draw.id} 
                                             draw={draw} 
                                             index={index}
-                                            onPress={(id) => dispatch(CREATE_BET_CLICKED(id, draw.name))}
+                                            onRulePress={(id) => dispatch(RULES_CLICKED(id))}
                                             onRewardsPress={(id, title) => dispatch(REWARDS_CLICKED(id, title))}
                                             onBetsListPress={(id, title) => dispatch(BETS_LIST_CLICKED(id, title))}
                                             onCreateBetPress={(id, title) => dispatch(CREATE_BET_CLICKED(id, title))}

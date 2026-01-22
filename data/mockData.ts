@@ -115,6 +115,7 @@ export interface User {
     type: string;
     path: string;
     role_in_structure: string;
+    commission_rate?: number;
   };
 }
 

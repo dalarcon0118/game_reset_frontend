@@ -1,7 +1,7 @@
 // Auth update function - pure TEA authentication logic
 import { match } from 'ts-pattern';
 import { AuthModel, AuthMsg, AuthMsgType } from './types';
-import { Cmd, TaskConfig } from '@/shared/core/cmd';
+import { Cmd } from '@/shared/core/cmd';
 import { LoginService } from '@/shared/services/auth/LoginService';
 import { RemoteDataHttp } from '@/shared/core/remote.data.http';
 import { TokenService } from '@/shared/services/TokenService';
@@ -69,7 +69,7 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
                 .with({ type: 'Failure' }, ({ error }) => {
                     const errorMessage = typeof error === 'string'
                         ? error
-                        : (error?.message || 'Error de conexión');
+                        : (error?.message || error?.detail || 'Error de conexión');
 
                     return [
                         {
@@ -94,9 +94,7 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
         })
 
         .with({ type: AuthMsgType.LOGIN_FAILED }, ({ error }) => {
-            const errorMessage = typeof error === 'string'
-                ? error
-                : (error?.message || 'Error de conexión');
+            const errorMessage = error || 'Error de conexión';
 
             return [
                 {
@@ -253,7 +251,7 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
                     {
                         ...model,
                         user: data,
-                        isAuthenticated: true,
+                        isAuthenticated: !!data,
                         isLoading: false,
                         error: null,
                     },
@@ -262,7 +260,28 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
                 .with({ type: 'Failure' }, ({ error }) => {
                     const errorMessage = typeof error === 'string'
                         ? error
-                        : (error?.message || 'Sesión no válida');
+                        : (error?.message || error?.detail || 'Sesión no válida');
+
+                    // If authentication failed due to token expiration, trigger session expired
+                    if (error?.status === 401 || error?.status === 403) {
+                        return [
+                            {
+                                ...model,
+                                user: null,
+                                isAuthenticated: false,
+                                isLoading: false,
+                                error: errorMessage
+                            },
+                            [
+                                Cmd.navigate({ pathname: '/login', method: 'replace' }),
+                                Cmd.alert({
+                                    title: 'Sesión expirada',
+                                    message: 'Su sesión ha expirado. Por favor inicie sesión nuevamente.',
+                                    buttons: [{ text: 'OK' }]
+                                })
+                            ]
+                        ] as [AuthModel, Cmd];
+                    }
 
                     return [
                         {
@@ -279,9 +298,7 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
         })
 
         .with({ type: AuthMsgType.CHECK_AUTH_STATUS_FAILED }, ({ error }) => {
-            const errorMessage = typeof error === 'string'
-                ? error
-                : (error?.message || 'Error de conexión');
+            const errorMessage = error || 'Error de conexión';
 
             return [
                 {

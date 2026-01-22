@@ -7,7 +7,7 @@ import SummaryCard from './SummaryCard';
 
 interface DrawItemProps {
   draw: DrawType;
-  onPress: (id: string) => void;
+  onRulePress: (id: string) => void;
   onRewardsPress: (id: string, title: string) => void;
   onBetsListPress: (id: string, title: string) => void;
   onCreateBetPress: (id: string, title: string) => void;
@@ -16,7 +16,7 @@ interface DrawItemProps {
 
 export default function DrawItem({
    draw,
-   onPress,
+   onRulePress,
    onRewardsPress,
    onBetsListPress,
    onCreateBetPress,
@@ -160,7 +160,7 @@ export default function DrawItem({
           status="warning"
           size="small"
           style={[styles.actionButton, styles.reglamentoButton]}
-          onPress={() => onPress(draw.id)}
+          onPress={() => onRulePress(draw.id)}
           label="Reglas"
         />
         

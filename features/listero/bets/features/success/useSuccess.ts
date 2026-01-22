@@ -326,22 +326,46 @@ export const useSuccess = () => {
         };
 
         const processRawBets = (data: any[]): any[] => {
-            return data.map(b => {
-                const numbers = formatNumbers(b.numbers || b.bet || b.bets);
-                let displayType: string = b.type;
-                if (b.type === 'Fijo' || b.type === 'Corrido') {
-                    displayType = 'Fijo/Corrido';
-                }
+            const groupedFijosCorridos = new Map<string, any>();
+            const otherBets: any[] = [];
 
-                return {
-                    id: b.id,
-                    type: displayType,
-                    numbers: b.type === 'Centena' ? [numbers.join('')] : numbers,
-                    amount: b.amount || ((b as any).fijoAmount || 0) + ((b as any).corridoAmount || 0),
-                    fijoAmount: b.fijoAmount,
-                    corridoAmount: b.corridoAmount,
-                };
+            data.forEach(b => {
+                const numbers = formatNumbers(b.numbers || b.bet || b.bets);
+                const type = typeof b.type === 'string' ? b.type.toLowerCase() : '';
+                
+                if (type === 'fijo' || type === 'corrido' || b.type === 'Fijo/Corrido') {
+                    const numStr = numbers[0];
+                    const existing = groupedFijosCorridos.get(numStr) || {
+                        id: b.id,
+                        type: 'Fijo/Corrido',
+                        numbers: [numStr],
+                        amount: 0,
+                        fijoAmount: 0,
+                        corridoAmount: 0
+                    };
+
+                    const amount = Number(b.amount || 0);
+                    const fijo = Number(b.fijoAmount || (type === 'fijo' ? b.amount : 0));
+                    const corrido = Number(b.corridoAmount || (type === 'corrido' ? b.amount : 0));
+
+                    existing.fijoAmount += fijo;
+                    existing.corridoAmount += corrido;
+                    existing.amount = existing.fijoAmount + existing.corridoAmount;
+                    
+                    groupedFijosCorridos.set(numStr, existing);
+                } else {
+                    otherBets.push({
+                        id: b.id,
+                        type: b.type === 'Centena' ? 'Centena' : b.type,
+                        numbers: b.type === 'Centena' ? [numbers.join('')] : numbers,
+                        amount: Number(b.amount || 0),
+                        fijoAmount: 0,
+                        corridoAmount: 0,
+                    });
+                }
             });
+
+            return [...Array.from(groupedFijosCorridos.values()), ...otherBets];
         };
 
         if (managementData) {
@@ -352,37 +376,37 @@ export const useSuccess = () => {
         if (model.listSession.remoteData.type === 'Success') {
             const data = model.listSession.remoteData.data;
 
-            const fijos = data.fijosCorridos.map(b => ({
+            const rawFijos = data.fijosCorridos.map(b => ({
                 id: b.id || Math.random().toString(),
                 type: 'Fijo/Corrido',
                 numbers: formatNumbers(b.bet),
-                amount: (b.fijoAmount || 0) + (b.corridoAmount || 0),
-                fijoAmount: b.fijoAmount,
-                corridoAmount: b.corridoAmount
+                amount: (Number(b.fijoAmount) || 0) + (Number(b.corridoAmount) || 0),
+                fijoAmount: Number(b.fijoAmount) || 0,
+                corridoAmount: Number(b.corridoAmount) || 0
             }));
 
-            const parlets = data.parlets.map(b => ({
+            const rawParlets = data.parlets.map(b => ({
                 id: b.id || Math.random().toString(),
                 type: 'Parlet',
                 numbers: b.bets.map(String),
-                amount: b.amount || 0
+                amount: Number(b.amount) || 0
             }));
 
-            const centenas = data.centenas.map(b => ({
+            const rawCentenas = data.centenas.map(b => ({
                 id: b.id || Math.random().toString(),
                 type: 'Centena',
                 numbers: [formatNumbers(b.bet).join('')],
-                amount: b.amount
+                amount: Number(b.amount) || 0
             }));
 
-            const loteria = data.loteria.map(b => ({
+            const rawLoteria = data.loteria.map(b => ({
                 id: b.id || Math.random().toString(),
                 type: 'Lotería',
                 numbers: formatNumbers(b.bet),
-                amount: b.amount || 0
+                amount: Number(b.amount) || 0
             }));
 
-            return [...fijos, ...parlets, ...centenas, ...loteria];
+            return processRawBets([...rawFijos, ...rawParlets, ...rawCentenas, ...rawLoteria]);
         }
         return [];
     }, [managementData, model.listSession.remoteData]);

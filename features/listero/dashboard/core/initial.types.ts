@@ -15,5 +15,5 @@ export const initialState: Model = {
     userStructureId: null,
     statusFilter: 'open',
     appliedFilter: 'open',
-    commissionRate: 0.1, // 10% default
+    commissionRate: 0, // Inicia en 0, se carga desde el perfil del usuario
 };

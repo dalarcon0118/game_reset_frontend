@@ -44,6 +44,14 @@ export const effectHandlers = {
     'TASK': async (payload: TaskPayload, dispatch: (cmd: Cmd) => void) => {
         const { task, args, onSuccess, onFailure } = payload;
 
+        // Validate that task is a function before calling it
+        if (typeof task !== 'function') {
+            const error = new Error(`Task execution failed: Expected function, got ${typeof task}`);
+            logger.error(`Task execution failed - invalid task function`, 'TASK', error, { task, args });
+            dispatch(onFailure(error));
+            return;
+        }
+
         try {
             const result = await task(...(args || []));
             dispatch(onSuccess(result));

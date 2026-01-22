@@ -53,6 +53,36 @@ export const setErrorHandler = (handler: ErrorHandler | null) => {
   errorHandler = handler;
 };
 
+// Enhanced error handler that detects expired tokens and triggers logout
+export const setupAuthErrorHandler = (logoutCallback: () => Promise<void>) => {
+  setErrorHandler(async (error: ApiClientError, endpoint: string, options: RequestInit) => {
+    logger.debug('Auth error handler triggered', 'API', {
+      status: error.status,
+      endpoint,
+      method: (options as any).method
+    });
+
+    if (error.status === 401 || error.status === 403) {
+      logger.info('Authentication failed, logging out user', 'API', {
+        status: error.status,
+        endpoint,
+        error: error.data
+      });
+
+      try {
+        await logoutCallback();
+        return { retry: false };
+      } catch (logoutError) {
+        logger.error('Logout callback failed', 'API', logoutError);
+        return { retry: false };
+      }
+    }
+
+    // For other errors, don't retry
+    return { retry: false };
+  });
+};
+
 const getAuthToken = async (): Promise<string | null> => {
   // Preferimos el token en memoria por velocidad
   if (currentAccessToken) return currentAccessToken;
@@ -150,14 +180,34 @@ const apiClient = {
       });
     }
 
+    // Check if token is about to expire and refresh it proactively
     const authToken = await getAuthToken();
+    if (authToken && this.isTokenExpired(authToken)) {
+      logger.debug('Token is expired, refreshing before request', 'API', { endpoint });
+      try {
+        const newToken = await this.refreshAccessToken();
+        if (newToken) {
+          currentAccessToken = newToken;
+        } else {
+          // If refresh failed, clear the token and redirect to login
+          await this.clearAuthToken();
+          throw new ApiClientError('Token refresh failed', 401, { detail: 'Token expired and refresh failed' });
+        }
+      } catch (refreshError) {
+        logger.error('Token refresh failed before request', 'API', refreshError);
+        await this.clearAuthToken();
+        throw new ApiClientError('Token refresh failed', 401, { detail: 'Token expired and refresh failed' });
+      }
+    }
+
+    const currentToken = await getAuthToken(); // Get the possibly refreshed token
     const defaultHeaders: HeadersInit = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     };
 
-    if (authToken) {
-      defaultHeaders['Authorization'] = `Bearer ${authToken}`;
+    if (currentToken) {
+      defaultHeaders['Authorization'] = `Bearer ${currentToken}`;
     }
 
     const config: RequestInit = {
@@ -315,7 +365,8 @@ const apiClient = {
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
       const now = Math.floor(Date.now() / 1000);
-      return payload.exp < now;
+      // Add 30 seconds buffer to refresh token before it expires
+      return payload.exp < (now + 30);
     } catch (e) {
       return true;
     }

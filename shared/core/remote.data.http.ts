@@ -103,6 +103,16 @@ export const RemoteDataHttp = {
     task: () => Promise<T | [any, T]>,
     msgCreator: (data: WebData<T>) => Msg
   ): Cmd => {
+    // Validate that task is actually a function
+    if (typeof task !== 'function') {
+      console.error('[RemoteDataHttp.fetch] Invalid task parameter - expected function, got:', typeof task, task);
+      return Cmd.task({
+        task: async () => { throw new Error('Invalid task function provided to RemoteDataHttp.fetch'); },
+        onSuccess: (data: T) => msgCreator(RemoteData.success(data)),
+        onFailure: (error: any) => msgCreator(RemoteData.failure(error)),
+      });
+    }
+
     return Cmd.task({
       task: async () => {
         const result = await task();

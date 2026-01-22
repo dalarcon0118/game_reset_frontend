@@ -2,7 +2,8 @@ import React from 'react';
 import { StyleSheet, View, TouchableOpacity } from 'react-native';
 import { Label, Flex } from '../../../../shared/components';
 import { useAuth } from '../../../../features/auth';
-import { User, LogOut, RefreshCw } from 'lucide-react-native';
+import { User, LogOut, RefreshCw, Percent } from 'lucide-react-native';
+import { useDashboardStore } from '../core/store';
 
 interface HeaderProps {
   onRefresh: () => void;
@@ -10,6 +11,9 @@ interface HeaderProps {
 
 export default function Header({ onRefresh }: HeaderProps) {
   const { user, logout } = useAuth();
+  const commissionRate = useDashboardStore((state) => state.model.commissionRate);
+
+  const displayCommission = (commissionRate * 100).toFixed(0);
 
   return (
     <Flex justify="between" align="center" style={styles.container}>
@@ -18,7 +22,15 @@ export default function Header({ onRefresh }: HeaderProps) {
           <User size={20} color="#2E3A59" />
         </View>
         <View>
-          <Label type="header" style={styles.welcome}>Hola,</Label>
+          <Flex align="center" gap={6}>
+            <Label type="header" style={styles.welcome}>Hola,</Label>
+            {commissionRate > 0 && (
+              <View style={styles.commissionBadge}>
+                <Percent size={10} color="#00E096" />
+                <Label style={styles.commissionText}>{displayCommission}%</Label>
+              </View>
+            )}
+          </Flex>
           <Label style={styles.userName}>{user?.username || 'Usuario'}</Label>
         </View>
       </Flex>

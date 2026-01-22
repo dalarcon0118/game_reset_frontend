@@ -10,6 +10,7 @@ export interface User {
     structure?: {
         id: number | string;
         name?: string;
+        commission_rate?: number;
     };
     // Add other user properties as needed
 }

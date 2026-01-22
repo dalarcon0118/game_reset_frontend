@@ -15,6 +15,8 @@ export type Msg =
     | { type: 'BETS_LIST_CLICKED'; drawId: string; title: string }
     | { type: 'CREATE_BET_CLICKED'; drawId: string; title: string }
     | { type: 'NAVIGATE_TO_ERROR' }
+    | { type: 'SET_COMMISSION_RATE'; rate: number }
+    | { type: 'AUTH_USER_SYNCED'; user: any }
     | { type: 'TICK' };
 
 export const FETCH_DATA_REQUESTED = (structureId?: string): Msg => ({ type: 'FETCH_DATA_REQUESTED', structureId });
@@ -27,3 +29,5 @@ export const REWARDS_CLICKED = (drawId: string, title: string): Msg => ({ type: 
 export const BETS_LIST_CLICKED = (drawId: string, title: string): Msg => ({ type: 'BETS_LIST_CLICKED', drawId, title });
 export const CREATE_BET_CLICKED = (drawId: string, title: string): Msg => ({ type: 'CREATE_BET_CLICKED', drawId, title });
 export const TICK = (): Msg => ({ type: 'TICK' });
+export const SET_COMMISSION_RATE = (rate: number): Msg => ({ type: 'SET_COMMISSION_RATE', rate });
+export const AUTH_USER_SYNCED = (user: any): Msg => ({ type: 'AUTH_USER_SYNCED', user });

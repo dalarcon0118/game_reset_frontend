@@ -3,7 +3,7 @@
  * Permite escuchar eventos externos de forma declarativa basándose en el estado del Modelo.
  */
 
-export type SubType = 'NONE' | 'EVERY' | 'BATCH';
+export type SubType = 'NONE' | 'EVERY' | 'BATCH' | 'WATCH_STORE';
 
 export interface SubDescriptor<Msg> {
     type: SubType;
@@ -35,5 +35,22 @@ export const Sub = {
     batch: <Msg>(subs: SubDescriptor<Msg>[]): SubDescriptor<Msg> => ({
         type: 'BATCH',
         payload: subs.filter(s => s.type !== 'NONE')
+    }),
+
+    /**
+     * Observa cambios en un store externo de Zustand.
+     * @param store El store de Zustand a observar.
+     * @param selector Función para seleccionar la parte del estado a observar.
+     * @param msgCreator Función que crea un mensaje a partir del valor seleccionado.
+     * @param id Identificador único para la subscripción.
+     */
+    watchStore: <Msg, TState, TSelected>(
+        store: any,
+        selector: (state: TState) => TSelected,
+        msgCreator: (selected: TSelected) => Msg,
+        id: string
+    ): SubDescriptor<Msg> => ({
+        type: 'WATCH_STORE',
+        payload: { store, selector, msgCreator, id }
     })
 };

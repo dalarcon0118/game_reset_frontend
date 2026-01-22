@@ -55,13 +55,20 @@ export const createElmStore = <TModel, TMsg>(
             });
         };
 
+        // Pre-calculate initial model and commands
+        const initialResult = typeof initial === 'function' ? (initial as any)() : [initial, null];
+
         return {
-            model: typeof initial === 'function' ? (initial as any)()[0] : initial,
+            model: initialResult[0],
             init: (params?: any) => {
-                if (typeof initial === 'function') {
+                // If called with params, or if it's the first time and we have initial commands
+                if (params !== undefined && typeof initial === 'function') {
                     const [nextModel, cmd] = (initial as Function)(params);
                     set({ model: nextModel });
                     if (cmd) executeCmds(cmd);
+                } else if (initialResult[1]) {
+                    // Execute initial commands if they exist
+                    executeCmds(initialResult[1]);
                 }
             },
             dispatch: (msg: TMsg) => {
@@ -94,6 +101,32 @@ export const createElmStore = <TModel, TMsg>(
                     activeSubs.set(id, { type: 'EVERY', interval });
                 }
             }
+
+            if (sub.type === 'WATCH_STORE') {
+                const { id, store, selector, msgCreator } = sub.payload;
+                if (!activeSubs.has(id)) {
+                    // Pre-calculamos el valor inicial
+                    const initialValue = selector(store.getState().model || store.getState());
+                    let lastValue = initialValue;
+
+                    // Nos suscribimos a cambios futuros ANTES de disparar el mensaje inicial
+                    // para evitar loops si el dispatch provoca un re-render que procese subs
+                    const unsubscribe = store.subscribe((state: any) => {
+                        const selectedValue = selector(state.model || state);
+                        // Solo disparamos si el valor seleccionado ha cambiado (shallow comparison)
+                        if (selectedValue !== lastValue) {
+                            lastValue = selectedValue;
+                            dispatch(msgCreator(selectedValue));
+                        }
+                    });
+
+                    // Registramos la subscripción ANTES del dispatch inicial
+                    activeSubs.set(id, { type: 'WATCH_STORE', unsubscribe, lastValue });
+
+                    // Ahora disparamos el mensaje inicial de forma segura
+                    dispatch(msgCreator(initialValue));
+                }
+            }
         };
 
         const cleanupSubs = (currentSubs: Set<string>) => {
@@ -101,6 +134,8 @@ export const createElmStore = <TModel, TMsg>(
                 if (!currentSubs.has(id)) {
                     if (sub.type === 'EVERY') {
                         clearInterval(sub.interval);
+                    } else if (sub.type === 'WATCH_STORE') {
+                        sub.unsubscribe();
                     }
                     activeSubs.delete(id);
                 }
@@ -110,20 +145,32 @@ export const createElmStore = <TModel, TMsg>(
         const getActiveIds = (sub: SubDescriptor<TMsg>, ids: Set<string> = new Set()): Set<string> => {
             if (sub.type === 'BATCH') {
                 sub.payload.forEach((s: SubDescriptor<TMsg>) => getActiveIds(s, ids));
-            } else if (sub.type === 'EVERY' && sub.payload.id) {
+            } else if ((sub.type === 'EVERY' || sub.type === 'WATCH_STORE') && sub.payload.id) {
                 ids.add(sub.payload.id);
             }
             return ids;
         };
 
-        // Suscribirse a los cambios del modelo para actualizar subscripciones
-        store.subscribe((state) => {
-            const currentSub = subscriptions(state.model);
+        const manageSubscriptions = (model: TModel, dispatch: (msg: TMsg) => void) => {
+            const currentSub = subscriptions(model);
             const currentIds = getActiveIds(currentSub);
 
             cleanupSubs(currentIds);
-            processSub(currentSub, state.dispatch);
+            processSub(currentSub, dispatch);
+        };
+
+        // Suscribirse a los cambios del modelo para actualizar subscripciones
+        store.subscribe((state) => {
+            manageSubscriptions(state.model, state.dispatch);
         });
+
+        // Ejecutar inmediatamente el primer ciclo de subscripciones
+        manageSubscriptions(store.getState().model, store.getState().dispatch);
+    }
+
+    // Auto-inicialización si es necesario
+    if (typeof initial === 'function') {
+        store.getState().init();
     }
 
     return store;
