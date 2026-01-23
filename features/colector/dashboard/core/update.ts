@@ -6,6 +6,7 @@ import { Sub } from '@/shared/core/sub';
 import { RemoteDataHttp } from '@/shared/core/remote.data.http';
 import { RemoteData } from '@/shared/core/remote.data';
 import { StructureService, ChildStructure } from '@/shared/services/Structure';
+import { FinancialSummaryService } from '@/shared/services/FinancialSummary';
 import { singleton, ret } from '@/shared/core/return';
 
 import { useAuthStore } from '@/features/auth/store/store';
@@ -27,6 +28,14 @@ const fetchChildrenCmd = (structureId: string | null): Cmd => {
     return RemoteDataHttp.fetch(
         () => StructureService.getChildren(Number(structureId)) as any,
         (webData) => ({ type: 'CHILDREN_RECEIVED', webData })
+    );
+};
+
+const fetchStatsCmd = (structureId: string | null): Cmd => {
+    if (!structureId) return Cmd.none;
+    return RemoteDataHttp.fetch(
+        () => FinancialSummaryService.getDashboardStats(structureId),
+        (webData) => ({ type: 'STATS_RECEIVED', webData })
     );
 };
 
@@ -59,8 +68,40 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
             return singleton({ ...model, children: webData });
         })
 
+        .with({ type: 'FETCH_STATS_REQUESTED' }, ({ structureId }) => {
+            const id = structureId || model.userStructureId;
+
+            if (model.stats.type === 'Success' && model.userStructureId === id) {
+                return singleton(model);
+            }
+
+            if (model.stats.type === 'Loading' && model.userStructureId === id) {
+                return singleton(model);
+            }
+
+            return ret(
+                {
+                    ...model,
+                    userStructureId: id,
+                    stats: RemoteData.loading()
+                },
+                fetchStatsCmd(id)
+            );
+        })
+
+        .with({ type: 'STATS_RECEIVED' }, ({ webData }) => {
+            if (webData.type === 'Success') {
+                return singleton({
+                    ...model,
+                    stats: RemoteData.success(webData.data.stats),
+                    currentDate: webData.data.date
+                });
+            }
+            return singleton({ ...model, stats: webData });
+        })
+
         .with({ type: 'REFRESH_CLICKED' }, () =>
-            ret(model, fetchChildrenCmd(model.userStructureId))
+            ret(model, Cmd.batch([fetchChildrenCmd(model.userStructureId), fetchStatsCmd(model.userStructureId)]))
         )
 
         .with({ type: 'AUTH_USER_SYNCED' }, ({ user }) => {
@@ -76,7 +117,8 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
             if (shouldFetch) {
                 nextModel.userStructureId = structureId;
                 nextModel.children = RemoteData.loading();
-                const cmd = fetchChildrenCmd(structureId);
+                nextModel.stats = RemoteData.loading();
+                const cmd = Cmd.batch([fetchChildrenCmd(structureId), fetchStatsCmd(structureId)]);
                 return ret(nextModel, cmd);
             }
 

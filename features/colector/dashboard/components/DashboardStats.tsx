@@ -6,21 +6,24 @@ import { COLORS } from '@/shared/components/constants';
 import { Flex } from '@/shared/components/flex';
 import { Label } from '@/shared/components/label';
 import { GridStatCard } from '../../common/GridStatCard';
+import { useDashboardStore } from '../core';
+import { RemoteData } from '@/shared/core/remote.data';
 
 const { width } = Dimensions.get('window');
 
-// Mock Data
-const stats = {
-  total: 24,
-  pending: 3,
-  completed: 21,
-  netTotal: '$12,500',
-  grossTotal: '$15,800',
-  commissions: '$948',
-  dailyProfit: '$852',
-};
-
 export function DashboardStats() {
+  const { model } = useDashboardStore();
+
+   const stats = RemoteData.withDefault({
+    total: 0,
+    pending: 0,
+    completed: 0,
+    netTotal: '--',
+    grossTotal: '--',
+    commissions: '--',
+    dailyProfit: '--',
+  }, model.stats);
+
   return (
     <Flex
       scroll={{ horizontal: true, showsHorizontalScrollIndicator: false }}
@@ -45,11 +48,7 @@ export function DashboardStats() {
         value={stats.commissions}
         icon={<Coins size={24} color={COLORS.secondary} />}
         barColor={COLORS.secondary}
-      >
-        <Flex background={COLORS.secondary} rounded={true} margin="s">
-          <Label type="detail" value=" - 6%" />
-        </Flex>
-      </GridStatCard>
+      />
       <GridStatCard
         label="Perdido"
         value={stats.grossTotal}

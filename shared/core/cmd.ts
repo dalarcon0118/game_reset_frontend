@@ -47,6 +47,22 @@ export const Cmd = {
         type: 'ATTEMPT',
         payload: config
     }),
+    /**
+     * Agrupa múltiples comandos en uno solo.
+     * El motor (Engine) ya está preparado para manejar arreglos de comandos.
+     */
+    batch: (cmds: (Cmd | undefined)[]): CommandDescriptor[] => {
+        const flat: CommandDescriptor[] = [];
+        cmds.forEach(cmd => {
+            if (!cmd) return;
+            if (Array.isArray(cmd)) {
+                flat.push(...cmd);
+            } else {
+                flat.push(cmd);
+            }
+        });
+        return flat;
+    },
     navigate: (config: {
         pathname: string,
         params?: Record<string, any>,

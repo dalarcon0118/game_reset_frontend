@@ -50,7 +50,7 @@ export const OperationCard: React.FC<OperationCardProps> = ({ operation, onPress
 
             </Flex>
 
-            <Badge content={`Comisión(6%): ${operation.commission}`} textColor={COLORS.primaryDark} color="#E6FFFA" />
+            <Badge content={`Comisión: ${operation.commission}`} textColor={COLORS.primaryDark} color="#E6FFFA" />
             <Flex gap={12} margin={[{ type: "top", value: 12 }]}>
               <Label type="detail" style={styles.detailLabel} value={`Total: ${operation.total}`} />
               <Label type="detail" style={styles.detailLabel} value={`Net: ${operation.net}`} />

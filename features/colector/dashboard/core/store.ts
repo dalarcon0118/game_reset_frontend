@@ -7,6 +7,8 @@ import { effectHandlers } from '@/shared/core/effectHandlers';
 
 const initialModel: Model = {
     children: RemoteData.notAsked(),
+    stats: RemoteData.notAsked(),
+    currentDate: '', // Will be populated from backend
     userStructureId: null,
 };
 

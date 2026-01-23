@@ -6,6 +6,7 @@ import { COLORS } from '@/shared/components/constants';
 import { Flex } from '@/shared/components/flex';
 import { Label } from '@/shared/components/label';
 import { useAuth } from '../../../auth';
+import { useDashboardStore } from '../core';
 
 interface DashboardHeaderProps {
   isLoading: boolean;
@@ -14,15 +15,30 @@ interface DashboardHeaderProps {
 
 export function DashboardHeader({ isLoading, onRefresh }: DashboardHeaderProps) {
   const { user, logout } = useAuth();
+  const { model } = useDashboardStore();
+
+  // Format date to display format
+  const formatDate = (dateStr: string) => {
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch {
+      return dateStr;
+    }
+  };
 
   return (
-    
+
     <Flex justify="between" align="center" margin={20} padding={[{ type:"top", value: 20 }]}>
       <Flex vertical align="center" gap={10}>
         <Label type="title" value={`${user?.structure?.name} - ${user?.username}`} />
        <TouchableOpacity>
           <Flex align="center" gap={20} margin={[{ type: "left", value: -80 }]}>
-            <Label type="date" value="May 15, 2024" />
+            <Label type="date" value={formatDate(model.currentDate)} />
             <Calendar size={16} color={COLORS.textLight} />
           </Flex>
         </TouchableOpacity>
@@ -37,7 +53,7 @@ export function DashboardHeader({ isLoading, onRefresh }: DashboardHeaderProps) 
             )}
           </Flex>
         </TouchableOpacity>
-       
+
         <TouchableOpacity onPress={logout}>
           <Flex align="center" justify="center" padding="m" style={[styles.dateBadge, { borderRadius: 10 }]}>
             <User size={20} color={COLORS.primary} />

@@ -27,6 +27,10 @@ export const effectHandlers = {
         dispatch(payload);
     },
     'HTTP': async (payload: HttpPayload) => {
+        if (!payload) {
+            logger.error(`HTTP Request failed - missing payload`, 'HTTP');
+            throw new Error('HTTP effect requires a payload');
+        }
         const { url, method, body, headers } = payload;
 
         try {
@@ -42,6 +46,10 @@ export const effectHandlers = {
         }
     },
     'TASK': async (payload: TaskPayload, dispatch: (cmd: Cmd) => void) => {
+        if (!payload) {
+            logger.error(`Task execution failed - missing payload`, 'TASK');
+            return;
+        }
         const { task, args, onSuccess, onFailure } = payload;
 
         // Validate that task is a function before calling it
@@ -61,6 +69,10 @@ export const effectHandlers = {
         }
     },
     'ATTEMPT': async (payload: AttemptPayload, dispatch: (cmd: Cmd) => void) => {
+        if (!payload) {
+            logger.error(`Attempt failed - missing payload`, 'ATTEMPT');
+            return;
+        }
         const { task, args, onSuccess, onFailure } = payload;
 
         try {
@@ -78,6 +90,10 @@ export const effectHandlers = {
         }
     },
     'NAVIGATE': async (payload: { pathname: string, params?: Record<string, any>, method?: 'push' | 'replace' | 'back' }) => {
+        if (!payload) {
+            logger.error(`Navigation failed - missing payload`, 'NAVIGATE');
+            return;
+        }
         const { pathname, params, method = 'push' } = payload;
 
         if (method === 'back') {
@@ -92,6 +108,10 @@ export const effectHandlers = {
         }
     },
     'SLEEP': async (payload: { ms: number, msg: any }, dispatch: (msg: any) => void) => {
+        if (!payload) {
+            logger.error(`Sleep failed - missing payload`, 'SLEEP');
+            return;
+        }
         const { ms, msg } = payload;
         await new Promise(resolve => setTimeout(resolve, ms));
         dispatch(msg);
@@ -101,6 +121,10 @@ export const effectHandlers = {
         message: string,
         buttons?: { text: string, onPressMsg?: any, style?: 'default' | 'cancel' | 'destructive' }[]
     }, dispatch: (msg: any) => void) => {
+        if (!payload) {
+            logger.error(`Alert failed - missing payload`, 'ALERT');
+            return;
+        }
         const { title, message, buttons } = payload;
 
         const rnButtons = buttons?.map(btn => ({

@@ -2,6 +2,7 @@ import { FinancialSummary } from '@/types';
 import apiClient from '@/shared/services/ApiClient';
 import settings from '@/config/settings';
 import { to, AsyncResult } from '../utils/generators';
+import { DashboardStats } from '@/features/colector/dashboard/core/model';
 
 // Backend response interface
 interface BackendFinancialSummary {
@@ -51,6 +52,20 @@ export class FinancialSummaryService {
         netResult: summary.neto_total,
         draws: summary.sorteos,
       };
+    })();
+
+    return to(promise);
+  }
+
+  /**
+   * Get dashboard statistics for a structure
+   * @param structureId - ID of the structure
+   * @returns Promise<AsyncResult<{ date: string; stats: DashboardStats }>>
+   */
+  static async getDashboardStats(structureId: string | number): Promise<AsyncResult<{ date: string; stats: DashboardStats }>> {
+    const promise = (async () => {
+      const endpoint = `${settings.api.endpoints.dashboardStats()}?structure_id=${structureId}`;
+      return await apiClient.get<{ date: string; stats: DashboardStats }>(endpoint);
     })();
 
     return to(promise);
