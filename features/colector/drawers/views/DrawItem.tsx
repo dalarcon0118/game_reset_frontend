@@ -64,7 +64,7 @@ export const DrawItem: React.FC<DrawItemProps> = ({ draw, onConfirm, onReport })
     const renderActions = () => {
         if (isNull) {
             return (
-                <Flex gap={spacing.md} style={{ marginTop: spacing.md }}>
+                <Flex gap={spacing.md} style={{ marginTop: spacing.lg }}>
                     <ButtonKit
                         label="Confirmar"
                         style={{ flex: 1 }}
@@ -93,7 +93,7 @@ export const DrawItem: React.FC<DrawItemProps> = ({ draw, onConfirm, onReport })
                 styles.drawCard,
                 {
                     backgroundColor: colors.surface,
-                    marginBottom: spacing.md,
+                    marginBottom: spacing.lg,
                     borderRadius: 16,
                     padding: 0, // Reset padding for inner content
                     borderWidth: 1,
@@ -115,11 +115,12 @@ export const DrawItem: React.FC<DrawItemProps> = ({ draw, onConfirm, onReport })
             <View style={{ padding: spacing.lg }}>
                 <Flex justify="between" align="center" style={{ marginBottom: spacing.md }}>
                     <Label type="header" value={draw.draw_name} />
-                    <Badge {...badgeProps} />
+                   
                 </Flex>
 
                 <Flex vertical gap={spacing.md}>
                     {/* Time Range - Always Visible */}
+                     <Badge {...badgeProps} />
                     <Flex gap={spacing.xl}>
                         <Flex align="center" gap={spacing.xs}>
                             <Clock size={16} color={colors.textSecondary} />

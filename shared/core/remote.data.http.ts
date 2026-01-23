@@ -119,8 +119,14 @@ export const RemoteDataHttp = {
         // If it's the [error, data] tuple from our to() helper
         if (Array.isArray(result) && result.length === 2) {
           const [error, data] = result;
-          if (error) throw error;
-          return data;
+          
+          // Pattern [Error, null] or [null, Data]
+          const isResultPattern = (error === null) || (error instanceof Error);
+          
+          if (isResultPattern) {
+            if (error) throw error;
+            return data;
+          }
         }
         return result as T;
       },

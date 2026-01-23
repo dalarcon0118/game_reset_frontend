@@ -7,7 +7,7 @@ import { useRouter } from 'expo-router';
 import { COLORS } from '@/shared/components/constants';
 import { Flex } from '@/shared/components/flex';
 import { Label } from '@/shared/components/label';
-import { OperationCard } from '../common/OperationCard';
+import { OperationCard } from '../../common/OperationCard';
 import { ButtonKit } from '@/shared/components';
 import { ChildStructure } from '@/shared/services/Structure';
 
