@@ -60,6 +60,7 @@ export const settings = {
       incidents: () => '/incidents/',
       changePin: () => '/auth/change-pin/',
       financialStatement: () => '/financial-statement/summary/',
+      financialStatements: () => '/financial-statement/',
       dashboardStats: () => '/financial-statement/dashboard-stats/',
       // ...otros endpoints de tu API
     },

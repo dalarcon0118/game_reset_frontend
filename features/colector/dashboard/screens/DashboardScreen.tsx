@@ -24,7 +24,6 @@ export default function DashboardScreen() {
    <Flex vertical flex={1} background={theme['background-basic-color-1']} padding={[{type:"top", value:20}]}>
       <DashboardHeader isLoading={isLoading} onRefresh={handleRefresh} />
       <SafeAreaView style={styles.safeArea}>
-
         <DashboardStats />
         <DashboardOperations children={children} isLoading={isLoading} onRefresh={handleRefresh} />
       </SafeAreaView>

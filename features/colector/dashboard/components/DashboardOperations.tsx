@@ -7,19 +7,9 @@ import { useRouter } from 'expo-router';
 import { COLORS } from '@/shared/components/constants';
 import { Flex } from '@/shared/components/flex';
 import { Label } from '@/shared/components/label';
-import { OperationCard } from '../../common/OperationCard';
+import { ColectorOperationCard } from '../../components/ColectorOperationCard';
 import { ButtonKit } from '@/shared/components';
 import { ChildStructure } from '@/shared/services/Structure';
-
-interface Operation {
-  id: number;
-  name: string;
-  draw: string;
-  total: string;
-  net: string;
-  loosed: string;
-  commission: string;
-}
 
 interface DashboardOperationsProps {
   children: ChildStructure[] | null | undefined;
@@ -30,15 +20,7 @@ interface DashboardOperationsProps {
 export function DashboardOperations({ children, isLoading, onRefresh }: DashboardOperationsProps) {
   const router = useRouter();
 
-  const operations: Operation[] = children?.map(child => ({
-    id: child.id,
-    name: child.name,
-    draw: child.draw_name || 'N/A',
-    total: `$${child.total_collected.toLocaleString()}`,
-    net: `$${child.net_collected.toLocaleString()}`,
-    loosed: `$${child.premiums_paid.toLocaleString()}`,
-    commission: `$${child.commissions.toLocaleString()}`,
-  })) || [];
+  const childrenList = children || [];
 
   return (
     <Flex
@@ -59,19 +41,20 @@ export function DashboardOperations({ children, isLoading, onRefresh }: Dashboar
     >
       {/* Operations List */}
       <Flex vertical gap={5}>
-        <Label type="header">Listas Activas ({operations.length})</Label>
+        <Label type="header">Listas Activas ({childrenList.length})</Label>
 
         {isLoading ? (
           <Flex align="center" justify="center" margin="l">
             <ActivityIndicator size="large" color={COLORS.primary} />
           </Flex>
-        ) : operations.length > 0 ? (
-          operations.map((op, index) => (
-            <OperationCard
+        ) : childrenList.length > 0 ? (
+          childrenList.map((child, index) => (
+            <ColectorOperationCard
               key={index}
-              operation={op}
-              onPress={() => router.push({ pathname: '/colector/details/[id]', params: { id: op.id, title: op.name } })}
-              onReglamentoPress={() => router.push({ pathname: '/colector/rules', params: { id_structure: op.id } })}
+              nodeId={child.id}
+              name={child.name}
+              onPress={() => router.push({ pathname: '/colector/details/[id]', params: { id: child.id, title: child.name } })}
+              onReglamentoPress={() => router.push({ pathname: '/colector/rules', params: { id_structure: child.id } })}
             />
           ))
         ) : (

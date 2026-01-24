@@ -6,7 +6,8 @@ import { useTheme } from '@ui-kitten/components';
 import { Flex, Label, withDataView } from '@/shared/components';
 import { useDataFetch } from '@/shared/hooks/useDataFetch';
 import { StructureService, ChildStructure } from '@/shared/services/Structure';
-import { OperationCard } from '@/features/colector/common/OperationCard';
+import { BankerOperationCard } from '../components/BankerOperationCard';
+import { useFinancialStore } from '@/shared/store/financial/store';
 import { COLORS } from '@/shared/components/constants';
 import { Header } from '../common/header';
 
@@ -37,17 +38,10 @@ function AgencyDetailContent({
     >
       <Flex vertical gap={10}>
          {childrenData?.map((child) => (
-            <OperationCard
+            <BankerOperationCard
               key={child.id}
-              operation={{
-                id: child.id,
-                name: child.name,
-                draw: child.draw_name || 'N/A',
-                total: `$${child.total_collected.toLocaleString()}`,
-                net: `$${child.net_collected.toLocaleString()}`,
-                loosed: `$${child.premiums_paid.toLocaleString()}`,
-                commission: `$${child.commissions.toLocaleString()}`,
-              }}
+              nodeId={child.id}
+              name={child.name}
               onPress={() => {
                   router.push({ pathname: '/banker/drawers/[id]', params: { id: child.id, title: child.name } });
               }}
@@ -77,6 +71,13 @@ export default function AgencyDetailsScreen() {
       fetchData();
     }
   }, [id]);
+
+  useEffect(() => {
+    if (children && children.length > 0) {
+      const nodeIds = children.map(c => c.id);
+      useFinancialStore.getState().dispatch({ type: 'SYNC_NODES', nodeIds });
+    }
+  }, [children]);
 
   const handleRefresh = () => {
       fetchData();

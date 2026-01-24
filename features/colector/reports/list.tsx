@@ -17,7 +17,7 @@ export default function ReportsListScreen() {
     const isFocused = useIsFocused();
     const { isAuthenticated } = useAuth();
 
-    const [selectedStatusIndex, setSelectedStatusIndex] = React.useState<IndexPath | undefined>(undefined);
+    const [selectedStatusIndex, setSelectedStatusIndex] = React.useState<IndexPath | undefined>(new IndexPath(0));
     const [selectedDate, setSelectedDate] = React.useState<Date | null>(null);
     const [showFilters, setShowFilters] = React.useState(false);
 

@@ -1,9 +1,11 @@
 import React, { useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { Flex, Label, Badge, ButtonKit } from '@shared/components';
 import { Clock, DollarSign } from 'lucide-react-native';
 import { useTheme } from '@shared/hooks/useTheme';
 import { COLORS } from '@/shared/components/constants';
+import { useFinancialStore } from '@/shared/store/financial/store';
+import { match } from 'ts-pattern';
 
 interface Draw {
     draw_id: number;
@@ -43,6 +45,8 @@ const getStatusBadgeProps = (status: string) => {
 
 export const DrawItem: React.FC<DrawItemProps> = ({ draw, onConfirm, onReport }) => {
     const { colors, spacing } = useTheme();
+    const { model, dispatch } = useFinancialStore();
+    const financialData = model.drawSummaries[draw.draw_id];
 
     // Debug log to verify data
     console.log(`[DrawItem] ${draw.draw_name} (${draw.draw_id}) status_closed:`, draw.status_closed);
@@ -56,10 +60,36 @@ export const DrawItem: React.FC<DrawItemProps> = ({ draw, onConfirm, onReport })
     const isNull = draw.status_closed === null;
 
     useEffect(() => {
-        console.log(`[DrawItem] ${draw.draw_name} (${draw.draw_id}) isSuccess:`, isSuccess);
-        console.log(`[DrawItem] ${draw.draw_name} (${draw.draw_id}) isReported:`, isReported);
-        console.log(`[DrawItem] ${draw.draw_name} (${draw.draw_id}) isNull:`, isNull);
-    }, [draw]);
+        // Disparar la carga del estado financiero para este sorteo si no existe
+        dispatch({ type: 'FETCH_DRAW_SUMMARY_REQUESTED', drawId: draw.draw_id });
+    }, [draw.draw_id]);
+
+    const renderFinancialDetails = () => {
+        return match(financialData)
+            .with({ type: 'Loading' }, () => (
+                <ActivityIndicator size="small" color={colors.primary} style={{ marginVertical: spacing.sm }} />
+            ))
+            .with({ type: 'Success' }, ({ data }) => (
+                <Flex vertical gap={spacing.xs}>
+                    <Flex justify="between">
+                        <Label type="detail" value="Total recaudado (REST):" />
+                        <Label type="detail" value={data.totalCollected.toLocaleString()} />
+                    </Flex>
+                    <Flex justify="between">
+                        <Label type="detail" value="Pagado:" />
+                        <Label type="detail" value={data.premiumsPaid.toLocaleString()} />
+                    </Flex>
+                    <Flex justify="between">
+                        <Label type="detail" value="Neto:" />
+                        <Label type="header" value={data.netResult.toLocaleString()} />
+                    </Flex>
+                </Flex>
+            ))
+            .with({ type: 'Failure' }, ({ error }) => (
+                 <Label type="detail" value={`Error: ${error}`} style={{ color: colors.error }} />
+             ))
+            .otherwise(() => null);
+    };
 
     const renderActions = () => {
         if (isNull) {
@@ -143,18 +173,9 @@ export const DrawItem: React.FC<DrawItemProps> = ({ draw, onConfirm, onReport })
                                 <Label type="detail" value="Jugada de premio:" />
                                 <Label type="detail" value={draw.winning_number || '---'} />
                             </Flex>
-                            <Flex justify="between">
-                                <Label type="detail" value="Total recaudado:" />
-                                <Label type="detail" value={draw.total_collected.toLocaleString()} />
-                            </Flex>
-                            <Flex justify="between">
-                                <Label type="detail" value="Perdido:" />
-                                <Label type="detail" value={draw.total_paid.toLocaleString()} />
-                            </Flex>
-                            <Flex justify="between">
-                                <Label type="detail" value="Neto:" />
-                                <Label type="header" value={draw.net_result.toLocaleString()} />
-                            </Flex>
+                            
+                            {/* Nuevos detalles financieros desde REST API */}
+                            {renderFinancialDetails()}
 
                             {/* Action Buttons - Only show if not fully confirmed/success */}
                             {renderActions()}
