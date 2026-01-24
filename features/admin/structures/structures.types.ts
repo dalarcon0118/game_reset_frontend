@@ -2,7 +2,7 @@
 export interface Structure {
     id: number;
     name: string;
-    node_type: 'bank' | 'branch' | 'zone' | 'LISTERO' | 'COLLECTOR' | 'other';
+    node_type: 'bank' | 'branch' | 'zone' | 'listero' | 'collector' | 'other';
     custom_type?: string; // Used when node_type is 'other'
     description?: string;
     parent?: number;

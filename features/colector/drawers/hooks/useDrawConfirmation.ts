@@ -24,7 +24,7 @@ export const useDrawConfirmation = ({ onSuccess, details }: UseDrawConfirmationP
             // Find the confirmation for the current user's structure (collector)
             // Use user's structure information instead of hardcoded values
             const userLevel = user?.structure?.role_in_structure === 'collector' ? 1 : null;
-            const userStructureType = user?.structure?.type === 'COLLECTOR' ? 'LISTERO' : null;
+            const userStructureType = user?.structure?.type === 'collector' ? 'listero' : null;
 
             const collectorConfirmation = confirmations.find(conf => {
                 // Match by level if user has collector role
@@ -73,7 +73,7 @@ export const useDrawConfirmation = ({ onSuccess, details }: UseDrawConfirmationP
 
             // Find the confirmation for the current user's structure
             const userLevel = user?.structure?.role_in_structure === 'collector' ? 1 : null;
-            const userStructureType = user?.structure?.type === 'COLLECTOR' ? 'LISTERO' : null;
+            const userStructureType = user?.structure?.type === 'collector' ? 'listero' : null;
 
             const userConfirmation = confirmations.find(conf => {
                 // Match by level if user has collector role
