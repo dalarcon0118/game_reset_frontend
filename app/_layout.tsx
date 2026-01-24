@@ -1,10 +1,11 @@
 import 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import React, { useCallback, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 // Import router
 import { Stack, usePathname, router, ErrorBoundary as ExpoErrorBoundary } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFrameworkReady } from '../hooks/useFrameworkReady';
 import { useAuth } from '../features/auth/hooks/useAuth';
 import { useColorScheme } from 'react-native';
@@ -39,13 +40,16 @@ export default function RootLayoutNav() {
   const colorScheme = useColorScheme() ?? 'light'; // Get color scheme
 
   return (
-    <>
-      {/* Wrap with ApplicationProvider */}
+    <SafeAreaProvider>
       <ApplicationProvider {...eva} theme={eva[colorScheme]}>
         <RootLayout />
-        <StatusBar style="auto" />
+        <StatusBar 
+          style="auto" 
+          translucent={Platform.OS === 'android'}
+          backgroundColor="transparent"
+        />
       </ApplicationProvider>
-    </>
+    </SafeAreaProvider>
   );
 }
 

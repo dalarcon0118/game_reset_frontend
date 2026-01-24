@@ -84,13 +84,15 @@ export default function AgencyDetailsScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme['background-basic-color-1'] }]} edges={['top']}>
-      <Header
-        title={typeof title === 'string' ? title : 'Listas'}
-        onBack={() => router.back()}
-        onRefresh={handleRefresh}
-        loading={loading}
-      />
+    <View style={[styles.container, { backgroundColor: theme['background-basic-color-1'] }]}>
+      <SafeAreaView edges={['top']}>
+        <Header
+          title={typeof title === 'string' ? title : 'Listas'}
+          onBack={() => router.back()}
+          onRefresh={handleRefresh}
+          loading={loading}
+        />
+      </SafeAreaView>
 
       <DataBoundAgencyContent
         loading={loading}
@@ -101,7 +103,7 @@ export default function AgencyDetailsScreen() {
         onRefresh={handleRefresh}
         emptyMessage="No hay listeros para mostrar."
       />
-    </SafeAreaView>
+    </View>
   );
 }
 

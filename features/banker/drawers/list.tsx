@@ -75,12 +75,14 @@ export default function DrawerScreen() {
  } = useDrawer({ id: Number(id) });
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme['background-basic-color-1'] }]} edges={['top']}>
-      <Header 
-        title={`Sorteo ${details?.listero_name }`} 
-        onBack={() => router.back()}
-        onRefresh={refresh}
-      />
+    <View style={[styles.container, { backgroundColor: theme['background-basic-color-1'] }]}>
+      <SafeAreaView edges={['top']}>
+        <Header 
+          title={`Sorteo ${details?.listero_name || '' }`} 
+          onBack={() => router.back()}
+          onRefresh={refresh}
+        />
+      </SafeAreaView>
       
       <DateNavigation
         selectedDate={selectedDate}
@@ -99,7 +101,7 @@ export default function DrawerScreen() {
         onConfirm={confirmDraw}
         emptyMessage={`No hay sorteos para mostrar el ${formatDateToString(selectedDate)}.`}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
