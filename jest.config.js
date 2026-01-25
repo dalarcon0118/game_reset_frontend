@@ -8,6 +8,7 @@ module.exports = {
     '^@features/(.*)$': '<rootDir>/features/$1',
     '^@shared/(.*)$': '<rootDir>/shared/$1',
     '^@core/(.*)$': '<rootDir>/shared/core/$1',
+    '^@/(.*)$': '<rootDir>/$1',
   },
   collectCoverage: true,
   collectCoverageFrom: [
@@ -19,9 +20,9 @@ module.exports = {
   ],
   setupFilesAfterEnv: ['@testing-library/jest-native/extend-expect'],
   testMatch: [
-    '<rootDir>/Tests/**/*.steps.ts',
-    '<rootDir>/Tests/**/*.test.ts',
-    '<rootDir>/Tests/**/*.test.tsx'
+    '<rootDir>/tests/**/*.steps.ts',
+    '<rootDir>/tests/**/*.test.ts',
+    '<rootDir>/tests/**/*.test.tsx'
   ],
   transformIgnorePatterns: [
     'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|@ui-kitten/components)',
