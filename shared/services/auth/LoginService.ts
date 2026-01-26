@@ -1,6 +1,6 @@
 import { User } from '@/data/mockData';
 import settings from '@/config/settings';
-import apiClient, { ApiClientError, setupAuthErrorHandler } from '@/shared/services/ApiClient'; // Importamos nuestro ApiClient
+import apiClient, { ApiClientError } from '@/shared/services/ApiClient'; // Importamos nuestro ApiClient
 
 interface LoginResponse {
   access: string;
@@ -33,7 +33,7 @@ export const LoginService = () => {
   };
 
   // Setup the auth error handler when the service is initialized
-  setupAuthErrorHandler(logout);
+  apiClient.setupAuthErrorHandler(logout);
 
   const login = async (username: string, password: string): Promise<User | null> => {
     const validationMessage = validateCredentials(username, password);

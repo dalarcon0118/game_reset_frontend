@@ -1,5 +1,6 @@
 import 'react-native-gesture-handler';
 import 'react-native-reanimated';
+import 'event-source-polyfill';
 import React, { useCallback, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
 // Import router
@@ -10,10 +11,12 @@ import { useFrameworkReady } from '../hooks/useFrameworkReady';
 import { useAuth } from '../features/auth/hooks/useAuth';
 import { useColorScheme } from 'react-native';
 import * as eva from '@eva-design/eva'; // Import eva
-import { ApplicationProvider, Button } from '@ui-kitten/components';
+import { ApplicationProvider, Button, Icon } from '@ui-kitten/components';
 import { roleToScreenMap, routes } from '../config/routes';
 import { ArrowLeft } from "lucide-react-native";
 import { logger } from '../shared/utils/logger';
+import { useNotificationStore } from '../features/notification/core/store';
+import { FETCH_NOTIFICATIONS_REQUESTED } from '../features/notification/core/msg';
 
 // Register global error handlers
 if (!__DEV__) {

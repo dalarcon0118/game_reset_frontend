@@ -41,7 +41,10 @@ export class FinancialSummaryService {
         endpoint += `${separator}structure_id=${structureId}`;
       }
 
-      const response: BackendFinancialSummary[] = await apiClient.get<BackendFinancialSummary[]>(endpoint);
+      const response: BackendFinancialSummary[] = await apiClient.get<BackendFinancialSummary[]>(endpoint, {
+        cacheTTL: settings.api.defaults.cacheTTL,
+        retryCount: settings.api.defaults.retryCount
+      });
 
       // The API returns an array, but we expect a single summary
       // For dashboard, we take the first result (user's structure)

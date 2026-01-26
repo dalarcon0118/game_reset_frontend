@@ -1,0 +1,819 @@
+watchman warning: Recrawled this watch 1 time, most recently because:
+MustScanSubDirs UserDroppedTo resolve, please review the information on
+https://facebook.github.io/watchman/docs/troubleshooting.html#recrawl
+To clear this warning, run:
+`watchman watch-del '/Users/davidmartinez/develop/Experimental-sandbox/game-development/game-reset/demos/Game-Reset' ; watchman watch-project '/Users/davidmartinez/develop/Experimental-sandbox/game-development/game-reset/demos/Game-Reset'`
+
+  console.log
+    Detected APP_ENV: development
+
+      at Object.log (config/settings.ts:37:9)
+
+  console.log
+    IS_DEVELOPMENT mode: true
+
+      at Object.log (config/settings.ts:42:9)
+
+  console.log
+    Using API URL: http://localhost:8000/api
+
+      at Object.log (config/settings.ts:43:9)
+
+  console.log
+    2026-01-26T01:07:38.885Z [INFO][ENGINE] Connecting to SSE stream: http://localhost:8000/api/notifications/stream/
+
+      at Logger.apply (shared/utils/logger.ts:43:24)
+          at Array.forEach (<anonymous>)
+
+  console.log
+    2026-01-26T01:07:38.899Z [DEBUG][ENGINE] Dispatching Msg: AUTH_USER_SYNCED { type: 'AUTH_USER_SYNCED', user: null }
+
+      at Logger.apply (shared/utils/logger.ts:69:28)
+          at Array.forEach (<anonymous>)
+          at Array.forEach (<anonymous>)
+
+  console.log
+    2026-01-26T01:07:38.901Z [DEBUG][ENGINE] Executing Cmd: TASK {
+      task: [Function: task],
+      onSuccess: [Function: onSuccess],
+      onFailure: [Function: onFailure]
+    }
+
+      at Logger.apply (shared/utils/logger.ts:69:28)
+          at Array.forEach (<anonymous>)
+          at Array.forEach (<anonymous>)
+          at Array.forEach (<anonymous>)
+
+  console.log
+    2026-01-26T01:07:38.906Z [DEBUG][ENGINE] Dispatching Msg: AUTH_TOKEN_UPDATED { type: 'AUTH_TOKEN_UPDATED', token: undefined }
+
+      at Logger.apply (shared/utils/logger.ts:69:28)
+
+  console.log
+    2026-01-26T01:07:38.911Z [DEBUG][ENGINE] Dispatching Msg: LOGIN_REQUESTED { type: 'LOGIN_REQUESTED', username: 'admin', pin: '123456' }
+
+      at Logger.apply (shared/utils/logger.ts:69:28)
+
+  console.log
+    2026-01-26T01:07:38.913Z [DEBUG][ENGINE] Executing Cmd: TASK {
+      task: [Function: task],
+      onSuccess: [Function: onSuccess],
+      onFailure: [Function: onFailure]
+    }
+
+      at Logger.apply (shared/utils/logger.ts:69:28)
+          at Array.forEach (<anonymous>)
+
+  console.error
+    2026-01-26T01:07:38.982Z [ERROR][ENGINE] SSE Stream Error for notification-sse-stream Event {
+      type: 'error',
+      target: EventTarget {
+        _listeners: [Object: null prototype] {},
+        onopen: undefined,
+        onmessage: [Function (anonymous)],
+        onerror: [Function (anonymous)],
+        url: 'http://localhost:8000/api/notifications/stream/',
+        readyState: 2,
+        withCredentials: false,
+        headers: {},
+        _close: [Function: close]
+      },
+      status: 401,
+      statusText: 'Unauthorized',
+      headers: HeadersWrapper {
+        _headers: Headers {
+          date: 'Mon, 26 Jan 2026 01:07:38 GMT',
+          server: 'WSGIServer/0.2 CPython/3.10.19',
+          'content-type': 'text/event-stream',
+          'www-authenticate': 'Bearer realm="api"',
+          vary: 'Accept, origin',
+          allow: 'GET, HEAD, OPTIONS',
+          'x-response-time-ms': '2',
+          'x-request-id': '7b6e6ead-ef22-422e-b053-0a1147cc7ff4',
+          'x-frame-options': 'DENY',
+          'content-length': '35',
+          'x-content-type-options': 'nosniff',
+          'x-xss-protection': '1; mode=block',
+          'referrer-policy': 'same-origin'
+        }
+      }
+    }
+
+      58 |         try {
+      59 |             const serializedError = this.serializeError(error);
+    > 60 |             console.error(this.formatMessage('error', message, tag), serializedError, ...args);
+         |                          ^
+      61 |         } catch (e) {
+      62 |             console.error('Logger internal error during error:', e);
+      63 |         }
+
+      at Logger.apply (shared/utils/logger.ts:60:26)
+      at EventSourcePolyfill.error [as onerror] (shared/core/engine.ts:149:36)
+      at fire (../node_modules/event-source-polyfill/src/eventsource.js:703:11)
+      at onStart (../node_modules/event-source-polyfill/src/eventsource.js:795:11)
+      at ../node_modules/event-source-polyfill/src/eventsource.js:540:7
+
+  console.error
+    EventSource's response has a status 401 Unauthorized that is not 200. Aborting the connection.
+
+      at onStart (../node_modules/event-source-polyfill/src/eventsource.js:796:19)
+      at ../node_modules/event-source-polyfill/src/eventsource.js:540:7
+
+  console.log
+    2026-01-26T01:07:39.107Z [INFO][API] Authentication failed, logging out user { status: 401, endpoint: '/auth/token/' }
+
+      at Logger.apply (shared/utils/logger.ts:43:24)
+          at _loop.next (<anonymous>)
+
+  console.warn
+    Failed to logout from server, clearing local session anyway. ApiClientError: An unexpected error occurred on the server.
+        at _loop (/Users/davidmartinez/develop/Experimental-sandbox/game-development/game-reset/demos/Game-Reset/frontend/shared/services/ApiClient.ts:222:25)
+        at _loop.next (<anonymous>)
+        at Object._loop (/Users/davidmartinez/develop/Experimental-sandbox/game-development/game-reset/demos/Game-Reset/frontend/shared/services/ApiClient.ts:179:59)
+        at Generator.next (<anonymous>)
+        at asyncGeneratorStep (/Users/davidmartinez/develop/Experimental-sandbox/game-development/game-reset/demos/Game-Reset/node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+        at _next (/Users/davidmartinez/develop/Experimental-sandbox/game-development/game-reset/demos/Game-Reset/node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+        at processTicksAndRejections (node:internal/process/task_queues:95:5) {
+      status: 500,
+      data: {
+        error_type: 'UnicodeDecodeError',
+        message: 'An unexpected error occurred on the server.',
+        status_code: 500
+      },
+      errorType: 'UnicodeDecodeError'
+    }
+
+      23 |         await apiClient.post(settings.api.endpoints.logout(), {}, { skipAuthHandler: true });
+      24 |       } catch (e) {
+    > 25 |         console.warn('Failed to logout from server, clearing local session anyway.', e);
+         |                 ^
+      26 |       }
+      27 |       await apiClient.clearAuthToken();
+      28 |
+
+      at warn (shared/services/auth/LoginService.ts:25:17)
+          at Generator.throw (<anonymous>)
+      at asyncGeneratorStep (../node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _throw (../node_modules/@babel/runtime/helpers/asyncToGenerator.js:20:9)
+
+  console.error
+    Login API error in LoginService: ApiClientError: No active account found with the given credentials
+        at _loop (/Users/davidmartinez/develop/Experimental-sandbox/game-development/game-reset/demos/Game-Reset/frontend/shared/services/ApiClient.ts:222:25)
+        at _loop.next (<anonymous>)
+        at Object._loop (/Users/davidmartinez/develop/Experimental-sandbox/game-development/game-reset/demos/Game-Reset/frontend/shared/services/ApiClient.ts:179:59)
+        at Generator.next (<anonymous>)
+        at asyncGeneratorStep (/Users/davidmartinez/develop/Experimental-sandbox/game-development/game-reset/demos/Game-Reset/node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+        at _next (/Users/davidmartinez/develop/Experimental-sandbox/game-development/game-reset/demos/Game-Reset/node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+        at processTicksAndRejections (node:internal/process/task_queues:95:5) {
+      status: 401,
+      data: {
+        error_type: 'AuthenticationFailed',
+        message: 'No active account found with the given credentials',
+        context: {},
+        status_code: 401
+      },
+      errorType: 'AuthenticationFailed'
+    }
+
+      50 |       return data.user;
+      51 |     } catch (error) {
+    > 52 |       console.error('Login API error in LoginService:', error);
+         |               ^
+      53 |       await apiClient.setAuthToken(null);
+      54 |       // El ApiClientError ya tiene un mensaje útil, o es un Error genérico
+      55 |       if (error instanceof ApiClientError) {
+
+      at Object.error (shared/services/auth/LoginService.ts:52:15)
+          at Generator.throw (<anonymous>)
+      at asyncGeneratorStep (../node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _throw (../node_modules/@babel/runtime/helpers/asyncToGenerator.js:20:9)
+
+  console.error
+    2026-01-26T01:07:39.145Z [ERROR][TASK] Task execution failed {
+      name: 'Error',
+      message: 'No active account found with the given credentials',
+      stack: 'Error: No active account found with the given credentials\n' +
+        '    at Object.<anonymous> (/Users/davidmartinez/develop/Experimental-sandbox/game-development/game-reset/demos/Game-Reset/frontend/shared/services/auth/LoginService.ts:57:15)\n' +
+        '    at Generator.next (<anonymous>)\n' +
+        '    at asyncGeneratorStep (/Users/davidmartinez/develop/Experimental-sandbox/game-development/game-reset/demos/Game-Reset/node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)\n' +
+        '    at _next (/Users/davidmartinez/develop/Experimental-sandbox/game-development/game-reset/demos/Game-Reset/node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)\n' +
+        '    at processTicksAndRejections (node:internal/process/task_queues:95:5)'
+    } { args: undefined }
+
+      58 |         try {
+      59 |             const serializedError = this.serializeError(error);
+    > 60 |             console.error(this.formatMessage('error', message, tag), serializedError, ...args);
+         |                          ^
+      61 |         } catch (e) {
+      62 |             console.error('Logger internal error during error:', e);
+      63 |         }
+
+      at Logger.apply (shared/utils/logger.ts:60:26)
+      at Object.error (shared/core/effectHandlers.ts:73:20)
+          at Generator.throw (<anonymous>)
+      at asyncGeneratorStep (../node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _throw (../node_modules/@babel/runtime/helpers/asyncToGenerator.js:20:9)
+
+  console.log
+    2026-01-26T01:07:39.145Z [DEBUG][ENGINE] Dispatching Msg: LOGIN_RESPONSE_RECEIVED {
+      type: 'LOGIN_RESPONSE_RECEIVED',
+      webData: {
+        type: 'Failure',
+        error: Error: No active account found with the given credentials
+            at Object.<anonymous> (/Users/davidmartinez/develop/Experimental-sandbox/game-development/game-reset/demos/Game-Reset/frontend/shared/services/auth/LoginService.ts:57:15)
+            at Generator.next (<anonymous>)
+            at asyncGeneratorStep (/Users/davidmartinez/develop/Experimental-sandbox/game-development/game-reset/demos/Game-Reset/node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+            at _next (/Users/davidmartinez/develop/Experimental-sandbox/game-development/game-reset/demos/Game-Reset/node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+            at processTicksAndRejections (node:internal/process/task_queues:95:5)
+      }
+    }
+
+      at Logger.apply (shared/utils/logger.ts:69:28)
+          at Generator.throw (<anonymous>)
+
+  console.log
+    2026-01-26T01:07:39.146Z [DEBUG][ENGINE] Executing Cmd: NAVIGATE {
+      pathname: '/error',
+      params: { message: 'No active account found with the given credentials' }
+    }
+
+      at Logger.apply (shared/utils/logger.ts:69:28)
+          at Array.forEach (<anonymous>)
+          at Generator.throw (<anonymous>)
+
+  console.log
+    2026-01-26T01:07:59.027Z [DEBUG][ENGINE] Dispatching Msg: LOGIN_REQUESTED { type: 'LOGIN_REQUESTED', username: 'admin', pin: '123456' }
+
+      at Logger.apply (shared/utils/logger.ts:69:28)
+
+  console.log
+    2026-01-26T01:07:59.031Z [DEBUG][ENGINE] Executing Cmd: TASK {
+      task: [Function: task],
+      onSuccess: [Function: onSuccess],
+      onFailure: [Function: onFailure]
+    }
+
+      at Logger.apply (shared/utils/logger.ts:69:28)
+          at Array.forEach (<anonymous>)
+
+  console.error
+    2026-01-26T01:07:59.081Z [ERROR][API] CRITICAL: Multiple consecutive API failures (3) { endpoint: '/auth/token/', status: 500, threshold: 3 }
+
+      58 |         try {
+      59 |             const serializedError = this.serializeError(error);
+    > 60 |             console.error(this.formatMessage('error', message, tag), serializedError, ...args);
+         |                          ^
+      61 |         } catch (e) {
+      62 |             console.error('Logger internal error during error:', e);
+      63 |         }
+
+      at Logger.apply (shared/utils/logger.ts:60:26)
+      at error (shared/services/ApiClient.ts:209:20)
+          at _loop.next (<anonymous>)
+      at Object._loop (shared/services/ApiClient.ts:179:59)
+      at asyncGeneratorStep (../node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (../node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  console.error
+    Login API error in LoginService: ApiClientError: An unexpected error occurred on the server.
+        at _loop (/Users/davidmartinez/develop/Experimental-sandbox/game-development/game-reset/demos/Game-Reset/frontend/shared/services/ApiClient.ts:222:25)
+        at _loop.next (<anonymous>)
+        at Object._loop (/Users/davidmartinez/develop/Experimental-sandbox/game-development/game-reset/demos/Game-Reset/frontend/shared/services/ApiClient.ts:179:59)
+        at Generator.next (<anonymous>)
+        at asyncGeneratorStep (/Users/davidmartinez/develop/Experimental-sandbox/game-development/game-reset/demos/Game-Reset/node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+        at _next (/Users/davidmartinez/develop/Experimental-sandbox/game-development/game-reset/demos/Game-Reset/node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+        at processTicksAndRejections (node:internal/process/task_queues:95:5) {
+      status: 500,
+      data: {
+        error_type: 'UnicodeDecodeError',
+        message: 'An unexpected error occurred on the server.',
+        status_code: 500
+      },
+      errorType: 'UnicodeDecodeError'
+    }
+
+      50 |       return data.user;
+      51 |     } catch (error) {
+    > 52 |       console.error('Login API error in LoginService:', error);
+         |               ^
+      53 |       await apiClient.setAuthToken(null);
+      54 |       // El ApiClientError ya tiene un mensaje útil, o es un Error genérico
+      55 |       if (error instanceof ApiClientError) {
+
+      at Object.error (shared/services/auth/LoginService.ts:52:15)
+          at Generator.throw (<anonymous>)
+      at asyncGeneratorStep (../node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _throw (../node_modules/@babel/runtime/helpers/asyncToGenerator.js:20:9)
+
+  console.error
+    2026-01-26T01:07:59.088Z [ERROR][TASK] Task execution failed {
+      name: 'Error',
+      message: 'An unexpected error occurred on the server.',
+      stack: 'Error: An unexpected error occurred on the server.\n' +
+        '    at Object.<anonymous> (/Users/davidmartinez/develop/Experimental-sandbox/game-development/game-reset/demos/Game-Reset/frontend/shared/services/auth/LoginService.ts:57:15)\n' +
+        '    at Generator.next (<anonymous>)\n' +
+        '    at asyncGeneratorStep (/Users/davidmartinez/develop/Experimental-sandbox/game-development/game-reset/demos/Game-Reset/node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)\n' +
+        '    at _next (/Users/davidmartinez/develop/Experimental-sandbox/game-development/game-reset/demos/Game-Reset/node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)\n' +
+        '    at processTicksAndRejections (node:internal/process/task_queues:95:5)'
+    } { args: undefined }
+
+      58 |         try {
+      59 |             const serializedError = this.serializeError(error);
+    > 60 |             console.error(this.formatMessage('error', message, tag), serializedError, ...args);
+         |                          ^
+      61 |         } catch (e) {
+      62 |             console.error('Logger internal error during error:', e);
+      63 |         }
+
+      at Logger.apply (shared/utils/logger.ts:60:26)
+      at Object.error (shared/core/effectHandlers.ts:73:20)
+          at Generator.throw (<anonymous>)
+      at asyncGeneratorStep (../node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _throw (../node_modules/@babel/runtime/helpers/asyncToGenerator.js:20:9)
+
+  console.log
+    2026-01-26T01:07:59.091Z [DEBUG][ENGINE] Dispatching Msg: LOGIN_RESPONSE_RECEIVED {
+      type: 'LOGIN_RESPONSE_RECEIVED',
+      webData: {
+        type: 'Failure',
+        error: Error: An unexpected error occurred on the server.
+            at Object.<anonymous> (/Users/davidmartinez/develop/Experimental-sandbox/game-development/game-reset/demos/Game-Reset/frontend/shared/services/auth/LoginService.ts:57:15)
+            at Generator.next (<anonymous>)
+            at asyncGeneratorStep (/Users/davidmartinez/develop/Experimental-sandbox/game-development/game-reset/demos/Game-Reset/node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+            at _next (/Users/davidmartinez/develop/Experimental-sandbox/game-development/game-reset/demos/Game-Reset/node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+            at processTicksAndRejections (node:internal/process/task_queues:95:5)
+      }
+    }
+
+      at Logger.apply (shared/utils/logger.ts:69:28)
+          at Generator.throw (<anonymous>)
+
+  console.log
+    2026-01-26T01:07:59.092Z [DEBUG][ENGINE] Executing Cmd: NAVIGATE {
+      pathname: '/error',
+      params: { message: 'An unexpected error occurred on the server.' }
+    }
+
+      at Logger.apply (shared/utils/logger.ts:69:28)
+          at Array.forEach (<anonymous>)
+          at Generator.throw (<anonymous>)
+
+FAIL tests/features/notification/notification.steps.ts (40.65 s)
+  Integración E2E de Notificaciones TEA
+    ✕ Flujo completo de integración de notificaciones (20111 ms)
+    ✕ Recepción de notificaciones en tiempo real vía SSE (20106 ms)
+
+  ● Integración E2E de Notificaciones TEA › Flujo completo de integración de notificaciones
+
+    Failing step: "un usuario autenticado en el sistema"
+
+    Step arguments: []
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      29 |                 attempts++;
+      30 |             }
+    > 31 |             expect(useAuthStore.getState().model.isAuthenticated).toBe(true);
+         |                                                                   ^
+      32 |         });
+      33 |
+      34 |         and('el sistema de notificaciones está inicializado', () => {
+
+      at Object.toBe (tests/features/notification/notification.steps.ts:31:67)
+      at asyncGeneratorStep (../node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (../node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● Integración E2E de Notificaciones TEA › Recepción de notificaciones en tiempo real vía SSE
+
+    Failing step: "un usuario autenticado en el sistema"
+
+    Step arguments: []
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      117 |                 attempts++;
+      118 |             }
+    > 119 |             expect(useAuthStore.getState().model.isAuthenticated).toBe(true);
+          |                                                                   ^
+      120 |         });
+      121 |
+      122 |         and('el sistema de notificaciones está suscrito al stream de eventos en tiempo real', () => {
+
+      at Object.toBe (tests/features/notification/notification.steps.ts:119:67)
+      at asyncGeneratorStep (../node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (../node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+----------------------------------------------------------|---------|----------|---------|---------|---------------------------------------------------------------------------------------------------------------------
+File                                                      | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s                                                                                                   
+----------------------------------------------------------|---------|----------|---------|---------|---------------------------------------------------------------------------------------------------------------------
+All files                                                 |    4.79 |     3.23 |    3.41 |    5.09 |                                                                                                                     
+ features/admin                                           |       0 |      100 |     100 |       0 |                                                                                                                     
+  index.tsx                                               |       0 |      100 |     100 |       0 | 64                                                                                                                  
+ features/admin/core                                      |       0 |        0 |       0 |       0 |                                                                                                                     
+  initial.types.ts                                        |       0 |      100 |     100 |       0 | 10                                                                                                                  
+  model.ts                                                |       0 |        0 |       0 |       0 |                                                                                                                     
+  msg.ts                                                  |       0 |        0 |       0 |       0 |                                                                                                                     
+  store.ts                                                |       0 |      100 |       0 |       0 | 8-22                                                                                                                
+  update.ts                                               |       0 |        0 |       0 |       0 | 6-47                                                                                                                
+ features/admin/draw-config                               |       0 |      100 |     100 |       0 |                                                                                                                     
+  draw-config.types.ts                                    |       0 |      100 |     100 |       0 | 68                                                                                                                  
+ features/admin/draws                                     |       0 |      100 |     100 |       0 |                                                                                                                     
+  draws.types.ts                                          |       0 |      100 |     100 |       0 | 130                                                                                                                 
+ features/admin/roles                                     |       0 |      100 |     100 |       0 |                                                                                                                     
+  roles.types.ts                                          |       0 |      100 |     100 |       0 | 48                                                                                                                  
+ features/admin/rules                                     |       0 |      100 |     100 |       0 |                                                                                                                     
+  rules.types.ts                                          |       0 |      100 |     100 |       0 | 45                                                                                                                  
+ features/admin/screens                                   |       0 |      100 |       0 |       0 |                                                                                                                     
+  AdminDashboardScreen.tsx                                |       0 |      100 |       0 |       0 | 6-21                                                                                                                
+ features/admin/seed-generator                            |       0 |      100 |     100 |       0 |                                                                                                                     
+  seed-generator.types.ts                                 |       0 |      100 |     100 |       0 | 40                                                                                                                  
+ features/admin/shared                                    |       0 |        0 |       0 |       0 |                                                                                                                     
+  ui.types.ts                                             |       0 |        0 |       0 |       0 |                                                                                                                     
+ features/admin/structures                                |       0 |      100 |     100 |       0 |                                                                                                                     
+  structures.types.ts                                     |       0 |      100 |     100 |       0 | 59                                                                                                                  
+ features/admin/users                                     |       0 |      100 |     100 |       0 |                                                                                                                     
+  users.types.ts                                          |       0 |      100 |     100 |       0 | 57                                                                                                                  
+ features/auth                                            |       0 |        0 |       0 |       0 |                                                                                                                     
+  WithRole.tsx                                            |       0 |        0 |       0 |       0 | 14-23                                                                                                               
+  index.ts                                                |       0 |        0 |       0 |       0 |                                                                                                                     
+ features/auth/hooks                                      |       0 |        0 |       0 |       0 |                                                                                                                     
+  useAuth.ts                                              |       0 |      100 |       0 |       0 | 6-61                                                                                                                
+  useLoginForm.ts                                         |       0 |        0 |       0 |       0 | 15-46                                                                                                               
+ features/auth/models                                     |       0 |        0 |       0 |       0 |                                                                                                                     
+  loginModel.ts                                           |       0 |        0 |       0 |       0 |                                                                                                                     
+ features/auth/store                                      |   29.72 |     9.37 |   15.21 |   33.33 |                                                                                                                     
+  initial.ts                                              |     100 |      100 |     100 |     100 |                                                                                                                     
+  store.ts                                                |   53.84 |      100 |       0 |     100 |                                                                                                                     
+  subscriptions.ts                                        |      75 |       50 |     100 |      75 | 11                                                                                                                  
+  update.ts                                               |   19.64 |     6.66 |   15.38 |   20.37 | 45-66,93-327                                                                                                        
+ features/auth/store/types                                |       0 |        0 |       0 |       0 |                                                                                                                     
+  auth.types.ts                                           |       0 |        0 |       0 |       0 |                                                                                                                     
+  index.ts                                                |       0 |        0 |       0 |       0 |                                                                                                                     
+  messages.types.ts                                       |       0 |        0 |       0 |       0 |                                                                                                                     
+ features/auth/views                                      |       0 |        0 |       0 |       0 |                                                                                                                     
+  login.tsx                                               |       0 |        0 |       0 |       0 | 12-214                                                                                                              
+ features/banker/common                                   |       0 |        0 |       0 |       0 |                                                                                                                     
+  AgencyCard.tsx                                          |       0 |        0 |       0 |       0 | 31-141                                                                                                              
+  GridStatCard.tsx                                        |       0 |      100 |       0 |       0 | 16-44                                                                                                               
+ features/banker/common/header                            |       0 |        0 |       0 |       0 |                                                                                                                     
+  index.tsx                                               |       0 |        0 |       0 |       0 | 14-43                                                                                                               
+ features/banker/components                               |       0 |        0 |       0 |       0 |                                                                                                                     
+  BankerOperationCard.tsx                                 |       0 |        0 |       0 |       0 | 13-21                                                                                                               
+ features/banker/dashboard                                |       0 |        0 |       0 |       0 |                                                                                                                     
+  BankHealth.tsx                                          |       0 |        0 |       0 |       0 | 12-187                                                                                                              
+  DashboardHeader.tsx                                     |       0 |        0 |       0 |       0 | 18-86                                                                                                               
+  DashboardOperations.tsx                                 |       0 |        0 |       0 |       0 | 42-96                                                                                                               
+  DashboardStats.tsx                                      |       0 |        0 |       0 |       0 | 11-75                                                                                                               
+  index.tsx                                               |       0 |      100 |       0 |       0 | 15-63                                                                                                               
+ features/banker/drawers                                  |       0 |        0 |       0 |       0 |                                                                                                                     
+  list.tsx                                                |       0 |        0 |       0 |       0 | 16-108                                                                                                              
+ features/banker/drawers/hook                             |       0 |        0 |       0 |       0 |                                                                                                                     
+  useDrawer.ts                                            |       0 |        0 |       0 |       0 | 10-56                                                                                                               
+ features/banker/hook                                     |       0 |        0 |       0 |       0 |                                                                                                                     
+  dashboard.hook.ts                                       |       0 |        0 |       0 |       0 | 18-58                                                                                                               
+ features/banker/listerias                                |       0 |        0 |       0 |       0 |                                                                                                                     
+  list.tsx                                                |       0 |        0 |       0 |       0 | 25-110                                                                                                              
+ features/banker/report                                   |       0 |        0 |       0 |       0 |                                                                                                                     
+  form.tsx                                                |       0 |        0 |       0 |       0 | 12-166                                                                                                              
+  index.tsx                                               |       0 |        0 |       0 |       0 |                                                                                                                     
+  list.tsx                                                |       0 |        0 |       0 |       0 | 16-171                                                                                                              
+  utils.ts                                                |       0 |        0 |       0 |       0 | 14-23                                                                                                               
+ features/banker/report/components                        |       0 |        0 |       0 |       0 |                                                                                                                     
+  ReportItem.tsx                                          |       0 |        0 |       0 |       0 | 22-253                                                                                                              
+ features/banker/report/hooks                             |       0 |        0 |       0 |       0 |                                                                                                                     
+  useReportsForm.ts                                       |       0 |        0 |       0 |       0 | 9-142                                                                                                               
+ features/banker/rules                                    |       0 |        0 |       0 |       0 |                                                                                                                     
+  index.tsx                                               |       0 |        0 |       0 |       0 |                                                                                                                     
+  list-all.tsx                                            |       0 |        0 |       0 |       0 | 13-91                                                                                                               
+  selector.tsx                                            |       0 |        0 |       0 |       0 | 18-171                                                                                                              
+  update.tsx                                              |       0 |        0 |       0 |       0 | 13-203                                                                                                              
+ features/banker/rules/hook                               |       0 |        0 |       0 |       0 |                                                                                                                     
+  hook.rule.ts                                            |       0 |        0 |       0 |       0 | 14-93                                                                                                               
+  update.hook.ts                                          |       0 |        0 |       0 |       0 | 19-185                                                                                                              
+ features/banker/rules/store                              |       0 |        0 |       0 |       0 |                                                                                                                     
+  index.ts                                                |       0 |      100 |       0 |       0 | 6-18                                                                                                                
+  types.ts                                                |       0 |      100 |       0 |       0 | 57-73                                                                                                               
+  update.ts                                               |       0 |        0 |       0 |       0 | 8-210                                                                                                               
+ features/banker/services                                 |       0 |        0 |       0 |       0 |                                                                                                                     
+  BankerDashboardService.ts                               |       0 |        0 |       0 |       0 | 22-69                                                                                                               
+  index.ts                                                |       0 |        0 |       0 |       0 |                                                                                                                     
+ features/banker/settings                                 |       0 |        0 |       0 |       0 |                                                                                                                     
+  index.tsx                                               |       0 |        0 |       0 |       0 | 32-282                                                                                                              
+ features/banker/settings/hooks                           |       0 |        0 |       0 |       0 |                                                                                                                     
+  hook.settings.ts                                        |       0 |        0 |       0 |       0 | 6-26                                                                                                                
+ features/banker/settings/store                           |       0 |        0 |       0 |       0 |                                                                                                                     
+  index.ts                                                |       0 |      100 |       0 |       0 | 6-18                                                                                                                
+  types.ts                                                |       0 |      100 |       0 |       0 | 59-72                                                                                                               
+  update.ts                                               |       0 |        0 |       0 |       0 | 7-177                                                                                                               
+ features/colector                                        |       0 |        0 |       0 |       0 |                                                                                                                     
+  index.tsx                                               |       0 |        0 |       0 |       0 |                                                                                                                     
+ features/colector/common                                 |       0 |      100 |       0 |       0 |                                                                                                                     
+  GridStatCard.tsx                                        |       0 |      100 |       0 |       0 | 16-42                                                                                                               
+  TopStatCard.tsx                                         |       0 |      100 |       0 |       0 | 14-26                                                                                                               
+ features/colector/components                             |       0 |        0 |       0 |       0 |                                                                                                                     
+  ColectorOperationCard.tsx                               |       0 |        0 |       0 |       0 | 13-21                                                                                                               
+ features/colector/dashboard                              |       0 |        0 |       0 |       0 |                                                                                                                     
+  index.tsx                                               |       0 |        0 |       0 |       0 |                                                                                                                     
+ features/colector/dashboard/components                   |       0 |        0 |       0 |       0 |                                                                                                                     
+  DashboardHeader.tsx                                     |       0 |        0 |       0 |       0 | 17-67                                                                                                               
+  DashboardOperations.tsx                                 |       0 |        0 |       0 |       0 | 21-79                                                                                                               
+  DashboardStats.tsx                                      |       0 |      100 |       0 |       0 | 12-69                                                                                                               
+  index.tsx                                               |       0 |        0 |       0 |       0 |                                                                                                                     
+ features/colector/dashboard/core                         |       0 |        0 |       0 |       0 |                                                                                                                     
+  index.ts                                                |       0 |        0 |       0 |       0 |                                                                                                                     
+  model.ts                                                |       0 |        0 |       0 |       0 |                                                                                                                     
+  msg.ts                                                  |       0 |      100 |       0 |       0 | 13-16                                                                                                               
+  store.ts                                                |       0 |      100 |       0 |       0 | 8-24                                                                                                                
+  update.ts                                               |       0 |        0 |       0 |       0 | 14-130                                                                                                              
+ features/colector/dashboard/screens                      |       0 |      100 |       0 |       0 |                                                                                                                     
+  DashboardScreen.tsx                                     |       0 |      100 |       0 |       0 | 13-34                                                                                                               
+ features/colector/drawers                                |       0 |        0 |       0 |       0 |                                                                                                                     
+  index.tsx                                               |       0 |        0 |       0 |       0 |                                                                                                                     
+ features/colector/drawers/core                           |       0 |        0 |       0 |       0 |                                                                                                                     
+  index.ts                                                |       0 |        0 |       0 |       0 |                                                                                                                     
+  model.ts                                                |       0 |        0 |       0 |       0 |                                                                                                                     
+  msg.ts                                                  |       0 |      100 |       0 |       0 | 14-20                                                                                                               
+  store.ts                                                |       0 |        0 |       0 |       0 | 11-43                                                                                                               
+  update.ts                                               |       0 |        0 |       0 |       0 | 10-76                                                                                                               
+ features/colector/drawers/hooks                          |       0 |        0 |       0 |       0 |                                                                                                                     
+  useDrawConfirmation.ts                                  |       0 |        0 |       0 |       0 | 12-118                                                                                                              
+  useDrawer.ts                                            |       0 |        0 |       0 |       0 | 8-44                                                                                                                
+ features/colector/drawers/screens                        |       0 |        0 |       0 |       0 |                                                                                                                     
+  ListeroDetailScreen.tsx                                 |       0 |        0 |       0 |       0 | 28-124                                                                                                              
+ features/colector/drawers/views                          |       0 |        0 |       0 |       0 |                                                                                                                     
+  DateNavigation.tsx                                      |       0 |        0 |       0 |       0 | 14-87                                                                                                               
+  DrawItem.tsx                                            |       0 |        0 |       0 |       0 | 29-190                                                                                                              
+  ListeroHeader.tsx                                       |       0 |        0 |       0 |       0 | 14-43                                                                                                               
+  index.tsx                                               |       0 |        0 |       0 |       0 |                                                                                                                     
+ features/colector/reports                                |       0 |        0 |       0 |       0 |                                                                                                                     
+  form.tsx                                                |       0 |        0 |       0 |       0 | 12-166                                                                                                              
+  index.tsx                                               |       0 |        0 |       0 |       0 |                                                                                                                     
+  list.tsx                                                |       0 |        0 |       0 |       0 | 16-171                                                                                                              
+  utils.ts                                                |       0 |        0 |       0 |       0 | 14-23                                                                                                               
+ features/colector/reports/components                     |       0 |        0 |       0 |       0 |                                                                                                                     
+  ReportItem.tsx                                          |       0 |        0 |       0 |       0 | 22-253                                                                                                              
+ features/colector/reports/hooks                          |       0 |        0 |       0 |       0 |                                                                                                                     
+  useReportsForm.ts                                       |       0 |        0 |       0 |       0 | 11-179                                                                                                              
+ features/colector/rules                                  |       0 |        0 |       0 |       0 |                                                                                                                     
+  index.tsx                                               |       0 |        0 |       0 |       0 | 12-63                                                                                                               
+  selector.tsx                                            |       0 |        0 |       0 |       0 | 12-108                                                                                                              
+  update.tsx                                              |       0 |        0 |       0 |       0 | 13-167                                                                                                              
+ features/colector/rules/hook                             |       0 |        0 |       0 |       0 |                                                                                                                     
+  hook.rule.ts                                            |       0 |        0 |       0 |       0 | 12-53                                                                                                               
+  update.hook.ts                                          |       0 |        0 |       0 |       0 | 14-158                                                                                                              
+ features/colector/settings                               |       0 |        0 |       0 |       0 |                                                                                                                     
+  index.tsx                                               |       0 |        0 |       0 |       0 | 29-388                                                                                                              
+ features/colector/settings/hooks                         |       0 |        0 |       0 |       0 |                                                                                                                     
+  hook.settings.ts                                        |       0 |        0 |       0 |       0 | 37-199                                                                                                              
+ features/language                                        |       0 |      100 |     100 |       0 |                                                                                                                     
+  es.ts                                                   |       0 |      100 |     100 |       0 | 1                                                                                                                   
+ features/listero                                         |       0 |        0 |       0 |       0 |                                                                                                                     
+  index.tsx                                               |       0 |        0 |       0 |       0 |                                                                                                                     
+ features/listero/bets/core                               |       0 |        0 |       0 |       0 |                                                                                                                     
+  core.types.ts                                           |       0 |        0 |       0 |       0 |                                                                                                                     
+  initial.types.ts                                        |       0 |      100 |     100 |       0 | 14-18                                                                                                               
+  model.ts                                                |       0 |        0 |       0 |       0 |                                                                                                                     
+  msg.ts                                                  |       0 |        0 |       0 |       0 |                                                                                                                     
+  store.ts                                                |       0 |      100 |       0 |       0 | 7-16                                                                                                                
+  update.ts                                               |       0 |        0 |       0 |       0 | 30-226                                                                                                              
+ features/listero/bets/features/bet-list                  |       0 |        0 |       0 |       0 |                                                                                                                     
+  list.types.ts                                           |       0 |      100 |     100 |       0 | 17                                                                                                                  
+  list.update.ts                                          |       0 |        0 |       0 |       0 | 10-361                                                                                                              
+  useBetList.ts                                           |       0 |      100 |       0 |       0 | 5-27                                                                                                                
+ features/listero/bets/features/bet-ui                    |       0 |      100 |       0 |       0 |                                                                                                                     
+  ui.types.ts                                             |       0 |        0 |       0 |       0 |                                                                                                                     
+  ui.update.ts                                            |       0 |      100 |       0 |       0 | 6-50                                                                                                                
+  useUi.ts                                                |       0 |      100 |       0 |       0 | 6-26                                                                                                                
+ features/listero/bets/features/centena                   |       0 |        0 |       0 |       0 |                                                                                                                     
+  centena.types.ts                                        |       0 |      100 |     100 |       0 | 12                                                                                                                  
+  centena.update.ts                                       |       0 |        0 |       0 |       0 | 12-335                                                                                                              
+  useCentena.ts                                           |       0 |        0 |       0 |       0 | 4-37                                                                                                                
+ features/listero/bets/features/centena/components        |       0 |        0 |       0 |       0 |                                                                                                                     
+  CentenaColumn.tsx                                       |       0 |        0 |       0 |       0 | 16-95                                                                                                               
+ features/listero/bets/features/create-bet                |       0 |        0 |       0 |       0 |                                                                                                                     
+  create.types.ts                                         |       0 |      100 |     100 |       0 | 18                                                                                                                  
+  create.update.ts                                        |       0 |        0 |       0 |       0 | 10-326                                                                                                              
+  useCreate.ts                                            |       0 |      100 |       0 |       0 | 9-76                                                                                                                
+ features/listero/bets/features/create-bet/components     |       0 |        0 |       0 |       0 |                                                                                                                     
+  BetSummary.tsx                                          |       0 |        0 |       0 |       0 | 21-91                                                                                                               
+  CustomNumericKeyboard.tsx                               |       0 |        0 |       0 |       0 | 11-49                                                                                                               
+  QuickAmountButtons.tsx                                  |       0 |      100 |       0 |       0 | 10-39                                                                                                               
+ features/listero/bets/features/edit-bet                  |       0 |        0 |       0 |       0 |                                                                                                                     
+  edit.types.ts                                           |       0 |      100 |     100 |       0 | 27                                                                                                                  
+  edit.update.ts                                          |       0 |        0 |       0 |       0 | 7-89                                                                                                                
+  useEdit.ts                                              |       0 |      100 |       0 |       0 | 5-40                                                                                                                
+ features/listero/bets/features/fijos-corridos            |       0 |        0 |       0 |       0 |                                                                                                                     
+  fijos.types.ts                                          |       0 |      100 |       0 |       0 | 19-52                                                                                                               
+  fijos.update.ts                                         |       0 |        0 |       0 |       0 | 14-468                                                                                                              
+  useFijos.ts                                             |       0 |        0 |       0 |       0 | 10-52                                                                                                               
+ features/listero/bets/features/fijos-corridos/components |       0 |        0 |       0 |       0 |                                                                                                                     
+  FijosCorridosColumn.tsx                                 |       0 |        0 |       0 |       0 | 27-97                                                                                                               
+ features/listero/bets/features/keyboard                  |       0 |      100 |       0 |       0 |                                                                                                                     
+  keyboard.types.ts                                       |       0 |        0 |       0 |       0 |                                                                                                                     
+  keyboard.update.ts                                      |       0 |      100 |       0 |       0 | 6-55                                                                                                                
+  useKeyboard.ts                                          |       0 |      100 |       0 |       0 | 5-45                                                                                                                
+ features/listero/bets/features/management                |       0 |        0 |       0 |       0 |                                                                                                                     
+  management.types.ts                                     |       0 |      100 |     100 |       0 | 17                                                                                                                  
+  management.update.ts                                    |       0 |        0 |       0 |       0 | 14-169                                                                                                              
+  management.utils.ts                                     |       0 |        0 |       0 |       0 | 10-65                                                                                                               
+  useManagement.ts                                        |       0 |        0 |       0 |       0 | 6-50                                                                                                                
+ features/listero/bets/features/parlet                    |       0 |        0 |       0 |       0 |                                                                                                                     
+  parlet.types.ts                                         |       0 |      100 |     100 |       0 | 16                                                                                                                  
+  parlet.update.ts                                        |       0 |        0 |       0 |       0 | 12-387                                                                                                              
+  useParlet.ts                                            |       0 |        0 |       0 |       0 | 6-39                                                                                                                
+ features/listero/bets/features/parlet/components         |       0 |        0 |       0 |       0 |                                                                                                                     
+  ParletColumn.tsx                                        |       0 |        0 |       0 |       0 | 18-106                                                                                                              
+ features/listero/bets/features/rewards-rules             |       0 |        0 |       0 |       0 |                                                                                                                     
+  rewards.types.ts                                        |       0 |      100 |     100 |       0 | 36-37                                                                                                               
+  rewards.update.ts                                       |       0 |      100 |       0 |       0 | 9-68                                                                                                                
+  useRewards.ts                                           |       0 |        0 |       0 |       0 | 14-95                                                                                                               
+ features/listero/bets/features/rules                     |       0 |        0 |       0 |       0 |                                                                                                                     
+  index.ts                                                |       0 |        0 |       0 |       0 |                                                                                                                     
+  rules.types.ts                                          |       0 |      100 |     100 |       0 | 38                                                                                                                  
+  rules.update.ts                                         |       0 |        0 |       0 |       0 | 9-147                                                                                                               
+  useRules.ts                                             |       0 |      100 |       0 |       0 | 4-26                                                                                                                
+ features/listero/bets/features/rules/components          |       0 |        0 |       0 |       0 |                                                                                                                     
+  RulesList.tsx                                           |       0 |        0 |       0 |       0 | 16-126                                                                                                              
+ features/listero/bets/features/success                   |       0 |        0 |       0 |       0 |                                                                                                                     
+  success.types.ts                                        |       0 |        0 |       0 |       0 |                                                                                                                     
+  success.update.ts                                       |       0 |      100 |       0 |       0 | 11-56                                                                                                               
+  useSuccess.ts                                           |       0 |        0 |       0 |       0 | 11-460                                                                                                              
+ features/listero/bets/features/success/components        |       0 |        0 |       0 |       0 |                                                                                                                     
+  SuccessActions.tsx                                      |       0 |        0 |       0 |       0 | 11-50                                                                                                               
+  SuccessHeader.tsx                                       |       0 |      100 |       0 |       0 | 10-32                                                                                                               
+  SuccessVoucher.tsx                                      |       0 |        0 |       0 |       0 | 21-207                                                                                                              
+ features/listero/bets/features/success/screens           |       0 |        0 |       0 |       0 |                                                                                                                     
+  SuccessScreen.tsx                                       |       0 |        0 |       0 |       0 | 13-61                                                                                                               
+ features/listero/bets/legacy/bet_edit                    |       0 |        0 |       0 |       0 |                                                                                                                     
+  index.tsx                                               |       0 |        0 |       0 |       0 | 13-136                                                                                                              
+ features/listero/bets/legacy/bet_edit/components         |       0 |        0 |       0 |       0 |                                                                                                                     
+  BetColumn.tsx                                           |       0 |        0 |       0 |       0 | 25-90                                                                                                               
+  NumericKeyboard.tsx                                     |       0 |        0 |       0 |       0 | 17-48                                                                                                               
+  RangeTypeDialog.tsx                                     |       0 |      100 |       0 |       0 | 16-45                                                                                                               
+ features/listero/bets/legacy/bet_edit/utils              |       0 |        0 |       0 |       0 |                                                                                                                     
+  rangeUtils.ts                                           |       0 |        0 |       0 |       0 | 7-59                                                                                                                
+ features/listero/bets/screens                            |       0 |        0 |       0 |       0 |                                                                                                                     
+  BetsListScreen.tsx                                      |       0 |        0 |       0 |       0 | 20-129                                                                                                              
+  CreateBetScreen.tsx                                     |       0 |        0 |       0 |       0 | 20-169                                                                                                              
+  EditListScreen.tsx                                      |       0 |        0 |       0 |       0 | 18-79                                                                                                               
+  RewardsScreen.tsx                                       |       0 |        0 |       0 |       0 | 16-139                                                                                                              
+  RuleItem.tsx                                            |       0 |        0 |       0 |       0 | 19-82                                                                                                               
+  RulesScreen.tsx                                         |       0 |      100 |       0 |       0 | 10-18                                                                                                               
+ features/listero/bets/shared/components                  |       0 |        0 |       0 |       0 |                                                                                                                     
+  AmountCircle.tsx                                        |       0 |        0 |       0 |       0 | 11-34                                                                                                               
+  AmountNumericKeyboard.tsx                               |       0 |        0 |       0 |       0 | 13-83                                                                                                               
+  BetCircle.tsx                                           |       0 |        0 |       0 |       0 | 11-62                                                                                                               
+  BetNumericKeyboard.tsx                                  |       0 |        0 |       0 |       0 | 18-119                                                                                                              
+  CentenasColumn.tsx                                      |       0 |        0 |       0 |       0 | 12-36                                                                                                               
+  ColumnHeaders.tsx                                       |       0 |      100 |       0 |       0 | 7-17                                                                                                                
+  NumericKeyboard.tsx                                     |       0 |        0 |       0 |       0 | 16-103                                                                                                              
+  SumRowComponent.tsx                                     |       0 |      100 |       0 |       0 | 12-28                                                                                                               
+  TotalSumComponent.tsx                                   |       0 |        0 |       0 |       0 | 13-54                                                                                                               
+ features/listero/bets/shared/utils                       |       0 |      100 |       0 |       0 |                                                                                                                     
+  numbers.ts                                              |       0 |      100 |       0 |       0 | 7-19                                                                                                                
+ features/listero/bets/store                              |       0 |        0 |       0 |       0 |                                                                                                                     
+  index.ts                                                |       0 |        0 |       0 |       0 |                                                                                                                     
+ features/listero/dashboard/core                          |       0 |        0 |       0 |       0 |                                                                                                                     
+  core.types.ts                                           |       0 |        0 |       0 |       0 | 13-28                                                                                                               
+  initial.types.ts                                        |       0 |      100 |     100 |       0 | 4                                                                                                                   
+  model.ts                                                |       0 |        0 |       0 |       0 |                                                                                                                     
+  msg.ts                                                  |       0 |      100 |       0 |       0 | 22-33                                                                                                               
+  store.ts                                                |       0 |      100 |       0 |       0 | 8-15                                                                                                                
+  update.ts                                               |       0 |        0 |       0 |       0 | 18-347                                                                                                              
+ features/listero/dashboard/screens                       |       0 |        0 |       0 |       0 |                                                                                                                     
+  DashboardScreen.tsx                                     |       0 |        0 |       0 |       0 | 23-161                                                                                                              
+ features/listero/dashboard/store                         |       0 |        0 |       0 |       0 |                                                                                                                     
+  index.ts                                                |       0 |        0 |       0 |       0 |                                                                                                                     
+ features/listero/dashboard/views                         |       0 |        0 |       0 |       0 |                                                                                                                     
+  BetItem.tsx                                             |       0 |        0 |       0 |       0 | 15-82                                                                                                               
+  DrawItem.tsx                                            |       0 |        0 |       0 |       0 | 25-196                                                                                                              
+  DrawsSection.tsx                                        |       0 |      100 |       0 |       0 | 14-43                                                                                                               
+  EditPlay.tsx                                            |       0 |        0 |       0 |       0 | 9-39                                                                                                                
+  GlobalSummary.tsx                                       |       0 |        0 |       0 |       0 | 19-112                                                                                                              
+  Header.tsx                                              |       0 |        0 |       0 |       0 | 13-53                                                                                                               
+  QuickActions.tsx                                        |       0 |      100 |       0 |       0 | 15-106                                                                                                              
+  RecentBetsSection.tsx                                   |       0 |      100 |       0 |       0 | 12-33                                                                                                               
+  SummaryCard.tsx                                         |       0 |        0 |       0 |       0 | 20-48                                                                                                               
+  SummarySection.tsx                                      |       0 |      100 |       0 |       0 | 12-44                                                                                                               
+  index.tsx                                               |       0 |        0 |       0 |       0 |                                                                                                                     
+ features/listero/games                                   |       0 |        0 |       0 |       0 |                                                                                                                     
+  registry.ts                                             |       0 |        0 |       0 |       0 | 22-81                                                                                                               
+ features/listero/games/bolita/screens                    |       0 |        0 |       0 |       0 |                                                                                                                     
+  BolitaEntryScreen.tsx                                   |       0 |        0 |       0 |       0 | 24-229                                                                                                              
+  BolitaListPlays.tsx                                     |       0 |        0 |       0 |       0 | 19-140                                                                                                              
+ features/listero/games/loteria                           |       0 |        0 |       0 |       0 |                                                                                                                     
+  loteria.types.ts                                        |       0 |      100 |     100 |       0 | 32                                                                                                                  
+  loteria.update.ts                                       |       0 |        0 |       0 |       0 | 9-203                                                                                                               
+  useLoteria.ts                                           |       0 |        0 |       0 |       0 | 6-77                                                                                                                
+ features/listero/games/loteria/components                |       0 |        0 |       0 |       0 |                                                                                                                     
+  LoteriaColumn.tsx                                       |       0 |        0 |       0 |       0 | 13-153                                                                                                              
+ features/listero/games/loteria/screens                   |       0 |        0 |       0 |       0 |                                                                                                                     
+  LoteriaEntryScreen.tsx                                  |       0 |        0 |       0 |       0 | 18-131                                                                                                              
+  LoteriaListPlays.tsx                                    |       0 |        0 |       0 |       0 | 15-76                                                                                                               
+ features/listero/profile                                 |       0 |        0 |       0 |       0 |                                                                                                                     
+  index.ts                                                |       0 |        0 |       0 |       0 |                                                                                                                     
+  profile.types.ts                                        |       0 |      100 |     100 |       0 | 74-82                                                                                                               
+  profile.update.ts                                       |       0 |        0 |       0 |       0 | 13-168                                                                                                              
+  store.ts                                                |       0 |      100 |       0 |       0 | 6-15                                                                                                                
+ features/listero/profile/components                      |       0 |        0 |       0 |       0 |                                                                                                                     
+  IncidentList.tsx                                        |       0 |        0 |       0 |       0 | 10-317                                                                                                              
+ features/listero/profile/screens                         |       0 |        0 |       0 |       0 |                                                                                                                     
+  ChangePasswordScreen.tsx                                |       0 |        0 |       0 |       0 | 9-109                                                                                                               
+  ProfileScreen.tsx                                       |       0 |        0 |       0 |       0 | 14-199                                                                                                              
+ features/notification                                    |       0 |        0 |       0 |       0 |                                                                                                                     
+  index.ts                                                |       0 |        0 |       0 |       0 |                                                                                                                     
+ features/notification/__tests__                          |       0 |      100 |       0 |       0 |                                                                                                                     
+  model.test.ts                                           |       0 |      100 |       0 |       0 | 3-91                                                                                                                
+  msg.test.ts                                             |       0 |      100 |       0 |       0 | 18-155                                                                                                              
+ features/notification/components                         |       0 |        0 |       0 |       0 |                                                                                                                     
+  NotificationBadge.tsx                                   |       0 |        0 |       0 |       0 | 12-81                                                                                                               
+  NotificationItem.tsx                                    |       0 |        0 |       0 |       0 | 12-84                                                                                                               
+  NotificationList.tsx                                    |       0 |        0 |       0 |       0 | 18-120                                                                                                              
+ features/notification/core                               |   30.93 |      2.7 |   14.06 |   36.75 |                                                                                                                     
+  model.ts                                                |       0 |        0 |       0 |       0 |                                                                                                                     
+  msg.ts                                                  |      50 |      100 |       0 |     100 |                                                                                                                     
+  store.ts                                                |   61.53 |       25 |   33.33 |   61.53 | 35,41-44,56                                                                                                         
+  update.ts                                               |   19.56 |        0 |   18.18 |   20.68 | 34,39-40,48-55,61-66,71-80,86-92,100-286,295,304                                                                    
+ features/notification/screens                            |       0 |        0 |       0 |       0 |                                                                                                                     
+  NotificationDetailScreen.tsx                            |       0 |        0 |       0 |       0 | 10-137                                                                                                              
+  NotificationsScreen.tsx                                 |       0 |      100 |       0 |       0 | 9-47                                                                                                                
+ shared/components                                        |       0 |        0 |       0 |       0 |                                                                                                                     
+  badge.tsx                                               |       0 |        0 |       0 |       0 | 14-30                                                                                                               
+  button.tsx                                              |       0 |      100 |       0 |       0 | 7-8                                                                                                                 
+  card.tsx                                                |       0 |        0 |       0 |       0 | 11-42                                                                                                               
+  constants.ts                                            |       0 |      100 |     100 |       0 | 1                                                                                                                   
+  flex.tsx                                                |       0 |        0 |       0 |       0 | 28-247                                                                                                              
+  icon-box.tsx                                            |       0 |        0 |       0 |       0 | 11-33                                                                                                               
+  index.ts                                                |       0 |        0 |       0 |       0 |                                                                                                                     
+  label.tsx                                               |       0 |        0 |       0 |       0 | 15-69                                                                                                               
+  number_display.tsx                                      |       0 |        0 |       0 |       0 | 11-56                                                                                                               
+  sync_manager.tsx                                        |       0 |        0 |       0 |       0 | 8-75                                                                                                                
+  with_Data_View.tsx                                      |       0 |        0 |       0 |       0 | 23-61                                                                                                               
+ shared/components/OperationCard                          |       0 |        0 |       0 |       0 |                                                                                                                     
+  BaseOperationCard.tsx                                   |       0 |        0 |       0 |       0 | 17-108                                                                                                              
+ shared/components/dataview                               |       0 |        0 |       0 |       0 |                                                                                                                     
+  DataView.service.ts                                     |       0 |      100 |       0 |       0 | 10-61                                                                                                               
+  DataView.tsx                                            |       0 |        0 |       0 |       0 | 35-103                                                                                                              
+  DataView.types.ts                                       |       0 |      100 |       0 |       0 | 13                                                                                                                  
+  DataView.update.ts                                      |       0 |        0 |       0 |       0 | 7-30                                                                                                                
+ shared/context                                           |       0 |        0 |       0 |       0 |                                                                                                                     
+  AuthContext.tsx                                         |       0 |        0 |       0 |       0 | 16-69                                                                                                               
+  useAuthState.tsx                                        |       0 |        0 |       0 |       0 |                                                                                                                     
+ shared/core                                              |   32.21 |    27.27 |      30 |   32.69 |                                                                                                                     
+  cmd.ts                                                  |   21.05 |     12.5 |   22.22 |   23.52 | 33,40-42,49-67,77-89                                                                                                
+  effectHandlers.ts                                       |   22.22 |    29.62 |      20 |   22.95 | 30-51,56-57,63-66,78-95,100-101,106-107,111,117-146                                                                 
+  engine.ts                                               |   66.05 |    52.05 |   84.21 |   66.99 | 31,43-53,65-71,98-101,118-119,139-144,154,163-171,204                                                               
+  remote.data.example.ts                                  |       0 |        0 |       0 |       0 | 13-65                                                                                                               
+  remote.data.http.ts                                     |   17.85 |     8.33 |   18.75 |   18.51 | 31-98,111-115,123-136                                                                                               
+  remote.data.react.tsx                                   |       0 |      100 |       0 |       0 | 17-55                                                                                                               
+  remote.data.ts                                          |    7.69 |        0 |    7.69 |    7.69 | 23-25,29-111                                                                                                        
+  return.example.ts                                       |       0 |        0 |       0 |       0 | 18-73                                                                                                               
+  return.ts                                               |     7.5 |        0 |   23.52 |    7.69 | 8-14,36-175                                                                                                         
+  sub.ts                                                  |   85.71 |      100 |   83.33 |   85.71 | 44                                                                                                                  
+ shared/hooks                                             |       0 |        0 |       0 |       0 |                                                                                                                     
+  useConfirmation.ts                                      |       0 |        0 |       0 |       0 | 13-55                                                                                                               
+  useDataFetch.ts                                         |       0 |        0 |       0 |       0 | 16-96                                                                                                               
+  useNetwork.ts                                           |       0 |        0 |       0 |       0 | 4-15                                                                                                                
+  useTheme.ts                                             |       0 |        0 |       0 |       0 | 4-24                                                                                                                
+  useValidationRules.example.tsx                          |       0 |        0 |       0 |       0 | 14-140                                                                                                              
+  useValidationRules.ts                                   |       0 |        0 |       0 |       0 | 43-110                                                                                                              
+ shared/services                                          |   11.96 |    13.94 |    7.25 |   12.26 |                                                                                                                     
+  ApiClient.ts                                            |   45.78 |    35.96 |    40.9 |   47.74 | 63,67-68,93-141,162-165,173-174,185-187,219,233,239-242,248-249,255-279,284-303,311-319,329-330,338,343,348,358-364 
+  Bet.ts                                                  |       0 |        0 |       0 |       0 | 61-163                                                                                                              
+  Draw.ts                                                 |       0 |        0 |       0 |       0 | 8-544                                                                                                               
+  FinancialSummary.ts                                     |       0 |        0 |       0 |       0 | 35-144                                                                                                              
+  Incident.ts                                             |       0 |        0 |       0 |       0 | 27-56                                                                                                               
+  NotificationService.ts                                  |       0 |      100 |       0 |       0 | 17-33                                                                                                               
+  OfflineStorage.ts                                       |       0 |        0 |       0 |       0 | 4-54                                                                                                                
+  RewardRule.ts                                           |       0 |        0 |       0 |       0 | 26-83                                                                                                               
+  Sharing.ts                                              |       0 |        0 |       0 |       0 | 15-33                                                                                                               
+  Structure.ts                                            |       0 |        0 |       0 |       0 | 44-69                                                                                                               
+  TokenService.ts                                         |   11.11 |      100 |       0 |   11.11 | 15-82                                                                                                               
+  ValidationRule.ts                                       |       0 |        0 |       0 |       0 | 73-241                                                                                                              
+  rules.ts                                                |       0 |        0 |       0 |       0 | 7-276                                                                                                               
+  winning.ts                                              |       0 |      100 |       0 |       0 | 14-23                                                                                                               
+ shared/services/auth                                     |   57.89 |    43.75 |      80 |   57.89 |                                                                                                                     
+  LoginService.ts                                         |   57.89 |    43.75 |      80 |   57.89 | 14,30-31,41-42,48-50,59,65-75                                                                                       
+ shared/store/financial                                   |       0 |        0 |       0 |       0 |                                                                                                                     
+  model.ts                                                |       0 |      100 |     100 |       0 | 10                                                                                                                  
+  msg.ts                                                  |       0 |        0 |       0 |       0 |                                                                                                                     
+  store.ts                                                |       0 |        0 |       0 |       0 | 10-58                                                                                                               
+  update.ts                                               |       0 |        0 |       0 |       0 | 10-151                                                                                                              
+ shared/utils                                             |   14.53 |     6.59 |   15.21 |   15.52 |                                                                                                                     
+  crypto.ts                                               |      80 |       50 |     100 |     100 | 8                                                                                                                   
+  errorHandler.ts                                         |       0 |        0 |       0 |       0 | 9-44                                                                                                                
+  generators.ts                                           |       0 |        0 |       0 |       0 | 62-329                                                                                                              
+  logger.ts                                               |   72.41 |     62.5 |   85.71 |      75 | 22,45-53,62,71                                                                                                      
+  validation.ts                                           |       0 |        0 |       0 |       0 | 26-147                                                                                                              
+----------------------------------------------------------|---------|----------|---------|---------|---------------------------------------------------------------------------------------------------------------------
+Test Suites: 1 failed, 1 total
+Tests:       2 failed, 2 total
+Snapshots:   0 total
+Time:        42.864 s
+Ran all test suites matching Tests/features/notification/notification.steps.ts.

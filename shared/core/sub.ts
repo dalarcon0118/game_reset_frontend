@@ -3,7 +3,7 @@
  * Permite escuchar eventos externos de forma declarativa basándose en el estado del Modelo.
  */
 
-export type SubType = 'NONE' | 'EVERY' | 'BATCH' | 'WATCH_STORE';
+export type SubType = 'NONE' | 'EVERY' | 'BATCH' | 'WATCH_STORE' | 'SSE';
 
 export interface SubDescriptor<Msg> {
     type: SubType;
@@ -16,6 +16,23 @@ export const Sub = {
      */
     none: <Msg>(): SubDescriptor<Msg> => ({
         type: 'NONE'
+    }),
+
+    /**
+     * Crea una subscripción que escucha eventos de un stream SSE.
+     * @param url La URL del endpoint SSE.
+     * @param msgCreator Función que crea un mensaje a partir del evento recibido.
+     * @param id Identificador único para la subscripción.
+     * @param headers Opciones de cabecera para la petición.
+     */
+    sse: <Msg>(
+        url: string,
+        msgCreator: (data: any) => Msg,
+        id: string,
+        headers?: Record<string, string>
+    ): SubDescriptor<Msg> => ({
+        type: 'SSE',
+        payload: { url, msgCreator, id, headers }
     }),
 
     /**

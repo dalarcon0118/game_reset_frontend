@@ -20,6 +20,9 @@ export interface HttpPayload {
     method: string;
     body?: any;
     headers?: Record<string, string>;
+    cacheTTL?: number;
+    retryCount?: number;
+    abortSignal?: AbortSignal;
     msgCreator?: any;
 }
 export const effectHandlers = {
@@ -31,13 +34,16 @@ export const effectHandlers = {
             logger.error(`HTTP Request failed - missing payload`, 'HTTP');
             throw new Error('HTTP effect requires a payload');
         }
-        const { url, method, body, headers } = payload;
+        const { url, method, body, headers, cacheTTL, retryCount, abortSignal } = payload;
 
         try {
             const response = await apiClient.request(url, {
                 method,
                 body: body,
-                headers: headers
+                headers: headers,
+                cacheTTL,
+                retryCount,
+                abortSignal
             });
             return response;
         } catch (error) {

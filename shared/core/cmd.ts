@@ -26,7 +26,10 @@ export const Cmd = {
         url: string,
         method?: 'GET' | 'POST' | 'PUT' | 'DELETE',
         body?: any,
-        headers?: Record<string, string>
+        headers?: Record<string, string>,
+        cacheTTL?: number,
+        retryCount?: number,
+        abortSignal?: AbortSignal
     }, msgCreator: (data: any) => any, errorCreator?: (error: any) => any): { type: string; payload: any } => ({
         type: 'HTTP',
         payload: { ...config, method: config.method || 'GET', msgCreator, errorCreator }

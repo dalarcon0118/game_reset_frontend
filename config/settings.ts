@@ -45,7 +45,16 @@ console.log('Using API URL:', IS_DEVELOPMENT ? API_BASE_URL_DEVELOPMENT : API_BA
 export const settings = {
   api: {
     baseUrl: IS_DEVELOPMENT ? API_BASE_URL_DEVELOPMENT : API_BASE_URL_PRODUCTION,
-    timeout: 10000, // Tiempo de espera para las peticiones API en milisegundos
+    timeout: 15000, // Default 15s timeout
+    timeoutProfiles: {
+      FAST: 5000,    // 5s for auth/validations
+      NORMAL: 15000, // 15s for standard CRUD
+      SLOW: 60000    // 60s for reports/heavy data
+    },
+    defaults: {
+      cacheTTL: 5 * 60 * 1000, // 5 minutes default cache
+      retryCount: 3,           // 3 retries default
+    },
     endpoints: {
       auth: () => '/auth',
       login: () => '/auth/token/',

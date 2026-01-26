@@ -9,6 +9,9 @@ export interface HttpConfig {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: any;
   headers?: Record<string, string>;
+  cacheTTL?: number;
+  retryCount?: number;
+  abortSignal?: AbortSignal;
 }
 
 /**

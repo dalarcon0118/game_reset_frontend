@@ -127,6 +127,34 @@ export const createElmStore = <TModel, TMsg>(
                     dispatch(msgCreator(initialValue));
                 }
             }
+
+            if (sub.type === 'SSE') {
+                const { id, url, msgCreator, headers } = sub.payload;
+                if (!activeSubs.has(id)) {
+                    logger.info(`Connecting to SSE stream: ${url}`, 'ENGINE');
+                    try {
+                        const eventSource = new EventSource(url, { headers });
+
+                        eventSource.onmessage = (event) => {
+                            try {
+                                const data = JSON.parse(event.data);
+                                logger.debug('SSE Message received', 'ENGINE', data);
+                                dispatch(msgCreator(data));
+                            } catch (e) {
+                                logger.error('Error parsing SSE data', 'ENGINE', e);
+                            }
+                        };
+
+                        eventSource.onerror = (error) => {
+                            logger.error(`SSE Stream Error for ${id}`, 'ENGINE', error);
+                        };
+
+                        activeSubs.set(id, { type: 'SSE', eventSource });
+                    } catch (e) {
+                        logger.error(`Failed to create EventSource for ${id}`, 'ENGINE', e);
+                    }
+                }
+            }
         };
 
         const cleanupSubs = (currentSubs: Set<string>) => {
@@ -136,6 +164,9 @@ export const createElmStore = <TModel, TMsg>(
                         clearInterval(sub.interval);
                     } else if (sub.type === 'WATCH_STORE') {
                         sub.unsubscribe();
+                    } else if (sub.type === 'SSE') {
+                        logger.info(`Disconnecting SSE stream: ${id}`, 'ENGINE');
+                        sub.eventSource.close();
                     }
                     activeSubs.delete(id);
                 }
@@ -145,7 +176,7 @@ export const createElmStore = <TModel, TMsg>(
         const getActiveIds = (sub: SubDescriptor<TMsg>, ids: Set<string> = new Set()): Set<string> => {
             if (sub.type === 'BATCH') {
                 sub.payload.forEach((s: SubDescriptor<TMsg>) => getActiveIds(s, ids));
-            } else if ((sub.type === 'EVERY' || sub.type === 'WATCH_STORE') && sub.payload.id) {
+            } else if ((sub.type === 'EVERY' || sub.type === 'WATCH_STORE' || sub.type === 'SSE') && sub.payload.id) {
                 ids.add(sub.payload.id);
             }
             return ids;

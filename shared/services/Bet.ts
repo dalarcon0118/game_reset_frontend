@@ -101,20 +101,28 @@ export class BetService {
 
     /**
      * Get all bets from backend
-     * @param filters - Optional filters (e.g., drawId)
+     * @param filters - Optional filters (e.g., drawId, limit, offset)
      * @returns Promise with array of BetType
      */
-    static async list(filters?: { drawId?: string }): Promise<BetType[]> {
+    static async list(filters?: { drawId?: string; limit?: number; offset?: number }): Promise<BetType[]> {
         try {
             const params = new URLSearchParams();
             if (filters?.drawId) {
                 params.append('draw', filters.drawId);
+            }
+            if (filters?.limit) {
+                params.append('limit', filters.limit.toString());
+            }
+            if (filters?.offset) {
+                params.append('offset', filters.offset.toString());
             }
 
             const endpoint = `${settings.api.endpoints.bets()}${params.toString() ? `?${params.toString()}` : ''}`;
             console.info(`[BetService -> list] ${endpoint}`)
             const response = await apiClient.get<BackendBet[]>(endpoint);
             console.log('Raw response from bets API:', JSON.stringify(response));
+            
+            // NOTE: ApiClient already extracts .results if it detects a paginated response
             if (!Array.isArray(response)) {
                 console.warn('Unexpected response format from bets API:', response);
                 return [];

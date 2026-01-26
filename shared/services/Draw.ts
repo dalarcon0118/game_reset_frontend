@@ -135,21 +135,33 @@ export class DrawService {
 
   /**
    * Get all draws from backend
-   * @param structureId - Optional ID of the structure (bank) to filter draws
-   *                      Sent via X-Owner-Structure header
+   * @param filters - Optional filters (structureId, limit, offset, etc.)
    * @returns Promise with array of ExtendedDrawType (filtered by current date on backend)
-   * @example
-   * // Get all draws for a specific structure
-   * const draws = await DrawService.list(10);
-   *
-   * // Get all draws (no filter)
-   * const allDraws = await DrawService.list();
    */
-  static list(structureId?: number): Promise<AsyncResult<ExtendedDrawType[]>> {
+  static list(filtersOrStructureId?: number | { structureId?: number; limit?: number; offset?: number }): Promise<AsyncResult<ExtendedDrawType[]>> {
     const promise = (async () => {
-      // Build query params (only for today filter)
+      // Build query params
       const params = new URLSearchParams();
       params.append('today', 'true');
+      
+      let structureId: number | undefined;
+      let limit: number | undefined;
+      let offset: number | undefined;
+
+      if (typeof filtersOrStructureId === 'number') {
+        structureId = filtersOrStructureId;
+      } else if (filtersOrStructureId) {
+        structureId = filtersOrStructureId.structureId;
+        limit = filtersOrStructureId.limit;
+        offset = filtersOrStructureId.offset;
+      }
+
+      if (limit) {
+        params.append('limit', limit.toString());
+      }
+      if (offset) {
+        params.append('offset', offset.toString());
+      }
 
       const endpoint = `${settings.api.endpoints.draws()}?${params.toString()}`;
 
@@ -161,6 +173,11 @@ export class DrawService {
 
       const response = await apiClient.get<BackendDraw[]>(endpoint, { headers });
 
+      // NOTE: ApiClient already extracts .results if it detects a paginated response
+      if (!Array.isArray(response)) {
+        console.warn('Unexpected response format from draws API:', response);
+        return [];
+      }
 
       // Map backend response to frontend ExtendedDrawType with all fields
       return response.map(backendDraw => ({
