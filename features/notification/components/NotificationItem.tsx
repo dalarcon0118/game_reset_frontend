@@ -1,6 +1,7 @@
 import React from 'react';
 import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
-import { Card, Icon, Button } from '@ui-kitten/components';
+import { Card, Button } from '@ui-kitten/components';
+import { Info, AlertTriangle, AlertCircle, CheckCircle2, Bell } from 'lucide-react-native';
 import { AppNotification } from '../core/model';
 
 interface NotificationItemProps {
@@ -17,15 +18,15 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
   const getStatusIcon = () => {
     switch (notification.type) {
       case 'info':
-        return <Icon name="info-outline" fill="#2196F3" width={24} height={24} />;
+        return <Info size={24} color="#2196F3" />;
       case 'warning':
-        return <Icon name="alert-triangle-outline" fill="#FF9800" width={24} height={24} />;
+        return <AlertTriangle size={24} color="#FF9800" />;
       case 'error':
-        return <Icon name="alert-circle-outline" fill="#F44336" width={24} height={24} />;
+        return <AlertCircle size={24} color="#F44336" />;
       case 'success':
-        return <Icon name="checkmark-circle-2-outline" fill="#4CAF50" width={24} height={24} />;
+        return <CheckCircle2 size={24} color="#4CAF50" />;
       default:
-        return <Icon name="bell-outline" fill="#757575" width={24} height={24} />;
+        return <Bell size={24} color="#757575" />;
     }
   };
 
@@ -86,7 +87,7 @@ const styles = StyleSheet.create({
     marginVertical: 4,
     marginHorizontal: 8,
     borderRadius: 8,
- },
+  },
   pendingContainer: {
     backgroundColor: '#F5F5F5',
     borderLeftWidth: 4,

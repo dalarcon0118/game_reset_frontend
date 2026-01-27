@@ -6,13 +6,15 @@ import { COLORS } from '@/shared/components/constants';
 import { Flex } from '@/shared/components/flex';
 import { Label } from '@/shared/components/label';
 import { GridStatCard } from '../../common/GridStatCard';
-import { useDashboardStore } from '../core';
+import { useDashboardStore, selectDashboardModel } from '../core';
 import { RemoteData } from '@/shared/core/remote.data';
+import { Model } from '../core/model';
 
 const { width } = Dimensions.get('window');
 
 export function DashboardStats() {
-  const { model } = useDashboardStore();
+  const model = useDashboardStore(selectDashboardModel) as Model;
+  const { showBalance } = model;
 
    const stats = RemoteData.withDefault({
     total: 0,
@@ -23,6 +25,11 @@ export function DashboardStats() {
     commissions: '--',
     dailyProfit: '--',
   }, model.stats);
+
+  const formatValue = (value: string | number): string => {
+    if (!showBalance) return '****';
+    return String(value);
+  };
 
   return (
     <Flex
@@ -35,7 +42,7 @@ export function DashboardStats() {
       {/* Card 1: Net Total */}
       <GridStatCard
         label="Total"
-        value={stats.netTotal}
+        value={formatValue(stats.netTotal)}
         icon={<TrendingUp size={24} color={COLORS.primary} />}
         barColor={COLORS.primary}
       />
@@ -45,20 +52,20 @@ export function DashboardStats() {
       {/* Card 3: Commissions */}
       <GridStatCard
         label="Comisión"
-        value={stats.commissions}
+        value={formatValue(stats.commissions)}
         icon={<Coins size={24} color={COLORS.secondary} />}
         barColor={COLORS.secondary}
       />
       <GridStatCard
         label="Perdido"
-        value={stats.grossTotal}
+        value={formatValue(stats.grossTotal)}
         icon={<BarChart3 size={24} color={COLORS.textLight} />}
         barColor={COLORS.textLight}
       />
       {/* Card 4: Daily Profit */}
       <GridStatCard
         label="Ganado"
-        value={stats.dailyProfit}
+        value={formatValue(stats.dailyProfit)}
         icon={<Percent size={24} color={COLORS.textLight} />}
         barColor={COLORS.success}
       />

@@ -1,10 +1,11 @@
 import React, { useEffect } from 'react';
 import { View, StyleSheet, FlatList, Text, RefreshControl } from 'react-native';
-import { Button, Layout, TopNavigation, TopNavigationAction, Icon } from '@ui-kitten/components';
-import { useNotificationStore } from '../core/store';
+import { Button, Layout } from '@ui-kitten/components';
+import { BellOff } from 'lucide-react-native';
+import { useNotificationStore, selectNotificationModel, selectNotificationDispatch } from '../core/store';
 import { NotificationItem } from './NotificationItem';
-import { AppNotification } from '../core/model';
-import { 
+import { AppNotification, Model } from '../core/model';
+import {
   FETCH_NOTIFICATIONS_REQUESTED,
   MARK_ALL_AS_READ_REQUESTED,
   FILTER_CHANGED,
@@ -16,10 +17,13 @@ interface NotificationListProps {
 }
 
 export const NotificationList: React.FC<NotificationListProps> = ({ onNotificationPress }) => {
-  const { model, dispatch } = useNotificationStore.getState();
+  const model = useNotificationStore(selectNotificationModel) as Model;
+  const dispatch = useNotificationStore(selectNotificationDispatch);
 
   useEffect(() => {
-    dispatch(FETCH_NOTIFICATIONS_REQUESTED());
+    if (model.notifications.type === 'NotAsked') {
+      dispatch(FETCH_NOTIFICATIONS_REQUESTED());
+    }
   }, []);
 
   const handleRefresh = () => {
@@ -48,7 +52,7 @@ export const NotificationList: React.FC<NotificationListProps> = ({ onNotificati
 
   const renderEmptyState = () => (
     <Layout style={styles.emptyState}>
-      <Icon name="bell-off-outline" fill="#ccc" width={64} height={64} />
+      <BellOff size={64} color="#ccc" />
       <Text style={styles.emptyTitle}>No hay notificaciones</Text>
       <Text style={styles.emptyMessage}>Las notificaciones aparecerán aquí cuando estén disponibles</Text>
     </Layout>
@@ -71,7 +75,7 @@ export const NotificationList: React.FC<NotificationListProps> = ({ onNotificati
           status="basic"
           onPress={() => handleFilterChange('pending')}
         >
-          Pendientes ({model.unreadCount})
+          {`Pendientes (${model.unreadCount})`}
         </Button>
         <Button
           size="small"
@@ -82,7 +86,7 @@ export const NotificationList: React.FC<NotificationListProps> = ({ onNotificati
           Leídas
         </Button>
       </View>
-      
+
       {model.unreadCount > 0 && (
         <Button
           size="small"
@@ -99,7 +103,7 @@ export const NotificationList: React.FC<NotificationListProps> = ({ onNotificati
   return (
     <Layout style={styles.container}>
       {renderHeader()}
-      
+
       <FlatList
         data={model.notifications.type === 'Success' ? model.notifications.data : []}
         renderItem={renderNotification}
@@ -137,7 +141,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 32,
   },
- emptyTitle: {
+  emptyTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#666',

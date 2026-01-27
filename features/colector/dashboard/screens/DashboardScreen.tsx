@@ -21,7 +21,7 @@ export default function DashboardScreen() {
   const children = RemoteData.withDefault([], model.children);
 
   return (
-   <Flex vertical flex={1} background={theme['background-basic-color-1']} padding={[{type:"top", value:20}]}>
+   <Flex vertical flex={1} background={theme['background-basic-color-1']}>
       <DashboardHeader isLoading={isLoading} onRefresh={handleRefresh} />
       <SafeAreaView style={styles.safeArea}>
         <DashboardStats />

@@ -19,6 +19,9 @@ export type Msg =
     | { type: 'RESET_STATE' }
     | { type: 'AUTH_TOKEN_UPDATED'; token: string | null }
     | { type: 'AUTH_USER_SYNCED'; user: any }
+    | { type: 'NAVIGATE_TO_DETAIL'; notification: AppNotification }
+    | { type: 'NAVIGATE_BACK' }
+    | { type: 'NONE' }
     | { type: 'NOTIFICATION_ERROR'; error: string };
 
 // Action creators
@@ -62,6 +65,8 @@ export const REMOVE_NOTIFICATION = (notificationId: string): Msg => ({
 });
 export const CLEAR_FILTER = (): Msg => ({ type: 'CLEAR_FILTER' });
 export const REFRESH_NOTIFICATIONS = (): Msg => ({ type: 'REFRESH_NOTIFICATIONS' });
+export const NAVIGATE_TO_DETAIL = (notification: AppNotification): Msg => ({ type: 'NAVIGATE_TO_DETAIL', notification });
+export const NAVIGATE_BACK = (): Msg => ({ type: 'NAVIGATE_BACK' });
 export const NOTIFICATION_ERROR = (error: string): Msg => ({
     type: 'NOTIFICATION_ERROR',
     error

@@ -26,4 +26,5 @@ export interface Model {
     currentFilter: 'all' | 'pending' | 'read';
     allNotifications: AppNotification[];
     authToken: string | null;
+    currentUser: any | null;
 }

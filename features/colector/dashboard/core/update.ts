@@ -100,29 +100,51 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
             return singleton({ ...model, stats: webData });
         })
 
-        .with({ type: 'REFRESH_CLICKED' }, () =>
-            ret(model, Cmd.batch([fetchChildrenCmd(model.userStructureId), fetchStatsCmd(model.userStructureId)]))
-        )
-
         .with({ type: 'AUTH_USER_SYNCED' }, ({ user }) => {
-            const structure = user?.structure;
-            const structureId = structure?.id?.toString() || null;
+            const structureId = user?.structure?.id ? String(user.structure.id) : model.userStructureId;
+            return ret(
+                { ...model, user, userStructureId: structureId },
+                structureId !== model.userStructureId ? Cmd.batch([
+                    fetchChildrenCmd(structureId),
+                    fetchStatsCmd(structureId)
+                ]) : Cmd.none
+            );
+        })
 
-            let nextModel = { ...model };
+        .with({ type: 'REFRESH_CLICKED' }, () => {
+            return ret(
+                {
+                    ...model,
+                    children: RemoteData.loading(),
+                    stats: RemoteData.loading()
+                },
+                Cmd.batch([
+                    fetchChildrenCmd(model.userStructureId),
+                    fetchStatsCmd(model.userStructureId)
+                ])
+            );
+        })
 
-            // Sincronizar ID de estructura si ha cambiado o si no hemos pedido datos aún
-            const shouldFetch = (structureId && structureId !== model.userStructureId) ||
-                (structureId && model.children.type === 'NotAsked');
+        .with({ type: 'TOGGLE_BALANCE' }, () => {
+            return singleton({ ...model, showBalance: !model.showBalance });
+        })
 
-            if (shouldFetch) {
-                nextModel.userStructureId = structureId;
-                nextModel.children = RemoteData.loading();
-                nextModel.stats = RemoteData.loading();
-                const cmd = Cmd.batch([fetchChildrenCmd(structureId), fetchStatsCmd(structureId)]);
-                return ret(nextModel, cmd);
-            }
+        .with({ type: 'NAVIGATE_TO_NOTIFICATIONS' }, () => {
+            return ret(model, Cmd.navigate('/notifications'));
+        })
 
-            return singleton(nextModel);
+        .with({ type: 'NAVIGATE_TO_DETAILS' }, ({ id, name }) => {
+            return ret(model, Cmd.navigate({
+                pathname: '/colector/details/[id]',
+                params: { id, title: name }
+            }));
+        })
+
+        .with({ type: 'NAVIGATE_TO_RULES' }, ({ structureId }) => {
+            return ret(model, Cmd.navigate({
+                pathname: '/colector/rules',
+                params: { id_structure: structureId }
+            }));
         })
 
         .exhaustive();

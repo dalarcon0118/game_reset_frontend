@@ -15,7 +15,7 @@ import { ApplicationProvider, Button, Icon } from '@ui-kitten/components';
 import { roleToScreenMap, routes } from '../config/routes';
 import { ArrowLeft } from "lucide-react-native";
 import { logger } from '../shared/utils/logger';
-import { useNotificationStore } from '../features/notification/core/store';
+import { useNotificationStore, selectNotificationDispatch } from '../features/notification/core/store';
 import { FETCH_NOTIFICATIONS_REQUESTED } from '../features/notification/core/msg';
 
 // Register global error handlers
@@ -60,6 +60,7 @@ export default function RootLayoutNav() {
 function RootLayout() {
   const { isAuthenticated, isLoading, user, checkLoginStatus, loadSavedUsername } = useAuth();
   const pathname = usePathname();
+  const notificationDispatch = useNotificationStore(selectNotificationDispatch);
 
   useEffect(() => {
     loadSavedUsername();
@@ -72,15 +73,20 @@ function RootLayout() {
     if (isLoading) return;
 
     if (user && isAuthenticated) {
+      // Initialize notifications when authenticated
+      notificationDispatch(FETCH_NOTIFICATIONS_REQUESTED());
+
       // Si estamos autenticados y estamos en la página de login, redirigir al dashboard
       if (pathname === '/login' || pathname === '/') {
         const targetPath = user.role ? roleToScreenMap[user.role] : '+not-found';
-        console.log('User authenticated, redirecting to dashboard:', targetPath);
-        router.replace(targetPath as any);
+        if (targetPath && router) {
+          console.log('User authenticated, redirecting to dashboard:', targetPath);
+          router.replace(targetPath as any);
+        }
       }
     } else {
       // Si NO estamos autenticados y NO estamos en la página de login, redirigir al login
-      if (pathname !== '/login') {
+      if (pathname !== '/login' && router) {
         console.log('User not authenticated, redirecting to login');
         router.replace('/login');
       }

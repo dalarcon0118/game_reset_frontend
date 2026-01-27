@@ -15,10 +15,21 @@ import Constants from 'expo-constants';
 // En emuladores de Android, localhost es el propio emulador. 
 // Para acceder al host (tu máquina), usa 10.0.2.2
 const getDevelopmentBaseUrl = () => {
+  // En emuladores de Android, localhost es el propio emulador. 
+  // Para acceder al host (tu máquina), usa 10.0.2.2 o la IP detectada por Expo
+  
+  // Intentamos obtener la IP del host desde Expo Constants
+  const debuggerHost = Constants.expoConfig?.hostUri;
+  const host = debuggerHost?.split(':').shift();
+  
+  if (host) {
+    console.log('Detected Host IP from Expo:', host);
+    return `http://${host}:8000/api`;
+  }
+
   if (Platform.OS === 'android') {
-    // Intentar primero con la IP de la red local del host si 10.0.2.2 falla
-    // Tu IP local detectada es 10.0.0.169
-    return 'http://10.0.0.169:8000/api';
+    // Fallback para Android si no se detecta hostUri
+    return 'http://10.0.2.2:8000/api';
   }
   return 'http://localhost:8000/api';
 };

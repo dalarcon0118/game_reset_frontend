@@ -66,13 +66,17 @@ export const Cmd = {
         });
         return flat;
     },
-    navigate: (config: {
+    navigate: (config: string | {
         pathname: string,
         params?: Record<string, any>,
         method?: 'push' | 'replace' | 'back'
     }): CommandDescriptor => ({
         type: 'NAVIGATE',
-        payload: config
+        payload: typeof config === 'string' ? { pathname: config } : config
+    }),
+    back: (): CommandDescriptor => ({
+        type: 'NAVIGATE',
+        payload: { method: 'back', pathname: '' }
     }),
     sleep: (ms: number, msg: any): CommandDescriptor => ({
         type: 'SLEEP',

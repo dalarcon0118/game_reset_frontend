@@ -107,10 +107,24 @@ export const effectHandlers = {
             return;
         }
 
-        if (method === 'replace') {
-            router.replace({ pathname: pathname as any, params });
-        } else {
-            router.push({ pathname: pathname as any, params });
+        if (!pathname) {
+            logger.error(`Navigation failed - missing pathname for method ${method}`, 'NAVIGATE', { payload });
+            return;
+        }
+
+        if (!router) {
+            logger.error(`Navigation failed - expo-router 'router' is undefined`, 'NAVIGATE');
+            return;
+        }
+
+        try {
+            if (method === 'replace') {
+                router.replace({ pathname: pathname as any, params });
+            } else {
+                router.push({ pathname: pathname as any, params });
+            }
+        } catch (error) {
+            logger.error(`Navigation failed - router error`, 'NAVIGATE', error, { pathname, method });
         }
     },
     'SLEEP': async (payload: { ms: number, msg: any }, dispatch: (msg: any) => void) => {

@@ -3,10 +3,13 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
-    "start": "EXPO_ROUTER_APP_ROOT=app expo start",
-    "start:dev": "EXPO_PUBLIC_APP_ENV=development EXPO_NO_TELEMETRY=1 EXPO_ROUTER_APP_ROOT=app expo start",
-    "start:render": "EXPO_PUBLIC_APP_ENV=production EXPO_NO_TELEMETRY=1 EXPO_ROUTER_APP_ROOT=app expo start",
+    "start": "node start-dev.js",
+    "start:dev": "node start-dev.js",
+    "start:render": "node start-dev.js",
     "dev": "npm run start:dev",
     "render": "npm run start:render",
     "build:web": "EXPO_ROUTER_APP_ROOT=app expo export --platform web",
@@ -64,6 +67,7 @@
     "react-native-view-shot": "~4.0.3",
     "react-native-web": "^0.19.13",
     "react-native-webview": "13.12.5",
+    "web-streams-polyfill": "^4.2.0",
     "zustand": "^5.0.5"
   },
   "overrides": {

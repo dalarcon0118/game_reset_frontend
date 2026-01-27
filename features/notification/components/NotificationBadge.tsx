@@ -15,7 +15,7 @@ export const NotificationBadge: React.FC<NotificationBadgeProps> = ({
   size = 'small',
   status = 'danger',
 }) => {
-  const { model } = useNotificationStore.getState();
+  const model = useNotificationStore((state) => state.model);
   
   const unreadCount = model.unreadCount;
   

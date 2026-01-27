@@ -16,4 +16,6 @@ export interface Model {
     stats: WebData<DashboardStats>;
     currentDate: string;
     userStructureId: string | null;
+    showBalance: boolean;
+    user: any;
 }

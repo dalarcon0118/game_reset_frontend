@@ -24,6 +24,33 @@ export const createElmStore = <TModel, TMsg>(
         dispatch: (msg: TMsg) => void;
         init: (params?: any) => void;
     }>((set, get) => {
+        // --- Storm Protection ---
+        let msgCount = 0;
+        let lastMsgTime = Date.now();
+        const MAX_MSGS_PER_SECOND = 50;
+        let isStorming = false;
+
+        const checkStorm = (msgType: string) => {
+            const now = Date.now();
+            if (now - lastMsgTime < 1000) {
+                msgCount++;
+            } else {
+                msgCount = 1;
+                lastMsgTime = now;
+                isStorming = false;
+            }
+
+            if (msgCount > MAX_MSGS_PER_SECOND && !isStorming) {
+                isStorming = true;
+                logger.error(
+                    `Message Storm Detected! More than ${MAX_MSGS_PER_SECOND} messages in 1s. Possible infinite loop with: ${msgType}`,
+                    'ENGINE_STORM_PROTECTION'
+                );
+                return true;
+            }
+            return isStorming;
+        };
+
         const executeCmds = (cmd: Cmd) => {
             const flattenCmds = (c: Cmd): CommandDescriptor[] => {
                 if (!c) return [];
@@ -72,8 +99,11 @@ export const createElmStore = <TModel, TMsg>(
                 }
             },
             dispatch: (msg: TMsg) => {
+                const msgType = (msg as any).type || 'UNKNOWN';
+                if (checkStorm(msgType)) return;
+
                 let cmdToRun: Cmd = null;
-                logger.debug(`Dispatching Msg: ${(msg as any).type || 'UNKNOWN'}`, 'ENGINE', msg);
+                logger.debug(`Dispatching Msg: ${msgType}`, 'ENGINE', msg);
                 set((state) => {
                     const [nextModel, cmd] = update(state.model, msg);
                     cmdToRun = cmd;
@@ -182,10 +212,21 @@ export const createElmStore = <TModel, TMsg>(
             return ids;
         };
 
+        let lastIds = new Set<string>();
+
         const manageSubscriptions = (model: TModel, dispatch: (msg: TMsg) => void) => {
             const currentSub = subscriptions(model);
             const currentIds = getActiveIds(currentSub);
 
+            // Evitar re-procesamiento si los IDs de las subscripciones no han cambiado
+            const idsChanged = currentIds.size !== lastIds.size ||
+                Array.from(currentIds).some(id => !lastIds.has(id));
+
+            if (!idsChanged) {
+                return;
+            }
+
+            lastIds = currentIds;
             cleanupSubs(currentIds);
             processSub(currentSub, dispatch);
         };

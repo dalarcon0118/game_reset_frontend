@@ -188,6 +188,8 @@ const apiClient = {
         }
 
         const currentToken = await this.getAuthToken();
+        const fullUrl = `${settings.api.baseUrl}${endpoint}`;
+
         const config: RequestInit = {
           ...fetchOptions,
           headers: {
@@ -197,10 +199,10 @@ const apiClient = {
             ...fetchOptions.headers,
           },
           signal: abortSignal || controller.signal,
-          credentials: 'include',
+          // Removed credentials: 'include' to avoid CORS issues with JWT on Android/iOS
         };
 
-        const response = await fetch(`${settings.api.baseUrl}${endpoint}`, config);
+        const response = await fetch(fullUrl, config);
         clearTimeout(id);
 
         if (!response.ok) {
@@ -285,6 +287,14 @@ const apiClient = {
 
       } catch (error) {
         clearTimeout(id);
+
+        const fullUrl = `${settings.api.baseUrl}${endpoint}`;
+        logger.error(`Network or Request Error: ${endpoint}`, 'API', {
+          url: fullUrl,
+          message: error instanceof Error ? error.message : 'Unknown error',
+          error
+        });
+
         if (error instanceof ApiClientError) throw error;
         if (error instanceof Error && error.name === 'AbortError') {
           logger.debug('Request aborted', 'API', { endpoint });

@@ -10,23 +10,39 @@ import { singleton, ret } from '@/shared/core/return';
 import { NotificationService } from '../../../shared/services/NotificationService';
 import { useAuthStore } from '../../auth/store/store';
 import apiClient from '@/shared/services/ApiClient';
+import settings from '@/config/settings';
 
 // Subscriptions
 export const subscriptions = (model: Model) => {
     // Sync with Auth store for user changes
     const authSub = Sub.watchStore(
         useAuthStore,
-        (state: any) => state.user,
+        (state: any) => state.model?.user,
         (user) => ({ type: 'AUTH_USER_SYNCED', user }),
         'notification-auth-sync'
     );
 
-    // Watch for token changes - Note: in this app token is usually in SecureStore 
-    // but might be accessible via ApiClient or TokenService. 
-    // If it's not in AuthModel, we might need another way to sync it.
-    // For now, let's assume it might be in the user object or we'll get it on demand.
+    // SSE Subscription for real-time notifications
+    // We only enable it if we have an authToken and a currentUser
+    const subs = [authSub];
 
-    return Sub.batch([authSub]);
+    if (model.authToken && model.currentUser) {
+        const sseUrl = `${settings.api.baseUrl}/notifications/stream/`;
+        const sseSub = Sub.sse(
+            sseUrl,
+            (payload) => {
+                if (payload.type === 'NOTIFICATION_CREATED') {
+                    return { type: 'ADD_NOTIFICATION', notification: payload.data };
+                }
+                return { type: 'NONE' };
+            },
+            'notifications-sse',
+            { 'Authorization': `Bearer ${model.authToken}` }
+        );
+        subs.push(sseSub);
+    }
+
+    return Sub.batch(subs);
 };
 
 // Helper function to calculate unread count
@@ -287,6 +303,24 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
         })
 
         .with({ type: 'AUTH_USER_SYNCED' }, ({ user }) => {
+            // Only update and trigger task if the user has actually changed OR if we don't have a token
+            const currentUserId = model.currentUser?.id || model.currentUser?.pk;
+            const nextUserId = user?.id || user?.pk;
+
+            // If user is null, reset state
+            if (!user) {
+                return singleton({
+                    ...model,
+                    currentUser: null,
+                    authToken: null
+                });
+            }
+
+            // If user is the same AND we already have a token, do nothing
+            if (currentUserId === nextUserId && model.authToken !== null) {
+                return singleton(model);
+            }
+
             return ret(
                 { ...model, currentUser: user },
                 Cmd.task({
@@ -298,6 +332,9 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
         })
 
         .with({ type: 'AUTH_TOKEN_UPDATED' }, ({ token }) => {
+            if (model.authToken === token) {
+                return singleton(model);
+            }
             return singleton({ ...model, authToken: token });
         })
 
@@ -308,6 +345,48 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
             allNotifications: [],
             selectedNotification: null
         }))
+
+        .with({ type: 'NAVIGATE_TO_DETAIL' }, ({ notification }) => {
+            const notificationParam = encodeURIComponent(JSON.stringify(notification));
+            const navigateCmd = Cmd.navigate(`/notification/detail?notification=${notificationParam}`);
+
+            // Si la notificación está pendiente, también disparamos la marca de lectura
+            if (notification.status === 'pending') {
+                const updatedNotifications = updateNotificationStatus(
+                    model.allNotifications || [],
+                    notification.id,
+                    'read'
+                );
+
+                const filteredNotifications = filterNotifications(updatedNotifications, model.currentFilter);
+                const unreadCount = calculateUnreadCount(updatedNotifications);
+
+                return ret(
+                    {
+                        ...model,
+                        selectedNotification: notification,
+                        allNotifications: updatedNotifications,
+                        notifications: RemoteData.success(filteredNotifications),
+                        unreadCount
+                    },
+                    Cmd.batch([navigateCmd, markAsReadCmd(notification.id)])
+                );
+            }
+
+            return ret(
+                { ...model, selectedNotification: notification },
+                navigateCmd
+            );
+        })
+
+        .with({ type: 'NAVIGATE_BACK' }, () => {
+            return ret(
+                { ...model, selectedNotification: null },
+                Cmd.back()
+            );
+        })
+
+        .with({ type: 'NONE' }, () => singleton(model))
 
         .exhaustive();
 

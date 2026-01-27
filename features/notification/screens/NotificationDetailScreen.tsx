@@ -1,47 +1,47 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { Layout, TopNavigation, TopNavigationAction, Icon, Button } from '@ui-kitten/components';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { AppNotification } from '../core/model';
-import { useNotificationStore } from '../core/store';
-import { MARK_AS_READ_REQUESTED, NOTIFICATION_DESELECTED } from '../core/msg';
+import { Layout, TopNavigation, TopNavigationAction, Button } from '@ui-kitten/components';
+import { useLocalSearchParams } from 'expo-router';
+import { ArrowLeft, Info, AlertTriangle, AlertCircle, CheckCircle2, Bell } from 'lucide-react-native';
+import { AppNotification, Model } from '../core/model';
+import { useNotificationStore, selectNotificationModel, selectNotificationDispatch } from '../core/store';
+import { NAVIGATE_BACK } from '../core/msg';
 
 export default function NotificationDetailScreen() {
-  const router = useRouter();
+  const model = useNotificationStore(selectNotificationModel) as Model;
+  const dispatch = useNotificationStore(selectNotificationDispatch);
+
+  // Usamos la notificación del modelo si está seleccionada, sino intentamos parsear de los params
   const params = useLocalSearchParams();
   const notificationParam = params.notification;
-  
-  // Parse the notification from the route params
-  const notification: AppNotification = typeof notificationParam === 'string' 
-    ? JSON.parse(decodeURIComponent(notificationParam)) 
-    : notificationParam as any;
-    
-  const { model, dispatch } = useNotificationStore.getState();
 
-  useEffect(() => {
-    if (notification && notification.status === 'pending') {
-      dispatch({ type: 'MARK_AS_READ_REQUESTED', notificationId: notification.id });
-    }
-    
-    return () => {
-      if (notification) {
-        dispatch(NOTIFICATION_DESELECTED());
-      }
-    };
-  }, [notification?.id, notification?.status]);
+  const notificationFromParams: AppNotification | null = typeof notificationParam === 'string'
+    ? JSON.parse(decodeURIComponent(notificationParam))
+    : null;
+
+  const notification = model.selectedNotification || notificationFromParams;
+
+  if (!notification) {
+    return (
+      <Layout style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <Text>No se encontró la notificación</Text>
+        <Button onPress={() => dispatch(NAVIGATE_BACK())}>Volver</Button>
+      </Layout>
+    );
+  }
 
   const getStatusIcon = () => {
     switch (notification.type) {
       case 'info':
-        return <Icon name="info-outline" fill="#2196F3" width={32} height={32} />;
+        return <Info size={32} color="#2196F3" />;
       case 'warning':
-        return <Icon name="alert-triangle-outline" fill="#FF9800" width={32} height={32} />;
+        return <AlertTriangle size={32} color="#FF9800" />;
       case 'error':
-        return <Icon name="alert-circle-outline" fill="#F44336" width={32} height={32} />;
+        return <AlertCircle size={32} color="#F44336" />;
       case 'success':
-        return <Icon name="checkmark-circle-2-outline" fill="#4CAF50" width={32} height={32} />;
+        return <CheckCircle2 size={32} color="#4CAF50" />;
       default:
-        return <Icon name="bell-outline" fill="#757575" width={32} height={32} />;
+        return <Bell size={32} color="#757575" />;
     }
   };
 
@@ -57,12 +57,16 @@ export default function NotificationDetailScreen() {
   };
 
   const handleBackAction = () => {
-    router.back();
+    dispatch(NAVIGATE_BACK());
   };
 
- const BackAction = () => (
+  const BackAction = () => (
     <TopNavigationAction
-      icon={(props) => <Icon {...props} name="arrow-back" />}
+      icon={(props: any) => (
+        <View style={props?.style as any}>
+          <ArrowLeft size={24} color="#2E3A59" />
+        </View>
+      )}
       onPress={handleBackAction}
     />
   );
@@ -74,7 +78,7 @@ export default function NotificationDetailScreen() {
         alignment="center"
         accessoryLeft={BackAction}
       />
-      
+
       <ScrollView style={styles.container}>
         <View style={styles.header}>
           <View style={styles.iconContainer}>
@@ -98,7 +102,7 @@ export default function NotificationDetailScreen() {
         <View style={styles.content}>
           <Text style={styles.title}>{notification.title}</Text>
           <Text style={styles.message}>{notification.message}</Text>
-          
+
           <View style={styles.metadata}>
             <Text style={styles.sectionTitle}>Detalles</Text>
             <Text style={styles.metadataText}>Fecha de creación: {formatDate(notification.createdAt)}</Text>
@@ -204,5 +208,5 @@ const styles = StyleSheet.create({
   },
   markAsReadButton: {
     width: '100%',
- },
+  },
 });

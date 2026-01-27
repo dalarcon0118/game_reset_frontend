@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../../auth';
 import { useDataFetch } from '../../../../shared/hooks/useDataFetch';
@@ -192,7 +193,11 @@ export const useSettings = (): UseSettingsReturn => {
       console.error('Error toggling rule status:', error);
       // Recargar datos para asegurar consistencia
       loadRules();
-      // TODO: Mostrar notificación de error al usuario
+      // Mostrar notificación de error al usuario
+      Alert.alert(
+        'Error',
+        'No se pudo cambiar el estado de la regla. Por favor, inténtalo de nuevo.'
+      );
     }
   }, [getCurrentUserStructureId, loadRules]);
 

@@ -10,12 +10,14 @@ const initialModel: Model = {
     stats: RemoteData.notAsked(),
     currentDate: '', // Will be populated from backend
     userStructureId: null,
+    showBalance: true,
+    user: null,
 };
 
 const store = createElmStore<Model, Msg>(
     initialModel,
     update,
-    effectHandlers,
+    effectHandlers as any,
     subscriptions
 );
 

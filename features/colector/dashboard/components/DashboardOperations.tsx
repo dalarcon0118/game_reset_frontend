@@ -2,7 +2,6 @@ import React from 'react';
 import { StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
 import { Text } from '@ui-kitten/components';
 import { ChevronRight } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
 
 import { COLORS } from '@/shared/components/constants';
 import { Flex } from '@/shared/components/flex';
@@ -10,6 +9,8 @@ import { Label } from '@/shared/components/label';
 import { ColectorOperationCard } from '../../components/ColectorOperationCard';
 import { ButtonKit } from '@/shared/components';
 import { ChildStructure } from '@/shared/services/Structure';
+import { useDashboardStore, selectDashboardDispatch } from '../core';
+import { NAVIGATE_TO_DETAILS, NAVIGATE_TO_RULES } from '../core/msg';
 
 interface DashboardOperationsProps {
   children: ChildStructure[] | null | undefined;
@@ -18,7 +19,7 @@ interface DashboardOperationsProps {
 }
 
 export function DashboardOperations({ children, isLoading, onRefresh }: DashboardOperationsProps) {
-  const router = useRouter();
+  const dispatch = useDashboardStore(selectDashboardDispatch);
 
   const childrenList = children || [];
 
@@ -53,8 +54,8 @@ export function DashboardOperations({ children, isLoading, onRefresh }: Dashboar
               key={index}
               nodeId={child.id}
               name={child.name}
-              onPress={() => router.push({ pathname: '/colector/details/[id]', params: { id: child.id, title: child.name } })}
-              onReglamentoPress={() => router.push({ pathname: '/colector/rules', params: { id_structure: child.id } })}
+              onPress={() => dispatch(NAVIGATE_TO_DETAILS(child.id, child.name))}
+              onReglamentoPress={() => dispatch(NAVIGATE_TO_RULES(child.id))}
             />
           ))
         ) : (
