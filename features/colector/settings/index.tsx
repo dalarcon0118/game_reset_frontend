@@ -9,7 +9,8 @@ import {
   Lock,
   FileText,
   Settings,
-  Save
+  Save,
+  LogOut
 } from 'lucide-react-native';
 import LayoutConstants from '@/constants/Layout';
 import { Flex, Label, Card, IconBox, ButtonKit } from '@/shared/components';
@@ -279,6 +280,36 @@ const ModulesSection = ({
   );
 };
 
+const LogoutSection = ({ 
+  isExpanded, 
+  onToggle, 
+  onLogout 
+}: { 
+  isExpanded: boolean; 
+  onToggle: () => void;
+  onLogout: () => void;
+}) => {
+  const theme = useTheme();
+  return (
+    <AccordionItem
+      title="Sesión"
+      icon={<LogOut size={20} color={theme['color-danger-500']} />}
+      isExpanded={isExpanded}
+      onPress={onToggle}
+    >
+      <Flex vertical padding="m" gap={12}>
+        <Label type="detail">Cerrar la sesión actual de tu cuenta.</Label>
+        <ButtonKit 
+          label="Cerrar Sesión"
+          status="danger"
+          accessoryLeft={() => <LogOut size={18} color="white" />}
+          onPress={onLogout}
+        />
+      </Flex>
+    </AccordionItem>
+  );
+};
+
 export default function SettingsScreen() {
   const theme = useTheme();
   const { user } = useAuth();
@@ -297,6 +328,7 @@ export default function SettingsScreen() {
     handleToggleModule,
     handleModifyRule,
     handleToggleRuleStatus,
+    handleLogout,
   } = useSettings();
 
   return (
@@ -326,7 +358,7 @@ export default function SettingsScreen() {
             <UserSection 
               isExpanded={expandedSection === 'user'} 
               onToggle={() => toggleSection('user')}
-              user={user}
+              user={user as any}
             />
             
             <PasswordSection 
@@ -350,6 +382,12 @@ export default function SettingsScreen() {
               onToggle={() => toggleSection('modules')}
               modules={modules}
               onToggleModule={handleToggleModule}
+            />
+
+            <LogoutSection 
+              isExpanded={expandedSection === 'logout'} 
+              onToggle={() => toggleSection('logout')}
+              onLogout={handleLogout}
             />
           </Flex>
         </Flex>

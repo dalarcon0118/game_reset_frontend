@@ -33,11 +33,12 @@ interface UseSettingsReturn {
   handleToggleModule: (key: keyof ModulesState) => void;
   handleModifyRule: (rule: TemplateWithStatus) => void;
   handleToggleRuleStatus: (rule: TemplateWithStatus, checked: boolean) => Promise<void>;
+  handleLogout: () => void;
 }
 
 export const useSettings = (): UseSettingsReturn => {
   const router = useRouter();
-  const { user, checkLoginStatus } = useAuth();
+  const { user, checkLoginStatus, logout } = useAuth();
 
   // Estados locales
   const [expandedSection, setExpandedSection] = useState<string | null>('user');
@@ -217,5 +218,6 @@ export const useSettings = (): UseSettingsReturn => {
     handleToggleModule,
     handleModifyRule,
     handleToggleRuleStatus,
+    handleLogout: logout,
   };
 };

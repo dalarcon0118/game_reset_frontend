@@ -147,6 +147,10 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
             }));
         })
 
+        .with({ type: 'NAVIGATE_TO_SETTINGS' }, () => {
+            return ret(model, Cmd.navigate('/colector/settings'));
+        })
+
         .exhaustive();
 
     return [result.model, result.cmd];

@@ -7,7 +7,7 @@ import { COLORS } from '@/shared/components/constants';
 import { Flex } from '@/shared/components/flex';
 import { NotificationBadge } from '@/features/notification/components/NotificationBadge';
 import { useDashboardStore, selectDashboardModel, selectDashboardDispatch } from '../core';
-import { TOGGLE_BALANCE, NAVIGATE_TO_NOTIFICATIONS } from '../core/msg';
+import { TOGGLE_BALANCE, NAVIGATE_TO_NOTIFICATIONS, NAVIGATE_TO_SETTINGS } from '../core/msg';
 import { Model } from '../core/model';
 
 interface DashboardHeaderProps {
@@ -25,9 +25,13 @@ export function DashboardHeader({ isLoading, onRefresh }: DashboardHeaderProps) 
       {/* Top Row: User Info and App Name */}
       <Flex justify="between" align="center" margin={[{ type: 'bottom', value: 15 }]}>
         <Flex align="center" gap={10}>
-          <View style={styles.profileIcon}>
+          <TouchableOpacity 
+            style={styles.profileIcon}
+            onPress={() => dispatch(NAVIGATE_TO_SETTINGS())}
+            activeOpacity={0.7}
+          >
             <User size={24} color={COLORS.primary} />
-          </View>
+          </TouchableOpacity>
           <View>
             <Text category="s1" style={styles.userName}>{user?.username || 'Usuario'}</Text>
             <Text category="c1" style={styles.structureName}>{user?.structure?.name}</Text>
