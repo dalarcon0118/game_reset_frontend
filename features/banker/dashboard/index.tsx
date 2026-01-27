@@ -3,10 +3,10 @@ import { StyleSheet, SafeAreaView } from 'react-native';
 
 import { COLORS } from '@/shared/components/constants';
 import { Flex } from '@/shared/components/flex';
-import { DashboardHeader } from './DashboardHeader';
-import { DashboardStats } from './DashboardStats';
-import { DashboardOperations } from './DashboardOperations';
-import { BankHealth } from './BankHealth';
+import { DashboardHeader } from './dashboard_header';
+import { DashboardStats } from './dashboard_stats';
+import { DashboardOperations } from './dashboard_operations';
+import { BankHealth } from './bank_health';
 import { useTheme } from '@ui-kitten/components';
 import { RefreshControl } from 'react-native';
 import { useDashboardStore, selectDashboardModel, selectDashboardDispatch } from './core';

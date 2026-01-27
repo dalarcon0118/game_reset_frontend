@@ -3,7 +3,7 @@ import { Cmd } from '@/shared/core/cmd';
 import { Model as GlobalModel } from '../../core/model';
 import { SuccessMsg, SuccessMsgType } from './success.types';
 import { match } from 'ts-pattern';
-import { SharingService } from '@/shared/services/Sharing';
+import { SharingService } from '@/shared/services/sharing';
 import { RemoteDataHttp } from '@/shared/core/remote.data.http';
 import { RemoteData } from '@/shared/core/remote.data';
 

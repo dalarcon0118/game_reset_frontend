@@ -4,7 +4,7 @@ import { FijosMsg, FijosMsgType } from './fijos.types';
 import { Cmd } from '@/shared/core/cmd';
 import { FijosCorridosBet } from '@/types';
 import { Return, singleton, ret } from '@/shared/core/return';
-import { AnnotationTypes, GameTypes } from '@/constants/Bet';
+import { AnnotationTypes, GameTypes } from '@/constants/bet';
 import { splitStringToPairs, generateRandomId } from '../../shared/utils/numbers';
 import { RemoteData } from '@/shared/core/remote.data';
 import { ListData } from '../bet-list/list.types';

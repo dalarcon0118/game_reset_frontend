@@ -5,7 +5,7 @@ import { Cmd } from '@/shared/core/cmd';
 import { Sub, SubDescriptor } from '@/shared/core/sub';
 import { RemoteDataHttp } from '@/shared/core/remote.data.http';
 import { RemoteData } from '@/shared/core/remote.data';
-import { StructureService } from '@/shared/services/Structure';
+import { StructureService } from '@/shared/services/structure';
 import { useDashboardStore } from '../../dashboard/core/store';
 import { singleton, ret, Return } from '@/shared/core/return';
 import { UpdateResult } from '@/shared/core/engine';

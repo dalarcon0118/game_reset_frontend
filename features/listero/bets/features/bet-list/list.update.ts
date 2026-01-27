@@ -5,7 +5,7 @@ import { Cmd } from '@/shared/core/cmd';
 import { BetType } from '@/types';
 import { Return, ret, singleton } from '@/shared/core/return';
 import { RemoteData } from '@/shared/core/remote.data';
-import { BetService } from '@/shared/services/Bet';
+import { BetService } from '@/shared/services/bet';
 
 const transformBetTypeToFijosCorridos = (bets: BetType[]): any[] => {
     const fijosCorridosMap = new Map<number, any>();

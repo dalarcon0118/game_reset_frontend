@@ -7,7 +7,7 @@ import {
     MARK_AS_READ_REQUESTED,
     RESET_STATE
 } from '../../../features/notification/core/msg';
-import { NotificationService } from '../../../shared/services/NotificationService';
+import { NotificationService } from '../../../shared/services/notification_service';
 
 const feature = loadFeature('./tests/features/notification/notification.feature');
 

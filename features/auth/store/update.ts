@@ -2,9 +2,9 @@
 import { match } from 'ts-pattern';
 import { AuthModel, AuthMsg, AuthMsgType } from './types';
 import { Cmd } from '@/shared/core/cmd';
-import { LoginService } from '@/shared/services/auth/LoginService';
+import { LoginService } from '@/shared/services/auth/login_service';
 import { RemoteDataHttp } from '@/shared/core/remote.data.http';
-import { TokenService } from '@/shared/services/TokenService';
+import { TokenService } from '@/shared/services/token_service';
 import { hashString } from '@/shared/utils/crypto';
 
 const loginService = LoginService();

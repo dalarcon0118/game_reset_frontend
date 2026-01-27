@@ -4,9 +4,9 @@ import { Msg } from './msg';
 import { update } from './update';
 import { RemoteData } from '@/shared/core/remote.data';
 import { RemoteDataHttp } from '@/shared/core/remote.data.http';
-import { StructureService } from '@/shared/services/Structure';
+import { StructureService } from '@/shared/services/structure';
 import { Cmd } from '@/shared/core/cmd';
-import { effectHandlers } from '@/shared/core/effectHandlers';
+import { effectHandlers } from '@/shared/core/effect_handlers';
 
 const createInitialModel = (id: number): Model => ({
     id,

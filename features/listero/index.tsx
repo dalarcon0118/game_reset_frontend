@@ -2,16 +2,16 @@
 // This module handles betting operations for the listero role
 
 // Export main screens/views
-export { BetsListScreen } from './bets/screens/BetsListScreen';
-export { EditListScreen } from './bets/screens/EditListScreen';
-//export { CreateBetScreen } from './bets/screens/CreateBetScreen';
+export { BetsListScreen } from './bets/screens/bets_list_screen';
+export { EditListScreen } from './bets/screens/edit_list_screen';
+//export { CreateBetScreen } from './bets/screens/create_bet_screen';
 
 // Export dashboard components
 export { default as DashboardScreen } from './dashboard/views';
 
 // Export bet rules and rewards screens
-export { RulesScreen } from './bets/screens/RulesScreen';
-export { RewardsScreen } from './bets/screens/RewardsScreen';
+export { RulesScreen } from './bets/screens/rules_screen';
+export { RewardsScreen } from './bets/screens/rewards_screen';
 
 // Export stores for advanced usage (if needed)
 export { useBetsStore, selectBetsModel, selectDispatch } from './bets/store';
@@ -34,4 +34,4 @@ export type {
 export type { GameType, WinningRecord } from '../../types';
 
 // Export constants
-export { GameTypes, GameTypeLabels, AnnotationTypes } from '../../constants/Bet';
+export { GameTypes, GameTypeLabels, AnnotationTypes } from '../../constants/bet';

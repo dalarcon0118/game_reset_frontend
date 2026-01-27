@@ -12,12 +12,12 @@ export type { AdminSection } from './core/model';
 // export { StructuresScreen } from './structures/screens/StructuresScreen';
 // export { UsersScreen } from './users/screens/UsersScreen';
 // export { DrawConfigScreen } from './draw-config/screens/DrawConfigScreen';
-// export { RulesScreen } from './rules/screens/RulesScreen';
+// export { RulesScreen } from './rules/screens/rules_screen';
 // export { DrawsScreen } from './draws/screens/DrawsScreen';
 // export { SeedGeneratorScreen } from './seed-generator/screens/SeedGeneratorScreen';
 
 // Placeholder dashboard screen
-export { AdminDashboardScreen } from './screens/AdminDashboardScreen';
+export { AdminDashboardScreen } from './screens/admin_dashboard_screen';
 
 // Types for external use
 export type {

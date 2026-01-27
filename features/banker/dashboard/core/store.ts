@@ -3,7 +3,7 @@ import { Model } from './model';
 import { Msg } from './msg';
 import { update, subscriptions } from './update';
 import { RemoteData } from '@/shared/core/remote.data';
-import { effectHandlers } from '@/shared/core/effectHandlers';
+import { effectHandlers } from '@/shared/core/effect_handlers';
 
 const initialModel: Model = {
     agencies: RemoteData.notAsked(),

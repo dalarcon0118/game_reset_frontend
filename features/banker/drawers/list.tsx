@@ -3,12 +3,12 @@ import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { withDataView } from '@/shared/components';
-import { ListeroDetails } from '@/shared/services/Structure';
-import { useTheme } from '@/shared/hooks/useTheme';
-import { DateNavigation } from '@/features/colector/drawers/views/DateNavigation';
-import { DrawItem } from '@/features/colector/drawers/views/DrawItem';
+import { ListeroDetails } from '@/shared/services/structure';
+import { useTheme } from '@/shared/hooks/use_theme';
+import { DateNavigation } from '@/features/colector/drawers/views/date_navigation';
+import { DrawItem } from '@/features/colector/drawers/views/draw_item';
 import { Header } from '../common/header';
-import { useDrawer } from './hook/useDrawer';
+import { useDrawer } from './hook/use_drawer';
 
 const formatDateToString = (date: Date) => {
   return date.toISOString().split('T')[0];

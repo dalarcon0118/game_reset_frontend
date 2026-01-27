@@ -1,5 +1,5 @@
 import { WebData } from '@/shared/core/remote.data';
-import { NodeFinancialSummary } from '@/shared/services/FinancialSummary';
+import { NodeFinancialSummary } from '@/shared/services/financial_summary';
 import { FinancialSummary } from '@/types';
 
 export type Msg =

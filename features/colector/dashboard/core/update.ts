@@ -5,8 +5,8 @@ import { Cmd } from '@/shared/core/cmd';
 import { Sub } from '@/shared/core/sub';
 import { RemoteDataHttp } from '@/shared/core/remote.data.http';
 import { RemoteData } from '@/shared/core/remote.data';
-import { StructureService, ChildStructure } from '@/shared/services/Structure';
-import { FinancialSummaryService } from '@/shared/services/FinancialSummary';
+import { StructureService, ChildStructure } from '@/shared/services/structure';
+import { FinancialSummaryService } from '@/shared/services/financial_summary';
 import { singleton, ret } from '@/shared/core/return';
 
 import { useAuthStore } from '@/features/auth/store/store';

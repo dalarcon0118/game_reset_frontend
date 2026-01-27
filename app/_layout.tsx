@@ -7,8 +7,8 @@ import { View, Text, StyleSheet, Platform } from 'react-native';
 import { Stack, usePathname, router, ErrorBoundary as ExpoErrorBoundary } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { useFrameworkReady } from '../hooks/useFrameworkReady';
-import { useAuth } from '../features/auth/hooks/useAuth';
+import { useFrameworkReady } from '../hooks/use_framework_ready';
+import { useAuth } from '../features/auth/hooks/use_auth';
 import { useColorScheme } from 'react-native';
 import * as eva from '@eva-design/eva'; // Import eva
 import { ApplicationProvider, Button, Icon } from '@ui-kitten/components';

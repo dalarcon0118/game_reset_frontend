@@ -1,5 +1,5 @@
 import { WebData } from '@/shared/core/remote.data';
-import { ChildStructure } from '@/shared/services/Structure';
+import { ChildStructure } from '@/shared/services/structure';
 import { DashboardStats } from './model';
 
 export type Msg =

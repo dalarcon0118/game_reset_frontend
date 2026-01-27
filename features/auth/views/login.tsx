@@ -3,7 +3,7 @@ import { StyleSheet, View, TouchableOpacity, SafeAreaView, Dimensions, ActivityI
 import { Text, Input, Button } from '@ui-kitten/components';
 import { Delete, User, Lock, Edit2 } from 'lucide-react-native';
 import { COLORS } from '@/shared/components/constants';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../hooks/use_auth';
 import { useAuthStore, selectAuthDispatch } from '../store/store';
 import { AuthMsgType } from '../store/types';
 import { Flex } from '@/shared/components';

@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'expo-router';
-import { BankerDashboardService, DashboardSummary } from '../services/BankerDashboardService';
-import { ChildStructure, StructureService } from '@/shared/services/Structure';
+import { BankerDashboardService, DashboardSummary } from '../services/banker_dashboard_service';
+import { ChildStructure, StructureService } from '@/shared/services/structure';
 import { useAuth } from '../../auth';
 import * as config from '@/config';
 

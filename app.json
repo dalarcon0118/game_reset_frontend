@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true
     },
@@ -16,7 +16,7 @@
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#ffffff"
       },
-      "usesCleartextTraffic": true
+      "package": "com.dalarcon0118.boltexponativewind"
     },
     "web": {
       "bundler": "metro",
@@ -30,6 +30,14 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "30dc4226-76b3-4aef-bf7c-f9e9b5640f23"
+      }
     }
   }
 }

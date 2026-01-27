@@ -2,7 +2,7 @@ import { createElmStore } from '@/shared/core/engine';
 import { Model, initialModel } from './model';
 import { Msg } from './msg';
 import { update } from './update';
-import { effectHandlers } from '@/shared/core/effectHandlers';
+import { effectHandlers } from '@/shared/core/effect_handlers';
 import { Sub } from '@/shared/core/sub';
 import { useDashboardStore } from '@/features/colector/dashboard/core/store';
 import { useDrawersStore } from '@/features/colector/drawers/core/store';

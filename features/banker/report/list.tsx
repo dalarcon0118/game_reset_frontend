@@ -4,12 +4,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Select, SelectItem, IndexPath, Datepicker } from '@ui-kitten/components';
 import { Flex, Label, Card } from '@/shared/components';
 import { Search, Filter, X } from 'lucide-react-native';
-import { useTheme } from '@/shared/hooks/useTheme';
+import { useTheme } from '@/shared/hooks/use_theme';
 import { useAuth } from '../../auth';
-import { IncidentService, Incident } from '@/shared/services/Incident';
-import { useDataFetch } from '@/shared/hooks/useDataFetch';
+import { IncidentService, Incident } from '@/shared/services/incident';
+import { useDataFetch } from '@/shared/hooks/use_data_fetch';
 import { useIsFocused } from '@react-navigation/native';
-import { ReportItem } from './components/ReportItem';
+import { ReportItem } from './components/report_item';
 import { mapIncidentToBankerReport } from './utils';
 
 export default function BankerReportsListScreen() {

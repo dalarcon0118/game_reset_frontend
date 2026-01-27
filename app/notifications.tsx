@@ -1,4 +1,4 @@
-import NotificationsScreen from '../features/notification/screens/NotificationsScreen';
+import NotificationsScreen from '../features/notification/screens/notifications_screen';
 
 export default NotificationsScreen;
 /*import { Link, Stack, usePathname } from 'expo-router';

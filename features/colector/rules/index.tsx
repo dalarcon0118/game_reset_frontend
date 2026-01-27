@@ -6,7 +6,7 @@ import { useRouter } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
 import { useRules, Rule } from './hook/hook.rule';
 import { Flex, Label, Card } from '@/shared/components';
-import { useTheme } from '@/shared/hooks/useTheme';
+import { useTheme } from '@/shared/hooks/use_theme';
 
 function Lista() {
   const { rules, toggleRule } = useRules();

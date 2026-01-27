@@ -1,4 +1,4 @@
-import { Incident } from '@/shared/services/Incident';
+import { Incident } from '@/shared/services/incident';
 
 export interface BankerReport {
     id: string;

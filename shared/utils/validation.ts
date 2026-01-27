@@ -1,5 +1,5 @@
 import jsonLogic from 'json-logic-js';
-import { ValidationRule } from '@/shared/services/ValidationRule';
+import { ValidationRule } from '@/shared/services/validation_rule';
 
 export interface BetData {
     bet_number: string;

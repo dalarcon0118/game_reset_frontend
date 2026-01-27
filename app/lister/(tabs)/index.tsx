@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {  StyleSheet, SafeAreaView } from 'react-native';
 import { useColorScheme } from 'react-native';
-import Colors from '@/constants/Colors';
+import Colors from '@/constants/colors';
 import { DashboardScreen as ListeroDashboard } from '../../../features/listero';
 
 

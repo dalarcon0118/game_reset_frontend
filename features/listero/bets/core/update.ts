@@ -20,7 +20,7 @@ import { updateSuccess } from '../features/success/success.update';
 import { updateLoteria } from '@/features/listero/games/loteria/loteria.update';
 import { ManagementMsgType } from '../features/management/management.types';
 import { CoreMsgType } from './msg';
-import { DrawService } from '@/shared/services/Draw';
+import { DrawService } from '@/shared/services/draw';
 import { RemoteDataHttp } from '@/shared/core/remote.data.http';
 import { RemoteData } from '@/shared/core/remote.data';
 

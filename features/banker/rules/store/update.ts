@@ -2,8 +2,8 @@ import { match } from 'ts-pattern';
 import { FETCH_RULES_REQUESTED, Model, Msg, RuleUpdateFormData } from './types';
 import { UpdateResult } from '@/shared/core/engine';
 import { Cmd } from '@/shared/core/cmd';
-import { ValidationRuleService } from '@/shared/services/ValidationRule';
-import { RewardRuleService } from '@/shared/services/RewardRule';
+import { ValidationRuleService } from '@/shared/services/validation_rule';
+import { RewardRuleService } from '@/shared/services/reward_rule';
 import { singleton, ret, Return } from '@/shared/core/return';
 import { Sub, SubDescriptor } from '@/shared/core/sub';
 

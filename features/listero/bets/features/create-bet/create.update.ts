@@ -1,7 +1,7 @@
 import { match } from 'ts-pattern';
 import { Model as GlobalModel } from '../../core/model';
 import { CreateMsgType, CreateMsg, Model } from './create.types';
-import { GameTypeCodes } from '@/constants/Bet';
+import { GameTypeCodes } from '@/constants/bet';
 import { Return, singleton, ret } from '@/shared/core/return';
 import { RemoteData } from '@/shared/core/remote.data';
 import { Cmd } from '@/shared/core/cmd';

@@ -3,10 +3,10 @@ import { StyleSheet, ScrollView, TouchableOpacity, View, ActivityIndicator } fro
 import { Select, SelectItem, Input } from '@ui-kitten/components';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Flex, Label, Card, ButtonKit, IconBox } from '@/shared/components';
-import { useTheme } from '@/shared/hooks/useTheme';
+import { useTheme } from '@/shared/hooks/use_theme';
 import { ArrowLeft, AlertTriangle, CheckCircle2, MapPin, Calendar } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { useReportsForm, INCIDENT_TYPES } from './hooks/useReportsForm';
+import { useReportsForm, INCIDENT_TYPES } from './hooks/use_reports_form';
 
 export default function BankerReportsFormScreen() {
   const { colors, spacing } = useTheme();

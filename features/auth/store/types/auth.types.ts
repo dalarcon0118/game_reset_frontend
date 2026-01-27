@@ -1,5 +1,5 @@
 // Auth state types - core authentication model
-import { UserRole } from '../../../../data/mockData';
+import { UserRole } from '../../../../data/mock_data';
 
 export interface User {
     id: number | string;

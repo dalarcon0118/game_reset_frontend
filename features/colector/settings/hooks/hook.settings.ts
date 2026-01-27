@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../../auth';
-import { useDataFetch } from '../../../../shared/hooks/useDataFetch';
-import { ValidationRuleService, StructureSpecificRule, RuleRepository } from '../../../../shared/services/ValidationRule';
+import { useDataFetch } from '../../../../shared/hooks/use_data_fetch';
+import { ValidationRuleService, StructureSpecificRule, RuleRepository } from '../../../../shared/services/validation_rule';
 
 interface ModulesState {
   notifications: boolean;

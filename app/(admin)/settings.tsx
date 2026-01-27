@@ -1,11 +1,11 @@
 import { View, StyleSheet, SafeAreaView } from 'react-native';
 import { useColorScheme } from 'react-native';
-import Colors from '@/constants/Colors';
-import Layout from '@/constants/Layout';
-import StyledText from '@/components/typography/StyledText';
-import Button from '@/components/ui/Button';
+import Colors from '@/constants/colors';
+import Layout from '@/constants/layout';
+import StyledText from '@/components/typography/styled_text';
+import Button from '@/components/ui/button';
 import { useAuth } from '../../features/auth';
-import { currentUser, roleDescriptions } from '@/data/mockData';
+import { currentUser, roleDescriptions } from '@/data/mock_data';
 
 export default function SettingsScreen() {
   const colorScheme = useColorScheme() ?? 'light';

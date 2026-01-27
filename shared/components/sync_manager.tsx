@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, Icon, Layout } from '@ui-kitten/components';
-import { useNetwork } from '../hooks/useNetwork';
-import { OfflineStorage, PendingBet } from '../services/OfflineStorage';
-import { BetService } from '../services/Bet';
+import { useNetwork } from '../hooks/use_network';
+import { OfflineStorage, PendingBet } from '../services/offline_storage';
+import { BetService } from '../services/bet';
 
 export const SyncManager: React.FC = () => {
   const { isOnline } = useNetwork();

@@ -6,7 +6,7 @@ import { useRouter } from 'expo-router';
 import { ArrowLeft, Plus } from 'lucide-react-native';
 import { useRuleStore, selectRules, selectDispatch } from './store';
 import { Flex, Label, Card } from '@/shared/components';
-import { useTheme } from '@/shared/hooks/useTheme';
+import { useTheme } from '@/shared/hooks/use_theme';
 import { ROUTER_BACK, ROUTER_GO, Rule, TOGGLE_RULE_REQUESTED } from './store/types';
 
 function Lista() {

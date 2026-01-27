@@ -1,4 +1,4 @@
-import apiClient from './ApiClient';
+import apiClient from './api_client';
 import settings from '@/config/settings';
 import { WinningRecord } from '@/types';
 

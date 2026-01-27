@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ValidationRuleService, ValidationRule } from '@shared/services/ValidationRule';
+import { ValidationRuleService, ValidationRule } from '@shared/services/validation_rule';
 
 export interface Rule {
   id: string;

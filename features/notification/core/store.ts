@@ -1,7 +1,7 @@
 import { createElmStore } from '@/shared/core/engine';
 import { Model } from './model';
 import { update, subscriptions } from './update';
-import { effectHandlers } from '@/shared/core/effectHandlers';
+import { effectHandlers } from '@/shared/core/effect_handlers';
 import { FETCH_NOTIFICATIONS_REQUESTED } from './msg';
 
 // Initial model

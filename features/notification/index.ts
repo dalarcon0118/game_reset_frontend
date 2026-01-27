@@ -15,6 +15,6 @@ export {
     REFRESH_NOTIFICATIONS,
     NOTIFICATION_ERROR
 } from './core/msg';
-export { NotificationList } from './components/NotificationList';
-export { NotificationItem } from './components/NotificationItem';
-export { NotificationService } from '../../shared/services/NotificationService';
+export { NotificationList } from './components/notification_list';
+export { NotificationItem } from './components/notification_item';
+export { NotificationService } from '../../shared/services/notification_service';

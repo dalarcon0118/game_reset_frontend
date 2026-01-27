@@ -4,7 +4,7 @@ import { Msg } from './msg';
 import { Cmd } from '@/shared/core/cmd';
 import { RemoteDataHttp } from '@/shared/core/remote.data.http';
 import { RemoteData } from '@/shared/core/remote.data';
-import { FinancialSummaryService } from '@/shared/services/FinancialSummary';
+import { FinancialSummaryService } from '@/shared/services/financial_summary';
 import { singleton, ret } from '@/shared/core/return';
 
 const fetchSummaryCmd = (nodeId: number): Cmd => {

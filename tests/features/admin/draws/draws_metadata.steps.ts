@@ -4,7 +4,7 @@ import { update } from '@features/admin/core/update';
 import { initialModel } from '@features/admin/core/initial.types';
 import { Model as AdminModel } from '@features/admin/core/model';
 
-const feature = loadFeature('./Tests/features/admin/draws/draws_metadata.feature');
+const feature = loadFeature('./tests/features/admin/draws/draws_metadata.feature');
 
 defineFeature(feature, (test) => {
   let model: AdminModel;

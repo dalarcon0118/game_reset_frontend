@@ -1,4 +1,4 @@
-import { UserRole } from '../data/mockData';
+import { UserRole } from '../data/mock_data';
 import { loginRoutes } from './routes/login';
 import { adminRoutes } from './routes/admin';
 import { listerRoutes } from './routes/lister';

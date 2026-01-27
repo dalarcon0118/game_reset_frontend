@@ -4,7 +4,7 @@ import { Msg } from './msg';
 import { Cmd } from '@/shared/core/cmd';
 import { RemoteDataHttp } from '@/shared/core/remote.data.http';
 import { RemoteData } from '@/shared/core/remote.data';
-import { StructureService } from '@/shared/services/Structure';
+import { StructureService } from '@/shared/services/structure';
 import { singleton, ret } from '@/shared/core/return';
 
 const formatDateToString = (date: Date) => {

@@ -7,9 +7,9 @@ import { Sub } from '@/shared/core/sub';
 import { RemoteDataHttp } from '@/shared/core/remote.data.http';
 import { RemoteData } from '@/shared/core/remote.data';
 import { singleton, ret } from '@/shared/core/return';
-import { NotificationService } from '../../../shared/services/NotificationService';
+import { NotificationService } from '../../../shared/services/notification_service';
 import { useAuthStore } from '../../auth/store/store';
-import apiClient from '@/shared/services/ApiClient';
+import apiClient from '@/shared/services/api_client';
 import settings from '@/config/settings';
 
 // Subscriptions

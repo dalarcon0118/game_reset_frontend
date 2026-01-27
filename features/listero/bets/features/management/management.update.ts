@@ -6,8 +6,8 @@ import { Cmd } from '@/shared/core/cmd';
 import { Return, ret, singleton } from '@/shared/core/return';
 import { RemoteData } from '@/shared/core/remote.data';
 import { RemoteDataHttp } from '@/shared/core/remote.data.http';
-import { BetService } from '@/shared/services/Bet';
-import { DrawService } from '@/shared/services/Draw';
+import { BetService } from '@/shared/services/bet';
+import { DrawService } from '@/shared/services/draw';
 
 // --- Sub-handlers for better modularity ---
 

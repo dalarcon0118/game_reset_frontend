@@ -1,4 +1,4 @@
-import WithRole from "@/features/auth/WithRole";
+import WithRole from "@/features/auth/with_role";
 import { useAuth } from '../../features/auth';
 import { Redirect } from "expo-router";
 /*
@@ -32,9 +32,9 @@ export default function IndexView() {
 import { StyleSheet, View, Text, TouchableOpacity, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LogOut } from 'lucide-react-native'; // Import an icon for logout
-import Colors from '@/constants/Colors'; // Import Colors
-import Layout from '@/constants/Layout'; // Import Layout
-import StyledText from '@/components/typography/StyledText'; // Assuming you have this
+import Colors from '@/constants/colors'; // Import Colors
+import Layout from '@/constants/layout'; // Import Layout
+import StyledText from '@/components/typography/styled_text'; // Assuming you have this
 import { useEffect } from "react";
 
 export default function AdminIndexView() { // Renamed component for clarity

@@ -12,11 +12,11 @@ import {
   Save,
   LogOut
 } from 'lucide-react-native';
-import LayoutConstants from '@/constants/Layout';
+import LayoutConstants from '@/constants/layout';
 import { Flex, Label, Card, IconBox, ButtonKit } from '@/shared/components';
 import { useAuth } from '../../auth';
-import { withDataView } from '@/shared/components/with_Data_View';
-import { User as UserType } from '@/data/mockData';
+import { withDataView } from '@/shared/components/with_data_view';
+import { User as UserType } from '@/data/mock_data';
 import { useSettings } from './hooks/hook.settings';
 
 interface AccordionItemProps {

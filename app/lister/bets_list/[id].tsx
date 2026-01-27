@@ -1,4 +1,4 @@
-import { BetsListScreen } from '@/features/listero/bets/screens/BetsListScreen';
+import { BetsListScreen } from '@/features/listero/bets/screens/bets_list_screen';
 import { useLocalSearchParams } from 'expo-router';
 
 export default function BetsListPage() {

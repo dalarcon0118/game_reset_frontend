@@ -1,5 +1,5 @@
 import { createElmStore } from '@/shared/core/engine';
-import { effectHandlers } from '@/shared/core/effectHandlers';
+import { effectHandlers } from '@/shared/core/effect_handlers';
 import { ProfileModel, ProfileMsg } from './profile.types';
 import { updateProfile, init } from './profile.update';
 

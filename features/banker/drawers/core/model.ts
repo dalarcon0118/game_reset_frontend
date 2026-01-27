@@ -1,5 +1,5 @@
 import { WebData } from '@/shared/core/remote.data';
-import { ListeroDetails } from '@/shared/services/Structure';
+import { ListeroDetails } from '@/shared/services/structure';
 
 export interface Model {
     id: number | null;

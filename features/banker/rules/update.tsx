@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Save, AlertTriangle } from 'lucide-react-native';
 import { Flex, Label, Card, ButtonKit } from '@/shared/components';
-import { useTheme } from '@/shared/hooks/useTheme';
+import { useTheme } from '@/shared/hooks/use_theme';
 import { useRuleStore, selectLoading, selectSaving, selectFormData } from './store';
 import { RuleSelector } from './selector';
 

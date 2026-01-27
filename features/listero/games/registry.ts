@@ -2,10 +2,10 @@ import React from 'react';
 import { match } from 'ts-pattern';
 
 // Import components directly (lazy loading can be added later if needed)
-import BolitaEntryScreen from './bolita/screens/BolitaEntryScreen';
-import BolitaListPlays from './bolita/screens/BolitaListPlays';
-import LoteriaEntryScreen from './loteria/screens/LoteriaEntryScreen';
-import LoteriaListPlays from './loteria/screens/LoteriaListPlays';
+import BolitaEntryScreen from './bolita/screens/bolita_entry_screen';
+import BolitaListPlays from './bolita/screens/bolita_list_plays';
+import LoteriaEntryScreen from './loteria/screens/loteria_entry_screen';
+import LoteriaListPlays from './loteria/screens/loteria_list_plays';
 
 // Game component type
 export type GameEntryComponent = React.ComponentType<{

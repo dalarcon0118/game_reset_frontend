@@ -3,14 +3,26 @@ global.ReadableStream = global.ReadableStream || require('web-streams-polyfill')
 
 // Learn more https://docs.expo.io/guides/customizing-metro
 const { getDefaultConfig } = require('expo/metro-config');
+const path = require('path');
+
+const projectRoot = __dirname;
+const workspaceRoot = path.resolve(projectRoot, '..');
 
 /** @type {import('expo/metro-config').MetroConfig} */
-const config = getDefaultConfig(__dirname);
+const config = getDefaultConfig(projectRoot);
+
+// 1. Watch all files within the monorepo
+config.watchFolders = [workspaceRoot];
+
+// 2. Let Metro know where to resolve packages and in what order
+config.resolver.nodeModulesPaths = [
+  path.resolve(projectRoot, 'node_modules'),
+  path.resolve(workspaceRoot, 'node_modules'),
+];
 
 // Add resolver to handle potential bridge issues
 config.resolver = {
   ...config.resolver,
-  unstable_enableSymlinks: false,
   assetExts: [
     ...config.resolver.assetExts,
     'bin',
@@ -37,19 +49,19 @@ config.resolver = {
     'mjs',
   ],
   unstable_conditionNames: ['require', 'react-native'],
+  /*
   resolveRequest: (context, moduleName, platform) => {
-    console.log(`[Metro] Resolving module: ${moduleName} from ${context.originModulePath}`);
     // Fix for "UnableToResolveError" when HMR or Metro tries to resolve with redundant prefix
     // e.g. "./frontend/node_modules/expo-router/entry" -> "./node_modules/expo-router/entry"
     if (moduleName.startsWith('./frontend/') || moduleName.startsWith('frontend/')) {
       const newModuleName = moduleName.replace(/^(\.\/)?frontend\//, './');
-      console.log(`[Metro] Resolving module: ${moduleName} -> ${newModuleName}`);
       return context.resolveRequest(context, newModuleName, platform);
     }
 
     // Default resolution
     return context.resolveRequest(context, moduleName, platform);
   },
+  */
 };
 
 // Add transformer to handle potential bridge communication issues
@@ -73,7 +85,6 @@ config.server = {
       // Fix for 404 error when requests include redundant /frontend/ prefix
       // This happens when the dev client expects the project root to be the monorepo root
       if (req.url.startsWith('/frontend/')) {
-        console.log(`[Metro] Rewriting URL: ${req.url} -> ${req.url.replace('/frontend/', '/')}`);
         req.url = req.url.replace('/frontend/', '/');
       }
 
