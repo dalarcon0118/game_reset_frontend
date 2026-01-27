@@ -25,6 +25,16 @@ export interface HttpPayload {
     abortSignal?: AbortSignal;
     msgCreator?: any;
 }
+
+// Navigation Guard State
+let lastNavigation = {
+    pathname: '',
+    params: JSON.stringify({}),
+    timestamp: 0
+};
+
+const NAVIGATION_THRESHOLD_MS = 500;
+
 export const effectHandlers = {
     'MSG': async (payload: any, dispatch: (msg: any) => void) => {
         dispatch(payload);
@@ -111,6 +121,31 @@ export const effectHandlers = {
             logger.error(`Navigation failed - missing pathname for method ${method}`, 'NAVIGATE', { payload });
             return;
         }
+
+        // --- Navigation Guard Implementation ---
+        const now = Date.now();
+        const currentParamsStr = JSON.stringify(params || {});
+        
+        if (
+            pathname === lastNavigation.pathname && 
+            currentParamsStr === lastNavigation.params && 
+            (now - lastNavigation.timestamp) < NAVIGATION_THRESHOLD_MS
+        ) {
+            logger.warn(
+                `Navigation blocked: Infinite loop or rapid redundant click detected to ${pathname}`,
+                'NAVIGATE_GUARD',
+                { pathname, params, elapsed: now - lastNavigation.timestamp }
+            );
+            return;
+        }
+
+        // Update last navigation state
+        lastNavigation = {
+            pathname,
+            params: currentParamsStr,
+            timestamp: now
+        };
+        // ----------------------------------------
 
         if (!router) {
             logger.error(`Navigation failed - expo-router 'router' is undefined`, 'NAVIGATE');

@@ -72,9 +72,10 @@ export function useDataFetch<T, P extends any[] = []>(
       handleSetError(null);
       handleSetData(null); // Reset data at the start of each fetch
 
-      const result = fetchFn instanceof Promise
-        ? await fetchFn
-        : await fetchFn(...args);
+      const currentFetcher = fetcherRef.current;
+      const result = currentFetcher instanceof Promise
+        ? await currentFetcher
+        : await currentFetcher(...args);
     
       handleSetData(result);
       handleSetLoading(false);
@@ -91,7 +92,7 @@ export function useDataFetch<T, P extends any[] = []>(
         handleSetError(error instanceof Error ? error : new Error('An error occurred'));
       }
     }
-  }, [fetchFn, handleSetData, handleSetLoading, handleSetError]);
+  }, [handleSetData, handleSetLoading, handleSetError]); // Removed fetchFn from dependencies
 
   return [executeFetch, data, isLoading, error, versionKey] as const;
 }

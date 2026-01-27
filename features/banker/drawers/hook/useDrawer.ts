@@ -1,69 +1,32 @@
+import { useDrawersStore } from "../core/store";
+import {
+  NAVIGATE_DATE,
+  REFRESH_CLICKED,
+  REPORT_CLICKED,
+  SET_SELECTED_DATE,
+  NAVIGATE_BACK
+} from "../core/msg";
 import { useDrawConfirmation } from "@/features/colector/drawers/hooks/useDrawConfirmation";
-import { useAuth } from "@/shared/context/AuthContext";
-import useDataFetch from "@/shared/hooks/useDataFetch";
-import { ListeroDetails, StructureService } from "@/shared/services/Structure";
-import { useTheme } from "@ui-kitten/components";
-import { useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
-
-
-const formatDateToString = (date: Date) => {
-  return date.toISOString().split('T')[0];
-};
 
 export const useDrawer = ({ id }: { id: number }) => {
-  const router = useRouter();
-  const { colors, spacing } = useTheme();
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-
-  const handleReport = useCallback((id: number) => {
-    // Navigate to report form, reusing colector's or separate banker route?
-    // Assuming reusing colector's for now or just logging
-    // TODO: Define route for banker reports
-    router.push({
-      pathname: '/banker/reports/form',
-      params: { id: String(id) }
-    });
-  }, [id, router]);
-
-
-  const fetchDetails = useCallback(() => {
-    return StructureService.getListeroDetails(Number(id), formatDateToString(selectedDate));
-  }, [id, selectedDate]);
-
-  const { isAuthenticated } = useAuth();
-  const [refresh, details, loading, error] = useDataFetch<ListeroDetails>(fetchDetails);
-  const theme = useTheme();
-
-  useEffect(() => {
-    if (id && isAuthenticated) {
-      refresh();
-    }
-  }, [id, selectedDate, refresh, isAuthenticated]);
-
-  const handleNavigate = (days: number) => {
-    const newDate = new Date(selectedDate);
-    newDate.setDate(newDate.getDate() + days);
-    if (newDate > new Date()) return;
-    setSelectedDate(newDate);
-  };
+  const model = useDrawersStore((state) => state.model);
+  const dispatch = useDrawersStore((state) => state.dispatch);
 
   const { confirmDraw } = useDrawConfirmation({
-    onSuccess: refresh,
-    details
+    onSuccess: () => dispatch(REFRESH_CLICKED()),
+    details: model.details.type === 'Success' ? model.details.data : null
   });
 
   return {
-    selectedDate,
-    setSelectedDate,
-    handleNavigate,
-    refresh,
-    details,
-    loading,
-    error,
-    handleReport,
+    selectedDate: model.selectedDate,
+    setSelectedDate: (date: Date) => dispatch(SET_SELECTED_DATE(date)),
+    handleNavigate: (days: number) => dispatch(NAVIGATE_DATE(days)),
+    handleBack: () => dispatch(NAVIGATE_BACK()),
+    refresh: () => dispatch(REFRESH_CLICKED()),
+    details: model.details.type === 'Success' ? model.details.data : null,
+    loading: model.details.type === 'Loading',
+    error: model.details.type === 'Failure' ? model.details.error : null,
+    handleReport: (drawId: number) => dispatch(REPORT_CLICKED(drawId)),
     confirmDraw,
-    theme,
-    router
-  }
-}
+  };
+};

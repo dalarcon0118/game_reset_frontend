@@ -1,28 +1,30 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@ui-kitten/components';
-import { Flex, Label, withDataView } from '@/shared/components';
-import { useDataFetch } from '@/shared/hooks/useDataFetch';
-import { StructureService, ChildStructure } from '@/shared/services/Structure';
+import { Flex, withDataView } from '@/shared/components';
+import { ChildStructure } from '@/shared/services/Structure';
 import { BankerOperationCard } from '../components/BankerOperationCard';
-import { useFinancialStore } from '@/shared/store/financial/store';
-import { COLORS } from '@/shared/components/constants';
 import { Header } from '../common/header';
+import { useListerias } from './hook/useListerias';
 
 interface AgencyDetailContentProps {
   childrenData: ChildStructure[] | null;
   onRefresh: () => void;
   loading: boolean;
+  onListeriaPress: (id: number, name: string) => void;
+  onReglamentoPress: (id: number) => void;
 }
 
 function AgencyDetailContent({
   childrenData,
   onRefresh,
-  loading
+  loading,
+  onListeriaPress,
+  onReglamentoPress
 }: AgencyDetailContentProps) {
-  const router = useRouter();
+  const theme = useTheme();
 
   return (
     <ScrollView 
@@ -31,8 +33,8 @@ function AgencyDetailContent({
         <RefreshControl 
           refreshing={loading} 
           onRefresh={onRefresh} 
-          colors={[COLORS.primary]}
-          tintColor={COLORS.primary}
+          colors={[theme['color-primary-500']]}
+          tintColor={theme['color-primary-500']}
         />
       }
     >
@@ -42,10 +44,8 @@ function AgencyDetailContent({
               key={child.id}
               nodeId={child.id}
               name={child.name}
-              onPress={() => {
-                  router.push({ pathname: '/banker/drawers/[id]', params: { id: child.id, title: child.name } });
-              }}
-               onReglamentoPress={() => router.push({ pathname: '/banker/rules', params: { id_structure: child.id } })}
+              onPress={() => onListeriaPress(child.id, child.name)}
+              onReglamentoPress={() => onReglamentoPress(child.id)}
             />
          ))}
       </Flex>
@@ -57,39 +57,25 @@ const DataBoundAgencyContent = withDataView(AgencyDetailContent);
 
 export default function AgencyDetailsScreen() {
   const { id, title } = useLocalSearchParams();
-  const router = useRouter();
   const theme = useTheme();
 
-  const fetchChildren = useCallback(() => {
-    return StructureService.getChildren(Number(id));
-  }, [id]);
-
-  const [fetchData, children, loading, error] = useDataFetch<ChildStructure[]>(fetchChildren);
-
-  useEffect(() => {
-    if (id) {
-      fetchData();
-    }
-  }, [id]);
-
-  useEffect(() => {
-    if (children && children.length > 0) {
-      const nodeIds = children.map(c => c.id);
-      useFinancialStore.getState().dispatch({ type: 'SYNC_NODES', nodeIds });
-    }
-  }, [children]);
-
-  const handleRefresh = () => {
-      fetchData();
-  };
+  const {
+    listerias,
+    loading,
+    error,
+    refresh,
+    handleBack,
+    handleListeriaSelected,
+    handleRulesPressed
+  } = useListerias({ id: Number(id) });
 
   return (
     <View style={[styles.container, { backgroundColor: theme['background-basic-color-1'] }]}>
       <SafeAreaView edges={['top']}>
         <Header
           title={typeof title === 'string' ? title : 'Listas'}
-          onBack={() => router.back()}
-          onRefresh={handleRefresh}
+          onBack={handleBack}
+          onRefresh={refresh}
           loading={loading}
         />
       </SafeAreaView>
@@ -97,11 +83,12 @@ export default function AgencyDetailsScreen() {
       <DataBoundAgencyContent
         loading={loading}
         error={error}
-        isEmpty={!children || children.length === 0}
-        onRetry={handleRefresh}
-        childrenData={children}
-        onRefresh={handleRefresh}
-        emptyMessage="No hay listeros para mostrar."
+        isEmpty={!listerias || listerias.length === 0}
+        onRetry={refresh}
+        childrenData={listerias}
+        onRefresh={refresh}
+        onListeriaPress={handleListeriaSelected}
+        onReglamentoPress={handleRulesPressed}
       />
     </View>
   );

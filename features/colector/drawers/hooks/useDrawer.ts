@@ -33,7 +33,7 @@ export const useDrawer = ({ id }: { id: number }) => {
         if (id && isAuthenticated) {
             refresh();
         }
-    }, [id, selectedDate, refresh, isAuthenticated]);
+    }, [id, selectedDate, isAuthenticated]);
 
     const handleNavigate = (days: number) => {
         const newDate = new Date(selectedDate);

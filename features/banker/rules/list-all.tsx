@@ -15,42 +15,40 @@ function Lista() {
   const { colors } = useTheme();
 
   const renderItem = ({ item }: { item: Rule }) => (
-    <Card style={styles.ruleCard}>
-      <View style={styles.ruleRow}>
-        <View style={styles.ruleInfo}>
-          <Label type="header" style={styles.ruleName} value={item.name} />
-          <Label type="detail" style={styles.ruleDescription} value={item.description} />
+    <TouchableOpacity onPress={() => dispatch({ type: 'NAVIGATE_TO_EDIT', ruleId: item.id })}>
+      <Card style={styles.ruleCard}>
+        <View style={styles.ruleRow}>
+          <View style={styles.ruleInfo}>
+            <Label type="header" style={styles.ruleName} value={item.name} />
+            <Label type="detail" style={styles.ruleDescription} value={item.description} />
+          </View>
+          <View style={styles.toggleContainer}>
+            <Label
+              type="detail"
+              style={[
+                styles.typeLabel,
+                { color: item.ruleType === 'validation' ? colors.primary : colors.secondary }
+              ]}
+              value={item.ruleType.toUpperCase()}
+            />
+            <Toggle
+              checked={item.isActive}
+              onChange={() => dispatch(TOGGLE_RULE_REQUESTED(item.id, item.ruleType))}
+              status={item.ruleType === 'validation' ? 'primary' : 'success'}
+            />
+            <Label
+              type="detail"
+              style={[
+                styles.toggleLabel,
+                { color: item.isActive ? colors.primary : colors.textSecondary }
+              ]}
+              value={item.isActive ? 'ON' : 'OFF'}
+            />
+          </View>
         </View>
-        <View style={styles.toggleContainer}>
-          <Label
-            type="detail"
-            style={[
-              styles.typeLabel,
-              { color: item.ruleType === 'validation' ? colors.primary : colors.secondary }
-            ]}
-            value={item.ruleType.toUpperCase()}
-          />
-          <Toggle
-            checked={item.isActive}
-            onChange={() => dispatch(TOGGLE_RULE_REQUESTED(item.id, item.ruleType))}
-            status={item.ruleType === 'validation' ? 'primary' : 'success'}
-          />
-          <Label
-            type="detail"
-            style={[
-              styles.toggleLabel,
-              { color: item.isActive ? colors.primary : colors.textSecondary }
-            ]}
-            value={item.isActive ? 'ON' : 'OFF'}
-          />
-        </View>
-      </View>
-    </Card>
+      </Card>
+    </TouchableOpacity>
   );
-
-  React.useEffect(() => {
-    dispatch({ type: 'FETCH_RULES_REQUESTED' });
-  }, []);
 
   return (
     <FlatList
@@ -77,7 +75,7 @@ export default function RulesScreen() {
           <Label type="title" value="Regla del banquero" />
           <TouchableOpacity
             style={styles.addButton}
-            onPress={() => dispatch(ROUTER_GO('/banker/rules/update'))}
+            onPress={() => dispatch({ type: 'NAVIGATE_TO_CREATE' })}
           >
             <Plus size={24} color={colors.primary} />
           </TouchableOpacity>

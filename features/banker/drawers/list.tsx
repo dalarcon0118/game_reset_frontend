@@ -1,15 +1,12 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { useAuth } from '../../auth';
+import React from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { withDataView } from '@/shared/components';
-import { useDataFetch } from '@/shared/hooks/useDataFetch';
-import { StructureService, ListeroDetails } from '@/shared/services/Structure';
+import { ListeroDetails } from '@/shared/services/Structure';
 import { useTheme } from '@/shared/hooks/useTheme';
 import { DateNavigation } from '@/features/colector/drawers/views/DateNavigation';
 import { DrawItem } from '@/features/colector/drawers/views/DrawItem';
-import { useDrawConfirmation } from '@/features/colector/drawers/hooks/useDrawConfirmation';
 import { Header } from '../common/header';
 import { useDrawer } from './hook/useDrawer';
 
@@ -60,26 +57,27 @@ const DataBoundListeroContent = withDataView(ListeroDetailContent);
 
 export default function DrawerScreen() {
   const { id, title } = useLocalSearchParams();
- const {
-  selectedDate,
-  setSelectedDate,
-  handleNavigate,
-  handleReport,
-  confirmDraw,
-  refresh,
-  details,
-  loading,
-  error,
-  theme,
-  router
- } = useDrawer({ id: Number(id) });
+  const theme = useTheme();
+  
+  const {
+    selectedDate,
+    setSelectedDate,
+    handleNavigate,
+    handleBack,
+    handleReport,
+    confirmDraw,
+    refresh,
+    details,
+    loading,
+    error,
+  } = useDrawer({ id: Number(id) });
 
   return (
-    <View style={[styles.container, { backgroundColor: theme['background-basic-color-1'] }]}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <SafeAreaView edges={['top']}>
         <Header 
           title={`Sorteo ${details?.listero_name || '' }`} 
-          onBack={() => router.back()}
+          onBack={handleBack}
           onRefresh={refresh}
         />
       </SafeAreaView>

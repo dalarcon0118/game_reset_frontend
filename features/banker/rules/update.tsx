@@ -19,14 +19,6 @@ export default function RuleUpdateScreen() {
   const formData = useRuleStore(selectFormData);
   const dispatch = useRuleStore(state => state.dispatch);
 
-  React.useEffect(() => {
-    if (ruleId) {
-      dispatch({ type: 'LOAD_RULE_REQUESTED', ruleId });
-    } else {
-      dispatch({ type: 'RESET_FORM' });
-    }
-  }, [ruleId]);
-
   const statusOptions = [
     { label: 'Active', value: 'active' },
     { label: 'Inactive', value: 'inactive' },
@@ -60,7 +52,7 @@ export default function RuleUpdateScreen() {
       <Flex vertical flex={1}>
         {/* Header */}
         <Flex align="center" gap={spacing.md} padding={spacing.lg} style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity onPress={() => dispatch({ type: 'ROUTER_BACK' })}>
             <ArrowLeft size={24} color={colors.text} />
           </TouchableOpacity>
           <Label type="title" value={ruleId ? 'Editar Regla' : 'Nueva Regla'} />
@@ -183,10 +175,7 @@ export default function RuleUpdateScreen() {
               {/* Save Button */}
               <ButtonKit
                 label={saving ? "" : "Guardar Regla"}
-                onPress={() => {
-                  dispatch({ type: 'SAVE_RULE_REQUESTED' });
-                  router.back(); // Navigate back after save
-                }}
+                onPress={() => dispatch({ type: 'SAVE_RULE_REQUESTED' })}
                 status="primary"
                 disabled={saving}
                 accessoryLeft={saving ? () => <ActivityIndicator size="small" color="#FFF" /> : () => <Save size={18} color="#FFF" />}

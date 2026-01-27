@@ -1,13 +1,15 @@
 import React from 'react';
 import { StyleSheet, TouchableOpacity, ActivityIndicator, View } from 'react-native';
-import { Calendar, RefreshCw, User } from 'lucide-react-native';
-import { MenuItem, OverflowMenu } from '@ui-kitten/components';
+import { HelpCircle, RefreshCw, User, Bell } from 'lucide-react-native';
+import { MenuItem, OverflowMenu, Text } from '@ui-kitten/components';
 
 import { COLORS } from '@/shared/components/constants';
 import { Flex } from '@/shared/components/flex';
-import { Label } from '@/shared/components/label';
+import { NotificationBadge } from '@/features/notification/components/NotificationBadge';
 import { useAuth } from '../../auth';
 import { es } from '../../language/es';
+import { useDashboardStore, selectDashboardDispatch } from './core';
+import { NAVIGATE_TO_NOTIFICATIONS, NAVIGATE_TO_SETTINGS } from './core/msg';
 
 interface DashboardHeaderProps {
   isLoading: boolean;
@@ -16,16 +18,8 @@ interface DashboardHeaderProps {
 
 export function DashboardHeader({ isLoading, onRefresh }: DashboardHeaderProps) {
   const { user, logout } = useAuth();
+  const dispatch = useDashboardStore(selectDashboardDispatch);
   const [menuVisible, setMenuVisible] = React.useState(false);
-
-  const formatDate = () => {
-    const now = new Date();
-    return now.toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
 
   const toggleMenu = () => {
     setMenuVisible(!menuVisible);
@@ -33,74 +27,99 @@ export function DashboardHeader({ isLoading, onRefresh }: DashboardHeaderProps) 
 
   const renderMenuAnchor = () => (
     <TouchableOpacity onPress={toggleMenu} activeOpacity={0.7}>
-      <View style={styles.iconButton}>
-        <User size={20} color={COLORS.primary} />
+      <View style={styles.profileIcon}>
+        <User size={24} color={COLORS.primary} />
       </View>
     </TouchableOpacity>
   );
 
   return (
-    <Flex justify="between" align="center" margin={[{ type: "horizontal", value: 20 }, { type: "top", value: 20 }, { type: "bottom", value: 10 }]}>
-      <Flex vertical gap={4}>
-        <Label type="title" style={{ fontSize: 28, color: COLORS.primary }}>
-          {user?.structure?.name || es.banker.dashboard.header.bank}
-        </Label>
-        <Flex align="center" gap={8}>
-          <Label type="subheader" style={{ color: COLORS.textLight, fontWeight: 'normal' }}>
-            {user?.username}
-          </Label>
-          <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: COLORS.textLight }} />
-          <Flex align="center" gap={6}>
-             <Calendar size={14} color={COLORS.textLight} />
-             <Label type="date" value={formatDate()} style={{ fontSize: 12 }} />
-          </Flex>
+    <View style={styles.container}>
+      {/* Top Row: User Info and App Name */}
+      <Flex justify="between" align="center" margin={[{ type: 'bottom', value: 15 }]}>
+        <Flex align="center" gap={10}>
+          <OverflowMenu
+            anchor={renderMenuAnchor}
+            visible={menuVisible}
+            onBackdropPress={toggleMenu}
+          >
+            <MenuItem title={es.banker.dashboard.header.logout} onPress={() => {
+              toggleMenu();
+              logout();
+            }} />
+          </OverflowMenu>
+          <TouchableOpacity 
+            onPress={() => dispatch(NAVIGATE_TO_SETTINGS())}
+            activeOpacity={0.7}
+          >
+            <View>
+              <Text category="s1" style={styles.userName}>{user?.username || 'Usuario'}</Text>
+              <Text category="c1" style={styles.structureName}>{user?.structure?.name}</Text>
+            </View>
+          </TouchableOpacity>
         </Flex>
+        <Text category="h6" style={styles.appName}>MONSTER</Text>
       </Flex>
 
-      <Flex align="center" gap={12}>
+      {/* Bottom Row: Action Icons */}
+      <Flex align="center" justify="end" gap={15}>
+        <TouchableOpacity style={styles.iconButton}>
+          <HelpCircle size={24} color={COLORS.textDark} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.iconButton}
+          onPress={() => dispatch(NAVIGATE_TO_NOTIFICATIONS())}
+        >
+          <Bell size={24} color={COLORS.textDark} />
+          <NotificationBadge size="tiny" />
+        </TouchableOpacity>
+
         <TouchableOpacity onPress={onRefresh} disabled={isLoading} activeOpacity={0.7}>
           <View style={[styles.iconButton, isLoading && styles.loadingButton]}>
             {isLoading ? (
               <ActivityIndicator size="small" color={COLORS.primary} />
             ) : (
-              <RefreshCw size={20} color={COLORS.primary} />
+              <RefreshCw size={24} color={COLORS.textDark} />
             )}
           </View>
         </TouchableOpacity>
-
-        <OverflowMenu
-          anchor={renderMenuAnchor}
-          visible={menuVisible}
-          onBackdropPress={toggleMenu}
-        >
-          <MenuItem title={es.banker.dashboard.header.logout} onPress={() => {
-            toggleMenu();
-            logout();
-          }} />
-        </OverflowMenu>
       </Flex>
-    </Flex>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    paddingHorizontal: 20,
+    paddingTop: 40,
+    paddingBottom: 20,
+    backgroundColor: '#FFFFFF',
+  },
+  profileIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F0F2F5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  userName: {
+    fontWeight: 'bold',
+    color: COLORS.textDark,
+  },
+  structureName: {
+    color: COLORS.textLight,
+  },
+  appName: {
+    color: '#1A2138',
+    fontWeight: '700',
+  },
   iconButton: {
     width: 44,
     height: 44,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 3.84,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: COLORS.border,
   },
   loadingButton: {
     opacity: 0.8,

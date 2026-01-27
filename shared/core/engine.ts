@@ -43,7 +43,7 @@ export const createElmStore = <TModel, TMsg>(
             if (msgCount > MAX_MSGS_PER_SECOND && !isStorming) {
                 isStorming = true;
                 logger.error(
-                    `Message Storm Detected! More than ${MAX_MSGS_PER_SECOND} messages in 1s. Possible infinite loop with: ${msgType}`,
+                    `Message Storm Detected! More than ${MAX_MSGS_PER_SECOND} messages in 1s. Possible infinite loop with: ${msgType}. Throttling engine.`,
                     'ENGINE_STORM_PROTECTION'
                 );
                 return true;
@@ -133,15 +133,15 @@ export const createElmStore = <TModel, TMsg>(
             }
 
             if (sub.type === 'WATCH_STORE') {
-                const { id, store, selector, msgCreator } = sub.payload;
+                const { id, store: externalStore, selector, msgCreator } = sub.payload;
                 if (!activeSubs.has(id)) {
                     // Pre-calculamos el valor inicial
-                    const initialValue = selector(store.getState().model || store.getState());
+                    const initialValue = selector(externalStore.getState().model || externalStore.getState());
                     let lastValue = initialValue;
 
                     // Nos suscribimos a cambios futuros ANTES de disparar el mensaje inicial
                     // para evitar loops si el dispatch provoca un re-render que procese subs
-                    const unsubscribe = store.subscribe((state: any) => {
+                    const unsubscribe = externalStore.subscribe((state: any) => {
                         const selectedValue = selector(state.model || state);
                         // Solo disparamos si el valor seleccionado ha cambiado (shallow comparison)
                         if (selectedValue !== lastValue) {
@@ -153,17 +153,23 @@ export const createElmStore = <TModel, TMsg>(
                     // Registramos la subscripción ANTES del dispatch inicial
                     activeSubs.set(id, { type: 'WATCH_STORE', unsubscribe, lastValue });
 
-                    // Ahora disparamos el mensaje inicial de forma segura
-                    dispatch(msgCreator(initialValue));
+                    // Ahora disparamos el mensaje inicial de forma diferida (en el siguiente tick)
+                    // para evitar loops infinitos durante el ciclo de renderizado actual.
+                    setTimeout(() => {
+                        // Verificamos que la suscripción siga activa antes de despachar
+                        if (activeSubs.has(id)) {
+                            dispatch(msgCreator(initialValue));
+                        }
+                    }, 0);
                 }
             }
 
             if (sub.type === 'SSE') {
-                const { id, url, msgCreator, headers } = sub.payload;
+                const { id, url, msgCreator } = sub.payload;
                 if (!activeSubs.has(id)) {
                     logger.info(`Connecting to SSE stream: ${url}`, 'ENGINE');
                     try {
-                        const eventSource = new EventSource(url, { headers });
+                        const eventSource = new EventSource(url);
 
                         eventSource.onmessage = (event) => {
                             try {
