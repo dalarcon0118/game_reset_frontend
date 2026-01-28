@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { StyleSheet } from 'react-native';
 import { Input, Select, SelectItem, IndexPath } from '@ui-kitten/components';
 import { Flex, Label } from '@/shared/components';
-import { useTheme } from '@/shared/hooks/useTheme';
+import { useTheme } from '@/shared/hooks/use_theme';
 
 interface RuleSelectorProps {
   jsonLogic: any;

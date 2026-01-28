@@ -9,6 +9,9 @@ export interface HttpConfig {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: any;
   headers?: Record<string, string>;
+  cacheTTL?: number;
+  retryCount?: number;
+  abortSignal?: AbortSignal;
 }
 
 /**
@@ -100,11 +103,36 @@ export const RemoteDataHttp = {
    * a message with the result as WebData.
    */
   fetch: <T, Msg>(
-    task: () => Promise<T>,
+    task: () => Promise<T | [any, T]>,
     msgCreator: (data: WebData<T>) => Msg
   ): Cmd => {
+    // Validate that task is actually a function
+    if (typeof task !== 'function') {
+      console.error('[RemoteDataHttp.fetch] Invalid task parameter - expected function, got:', typeof task, task);
+      return Cmd.task({
+        task: async () => { throw new Error('Invalid task function provided to RemoteDataHttp.fetch'); },
+        onSuccess: (data: T) => msgCreator(RemoteData.success(data)),
+        onFailure: (error: any) => msgCreator(RemoteData.failure(error)),
+      });
+    }
+
     return Cmd.task({
-      task,
+      task: async () => {
+        const result = await task();
+        // If it's the [error, data] tuple from our to() helper
+        if (Array.isArray(result) && result.length === 2) {
+          const [error, data] = result;
+          
+          // Pattern [Error, null] or [null, Data]
+          const isResultPattern = (error === null) || (error instanceof Error);
+          
+          if (isResultPattern) {
+            if (error) throw error;
+            return data;
+          }
+        }
+        return result as T;
+      },
       onSuccess: (data: T) => msgCreator(RemoteData.success(data)),
       onFailure: (error: any) => msgCreator(RemoteData.failure(error)),
     });

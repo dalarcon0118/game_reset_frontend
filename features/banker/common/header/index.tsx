@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Flex, Label } from '@shared/components';
 import { ArrowLeft, RefreshCw } from 'lucide-react-native';
-import { useTheme } from '@shared/hooks/useTheme';
+import { useTheme } from '@shared/hooks/use_theme';
 
 interface ListeroHeaderProps {
     title?: string;

@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, TouchableOpacity, SafeAreaView, Alert, Dimensions, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, SafeAreaView, Dimensions, ActivityIndicator } from 'react-native';
 import { Text, Input, Button } from '@ui-kitten/components';
 import { Delete, User, Lock, Edit2 } from 'lucide-react-native';
 import { COLORS } from '@/shared/components/constants';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../hooks/use_auth';
+import { useAuthStore, selectAuthDispatch } from '../store/store';
+import { AuthMsgType } from '../store/types';
 import { Flex } from '@/shared/components';
 
 // Custom dark theme colors for this screen
@@ -27,6 +29,7 @@ export default function LoginScreen() {
     updateUsername,
     updatePin
   } = useAuth();
+  const dispatch = useAuthStore(selectAuthDispatch);
 
   // Local UI state (not part of TEA - just for component behavior)
   const [tempUsername, setTempUsername] = useState('');
@@ -164,11 +167,11 @@ export default function LoginScreen() {
             {[0, 1, 2, 3, 4, 5].map(renderDot)}
           </Flex>
 
-           <TouchableOpacity 
-            onPress={() => Alert.alert('Info', 'Contacte al administrador para restablecer su PIN')}
-            disabled={isLoading}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => dispatch({ type: AuthMsgType.FORGOT_PIN_REQUESTED })}
           >
-            <Text style={{ color: THEME.accent, marginTop: 10, opacity: isLoading ? 0.5 : 1 }}>Restablecer PIN</Text>
+            <Text style={styles.forgotPin}>¿Olvidaste tu PIN?</Text>
           </TouchableOpacity>
         </Flex>
 

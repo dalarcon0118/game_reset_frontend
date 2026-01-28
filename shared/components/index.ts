@@ -5,6 +5,6 @@ import { Flex } from './flex';
 import { IconBox } from './icon-box';
 import { ButtonKit } from './button';
 
-import { withDataView } from './with_Data_View';
+import { withDataView } from './with_data_view';
 
 export { Label, Badge, Card, Flex, IconBox, ButtonKit, withDataView };

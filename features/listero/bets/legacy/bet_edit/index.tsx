@@ -1,10 +1,10 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import BetColumn from './components/BetColumn';
-import NumericKeyboard from './components/NumericKeyboard';
-import RangeTypeDialog from './components/RangeTypeDialog';
-import { GameTypes } from '../../../constants/Bet';
+import BetColumn from './components/bet_column';
+import NumericKeyboard from './components/numeric_keyboard';
+import RangeTypeDialog from './components/range_type_dialog';
+import { GameTypes } from '../../../constants/bet';
 import { useBetsStore, selectBetsModel, selectDispatch } from '../bets/store';
 import { EditMsgType } from '../bets/store/bet-edit/edit.types';
 import { FijosCorridosBet, ParletBet, CentenaBet } from '@/types';

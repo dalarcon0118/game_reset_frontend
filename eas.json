@@ -5,27 +5,39 @@
   },
   "build": {
     "development": {
+      "resourceClass": "large",
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_APP_ENV": "development"
+        "NODE_ENV": "development",
+        "EXPO_PUBLIC_APP_ENV": "development",
+        "GRADLE_OPTS": "-Dorg.gradle.jvmargs=\"-Xmx16g -Xss4m -XX:MaxMetaspaceSize=2g -XX:+UseG1GC\"",
+        "NODE_OPTIONS": "--max-old-space-size=8192"
       }
     },
     "preview": {
+      "resourceClass": "large",
       "distribution": "internal",
       "android": {
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_APP_ENV": "production"
+        "NODE_ENV": "production",
+        "EXPO_PUBLIC_APP_ENV": "production",
+        "GRADLE_OPTS": "-Dorg.gradle.jvmargs=\"-Xmx16g -Xss4m -XX:MaxMetaspaceSize=2g -XX:+UseG1GC\"",
+        "NODE_OPTIONS": "--max-old-space-size=8192"
       }
     },
     "production": {
+      "resourceClass": "large",
       "android": {
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_APP_ENV": "production"
+        "NODE_ENV": "production",
+        "EXPO_PUBLIC_APP_ENV": "production",
+        "GRADLE_OPTS": "-Dorg.gradle.jvmargs=\"-Xmx16g -Xss4m -XX:MaxMetaspaceSize=2g -XX:+UseG1GC\"",
+        "NODE_OPTIONS": "--max-old-space-size=8192"
       }
     }
   },

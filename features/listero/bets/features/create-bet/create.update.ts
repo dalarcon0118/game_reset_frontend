@@ -1,7 +1,7 @@
 import { match } from 'ts-pattern';
 import { Model as GlobalModel } from '../../core/model';
 import { CreateMsgType, CreateMsg, Model } from './create.types';
-import { GameTypeCodes } from '@/constants/Bet';
+import { GameTypeCodes } from '@/constants/bet';
 import { Return, singleton, ret } from '@/shared/core/return';
 import { RemoteData } from '@/shared/core/remote.data';
 import { Cmd } from '@/shared/core/cmd';
@@ -294,17 +294,44 @@ export const updateCreate = (model: GlobalModel, msg: CreateMsg): Return<GlobalM
                 Cmd.none
             );
         })
-        .with({ type: CreateMsgType.CONFIRM_CLEAR_BETS }, () => {
-            return Return.val(
-                {
-                    ...model,
-                    createSession: {
-                        ...model.createSession,
-                        tempBets: [],
-                    },
+        .with({ type: CreateMsgType.REQUEST_CLEAR_BETS }, () => {
+            const { tempBets } = model.createSession;
+            if (tempBets.length > 0) {
+                return ret<GlobalModel, CreateMsg>(
+                    model,
+                    Cmd.alert({
+                        title: 'Confirmar',
+                        message: '¿Está seguro que desea limpiar todas las apuestas?',
+                        buttons: [
+                            { text: 'Cancelar', style: 'cancel' },
+                            {
+                                text: 'Limpiar',
+                                onPressMsg: { type: CreateMsgType.CONFIRM_CLEAR_BETS }
+                            }
+                        ]
+                    })
+                );
+            }
+            return singleton({
+                ...model,
+                createSession: {
+                    ...model.createSession,
+                    tempBets: [],
+                    numbersPlayed: '',
+                    amount: '',
                 },
-                Cmd.none
-            );
+            });
+        })
+        .with({ type: CreateMsgType.CONFIRM_CLEAR_BETS }, () => {
+            return singleton({
+                ...model,
+                createSession: {
+                    ...model.createSession,
+                    tempBets: [],
+                    numbersPlayed: '',
+                    amount: '',
+                },
+            });
         })
         .exhaustive();
 };

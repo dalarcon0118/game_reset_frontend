@@ -2,9 +2,9 @@ import React from 'react';
 import { StyleSheet, View, TouchableOpacity } from 'react-native';
 import { AlertTriangle, Home } from 'lucide-react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import StyledText from '@/components/typography/StyledText';
-import Colors from '@/constants/Colors';
-import Layout from '@/constants/Layout';
+import StyledText from '@/components/typography/styled_text';
+import Colors from '@/constants/colors';
+import Layout from '@/constants/layout';
 
 export default function ErrorScreen() {
   const { message } = useLocalSearchParams<{ message: string }>();

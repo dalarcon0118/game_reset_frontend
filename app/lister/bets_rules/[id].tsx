@@ -1,4 +1,4 @@
-import { RulesScreen } from '@/features/listero/bets/screens/RulesScreen';
+import { RulesScreen } from '@/features/listero/bets/screens/rules_screen';
 import { useLocalSearchParams } from 'expo-router';
 
 export default function BetsRulesScreen() {

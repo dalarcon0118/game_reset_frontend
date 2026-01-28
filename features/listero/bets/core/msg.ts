@@ -11,14 +11,29 @@ import { EditFeatMsg } from '../features/edit-bet/edit.types';
 import { RewardsRulesFeatMsg } from '../features/rewards-rules/rewards.types';
 import { UiFeatMsg } from '../features/bet-ui/ui.types';
 import { FijosFeatMsg } from '../features/fijos-corridos/fijos.types';
+import { SuccessMsg } from '../features/success/success.types';
+import { LoteriaFeatMsg } from '@/features/listero/games/loteria/loteria.types';
+import { WebData } from '@/shared/core/remote.data';
 
 export * from './core.types';
+
+export enum CoreMsgType {
+    DRAW_INFO_REQUESTED = 'CORE.DRAW_INFO_REQUESTED',
+    DRAW_INFO_RECEIVED = 'CORE.DRAW_INFO_RECEIVED',
+}
+
+export type CoreMsg =
+    | { type: CoreMsgType.DRAW_INFO_REQUESTED; drawId: string }
+    | { type: CoreMsgType.DRAW_INFO_RECEIVED; webData: WebData<string> };
+
+export type SuccessFeatMsg = { type: 'SUCCESS'; payload: SuccessMsg };
 
 /**
  * Global Msg type using Wrapped Messages pattern (Elm style).
  * Each sub-module message is wrapped in its own variant.
  */
 export type Msg =
+    | { type: 'CORE'; payload: CoreMsg }
     | ManagementFeatMsg
     | KeyboardFeatMsg
     | ParletFeatMsg
@@ -29,4 +44,6 @@ export type Msg =
     | EditFeatMsg
     | RewardsRulesFeatMsg
     | UiFeatMsg
-    | FijosFeatMsg;
+    | FijosFeatMsg
+    | SuccessFeatMsg
+    | LoteriaFeatMsg;

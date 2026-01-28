@@ -1,1 +1,1 @@
-export { default } from '../../../features/colector/settings';
+export { default } from '@/features/colector/settings';

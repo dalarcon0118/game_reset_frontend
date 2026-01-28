@@ -1,6 +1,6 @@
 import { Tabs, usePathname } from 'expo-router';
 import { useColorScheme } from 'react-native';
-import Colors from '@/constants/Colors';
+import Colors from '@/constants/colors';
 import { Home, LayoutPanelLeft, List, FileText, User } from 'lucide-react-native'; // Import List and FileText
 import { useEffect } from 'react';
 

@@ -4,7 +4,7 @@ import { initialAuthModel } from './initial';
 import { updateAuth } from './update';
 import { authSubscriptions } from './subscriptions';
 import { createElmStore } from '../../../shared/core/engine';
-import { effectHandlers } from '../../../shared/core/effectHandlers';
+import { effectHandlers } from '../../../shared/core/effect_handlers';
 
 // Zustand store with TEA integration using the central engine
 export const useAuthStore = createElmStore<AuthModel, AuthMsg>(

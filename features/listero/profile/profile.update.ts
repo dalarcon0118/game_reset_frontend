@@ -2,7 +2,7 @@ import { match } from 'ts-pattern';
 import { ProfileModel, ProfileMsg, ProfileMsgType, initialProfileModel, UserProfile, Incident, DEFAULT_USER_PROFILE } from './profile.types';
 import { Cmd } from '@/shared/core/cmd';
 import { Return, ret } from '@/shared/core/return';
-import apiClient from '@/shared/services/ApiClient';
+import apiClient from '@/shared/services/api_client';
 import settings from '@/config/settings';
 import { User } from '@/features/auth/store/types/auth.types';
 import { RemoteDataHttp } from '@/shared/core/remote.data.http';

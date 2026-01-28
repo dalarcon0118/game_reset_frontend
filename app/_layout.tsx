@@ -1,20 +1,41 @@
 import 'react-native-gesture-handler';
 import 'react-native-reanimated';
+import 'event-source-polyfill';
 import React, { useCallback, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 // Import router
 import { Stack, usePathname, router, ErrorBoundary as ExpoErrorBoundary } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useFrameworkReady } from '../hooks/useFrameworkReady';
-import { useAuth } from '../features/auth/hooks/useAuth';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { useFrameworkReady } from '../hooks/use_framework_ready';
+import { useAuth } from '../features/auth/hooks/use_auth';
 import { useColorScheme } from 'react-native';
 import * as eva from '@eva-design/eva'; // Import eva
-import { ApplicationProvider, Button } from '@ui-kitten/components';
+import { ApplicationProvider, Button, Icon } from '@ui-kitten/components';
 import { roleToScreenMap, routes } from '../config/routes';
 import { ArrowLeft } from "lucide-react-native";
+import { logger } from '../shared/utils/logger';
+import { useNotificationStore, selectNotificationDispatch } from '../features/notification/core/store';
+import { FETCH_NOTIFICATIONS_REQUESTED } from '../features/notification/core/msg';
+
+// Register global error handlers
+if (!__DEV__) {
+  // Catch unhandled promise rejections
+  const originalHandler = (global as any).onunhandledrejection;
+  (global as any).onunhandledrejection = (error: any) => {
+    logger.error('Unhandled Promise Rejection', 'GLOBAL', error);
+    if (originalHandler) originalHandler(error);
+  };
+}
 
 // Re-export ErrorBoundary for Expo Router to catch internal errors
-export const ErrorBoundary = ExpoErrorBoundary;
+export const ErrorBoundary = (props: any) => {
+  useEffect(() => {
+    logger.error('Expo Router ErrorBoundary caught an error', 'ROUTER', props.error);
+  }, [props.error]);
+
+  return <ExpoErrorBoundary {...props} />;
+};
 
 // Root layout wrapper
 export default function RootLayoutNav() {
@@ -22,13 +43,16 @@ export default function RootLayoutNav() {
   const colorScheme = useColorScheme() ?? 'light'; // Get color scheme
 
   return (
-    <>
-      {/* Wrap with ApplicationProvider */}
+    <SafeAreaProvider>
       <ApplicationProvider {...eva} theme={eva[colorScheme]}>
         <RootLayout />
-        <StatusBar style="auto" />
+        <StatusBar 
+          style="auto" 
+          translucent={Platform.OS === 'android'}
+          backgroundColor="transparent"
+        />
       </ApplicationProvider>
-    </>
+    </SafeAreaProvider>
   );
 }
 
@@ -36,6 +60,7 @@ export default function RootLayoutNav() {
 function RootLayout() {
   const { isAuthenticated, isLoading, user, checkLoginStatus, loadSavedUsername } = useAuth();
   const pathname = usePathname();
+  const notificationDispatch = useNotificationStore(selectNotificationDispatch);
 
   useEffect(() => {
     loadSavedUsername();
@@ -48,15 +73,20 @@ function RootLayout() {
     if (isLoading) return;
 
     if (user && isAuthenticated) {
+      // Initialize notifications when authenticated
+      notificationDispatch(FETCH_NOTIFICATIONS_REQUESTED());
+
       // Si estamos autenticados y estamos en la página de login, redirigir al dashboard
       if (pathname === '/login' || pathname === '/') {
         const targetPath = user.role ? roleToScreenMap[user.role] : '+not-found';
-        console.log('User authenticated, redirecting to dashboard:', targetPath);
-        router.replace(targetPath as any);
+        if (targetPath && router) {
+          console.log('User authenticated, redirecting to dashboard:', targetPath);
+          router.replace(targetPath as any);
+        }
       }
     } else {
       // Si NO estamos autenticados y NO estamos en la página de login, redirigir al login
-      if (pathname !== '/login') {
+      if (pathname !== '/login' && router) {
         console.log('User not authenticated, redirecting to login');
         router.replace('/login');
       }

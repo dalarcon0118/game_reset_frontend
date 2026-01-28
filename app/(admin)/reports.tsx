@@ -1,8 +1,8 @@
 import { StyleSheet, View, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router'; // Import useRouter
-import Button from '@/components/ui/Button'; // Import your custom Button
-import Layout from '@/constants/Layout'; // Import Layout for spacing
+import Button from '@/components/ui/button'; // Import your custom Button
+import Layout from '@/constants/layout'; // Import Layout for spacing
 
 export default function BetsScreen() {
   const router = useRouter(); // Initialize router

@@ -5,15 +5,19 @@ import { Model as EditSession } from '../features/edit-bet/edit.types';
 import { Model as ParletSession } from '../features/parlet/parlet.types';
 import { Model as CentenaSession } from '../features/centena/centena.types';
 import { Model as RulesSession } from '../features/rules/rules.types';
+import { LoteriaState } from '@/features/listero/games/loteria/loteria.types';
 import { ListState } from '../features/bet-list/list.types';
 import { ManagementState } from '../features/management/management.types';
+import { SuccessState } from '../features/success/success.types';
 import { RewardsCache, RulesCache } from '../features/rewards-rules/rewards.types';
+import { WebData } from '@/shared/core/remote.data';
 
 export type { CreateSession, EditSession };
 
 export interface Model extends UiState {
     // Core data
     drawId: string | null;
+    drawTypeCode: WebData<string>;
 
     // Sessions
     createSession: CreateSession;
@@ -21,8 +25,10 @@ export interface Model extends UiState {
     parletSession: ParletSession;
     centenaSession: CentenaSession;
     rulesSession: RulesSession;
+    loteriaSession: LoteriaState;
     listSession: ListState;
     managementSession: ManagementState;
+    successSession: SuccessState;
 
     // Cache
     rewards: RewardsCache;

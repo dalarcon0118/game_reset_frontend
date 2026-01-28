@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../../auth';
-import { useDataFetch } from '../../../../shared/hooks/useDataFetch';
-import { ValidationRuleService, StructureSpecificRule, RuleRepository } from '../../../../shared/services/ValidationRule';
+import { useDataFetch } from '../../../../shared/hooks/use_data_fetch';
+import { ValidationRuleService, StructureSpecificRule, RuleRepository } from '../../../../shared/services/validation_rule';
 
 interface ModulesState {
   notifications: boolean;
@@ -32,11 +33,12 @@ interface UseSettingsReturn {
   handleToggleModule: (key: keyof ModulesState) => void;
   handleModifyRule: (rule: TemplateWithStatus) => void;
   handleToggleRuleStatus: (rule: TemplateWithStatus, checked: boolean) => Promise<void>;
+  handleLogout: () => void;
 }
 
 export const useSettings = (): UseSettingsReturn => {
   const router = useRouter();
-  const { user, checkLoginStatus } = useAuth();
+  const { user, checkLoginStatus, logout } = useAuth();
 
   // Estados locales
   const [expandedSection, setExpandedSection] = useState<string | null>('user');
@@ -192,7 +194,11 @@ export const useSettings = (): UseSettingsReturn => {
       console.error('Error toggling rule status:', error);
       // Recargar datos para asegurar consistencia
       loadRules();
-      // TODO: Mostrar notificación de error al usuario
+      // Mostrar notificación de error al usuario
+      Alert.alert(
+        'Error',
+        'No se pudo cambiar el estado de la regla. Por favor, inténtalo de nuevo.'
+      );
     }
   }, [getCurrentUserStructureId, loadRules]);
 
@@ -212,5 +218,6 @@ export const useSettings = (): UseSettingsReturn => {
     handleToggleModule,
     handleModifyRule,
     handleToggleRuleStatus,
+    handleLogout: logout,
   };
 };

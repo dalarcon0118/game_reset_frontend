@@ -1,8 +1,8 @@
 // Auth state types - core authentication model
-import { UserRole } from '../../../../data/mockData';
+import { UserRole } from '../../../../data/mock_data';
 
 export interface User {
-    id: string;
+    id: number | string;
     username: string;
     role: UserRole;
     name?: string;
@@ -10,6 +10,7 @@ export interface User {
     structure?: {
         id: number | string;
         name?: string;
+        commission_rate?: number;
     };
     // Add other user properties as needed
 }

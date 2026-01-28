@@ -12,12 +12,14 @@ import {
   ArrowLeft,
   Moon,
   Sun,
-  FileText
+  FileText,
+  LogOut
 } from 'lucide-react-native';
-import LayoutConstants from '@/constants/Layout';
+import LayoutConstants from '@/constants/layout';
 import { Flex, Label, Card, IconBox, ButtonKit } from '@/shared/components';
-import { useTheme } from '@/shared/hooks/useTheme';
-import { withDataView } from '@/shared/components/with_Data_View';
+import { useTheme } from '@/shared/hooks/use_theme';
+import { withDataView } from '@/shared/components/with_data_view';
+import { useAuth } from '../../auth';
 import { useSettings } from './hooks/hook.settings';
 import { TOGGLE_SECTION, SECURITY_FIELD_UPDATED, CHANGE_PASSWORD_REQUESTED, THEME_TOGGLED, ROUTER_BACK, FETCH_RULES_REQUESTED, TOGGLE_RULE_REQUESTED, MODIFY_RULE_REQUESTED } from './store/types';
 
@@ -161,6 +163,7 @@ const RulesSection = ({
 export default function BankerSettingsScreen() {
   const { colors } = useTheme();
   const kittenTheme = useKittenTheme();
+  const { logout } = useAuth();
   const { user, security, preferences, rules, expandedSections, dispatch } = useSettings();
 
   return (
@@ -271,6 +274,24 @@ export default function BankerSettingsScreen() {
                   onChange={() => dispatch(THEME_TOGGLED())}
                 />
               </Flex>
+            </Flex>
+          </AccordionItem>
+
+          {/* Sesión Section */}
+          <AccordionItem
+            title="Sesión"
+            icon={<LogOut size={20} color={kittenTheme['color-danger-500']} />}
+            isExpanded={expandedSections.includes('session')}
+            onPress={() => dispatch(TOGGLE_SECTION('session'))}
+          >
+            <Flex vertical gap={12}>
+              <Label type="default" value="¿Deseas cerrar tu sesión actual?" />
+              <ButtonKit
+                label="Cerrar Sesión"
+                status="danger"
+                onPress={logout}
+                accessoryLeft={(props) => <LogOut {...(props as any)} size={18} />}
+              />
             </Flex>
           </AccordionItem>
         </Flex>

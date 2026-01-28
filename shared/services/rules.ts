@@ -1,6 +1,6 @@
 import { DrawRules } from '@/types';
-import { mockRules } from '@/data/mockData';
-import ApiClient, { ApiClientError } from './ApiClient';
+import { mockRules } from '@/data/mock_data';
+import ApiClient, { ApiClientError } from './api_client';
 import settings from '@/config/settings';
 
 // Simulate server response delay for mock data

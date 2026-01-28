@@ -8,10 +8,33 @@
 
 // const manifest = Constants.manifest;
 
+import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
 // API Configuration
-const API_BASE_URL_DEVELOPMENT = 'http://localhost:8000/api'; // URL local
+// En emuladores de Android, localhost es el propio emulador. 
+// Para acceder al host (tu máquina), usa 10.0.2.2
+const getDevelopmentBaseUrl = () => {
+  // En emuladores de Android, localhost es el propio emulador. 
+  // Para acceder al host (tu máquina), usa 10.0.2.2 o la IP detectada por Expo
+  
+  // Intentamos obtener la IP del host desde Expo Constants
+  const debuggerHost = Constants.expoConfig?.hostUri;
+  const host = debuggerHost?.split(':').shift();
+  
+  if (host) {
+    console.log('Detected Host IP from Expo:', host);
+    return `http://${host}:8000/api`;
+  }
+
+  if (Platform.OS === 'android') {
+    // Fallback para Android si no se detecta hostUri
+    return 'http://10.0.2.2:8000/api';
+  }
+  return 'http://localhost:8000/api';
+};
+
+const API_BASE_URL_DEVELOPMENT = getDevelopmentBaseUrl();
 const API_BASE_URL_PRODUCTION = 'https://game-reset-backend.onrender.com/api'; // URL de Render
 
 // Determinar si estamos en modo de desarrollo o producción
@@ -33,7 +56,16 @@ console.log('Using API URL:', IS_DEVELOPMENT ? API_BASE_URL_DEVELOPMENT : API_BA
 export const settings = {
   api: {
     baseUrl: IS_DEVELOPMENT ? API_BASE_URL_DEVELOPMENT : API_BASE_URL_PRODUCTION,
-    timeout: 10000, // Tiempo de espera para las peticiones API en milisegundos
+    timeout: 15000, // Default 15s timeout
+    timeoutProfiles: {
+      FAST: 5000,    // 5s for auth/validations
+      NORMAL: 15000, // 15s for standard CRUD
+      SLOW: 60000    // 60s for reports/heavy data
+    },
+    defaults: {
+      cacheTTL: 5 * 60 * 1000, // 5 minutes default cache
+      retryCount: 3,           // 3 retries default
+    },
     endpoints: {
       auth: () => '/auth',
       login: () => '/auth/token/',
@@ -47,6 +79,9 @@ export const settings = {
       draws: () => '/draw/draws/',
       incidents: () => '/incidents/',
       changePin: () => '/auth/change-pin/',
+      financialStatement: () => '/financial-statement/summary/',
+      financialStatements: () => '/financial-statement/',
+      dashboardStats: () => '/financial-statement/dashboard-stats/',
       // ...otros endpoints de tu API
     },
   },

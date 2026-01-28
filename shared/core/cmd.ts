@@ -26,26 +26,57 @@ export const Cmd = {
         url: string,
         method?: 'GET' | 'POST' | 'PUT' | 'DELETE',
         body?: any,
-        headers?: Record<string, string>
+        headers?: Record<string, string>,
+        cacheTTL?: number,
+        retryCount?: number,
+        abortSignal?: AbortSignal
     }, msgCreator: (data: any) => any, errorCreator?: (error: any) => any): { type: string; payload: any } => ({
         type: 'HTTP',
         payload: { ...config, method: config.method || 'GET', msgCreator, errorCreator }
     }),
-    task: (config: TaskConfig): CommandDescriptor => ({
-        type: 'TASK',
-        payload: config
-    }),
+    task: (config: TaskConfig): CommandDescriptor => {
+        // Validate that the task is actually a function
+        if (typeof config.task !== 'function') {
+            console.error('[Cmd.task] Invalid task function - expected function, got:', typeof config.task, config.task);
+            // Replace with a safe error-throwing function
+            config.task = async () => { throw new Error('Invalid task function provided to Cmd.task'); };
+        }
+        return {
+            type: 'TASK',
+            payload: config
+        };
+    },
     attempt: (config: AttemptConfig): CommandDescriptor => ({
         type: 'ATTEMPT',
         payload: config
     }),
-    navigate: (config: {
+    /**
+     * Agrupa múltiples comandos en uno solo.
+     * El motor (Engine) ya está preparado para manejar arreglos de comandos.
+     */
+    batch: (cmds: (Cmd | undefined)[]): CommandDescriptor[] => {
+        const flat: CommandDescriptor[] = [];
+        cmds.forEach(cmd => {
+            if (!cmd) return;
+            if (Array.isArray(cmd)) {
+                flat.push(...cmd);
+            } else {
+                flat.push(cmd);
+            }
+        });
+        return flat;
+    },
+    navigate: (config: string | {
         pathname: string,
         params?: Record<string, any>,
         method?: 'push' | 'replace' | 'back'
     }): CommandDescriptor => ({
         type: 'NAVIGATE',
-        payload: config
+        payload: typeof config === 'string' ? { pathname: config } : config
+    }),
+    back: (): CommandDescriptor => ({
+        type: 'NAVIGATE',
+        payload: { method: 'back', pathname: '' }
     }),
     sleep: (ms: number, msg: any): CommandDescriptor => ({
         type: 'SLEEP',

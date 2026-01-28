@@ -1,1 +1,1 @@
-export * from './BankerDashboardService';
+export * from './banker_dashboard_service';

@@ -1,17 +1,14 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { useAuth } from '../../auth';
+import React from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { withDataView } from '@/shared/components';
-import { useDataFetch } from '@/shared/hooks/useDataFetch';
-import { StructureService, ListeroDetails } from '@/shared/services/Structure';
-import { useTheme } from '@/shared/hooks/useTheme';
-import { DateNavigation } from '@/features/colector/drawers/components/DateNavigation';
-import { DrawItem } from '@/features/colector/drawers/components/DrawItem';
-import { useDrawConfirmation } from '@/features/colector/drawers/hooks/useDrawConfirmation';
+import { ListeroDetails } from '@/shared/services/structure';
+import { useTheme } from '@/shared/hooks/use_theme';
+import { DateNavigation } from '@/features/colector/drawers/views/date_navigation';
+import { DrawItem } from '@/features/colector/drawers/views/draw_item';
 import { Header } from '../common/header';
-import { useDrawer } from './hook/useDrawer';
+import { useDrawer } from './hook/use_drawer';
 
 const formatDateToString = (date: Date) => {
   return date.toISOString().split('T')[0];
@@ -60,27 +57,30 @@ const DataBoundListeroContent = withDataView(ListeroDetailContent);
 
 export default function DrawerScreen() {
   const { id, title } = useLocalSearchParams();
- const {
-  selectedDate,
-  setSelectedDate,
-  handleNavigate,
-  handleReport,
-  confirmDraw,
-  refresh,
-  details,
-  loading,
-  error,
-  theme,
-  router
- } = useDrawer({ id: Number(id) });
+  const theme = useTheme();
+  
+  const {
+    selectedDate,
+    setSelectedDate,
+    handleNavigate,
+    handleBack,
+    handleReport,
+    confirmDraw,
+    refresh,
+    details,
+    loading,
+    error,
+  } = useDrawer({ id: Number(id) });
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme['background-basic-color-1'] }]} edges={['top']}>
-      <Header 
-        title={`Sorteo ${details?.listero_name }`} 
-        onBack={() => router.back()}
-        onRefresh={refresh}
-      />
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <SafeAreaView edges={['top']}>
+        <Header 
+          title={`Sorteo ${details?.listero_name || '' }`} 
+          onBack={handleBack}
+          onRefresh={refresh}
+        />
+      </SafeAreaView>
       
       <DateNavigation
         selectedDate={selectedDate}
@@ -99,7 +99,7 @@ export default function DrawerScreen() {
         onConfirm={confirmDraw}
         emptyMessage={`No hay sorteos para mostrar el ${formatDateToString(selectedDate)}.`}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 

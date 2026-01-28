@@ -3,8 +3,8 @@ import { Model } from '../../core/model';
 import { FijosMsg, FijosMsgType } from './fijos.types';
 import { Cmd } from '@/shared/core/cmd';
 import { FijosCorridosBet } from '@/types';
-import { Return, singleton } from '@/shared/core/return';
-import { AnnotationTypes } from '@/constants/Bet';
+import { Return, singleton, ret } from '@/shared/core/return';
+import { AnnotationTypes, GameTypes } from '@/constants/bet';
 import { splitStringToPairs, generateRandomId } from '../../shared/utils/numbers';
 import { RemoteData } from '@/shared/core/remote.data';
 import { ListData } from '../bet-list/list.types';
@@ -271,18 +271,39 @@ export const updateFijos = (model: Model, msg: FijosMsg): Return<Model, FijosMsg
             const editingBetObject = fijosCorridos.find((b: FijosCorridosBet) => b.id === editingBetId);
 
             if (betBuffer.length > 1 && editingBetId && editingBetObject && betBuffer.includes(editingBetObject.bet)) {
-                return singleton({
-                    ...model,
-                    editSession: {
-                        ...editSession,
-                        amountConfirmationDetails: {
-                            amountValue,
-                            intendedAmountType: editingAmountType as any,
-                            intendedBetId: editingBetId,
+                return ret<Model, FijosMsg>(
+                    {
+                        ...model,
+                        editSession: {
+                            ...editSession,
+                            amountConfirmationDetails: {
+                                amountValue,
+                                intendedAmountType: editingAmountType as any,
+                                intendedBetId: editingBetId,
+                            },
+                            showAmountKeyboard: false,
                         },
-                        showAmountKeyboard: false,
                     },
-                });
+                    Cmd.alert({
+                        title: "Confirmar Monto",
+                        message: `Desea colocar ${amountValue} a todos los números anteriores en ${editingAmountType === 'fijo' ? GameTypes.FIJO : GameTypes.CORRIDO}?`,
+                        buttons: [
+                            {
+                                text: "Cancelar",
+                                style: "cancel",
+                                onPressMsg: { type: FijosMsgType.CANCEL_AMOUNT_CONFIRMATION }
+                            },
+                            {
+                                text: "Sólo a éste",
+                                onPressMsg: { type: FijosMsgType.CONFIRM_APPLY_AMOUNT_SINGLE }
+                            },
+                            {
+                                text: "Sí, a todos",
+                                onPressMsg: { type: FijosMsgType.CONFIRM_APPLY_AMOUNT_ALL }
+                            }
+                        ]
+                    })
+                );
             } else {
                 return singleton(updateSingleBetAmount(model, editingBetId!, editingAmountType as BetAmountType, amountValue));
             }

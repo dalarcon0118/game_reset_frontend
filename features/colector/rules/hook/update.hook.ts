@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Alert } from 'react-native';
-import { ValidationRuleService, ValidationRule, StructureSpecificRule } from '../../../../shared/services/ValidationRule';
+import { ValidationRuleService, ValidationRule, StructureSpecificRule } from '../../../../shared/services/validation_rule';
 import { useAuth } from '../../../auth';
 
 interface RuleUpdateFormData {

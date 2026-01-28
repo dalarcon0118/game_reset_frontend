@@ -1,5 +1,5 @@
 import { createElmStore } from '@/shared/core/engine';
-import { effectHandlers } from '@/shared/core/effectHandlers';
+import { effectHandlers } from '@/shared/core/effect_handlers';
 import { Model, Msg } from './types';
 import { update, initialState } from './update';
 

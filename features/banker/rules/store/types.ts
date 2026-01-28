@@ -52,7 +52,9 @@ export type Msg =
     | { type: 'RESET_FORM' }
     | { type: 'CREATE_RULE_REQUESTED' }
     | { type: 'ROUTER_GO'; url: string }
-    | { type: 'ROUTER_BACK' };
+    | { type: 'ROUTER_BACK' }
+    | { type: 'NAVIGATE_TO_EDIT'; ruleId: string }
+    | { type: 'NAVIGATE_TO_CREATE' };
 
 export const FETCH_RULES_REQUESTED = () => ({ type: 'FETCH_RULES_REQUESTED' } as const);
 export const FETCH_RULES_SUCCEEDED = (rules: Rule[]) => ({ type: 'FETCH_RULES_SUCCEEDED', rules } as const);

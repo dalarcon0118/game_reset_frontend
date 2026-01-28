@@ -2,9 +2,9 @@
 import { match } from 'ts-pattern';
 import { AuthModel, AuthMsg, AuthMsgType } from './types';
 import { Cmd } from '@/shared/core/cmd';
-import { LoginService } from '@/shared/services/auth/LoginService';
+import { LoginService } from '@/shared/services/auth/login_service';
 import { RemoteDataHttp } from '@/shared/core/remote.data.http';
-import { TokenService } from '@/shared/services/TokenService';
+import { TokenService } from '@/shared/services/token_service';
 import { hashString } from '@/shared/utils/crypto';
 
 const loginService = LoginService();
@@ -69,7 +69,7 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
                 .with({ type: 'Failure' }, ({ error }) => {
                     const errorMessage = typeof error === 'string'
                         ? error
-                        : (error?.message || 'Error de conexión');
+                        : (error?.message || error?.detail || 'Error de conexión');
 
                     return [
                         {
@@ -94,13 +94,15 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
         })
 
         .with({ type: AuthMsgType.LOGIN_FAILED }, ({ error }) => {
+            const errorMessage = error || 'Error de conexión';
+
             return [
                 {
                     ...model,
                     user: null,
                     isAuthenticated: false,
                     isLoading: false,
-                    error,
+                    error: errorMessage,
                     loginSession: {
                         ...model.loginSession,
                         pin: '',
@@ -178,10 +180,21 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
             ] as [AuthModel, Cmd];
         })
 
+        .with({ type: AuthMsgType.FORGOT_PIN_REQUESTED }, () => {
+            return [
+                model,
+                Cmd.alert({
+                    title: 'Info',
+                    message: 'Contacte al administrador para restablecer su PIN',
+                    buttons: [{ text: 'OK' }]
+                })
+            ] as [AuthModel, Cmd];
+        })
+
         .with({ type: AuthMsgType.LOGOUT_REQUESTED }, () => {
             if (model.isLoggingOut) return [model, Cmd.none] as [AuthModel, Cmd];
 
-            const logoutTask: TaskConfig = {
+            const logoutTask = {
                 task: async () => await loginService.logout(),
                 onSuccess: () => ({ type: AuthMsgType.LOGOUT_SUCCEEDED } as AuthMsg),
                 onFailure: (error: any) => ({
@@ -238,33 +251,62 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
                     {
                         ...model,
                         user: data,
-                        isAuthenticated: true,
+                        isAuthenticated: !!data,
                         isLoading: false,
                         error: null,
                     },
                     Cmd.none,
                 ] as [AuthModel, Cmd])
-                .with({ type: 'Failure' }, ({ error }) => [
-                    {
-                        ...model,
-                        user: null,
-                        isAuthenticated: false,
-                        isLoading: false,
-                        error: error || 'Sesión no válida'
-                    },
-                    Cmd.none
-                ] as [AuthModel, Cmd])
+                .with({ type: 'Failure' }, ({ error }) => {
+                    const errorMessage = typeof error === 'string'
+                        ? error
+                        : (error?.message || error?.detail || 'Sesión no válida');
+
+                    // If authentication failed due to token expiration, trigger session expired
+                    if (error?.status === 401 || error?.status === 403) {
+                        return [
+                            {
+                                ...model,
+                                user: null,
+                                isAuthenticated: false,
+                                isLoading: false,
+                                error: errorMessage
+                            },
+                            [
+                                Cmd.navigate({ pathname: '/login', method: 'replace' }),
+                                Cmd.alert({
+                                    title: 'Sesión expirada',
+                                    message: 'Su sesión ha expirado. Por favor inicie sesión nuevamente.',
+                                    buttons: [{ text: 'OK' }]
+                                })
+                            ]
+                        ] as [AuthModel, Cmd];
+                    }
+
+                    return [
+                        {
+                            ...model,
+                            user: null,
+                            isAuthenticated: false,
+                            isLoading: false,
+                            error: errorMessage
+                        },
+                        Cmd.none
+                    ] as [AuthModel, Cmd];
+                })
                 .otherwise(() => [model, Cmd.none] as [AuthModel, Cmd]);
         })
 
         .with({ type: AuthMsgType.CHECK_AUTH_STATUS_FAILED }, ({ error }) => {
+            const errorMessage = error || 'Error de conexión';
+
             return [
                 {
                     ...model,
                     user: null,
                     isAuthenticated: false,
                     isLoading: false,
-                    error
+                    error: errorMessage
                 },
                 Cmd.none
             ] as [AuthModel, Cmd];

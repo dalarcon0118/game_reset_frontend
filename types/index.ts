@@ -27,6 +27,14 @@ export interface DrawType {
   source?: string; // Alias de 'name' para compatibilidad
   date?: string; // Fecha formateada
   time?: string; // Hora formateada
+  is_betting_open?: boolean;
+  extra_data?: {
+    jackpot_amount?: number;
+    currency?: string;
+    award_date?: string;
+    disclaimer?: string;
+    [key: string]: any;
+  };
 }
 
 
@@ -39,6 +47,7 @@ export interface BetType {
   draw: string;
   createdAt: string;
   isPending?: boolean;
+  receiptCode?: string;
 }
 export type GameType = {
   id: string;
@@ -51,6 +60,16 @@ export interface FinancialSummary {
   totalCollected: number;
   premiumsPaid: number;
   netResult: number;
+  draws?: DrawFinancialInfo[];
+}
+
+export interface DrawFinancialInfo {
+  id_sorteo: number;
+  nombre_sorteo: string;
+  numero_ganador: string;
+  colectado: number;
+  pagado: number;
+  neto: number;
 }
 
 export interface FijosCorridosBet {
@@ -72,4 +91,11 @@ export interface CentenaBet {
   bet: number;
   amount: number;
 }
+
+export interface LoteriaBet {
+  id: string;
+  bet: number;
+  amount: number | null;
+}
+
 export * from "./rules"

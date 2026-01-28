@@ -1,12 +1,13 @@
 import { createElmStore } from '@/shared/core/engine';
-import { effectHandlers } from '@/shared/core/effectHandlers';
 import { Model, Msg } from './types';
-import { update, initialState } from './update';
+import { update, init, subscriptions } from './update';
+import { effectHandlers } from '@/shared/core/effect_handlers';
 
 export const useRuleStore = createElmStore<Model, Msg>(
-    initialState,
+    init,
     update,
-    effectHandlers as any
+    effectHandlers as any,
+    subscriptions
 );
 
 // Selectores útiles

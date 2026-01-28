@@ -39,6 +39,7 @@ export enum CreateMsgType {
     HANDLE_AMOUNT_SELECTION = 'HANDLE_AMOUNT_SELECTION',
     VALIDATE_AND_ADD_BET = 'VALIDATE_AND_ADD_BET',
     SUBMIT_CREATE_SESSION = 'SUBMIT_CREATE_SESSION',
+    REQUEST_CLEAR_BETS = 'REQUEST_CLEAR_BETS',
     CONFIRM_CLEAR_BETS = 'CONFIRM_CLEAR_BETS',
     SUBMISSION_RESULT = 'SUBMISSION_RESULT',
 }
@@ -57,6 +58,7 @@ export type CreateMsg =
     | { type: CreateMsgType.HANDLE_AMOUNT_SELECTION; value: number }
     | { type: CreateMsgType.VALIDATE_AND_ADD_BET; drawId: string }
     | { type: CreateMsgType.SUBMIT_CREATE_SESSION }
+    | { type: CreateMsgType.REQUEST_CLEAR_BETS }
     | { type: CreateMsgType.CONFIRM_CLEAR_BETS }
     | { type: CreateMsgType.SUBMISSION_RESULT; result: any };
 

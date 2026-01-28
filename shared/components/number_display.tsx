@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, Text } from 'react-native';
-import { GameTypeCodes } from '@/constants/Bet';
+import { GameTypeCodes } from '@/constants/bet';
 
 interface NumberDisplayProps {
     numbers: number[] | string;
