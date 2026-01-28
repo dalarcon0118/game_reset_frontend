@@ -1,0 +1,51 @@
+# Dockerfile optimizado para compilación Android en máquinas con 8GB RAM
+# Usamos Ubuntu como base para mayor estabilidad y control
+FROM ubuntu:22.04
+
+# Evitar prompts interactivos
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Instalar dependencias básicas, JDK 17 y Node.js 20
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    unzip \
+    openjdk-17-jdk \
+    build-essential \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && apt-get clean
+
+# Configurar variables de entorno para Android
+ENV ANDROID_HOME /opt/android-sdk
+ENV PATH ${PATH}:${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools
+
+# Instalar Android SDK Command Line Tools
+RUN mkdir -p ${ANDROID_HOME}/cmdline-tools \
+    && curl -o /tmp/cmdline-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip \
+    && unzip /tmp/cmdline-tools.zip -d ${ANDROID_HOME}/cmdline-tools \
+    && mv ${ANDROID_HOME}/cmdline-tools/cmdline-tools ${ANDROID_HOME}/cmdline-tools/latest \
+    && rm /tmp/cmdline-tools.zip
+
+# Aceptar licencias e instalar componentes necesarios (Platforms 34/35, Build Tools, y NDK)
+RUN yes | sdkmanager --licenses \
+    && sdkmanager "platforms;android-34" "platforms;android-35" \
+    "build-tools;34.0.0" "build-tools;35.0.0" \
+    "platform-tools" \
+    "ndk;26.1.10909125"
+
+# Configurar variable de entorno para NDK
+ENV ANDROID_NDK_HOME ${ANDROID_HOME}/ndk/26.1.10909125
+
+# Configurar directorio de trabajo en la raíz del monorepo
+WORKDIR /app
+
+# Configuración de Gradle para ahorrar memoria (Optimizado para 8GB RAM del host)
+# Ajustado a 2.5GB para Gradle y 1GB para Node (Total ~3.5GB de 6GB disponibles en Docker)
+# Esto deja 2.5GB para el SO y procesos secundarios de compilación
+ENV GRADLE_OPTS="-Dorg.gradle.jvmargs='-Xmx2560m -XX:MaxMetaspaceSize=512m -XX:+UseG1GC' -Dorg.gradle.daemon=false -Dorg.gradle.parallel=false -Dorg.gradle.workers.max=1"
+ENV JAVA_OPTS="-Xmx2560m"
+ENV NODE_OPTIONS="--max-old-space-size=1024"
+
+# El script de entrada se encargará de instalar dependencias y compilar
+ENTRYPOINT ["/bin/bash", "./frontend/scripts/docker-build-entrypoint.sh"]

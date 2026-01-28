@@ -1,0 +1,17 @@
+services:
+  android-builder:
+    build:
+      context: ..
+      dockerfile: frontend/Dockerfile.build
+    volumes:
+      - ..:/app
+      - ~/.gradle:/root/.gradle
+      - ~/.npm:/root/.npm
+      - ./.metro-cache:/app/frontend/.metro-cache
+    deploy:
+      resources:
+        limits:
+          memory: 5.5G
+    environment:
+      - EXPO_PUBLIC_APP_ENV=production
+      - NODE_ENV=production

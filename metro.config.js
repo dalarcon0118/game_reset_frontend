@@ -4,6 +4,7 @@ global.ReadableStream = global.ReadableStream || require('web-streams-polyfill')
 // Learn more https://docs.expo.io/guides/customizing-metro
 const { getDefaultConfig } = require('expo/metro-config');
 const path = require('path');
+const exclusionList = require('metro-config/src/defaults/exclusionList');
 
 const projectRoot = __dirname;
 const workspaceRoot = path.resolve(projectRoot, '..');
@@ -19,6 +20,21 @@ config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, 'node_modules'),
   path.resolve(workspaceRoot, 'node_modules'),
 ];
+
+// 3. Exclude heavy directories that are not needed for the frontend bundle
+config.resolver.blockList = exclusionList([
+  /backend\/.*/,
+  /specifications\/.*/,
+  /\.work\/.*/,
+  /admin-dashboard\/.*/,
+  /frontend\/tests\/.*/,
+  /frontend\/scripts\/.*/,
+  /\.trae\/.*/,
+  /\.expo\/.*/,
+  /\.vscode\/.*/,
+  /.*\/android\/app\/build\/.*/,
+  /.*\/ios\/build\/.*/,
+]);
 
 // Add resolver to handle potential bridge issues
 config.resolver = {

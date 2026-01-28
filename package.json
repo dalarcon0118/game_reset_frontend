@@ -20,7 +20,9 @@
     "test:all": "jest tests",
     "test:feature": "node -e \"const feature = process.env.npm_config_feature; if (!feature) { console.error('Please specify a feature: npm run test:feature --feature=draws'); process.exit(1); } require('child_process').spawnSync('jest', ['tests/features/admin/' + feature], { stdio: 'inherit', shell: true });\"",
     "test:watch": "jest --watch",
-    "postinstall": "cp patches/expo-router-fix/_ctx.android.js ../node_modules/expo-router/_ctx.android.js"
+    "postinstall": "mkdir -p ../node_modules/expo-router && cp patches/expo-router-fix/_ctx.android.js ../node_modules/expo-router/_ctx.android.js || true",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "dependencies": {
     "@eva-design/eva": "^2.2.0",
