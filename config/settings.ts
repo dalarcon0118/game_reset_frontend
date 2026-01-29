@@ -35,7 +35,7 @@ const getDevelopmentBaseUrl = () => {
 };
 
 const API_BASE_URL_DEVELOPMENT = getDevelopmentBaseUrl();
-const API_BASE_URL_PRODUCTION = 'https://game-reset-backend.onrender.com/api'; // URL de Render
+const API_BASE_URL_PRODUCTION = process.env.EXPO_PUBLIC_API_URL || 'https://game-reset-backend.onrender.com/api'; // URL de Render
 
 // Determinar si estamos en modo de desarrollo o producción
 // Intentamos obtener APP_ENV de múltiples fuentes para mayor robustez en Expo
