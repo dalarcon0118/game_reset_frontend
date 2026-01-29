@@ -1,31 +1,31 @@
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
-    "baseUrl": ".",
+    "baseUrl": "../frontend_",
     "strict": true,
     "paths": {
       "@/*": [
-        "./*"
+        "../frontend_/*"
       ],
       "@shared/*": [
-        "shared/*"
+        "../frontend_/shared/*"
       ],
       "@features/*": [
-        "features/*"
+        "../frontend_/features/*"
       ],
       "@core/*": [
-        "shared/core/*"
+        "../frontend_/shared/core/*"
       ]
     }
   },
   "include": [
-    "**/*.ts",
-    "**/*.tsx",
-    ".expo/types/**/*.ts",
-    "expo-env.d.ts",
-    "nativewind-env.d.ts"
-, "features/banker/common/header"  ],
+    "../frontend_/**/*.ts",
+    "../frontend_/**/*.tsx",
+    "../frontend_/.expo/types/**/*.ts",
+    "../frontend_/expo-env.d.ts",
+    "../frontend_/nativewind-env.d.ts"
+, "../frontend_/features/banker/common/header"  ],
   "exclude": [
-    "**/legacy/**"
+    "../frontend_/**/legacy/**"
   ]
 }

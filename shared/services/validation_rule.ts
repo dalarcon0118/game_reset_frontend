@@ -1,4 +1,4 @@
-import ApiClient, { ApiClientError } from '../services/api_client';
+import ApiClient, { ApiClientError } from './api_client';
 import { createStream } from '../utils/generators';
 import { transformTemplatesWithStatus, generatorToArray } from '../utils/generators';
 
