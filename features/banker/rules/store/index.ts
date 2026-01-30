@@ -1,7 +1,7 @@
-import { createElmStore } from '@/shared/core/engine';
+import { createElmStore } from '../../../../shared/core/engine';
 import { Model, Msg } from './types';
 import { update, init, subscriptions } from './update';
-import { effectHandlers } from '@/shared/core/effect_handlers';
+import { effectHandlers } from '../../../../shared/core/effect_handlers';
 
 export const useRuleStore = createElmStore<Model, Msg>(
     init,

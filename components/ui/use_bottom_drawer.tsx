@@ -12,9 +12,9 @@ interface DrawerContextProps {
   drawer: DrawerOptions & { isVisible: boolean };
 }
 
-const bottom_drawerContext = createContext<DrawerContextProps | null>(null);
+const BottomDrawerContext = createContext<DrawerContextProps | null>(null);
 
-export function bottom_drawerProvider({ children }: { children: ReactNode }) {
+export function BottomDrawerProvider({ children }: { children: ReactNode }) {
   const [drawer, setDrawer] = useState<{
     isVisible: boolean;
     title: string;
@@ -41,14 +41,14 @@ export function bottom_drawerProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <bottom_drawerContext.Provider value={{ openDrawer, closeDrawer, drawer }}>
+    <BottomDrawerContext.Provider value={{ openDrawer, closeDrawer, drawer }}>
       {children}
-    </bottom_drawerContext.Provider>
+    </BottomDrawerContext.Provider>
   );
 }
 
-export const use_bottom_drawer = () => {
-  const ctx = useContext(bottom_drawerContext);
+export const useBottomDrawer = () => {
+  const ctx = useContext(BottomDrawerContext);
   if (ctx) return ctx;
 
   return {

@@ -176,7 +176,7 @@ export class ValidationRuleService {
         updates: Partial<StructureSpecificRule>
     ): Promise<StructureSpecificRule> {
         try {
-            const response = await ApiClient.put<StructureSpecificRule>(
+            const response = await ApiClient.patch<StructureSpecificRule>(
                 `/draw/structure-specific-rules/${ruleId}/`,
                 updates
             );

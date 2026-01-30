@@ -3,7 +3,7 @@ import { SafeAreaView, StyleSheet } from 'react-native';
 import { Input } from '@ui-kitten/components';
 import { Label, Flex, ButtonKit } from '../../../../shared/components';
 import LayoutConstants from '@/constants/layout';
-import bottom_drawer from '@/components/ui/bottom_drawer';
+import BottomDrawer from '@/components/ui/bottom_drawer';
 
 interface QuickActionsProps {
   
@@ -35,7 +35,7 @@ export default function QuickActions({
 
  const editPlay = () => {
  return(
-     <bottom_drawer isVisible ={isDrawerVisible} onClose={hideModal} title='Jugada a Editar'>
+     <BottomDrawer isVisible ={isDrawerVisible} onClose={hideModal} title='Jugada a Editar'>
        <Input
                  placeholder="Type something here..."
                  value={value}
@@ -47,12 +47,12 @@ export default function QuickActions({
 
                <ButtonKit onPress={handleSubmit} label="Submit" />
 
-   </bottom_drawer>
+   </BottomDrawer>
  );
  };
  const deletePlay = () => {
    return(
-       <bottom_drawer isVisible ={isDrawerVisible} onClose={hideModal} title='Jugada a Eliminar'>
+       <BottomDrawer isVisible ={isDrawerVisible} onClose={hideModal} title='Jugada a Eliminar'>
          <Input
                    placeholder="Type something here..."
                    value={value}
@@ -64,7 +64,7 @@ export default function QuickActions({
 
                  <ButtonKit onPress={handleSubmit} label="Submit" />
 
-     </bottom_drawer>
+     </BottomDrawer>
    );
    };
 

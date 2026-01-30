@@ -1,21 +1,21 @@
 import React from 'react';
-import bottom_drawer from './bottom_drawer';
+import BottomDrawer from './bottom_drawer';
 
-interface drawer_modalProps {
+interface DrawerModalProps {
   visible?: boolean;
   onClose?: () => void;
   title?: string;
   children?: React.ReactNode;
 }
 
-export function drawer_modal({ visible, onClose, title, children }: drawer_modalProps) {
+export function DrawerModal({ visible, onClose, title, children }: DrawerModalProps) {
   return (
-    <bottom_drawer
+    <BottomDrawer
       isVisible={visible}
       onClose={onClose}
       title={title}
     >
       {children}
-    </bottom_drawer>
+    </BottomDrawer>
   );
 }

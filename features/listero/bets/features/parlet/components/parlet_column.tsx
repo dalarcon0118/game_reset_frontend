@@ -5,10 +5,10 @@ import Colors from '@/constants/colors';
 import AmountCircle from '../../../shared/components/amount_circle';
 import BetCircle from '../../../shared/components/bet_circle';
 import { FijosCorridosBet } from '@/types';
-import bottom_drawer from '@/components/ui/bottom_drawer';
 import { BetNumericKeyboard, AmountNumericKeyboard } from '../../../shared/components/numeric_keyboard';
 import { AnnotationType, AnnotationTypes } from '@/constants/bet';
 import { useParlet } from '../use_parlet';
+import BottomDrawer from '@/components/ui/bottom_drawer';
 
 interface ParletColumnProps {
     fijosCorridosList: FijosCorridosBet[];
@@ -40,7 +40,7 @@ export const ParletColumn: React.FC<ParletColumnProps> = ({ fijosCorridosList, e
             : () => showParletDrawer(false);
 
         return (
-            <bottom_drawer isVisible={isVisible} onClose={onClose} height={"60%"} title=''>
+            <BottomDrawer isVisible={isVisible} onClose={onClose} height={"60%"} title=''>
                 {annotationType === AnnotationTypes.Bet ? (
                     <BetNumericKeyboard
                         onKeyPress={handleKeyPress}
@@ -54,7 +54,7 @@ export const ParletColumn: React.FC<ParletColumnProps> = ({ fijosCorridosList, e
                         currentInput={currentInput}
                     />
                 )}
-            </bottom_drawer>
+            </BottomDrawer>
         );
     };
     const renderParletList = () => (

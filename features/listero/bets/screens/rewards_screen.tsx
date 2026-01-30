@@ -91,18 +91,18 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ drawId }) => {
                                 <Hash size={16} color={theme['text-hint-color']} />
                                 <Text category="c2" appearance="hint">Fijo</Text>
                             </View>
-                            <Text category="h3" status="primary">{winningData.fijo}</Text>
+                            <Text category="h3" status="primary">{winningData?.fijo || '-'}</Text>
                         </Card>
                         <Card style={[styles.statCard, { flex: 1, marginLeft: 8 }]}>
                             <View style={styles.statHeader}>
                                 <Award size={16} color={theme['text-hint-color']} />
                                 <Text category="c2" appearance="hint">Centena</Text>
                             </View>
-                            <Text category="h3" status="info">{winningData.centena}</Text>
+                            <Text category="h3" status="info">{winningData?.centena || '-'}</Text>
                         </Card>
                     </View>
 
-                    {winningData.corridos.length > 0 && (
+                    {winningData?.corridos && winningData.corridos.length > 0 && (
                         <Card style={styles.sectionCard}>
                             <Text category="s1" style={styles.sectionTitle}>Corridos</Text>
                             <View style={styles.chipsContainer}>
@@ -115,7 +115,7 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ drawId }) => {
                         </Card>
                     )}
 
-                    {winningData.parlets.length > 0 && (
+                    {winningData?.parlets && winningData.parlets.length > 0 && (
                         <Card style={styles.sectionCard}>
                             <View style={styles.sectionHeader}>
                                 <Layers size={20} color={theme['text-basic-color']} />

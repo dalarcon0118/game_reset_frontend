@@ -4,7 +4,7 @@ import Layout from '@/constants/layout';
 import Colors from '@/constants/colors';
 import AmountCircle from '@/features/listero/bets/shared/components/amount_circle';
 import BetCircle from '@/features/listero/bets/shared/components/bet_circle';
-import bottom_drawer from '@/components/ui/bottom_drawer';
+import BottomDrawer from '@/components/ui/bottom_drawer';
 import { BetNumericKeyboard } from '@/features/listero/bets/shared/components/bet_numeric_keyboard';
 import { AmountNumericKeyboard } from '@/features/listero/bets/shared/components/amount_numeric_keyboard';
 import { useLoteria } from '../use_loteria';
@@ -40,7 +40,7 @@ export const LoteriaColumn: React.FC = () => {
         const onClose = isBetKeyboardVisible ? closeBetKeyboard : closeAmountKeyboard;
 
         return (
-            <bottom_drawer isVisible={isVisible} onClose={onClose} height={"60%"} title=''>
+            <BottomDrawer isVisible={isVisible} onClose={onClose} height={"60%"} title=''>
                 {isBetKeyboardVisible ? (
                     <BetNumericKeyboard
                         onKeyPress={handleKeyPress}
@@ -56,7 +56,7 @@ export const LoteriaColumn: React.FC = () => {
                         currentInput={currentInput}
                     />
                 )}
-            </bottom_drawer>
+            </BottomDrawer>
         );
     };
 

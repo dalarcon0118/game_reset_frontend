@@ -1,4 +1,5 @@
-import { ValidationRule } from '@/types/rules';
+import { ValidationRule } from '../../../../types/rules';
+import { User } from '../../../../features/auth/store/types/auth.types';
 
 export interface Rule {
     id: string;
@@ -33,6 +34,7 @@ export interface Model {
     editingRuleId: string | null;
     originalRule: ValidationRule | null;
     currentUrl: string;
+    currentUser: User | null;
 }
 
 export type Msg =
@@ -54,7 +56,8 @@ export type Msg =
     | { type: 'ROUTER_GO'; url: string }
     | { type: 'ROUTER_BACK' }
     | { type: 'NAVIGATE_TO_EDIT'; ruleId: string }
-    | { type: 'NAVIGATE_TO_CREATE' };
+    | { type: 'NAVIGATE_TO_CREATE' }
+    | { type: 'AUTH_USER_SYNCED'; user: User | null };
 
 export const FETCH_RULES_REQUESTED = () => ({ type: 'FETCH_RULES_REQUESTED' } as const);
 export const FETCH_RULES_SUCCEEDED = (rules: Rule[]) => ({ type: 'FETCH_RULES_SUCCEEDED', rules } as const);

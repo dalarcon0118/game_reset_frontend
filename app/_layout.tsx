@@ -12,6 +12,7 @@ import { useAuth } from '../features/auth/hooks/use_auth';
 import { useColorScheme } from 'react-native';
 import * as eva from '@eva-design/eva'; // Import eva
 import { ApplicationProvider, Button, Icon } from '@ui-kitten/components';
+import { BottomDrawerProvider } from '../components/ui/use_bottom_drawer';
 import { roleToScreenMap, routes } from '../config/routes';
 import { ArrowLeft } from "lucide-react-native";
 import { logger } from '../shared/utils/logger';
@@ -45,7 +46,9 @@ export default function RootLayoutNav() {
   return (
     <SafeAreaProvider>
       <ApplicationProvider {...eva} theme={eva[colorScheme]}>
-        <RootLayout />
+        <BottomDrawerProvider>
+          <RootLayout />
+        </BottomDrawerProvider>
         <StatusBar 
           style="auto" 
           translucent={Platform.OS === 'android'}

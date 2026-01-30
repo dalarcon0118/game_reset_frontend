@@ -19,11 +19,11 @@ import Animated, {
 import { X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Layout, Text } from '@ui-kitten/components';
-import { use_bottom_drawer } from "./use_bottom_drawer";
+import { useBottomDrawer } from "./use_bottom_drawer";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-interface bottom_drawerProps {
+interface BottomDrawerProps {
   isVisible?: boolean;
   onClose?: () => void;
   title?: string;
@@ -31,8 +31,8 @@ interface bottom_drawerProps {
   children?: React.ReactNode;
 }
 
-export default function bottom_drawer(props: bottom_drawerProps = {}) {
-  const { drawer, closeDrawer } = use_bottom_drawer();
+export default function BottomDrawer(props: BottomDrawerProps = {}) {
+  const { drawer, closeDrawer } = useBottomDrawer();
 
   const isVisible = props.isVisible ?? drawer.isVisible;
   const onClose = props.onClose ?? closeDrawer;

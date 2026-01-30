@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import AmountCircle from '../../../shared/components/amount_circle';
 import BetCircle from '../../../shared/components/bet_circle';
 import { FijosCorridosBet } from '@/types';
-import bottom_drawer from '@/components/ui/bottom_drawer';
+import BottomDrawer from '@/components/ui/bottom_drawer';
 import Layout from '@/constants/layout';
 import { useFijos } from '../use_fijos';
 import { BetNumericKeyboard, AmountNumericKeyboard } from '../../../shared/components/numeric_keyboard';
@@ -36,7 +36,7 @@ export default function FijosCorridosColumn({ editable = false }: FijosCorridosC
     console.log('FijosCorridosColumn: Rendering Keyboard. showBetKeyboard:', showBetKeyboard, 'showAmountKeyboard:', showAmountKeyboard, 'isVisible:', isVisible);
 
     return (
-      <bottom_drawer isVisible={isVisible} onClose={onClose} title='' height={"60%"}>
+      <BottomDrawer isVisible={isVisible} onClose={onClose} title='' height={"60%"}>
         {showBetKeyboard ? (
           <BetNumericKeyboard
             onKeyPress={handleKeyPress}
@@ -50,7 +50,7 @@ export default function FijosCorridosColumn({ editable = false }: FijosCorridosC
             currentInput={currentInput}
           />
         )}
-      </bottom_drawer>
+      </BottomDrawer>
     );
   };
  const renderBets =() =>(

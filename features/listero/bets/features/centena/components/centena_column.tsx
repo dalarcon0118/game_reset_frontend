@@ -4,10 +4,10 @@ import Layout from '@/constants/layout';
 import Colors from '@/constants/colors';
 import AmountCircle from '../../../shared/components/amount_circle';
 import BetCircle from '../../../shared/components/bet_circle';
-import bottom_drawer from '@/components/ui/bottom_drawer';
 import { BetNumericKeyboard, AmountNumericKeyboard } from '../../../shared/components/numeric_keyboard';
 import { AnnotationType, AnnotationTypes } from '@/constants/bet';
 import { useCentena } from '../use_centena';
+import BottomDrawer from '@/components/ui/bottom_drawer';
 
 interface CentenaColumnProps {
     editable?: boolean;
@@ -38,7 +38,7 @@ export const CentenaColumn: React.FC<CentenaColumnProps> = ({ editable = false }
             : () => showCentenaDrawer(false);
 
         return (
-            <bottom_drawer isVisible={isVisible} onClose={onClose} height={"60%"} title=''>
+            <BottomDrawer isVisible={isVisible} onClose={onClose} height={"60%"} title=''>
                 {annotationType === AnnotationTypes.Bet ? (
                     <BetNumericKeyboard
                         onKeyPress={handleKeyPress}
@@ -53,7 +53,7 @@ export const CentenaColumn: React.FC<CentenaColumnProps> = ({ editable = false }
                         currentInput={currentInput}
                     />
                 )}
-            </bottom_drawer>
+            </BottomDrawer>
         );
     };
 
