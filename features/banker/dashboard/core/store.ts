@@ -20,5 +20,5 @@ const store = createElmStore<Model, Msg>(
 );
 
 export const useDashboardStore = store;
-export const selectDashboardModel = (state: any) => state.model;
-export const selectDashboardDispatch = (state: any) => state.dispatch;
+export const selectDashboardModel = (state: any) => state?.model;
+export const selectDashboardDispatch = (state: any) => state?.dispatch;

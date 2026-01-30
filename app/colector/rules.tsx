@@ -1,1 +1,2 @@
-export { default } from '../../features/colector/rules';
+import ColectorRulesScreen from "@/features/colector/rules";
+export default ColectorRulesScreen;

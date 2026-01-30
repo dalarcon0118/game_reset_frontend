@@ -1,1 +1,2 @@
-export { default } from '../../../features/colector/dashboard';
+import ColectorDashboardScreen from "@/features/colector/dashboard";
+export default ColectorDashboardScreen;

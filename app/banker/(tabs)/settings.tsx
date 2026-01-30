@@ -1,1 +1,2 @@
-export { default } from "@/features/banker/settings"
+import BankerSettingsScreen from "@/features/banker/settings";
+export default BankerSettingsScreen;

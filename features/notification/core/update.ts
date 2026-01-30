@@ -17,7 +17,7 @@ export const subscriptions = (model: Model) => {
     // Sync with Auth store for user changes
     const authSub = Sub.watchStore(
         useAuthStore,
-        (state: any) => state.model?.user,
+        (state: any) => state?.model?.user ?? state?.user,
         (user) => ({ type: 'AUTH_USER_SYNCED', user }),
         'notification-auth-sync'
     );

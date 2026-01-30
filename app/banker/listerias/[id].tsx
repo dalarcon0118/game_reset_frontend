@@ -1,1 +1,2 @@
-export {default} from "@/features/banker/listerias/list"
+import AgencyDetailsScreen from "@/features/banker/listerias/list";
+export default AgencyDetailsScreen;

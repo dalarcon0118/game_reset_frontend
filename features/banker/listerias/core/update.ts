@@ -14,7 +14,7 @@ import * as config from '@/config';
 export const subscriptions = (_model: Model): SubDescriptor<Msg> => {
     return Sub.watchStore(
         useDashboardStore,
-        (state: any) => state.model.selectedAgencyId,
+        (state: any) => state?.model?.selectedAgencyId ?? state?.selectedAgencyId,
         (id) => ({ type: 'INIT_SCREEN', id: id || 0 }),
         'listerias-init-sync'
     );

@@ -1,1 +1,2 @@
-export {default} from "@/features/banker/report/list"
+import BankerReportsListScreen from "@/features/banker/report/list";
+export default BankerReportsListScreen;

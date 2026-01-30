@@ -26,7 +26,7 @@ export const subscriptions = (model: Model) => {
     // Sincronización automática con el store de Auth
     const authSub = Sub.watchStore(
         useAuthStore,
-        (state: any) => state.user,
+        (state: any) => state?.model?.user ?? state?.user,
         (user) => AUTH_USER_SYNCED(user),
         'dashboard-auth-sync'
     );

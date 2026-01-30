@@ -1,1 +1,2 @@
-export { default } from '../../features/colector/rules/update';
+import UpdateRuleScreen from "@/features/colector/rules/update";
+export default UpdateRuleScreen;

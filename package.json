@@ -9,7 +9,7 @@
   "scripts": {
     "start": "node start-dev.js",
     "start:dev": "node start-dev.js",
-    "start:render": "node start-dev.js",
+    "start:render": "EXPO_PUBLIC_APP_ENV=production node start-dev.js",
     "dev": "npm run start:dev",
     "render": "npm run start:render",
     "build:web": "EXPO_ROUTER_APP_ROOT=app expo export --platform web",

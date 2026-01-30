@@ -13,8 +13,9 @@ export const subscriptions = (model: Model) => {
     // Watch Colector Dashboard children to sync financial data
     const dashboardSub = Sub.watchStore(
         useDashboardStore,
-        (model: any) => {
-            const children = model.children;
+        (state: any) => {
+            const model = state?.model ?? state;
+            const children = model?.children;
             if (children?.type === 'Success') {
                 return JSON.stringify(children.data.map((child: any) => child.id));
             }
@@ -30,8 +31,9 @@ export const subscriptions = (model: Model) => {
     // Watch Drawers list to sync financial data for draws
     const drawersSub = Sub.watchStore(
         useDrawersStore,
-        (model: any) => {
-            const details = model.details;
+        (state: any) => {
+            const model = state?.model ?? state;
+            const details = model?.details;
             if (details?.type === 'Success' && details.data?.draws) {
                 return JSON.stringify(details.data.draws.map((draw: any) => draw.draw_id));
             }
@@ -47,8 +49,9 @@ export const subscriptions = (model: Model) => {
     // Watch Banker Dashboard agencies to sync financial data
     const bankerDashboardSub = Sub.watchStore(
         useBankerDashboardStore,
-        (model: any) => {
-            const agencies = model.agencies;
+        (state: any) => {
+            const model = state?.model ?? state;
+            const agencies = model?.agencies;
             if (agencies?.type === 'Success') {
                 return JSON.stringify(agencies.data.map((agency: any) => agency.id));
             }
@@ -64,8 +67,9 @@ export const subscriptions = (model: Model) => {
     // Watch Banker Listerias list to sync financial data
     const bankerListeriasSub = Sub.watchStore(
         useListeriasStore,
-        (model: any) => {
-            const listerias = model.listerias;
+        (state: any) => {
+            const model = state?.model ?? state;
+            const listerias = model?.listerias;
             if (listerias?.type === 'Success') {
                 return JSON.stringify(listerias.data.map((listeria: any) => listeria.id));
             }

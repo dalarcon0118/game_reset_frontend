@@ -1,1 +1,2 @@
-export { default } from '@/features/colector/drawers';
+import ColectorDrawersScreen from '@/features/colector/drawers';
+export default ColectorDrawersScreen;

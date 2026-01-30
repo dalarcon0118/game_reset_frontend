@@ -1,1 +1,2 @@
-export { default } from '../../../features/banker/dashboard';
+import BankerDashboardScreen from "@/features/banker/dashboard";
+export default BankerDashboardScreen;

@@ -1,1 +1,2 @@
-export {default } from '@/features/auth/views/login';
+import LoginScreen from "@/features/auth/views/login";
+export default LoginScreen;
