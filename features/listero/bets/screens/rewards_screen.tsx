@@ -30,7 +30,7 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ drawId }) => {
     }
 
     if (error) {
-        const is404 = error instanceof ApiClientError && error.status === 404;
+        const is404 = (error as any)?.status === 404;
         if (is404) {
             return (
                 <SafeAreaView style={styles.container} edges={['top']}>

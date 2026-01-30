@@ -28,9 +28,23 @@ export const updateRewardsRules = (model: GlobalModel, msg: RewardsRulesMsg): Re
             });
         })
         .with({ type: RewardsRulesMsgType.FETCH_REWARDS_FAILED }, ({ error }) => {
+            const status = (error as any)?.status;
+            const is404 = status === 404;
+            console.log(`[RewardsRules] Fetch failed. Status: ${status}, is404: ${is404}`);
+            
+            // We avoid spreading the error object directly because Error properties (message, stack, status) 
+            // are often not enumerable and would be lost.
+            const errorData = is404 
+                ? { status: 404, isPublished: false, message: 'Números no publicados' }
+                : error;
+
             return singleton({
                 ...model,
-                rewards: { ...model.rewards, isLoading: false, error },
+                rewards: { 
+                    ...model.rewards, 
+                    isLoading: false, 
+                    error: errorData
+                },
             });
         })
         .with({ type: RewardsRulesMsgType.FETCH_RULES_REQUESTED }, ({ drawId }) => {

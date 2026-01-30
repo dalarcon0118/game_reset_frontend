@@ -34,6 +34,7 @@ export class ApiClientError extends Error {
 
 interface RequestOptions extends RequestInit {
   skipAuthHandler?: boolean;
+  silentErrors?: boolean; // New flag to suppress error logging for expected failures
   cacheTTL?: number; // In milliseconds
   retryCount?: number;
   abortSignal?: AbortSignal;
@@ -206,11 +207,15 @@ const apiClient = {
         clearTimeout(id);
 
         if (!response.ok) {
-          logger.error(`API Error Response: ${response.status}`, 'API', {
-            endpoint,
-            status: response.status,
-            statusText: response.statusText
-          });
+          // Only log error if not explicitly silenced
+          if (!options.silentErrors) {
+            logger.error(`API Error Response: ${response.status}`, 'API', {
+              endpoint,
+              status: response.status,
+              statusText: response.statusText
+            });
+          }
+          
           consecutiveFailures++;
           if (consecutiveFailures >= FAILURE_THRESHOLD) {
             logger.error(`CRITICAL: Multiple consecutive API failures (${consecutiveFailures})`, 'API', {
@@ -289,11 +294,15 @@ const apiClient = {
         clearTimeout(id);
 
         const fullUrl = `${settings.api.baseUrl}${endpoint}`;
-        logger.error(`Network or Request Error: ${endpoint}`, 'API', {
-          url: fullUrl,
-          message: error instanceof Error ? error.message : 'Unknown error',
-          error
-        });
+        
+        // Only log network/request errors if not silenced
+        if (!options.silentErrors) {
+          logger.error(`Network or Request Error: ${endpoint}`, 'API', {
+            url: fullUrl,
+            message: error instanceof Error ? error.message : 'Unknown error',
+            error
+          });
+        }
 
         if (error instanceof ApiClientError) throw error;
         if (error instanceof Error && error.name === 'AbortError') {

@@ -80,7 +80,11 @@ export const effectHandlers = {
             const result = await task(...(args || []));
             dispatch(onSuccess(result));
         } catch (error) {
-            logger.error(`Task execution failed`, 'TASK', error, { args });
+            // Only log if it's NOT a business-expected error (like 404 in some contexts)
+            const isExpectedError = (error as any)?.status === 404;
+            if (!isExpectedError) {
+                logger.error(`Task execution failed`, 'TASK', error, { args });
+            }
             dispatch(onFailure(error));
         }
     },

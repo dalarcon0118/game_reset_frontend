@@ -11,11 +11,17 @@ export class WinningService {
      * @returns Promise with WinningRecord or null
      */
     static async getWinningNumber(drawId: string): Promise<WinningRecord | null> {
-        const response = await apiClient.get<WinningRecord>(
-            `${settings.api.endpoints.draws()}${drawId}/get-winning-numbers/`
-        );
-
-        console.info(`[Winning number for drawId: ${drawId}]`, JSON.stringify(response));
-        return response;
+        try {
+            return await apiClient.get<WinningRecord>(
+                `${settings.api.endpoints.draws()}${drawId}/get-winning-numbers/`,
+                { silentErrors: true } // Don't log expected 404s
+            );
+        } catch (error) {
+            // Only log if it's NOT a 404, as 404 is a valid business state
+            if ((error as any)?.status !== 404) {
+                console.error(`[WinningService] Unexpected error for drawId: ${drawId}`, error);
+            }
+            throw error;
+        }
     }
 }
