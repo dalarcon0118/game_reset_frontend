@@ -61,7 +61,7 @@ export const LoteriaListPlays: React.FC<LoteriaListPlaysProps> = ({ drawId }) =>
                 }
             >
                 <View style={styles.content}>
-                    <LoteriaColumn />
+                    <LoteriaColumn isEditing={false} />
                 </View>
             </ScrollView>
             <View style={styles.footer}>

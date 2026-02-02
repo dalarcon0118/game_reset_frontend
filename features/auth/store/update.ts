@@ -67,9 +67,16 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
                     }),
                 ] as [AuthModel, Cmd])
                 .with({ type: 'Failure' }, ({ error }) => {
-                    const errorMessage = typeof error === 'string'
+                    let errorMessage = typeof error === 'string'
                         ? error
                         : (error?.message || error?.detail || 'Error de conexión');
+
+                    // Localize common technical errors
+                    if (errorMessage.toLowerCase().includes('network request failed')) {
+                        errorMessage = 'No se pudo conectar con el servidor. Revisa tu internet.';
+                    } else if (errorMessage.toLowerCase().includes('invalid') || errorMessage.toLowerCase().includes('credentials')) {
+                        errorMessage = 'Usuario o PIN incorrectos.';
+                    }
 
                     return [
                         {
@@ -84,17 +91,20 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
                                 isSubmitting: false,
                             },
                         },
-                        Cmd.navigate({
-                            pathname: '/error',
-                            params: { message: errorMessage }
-                        }),
+                        Cmd.none, // Removed navigation to /error to stay on login page and show the message
                     ] as [AuthModel, Cmd];
                 })
                 .otherwise(() => [model, Cmd.none] as [AuthModel, Cmd]);
         })
 
         .with({ type: AuthMsgType.LOGIN_FAILED }, ({ error }) => {
-            const errorMessage = error || 'Error de conexión';
+            let errorMessage = error || 'Error de conexión';
+
+            if (errorMessage.toLowerCase().includes('network request failed')) {
+                errorMessage = 'No se pudo conectar con el servidor. Revisa tu internet.';
+            } else if (errorMessage.toLowerCase().includes('invalid') || errorMessage.toLowerCase().includes('credentials')) {
+                errorMessage = 'Usuario o PIN incorrectos.';
+            }
 
             return [
                 {

@@ -11,4 +11,5 @@ export interface Model {
     statusFilter: StatusFilter;
     appliedFilter: StatusFilter;
     commissionRate: number;
+    showBalance: boolean;
 }

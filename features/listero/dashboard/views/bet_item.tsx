@@ -5,6 +5,7 @@ import Layout from '@/constants/layout';
 import Colors from '@/constants/colors';
 import { Clock3, Ticket } from 'lucide-react-native';
 import { BetType } from '@/types';
+import { useDashboardStore } from '../core/store';
 
 interface BetItemProps {
   bet: BetType;
@@ -13,6 +14,7 @@ interface BetItemProps {
 
 export default function BetItem({ bet, index }: BetItemProps) {
   const colorScheme = useColorScheme() ?? 'light';
+  const showBalance = useDashboardStore((state) => state.model.showBalance);
   
   const getTypeColor = () => {
     switch (bet.type) {
@@ -44,7 +46,7 @@ export default function BetItem({ bet, index }: BetItemProps) {
           type="header"
           style={styles.amount}
         >
-          ${bet.amount.toFixed(2)}
+          {showBalance ? `$${bet.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '****'}
         </Label>
       </View>
 

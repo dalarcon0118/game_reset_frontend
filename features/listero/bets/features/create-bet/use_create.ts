@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { GameType } from '@/types';
 import { useBetsStore, selectBetsModel, selectDispatch } from '../../core/store';
 import { CreateMsgType } from './create.types';
@@ -15,6 +15,8 @@ export const useCreate = (drawId: string) => {
     } = model;
 
     const {
+        draw,
+        gameTypes,
         selectedGameType,
         numbersPlayed,
         amount,
@@ -22,6 +24,16 @@ export const useCreate = (drawId: string) => {
         tempBets,
         submissionStatus,
     } = createSession;
+
+    // Load initial data on mount or when drawId changes
+    useEffect(() => {
+        if (drawId) {
+            dispatch({
+                type: 'CREATE',
+                payload: { type: CreateMsgType.LOAD_INITIAL_DATA, drawId }
+            });
+        }
+    }, [dispatch, drawId]);
 
     // Actions
     const setGameType = useCallback((gameType: GameType) => {
@@ -75,6 +87,8 @@ export const useCreate = (drawId: string) => {
 
     return {
         // State
+        draw,
+        gameTypes,
         selectedGameType,
         numbersPlayed,
         amount,

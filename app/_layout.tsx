@@ -1,7 +1,15 @@
 import 'react-native-gesture-handler';
 import 'react-native-reanimated';
-import 'event-source-polyfill';
+import 'react-native-url-polyfill/auto';
+import { EventSourcePolyfill } from 'event-source-polyfill';
 import React, { useCallback, useEffect, useMemo } from 'react';
+
+// Setup EventSource for React Native
+if (typeof window !== 'undefined') {
+  (window as any).EventSource = EventSourcePolyfill;
+} else {
+  (global as any).EventSource = EventSourcePolyfill;
+}
 import { View, Text, StyleSheet, Platform } from 'react-native';
 // Import router
 import { Stack, usePathname, router, ErrorBoundary as ExpoErrorBoundary } from 'expo-router';

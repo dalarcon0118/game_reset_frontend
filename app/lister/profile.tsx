@@ -1,3 +1,5 @@
 import { ProfileScreen } from '@/features/listero/profile';
 
-export default ProfileScreen;
+export default function ProfileRoute() {
+    return <ProfileScreen showHeader={false} />;
+}

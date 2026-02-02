@@ -71,7 +71,7 @@ export const BetSummary: React.FC<BetSummaryProps> = ({
                 <Label type="header" value={`Lista actual (${allBets.length})}`} />
                 <Flex justify="between" align="center" style={styles.row}>
                     <Label type="subheader" value="Sorteo:" />
-                    <Label type="default" value={`${draw.source} - ${draw.time}`} />
+                    <Label type="default" value={`${draw.source || draw.name} - ${draw.time || ''}`} />
                 </Flex>
                 <FlatList
                     data={allBets}

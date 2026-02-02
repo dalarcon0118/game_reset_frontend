@@ -153,11 +153,11 @@ export default function LoginScreen() {
         </Flex>
 
         <Flex vertical align="center" gap={40} style={{ width: '100%' }}>
-          <View style={{ height: 24, justifyContent: 'center' }}>
+          <View style={{ height: 40, justifyContent: 'center', width: '100%', alignItems: 'center', paddingHorizontal: 20 }}>
             {isLoading ? (
               <ActivityIndicator color={THEME.accent} />
             ) : error ? (
-              <Text status="danger" category="p2">{error}</Text>
+              <Text status="danger" category="p2" style={{ textAlign: 'center', fontWeight: '600' }}>{error}</Text>
             ) : (
               <Text category="p1" style={{ color: THEME.text, fontSize: 18 }}>Ingresa el PIN de acceso</Text>
             )}
@@ -253,5 +253,10 @@ const styles = StyleSheet.create({
     fontSize: 28,
     color: THEME.keypadText,
     fontWeight: '300',
+  },
+  forgotPin: {
+    color: THEME.textSecondary,
+    fontSize: 14,
+    textDecorationLine: 'underline',
   },
 });

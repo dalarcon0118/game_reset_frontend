@@ -21,6 +21,7 @@ export const subscriptions = (_model: Model): SubDescriptor<Msg> => {
 };
 
 const fetchDetailsCmd = (id: number, date: Date): Cmd => {
+    if (!id || id === 0) return Cmd.none;
     const dateStr = date.toISOString().split('T')[0];
     return RemoteDataHttp.fetch(
         () => StructureService.getListeroDetails(id, dateStr),

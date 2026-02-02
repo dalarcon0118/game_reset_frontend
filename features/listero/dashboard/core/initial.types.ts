@@ -16,4 +16,5 @@ export const initialState: Model = {
     statusFilter: 'open',
     appliedFilter: 'open',
     commissionRate: 0, // Inicia en 0, se carga desde el perfil del usuario
+    showBalance: true,
 };

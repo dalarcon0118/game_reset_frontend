@@ -1,8 +1,10 @@
-import { GameType } from '@/types';
+import { GameType, DrawType } from '@/types';
 import { WebData, RemoteData } from '@/shared/core/remote.data';
 
 export interface Model {
     selectedDrawId: string | null;
+    draw: WebData<DrawType>;
+    gameTypes: WebData<GameType[]>;
     selectedGameType: GameType | null;
     numbersPlayed: string;
     amount: string;
@@ -17,6 +19,8 @@ export interface Model {
 
 export const initialCreateState: Model = {
     selectedDrawId: null,
+    draw: RemoteData.notAsked(),
+    gameTypes: RemoteData.notAsked(),
     selectedGameType: null,
     numbersPlayed: '',
     amount: '',
@@ -26,6 +30,9 @@ export const initialCreateState: Model = {
 };
 
 export enum CreateMsgType {
+    LOAD_INITIAL_DATA = 'LOAD_INITIAL_DATA',
+    SET_DRAW_DATA = 'SET_DRAW_DATA',
+    SET_GAME_TYPES_DATA = 'SET_GAME_TYPES_DATA',
     SET_CREATE_DRAW = 'SET_CREATE_DRAW',
     SET_CREATE_GAME_TYPE = 'SET_CREATE_GAME_TYPE',
     UPDATE_CREATE_NUMBERS = 'UPDATE_CREATE_NUMBERS',
@@ -45,6 +52,9 @@ export enum CreateMsgType {
 }
 
 export type CreateMsg =
+    | { type: CreateMsgType.LOAD_INITIAL_DATA; drawId: string }
+    | { type: CreateMsgType.SET_DRAW_DATA; data: WebData<DrawType> }
+    | { type: CreateMsgType.SET_GAME_TYPES_DATA; data: WebData<GameType[]> }
     | { type: CreateMsgType.SET_CREATE_DRAW; drawId: string }
     | { type: CreateMsgType.SET_CREATE_GAME_TYPE; gameType: GameType }
     | { type: CreateMsgType.UPDATE_CREATE_NUMBERS; numbers: string }

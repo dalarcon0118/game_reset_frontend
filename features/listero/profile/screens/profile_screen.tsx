@@ -11,7 +11,11 @@ import { useAuth } from '../../../auth/hooks/use_auth';
 import { IncidentList } from '../components/incident_list';
 import LayoutConstants from '@/constants/layout';
 
-export const ProfileScreen: React.FC = () => {
+interface ProfileScreenProps {
+    showHeader?: boolean;
+}
+
+export const ProfileScreen: React.FC<ProfileScreenProps> = ({ showHeader = true }) => {
     const model = useProfileStore(selectProfileModel);
     const dispatch = useProfileStore(selectDispatch);
     const init = useProfileStore(selectInit);
@@ -60,8 +64,8 @@ export const ProfileScreen: React.FC = () => {
 
     if (RemoteData.isLoading(user)) {
         return (
-            <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-                {renderHeader()}
+            <SafeAreaView style={styles.container} edges={showHeader ? ['top', 'bottom'] : ['bottom']}>
+                {showHeader && renderHeader()}
                 <View style={styles.loadingContainer}>
                     <Spinner size="large" />
                     <Text style={styles.loadingText}>Cargando perfil...</Text>
@@ -72,8 +76,8 @@ export const ProfileScreen: React.FC = () => {
 
     if (RemoteData.isFailure(user)) {
         return (
-            <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-                {renderHeader()}
+            <SafeAreaView style={styles.container} edges={showHeader ? ['top', 'bottom'] : ['bottom']}>
+                {showHeader && renderHeader()}
                 <View style={styles.errorContainer}>
                     <Text style={styles.errorText}>Error al cargar el perfil</Text>
                     <Button
@@ -90,8 +94,8 @@ export const ProfileScreen: React.FC = () => {
     const { userData } = model;
 
     return (
-        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-            {renderHeader()}
+        <SafeAreaView style={styles.container} edges={showHeader ? ['top', 'bottom'] : ['bottom']}>
+            {showHeader && renderHeader()}
             <ScrollView
                 style={styles.scrollView}
                 contentContainerStyle={styles.scrollContent}

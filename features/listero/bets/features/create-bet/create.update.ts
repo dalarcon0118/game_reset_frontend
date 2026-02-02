@@ -5,6 +5,7 @@ import { GameTypeCodes } from '@/constants/bet';
 import { Return, singleton, ret } from '@/shared/core/return';
 import { RemoteData } from '@/shared/core/remote.data';
 import { Cmd } from '@/shared/core/cmd';
+import { DrawService } from '@/shared/services/draw';
 
 // Initial state for this submodule
 export const initCreate = (model: GlobalModel): Return<GlobalModel, CreateMsg> => {
@@ -13,6 +14,8 @@ export const initCreate = (model: GlobalModel): Return<GlobalModel, CreateMsg> =
         createSession: {
             ...model.createSession,
             submissionStatus: RemoteData.notAsked(),
+            draw: RemoteData.notAsked(),
+            gameTypes: RemoteData.notAsked(),
         },
     });
 };
@@ -47,6 +50,8 @@ export const isValidBetNumbers = (numbers: string, gameTypeCode: GameTypeCodes |
 const clearSessionData = (createSession: Model): Model => ({
     ...createSession,
     selectedDrawId: null,
+    draw: RemoteData.notAsked(),
+    gameTypes: RemoteData.notAsked(),
     selectedGameType: null,
     numbersPlayed: '',
     amount: '',
@@ -57,6 +62,53 @@ const clearSessionData = (createSession: Model): Model => ({
 
 export const updateCreate = (model: GlobalModel, msg: CreateMsg): Return<GlobalModel, CreateMsg> => {
     return match<CreateMsg, Return<GlobalModel, CreateMsg>>(msg)
+        .with({ type: CreateMsgType.LOAD_INITIAL_DATA }, ({ drawId }) => {
+            return ret(
+                {
+                    ...model,
+                    createSession: {
+                        ...model.createSession,
+                        selectedDrawId: drawId,
+                        draw: RemoteData.loading(),
+                        gameTypes: RemoteData.loading(),
+                    },
+                },
+                Cmd.batch([
+                    Cmd.task({
+                        task: async () => await DrawService.getOne(drawId),
+                        onSuccess: (draw) => draw
+                            ? { type: CreateMsgType.SET_DRAW_DATA, data: RemoteData.success(draw) }
+                            : { type: CreateMsgType.SET_DRAW_DATA, data: RemoteData.failure('Sorteo no encontrado') },
+                        onFailure: (error) => ({ type: CreateMsgType.SET_DRAW_DATA, data: RemoteData.failure(error.message || 'Error desconocido') })
+                    }),
+                    Cmd.task({
+                        task: async () => await DrawService.filterBetsTypeByDrawId(drawId),
+                        onSuccess: (gameTypes) => ({ type: CreateMsgType.SET_GAME_TYPES_DATA, data: RemoteData.success(gameTypes) }),
+                        onFailure: (error) => ({ type: CreateMsgType.SET_GAME_TYPES_DATA, data: RemoteData.failure(error.message || 'Error desconocido') })
+                    })
+                ])
+            );
+        })
+        .with({ type: CreateMsgType.SET_DRAW_DATA }, ({ data }) => {
+            return singleton({
+                ...model,
+                createSession: {
+                    ...model.createSession,
+                    draw: data,
+                },
+            });
+        })
+        .with({ type: CreateMsgType.SET_GAME_TYPES_DATA }, ({ data }) => {
+            const selectedGameType = data.type === 'Success' ? data.data[0] : model.createSession.selectedGameType;
+            return singleton({
+                ...model,
+                createSession: {
+                    ...model.createSession,
+                    gameTypes: data,
+                    selectedGameType: selectedGameType,
+                },
+            });
+        })
         .with({ type: CreateMsgType.SET_CREATE_DRAW }, ({ drawId }) => {
             return Return.val(
                 {
@@ -99,7 +151,7 @@ export const updateCreate = (model: GlobalModel, msg: CreateMsg): Return<GlobalM
                     ...model,
                     createSession: {
                         ...model.createSession,
-                        amount,
+                        amount: amount,
                     },
                 },
                 Cmd.none
@@ -167,6 +219,13 @@ export const updateCreate = (model: GlobalModel, msg: CreateMsg): Return<GlobalM
             );
         })
         .with({ type: CreateMsgType.HANDLE_KEY_PRESS }, ({ key }) => {
+            if (key === 'RETRY') {
+                const drawId = model.createSession.selectedDrawId;
+                if (!drawId) return singleton(model);
+
+                return updateCreate(model, { type: CreateMsgType.LOAD_INITIAL_DATA, drawId });
+            }
+
             const { createSession } = model;
             const gameTypeCode = createSession.selectedGameType?.code?.toLowerCase() as GameTypeCodes | undefined;
             let newNumbers = createSession.numbersPlayed;

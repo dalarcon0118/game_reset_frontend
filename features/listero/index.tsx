@@ -4,7 +4,7 @@
 // Export main screens/views
 export { BetsListScreen } from './bets/screens/bets_list_screen';
 export { EditListScreen } from './bets/screens/edit_list_screen';
-//export { CreateBetScreen } from './bets/screens/create_bet_screen';
+export { CreateBetScreen } from './bets/screens/create_bet_screen';
 
 // Export dashboard components
 export { default as DashboardScreen } from './dashboard/views';

@@ -121,7 +121,7 @@ const LoteriaEntryScreen: React.FC<LoteriaEntryScreenProps> = ({ drawId, title }
     return (
         <View style={[styles.container, { backgroundColor: Colors[colorScheme].background }]}>
             <View style={styles.content}>
-                <LoteriaColumn />
+                <LoteriaColumn isEditing={true} />
             </View>
             {renderSavingFooterBar()}
         </View>

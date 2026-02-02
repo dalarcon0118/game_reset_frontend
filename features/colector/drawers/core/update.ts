@@ -12,6 +12,7 @@ const formatDateToString = (date: Date) => {
 };
 
 const fetchDetailsCmd = (id: number, selectedDate: Date): Cmd => {
+    if (!id || id === 0) return Cmd.none;
     return RemoteDataHttp.fetch(
         () => StructureService.getListeroDetails(id, formatDateToString(selectedDate)),
         (webData) => ({ type: 'DETAILS_RECEIVED', webData })

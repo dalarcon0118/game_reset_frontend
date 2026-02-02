@@ -10,7 +10,11 @@ import { AmountNumericKeyboard } from '@/features/listero/bets/shared/components
 import { useLoteria } from '../use_loteria';
 import StyledText from '@/components/typography/styled_text';
 
-export const LoteriaColumn: React.FC = () => {
+export interface LoteriaColumnProps {
+    isEditing?: boolean;
+}
+
+export const LoteriaColumn: React.FC<LoteriaColumnProps> = ({ isEditing = true }) => {
     const {
         loteriaList,
         fixedAmount,

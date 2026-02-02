@@ -100,7 +100,7 @@ const calculateTotals = (draws: any[], commissionRate: number): DailyTotals => {
 };
 
 const fetchDrawsCmd = (structureId: string | null): Cmd => {
-    if (!structureId) return Cmd.none;
+    if (!structureId || structureId === '0') return Cmd.none;
     console.log('fetchDrawsCmd: Requesting draws for structure', structureId);
     return RemoteDataHttp.fetch(
         () => DrawService.list(Number(structureId)),
@@ -112,6 +112,7 @@ const fetchDrawsCmd = (structureId: string | null): Cmd => {
 };
 
 const fetchSummaryCmd = (structureId: string | null): Cmd => {
+    if (!structureId || structureId === '0') return Cmd.none;
     console.log('fetchSummaryCmd: Requesting financial summary for structure', structureId);
     return RemoteDataHttp.fetch(
         () => FinancialSummaryService.get(structureId),
@@ -126,6 +127,11 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
     const result = match<Msg, Return<Model, Msg>>(msg)
         .with({ type: 'FETCH_DATA_REQUESTED' }, ({ structureId }) => {
             const id = structureId || model.userStructureId;
+
+            if (!id || id === '0') {
+                console.log('update: FETCH_DATA_REQUESTED ignored (invalid id)', id);
+                return singleton(model);
+            }
 
             // Si ya tenemos datos exitosos para este ID, no volvemos a poner Loading
             // a menos que el ID sea diferente al que ya teníamos.
@@ -214,7 +220,7 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
 
         .with({ type: 'AUTH_USER_SYNCED' }, ({ user }) => {
             const structure = user?.structure;
-            const structureId = structure?.id?.toString() || null;
+            const structureId = (structure?.id && structure.id !== 0) ? structure.id.toString() : null;
             const backendRate = structure?.commission_rate || 0;
             const currentCommissionRate = model.commissionRate;
             const nextCommissionRate = backendRate / 100;
@@ -311,6 +317,18 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
         )
         .with({ type: 'NAVIGATE_TO_ERROR' }, () =>
             ret(model, Cmd.navigate({ pathname: '/error' }))
+        )
+        .with({ type: 'HELP_CLICKED' }, () =>
+            ret(model, Cmd.navigate({ pathname: '/help' }))
+        )
+        .with({ type: 'NOTIFICATIONS_CLICKED' }, () =>
+            ret(model, Cmd.navigate({ pathname: '/notifications' }))
+        )
+        .with({ type: 'SETTINGS_CLICKED' }, () =>
+            ret(model, Cmd.navigate({ pathname: routes.lister.profile.screen }))
+        )
+        .with({ type: 'TOGGLE_BALANCE' }, () =>
+            singleton({ ...model, showBalance: !model.showBalance })
         )
         .exhaustive();
 

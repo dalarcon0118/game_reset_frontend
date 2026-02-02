@@ -1,6 +1,6 @@
 [DEFAULT]
 user=ocid1.user.oc1..aaaaaaaageqsfpy3e6lc4g5fgfumdsbtflyqb6dswt5o7e5f7lm4wfmgy6qa
-fingerprint=89:60:da:ac:0f:0a:eb:b6:1f:e8:73:d4:39:01:fe:6e
+fingerprint=81:ca:a3:9a:4a:35:e6:fa:c2:1f:35:5b:05:16:df:4d
 key_file=/Users/davidmartinez/.oci/oci_api_key.pem
 tenancy=ocid1.tenancy.oc1..aaaaaaaaenocsuclv5nspunmfwo652rtw2c7fzf4z4sq5atirqii6vtlzzda
 region=us-chicago-1

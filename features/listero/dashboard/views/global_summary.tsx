@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Label, Card, Flex } from '../../../../shared/components';
 import { Wallet, TrendingUp, PiggyBank, ReceiptText } from 'lucide-react-native';
+import { useDashboardStore } from '../core/store';
 
 interface GlobalSummaryProps {
   totals: {
@@ -15,6 +16,7 @@ interface GlobalSummaryProps {
 }
 
 export default function GlobalSummary({ totals, commissionRate }: GlobalSummaryProps) {
+  const showBalance = useDashboardStore((state) => state.model.showBalance);
   // Ensure totals is never undefined and all values are numbers
   const safeTotals = totals || {
     estimatedCommission: 0,
@@ -52,7 +54,9 @@ export default function GlobalSummary({ totals, commissionRate }: GlobalSummaryP
               </View>
               <View>
                 <Label type="detail">Mi Ganancia Est.</Label>
-                <Label style={styles.commissionValue}>{`$${safeEstimatedCommission.toFixed(2)}`}</Label>
+                <Label style={styles.commissionValue}>
+                  {showBalance ? `$${safeEstimatedCommission.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '****'}
+                </Label>
               </View>
             </Flex>
             <View style={styles.badge}>
@@ -68,7 +72,9 @@ export default function GlobalSummary({ totals, commissionRate }: GlobalSummaryP
               </View>
               <View>
                 <Label type="detail">Monto a Entregar al Colector</Label>
-                <Label style={styles.remitValue}>{`$${safeAmountToRemit.toFixed(2)}`}</Label>
+                <Label style={styles.remitValue}>
+                  {showBalance ? `$${safeAmountToRemit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '****'}
+                </Label>
               </View>
             </Flex>
           </Flex>
@@ -82,7 +88,9 @@ export default function GlobalSummary({ totals, commissionRate }: GlobalSummaryP
                 <ReceiptText size={16} color="#8F9BB3" />
                 <Label type="detail">Ventas Totales</Label>
               </Flex>
-              <Label style={styles.statValue}>{`$${safeTotalCollected.toFixed(2)}`}</Label>
+              <Label style={styles.statValue}>
+                {showBalance ? `$${safeTotalCollected.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '****'}
+              </Label>
             </View>
 
             <View style={styles.statItem}>
@@ -90,7 +98,9 @@ export default function GlobalSummary({ totals, commissionRate }: GlobalSummaryP
                 <TrendingUp size={16} color="#8F9BB3" />
                 <Label type="detail">Premios</Label>
               </Flex>
-              <Label style={[styles.statValue, { color: '#FF3D71' }]}>{`$${safePremiumsPaid.toFixed(2)}`}</Label>
+              <Label style={[styles.statValue, { color: '#FF3D71' }]}>
+                {showBalance ? `$${safePremiumsPaid.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '****'}
+              </Label>
             </View>
 
             <View style={styles.statItem}>
@@ -99,7 +109,7 @@ export default function GlobalSummary({ totals, commissionRate }: GlobalSummaryP
                 <Label type="detail">Balance</Label>
               </Flex>
               <Label style={[styles.statValue, { color: safeNetResult >= 0 ? '#00C48C' : '#FF3D71' }]}>
-                {`$${safeNetResult.toFixed(2)}`}
+                {showBalance ? `$${safeNetResult.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '****'}
               </Label>
             </View>
           </Flex>

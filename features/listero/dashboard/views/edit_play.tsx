@@ -31,7 +31,7 @@ import LayoutConstants from '@/constants/layout';
         />
 
         <ButtonKit onPress={handleAccept} style={styles.acceptButton} label="Aceptar">
-        </buttonKit>
+      </ButtonKit>
       </drawer_modal>
   );
  }

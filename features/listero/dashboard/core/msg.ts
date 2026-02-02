@@ -17,6 +17,10 @@ export type Msg =
     | { type: 'NAVIGATE_TO_ERROR' }
     | { type: 'SET_COMMISSION_RATE'; rate: number }
     | { type: 'AUTH_USER_SYNCED'; user: any }
+    | { type: 'HELP_CLICKED' }
+    | { type: 'NOTIFICATIONS_CLICKED' }
+    | { type: 'SETTINGS_CLICKED' }
+    | { type: 'TOGGLE_BALANCE' }
     | { type: 'TICK' };
 
 export const FETCH_DATA_REQUESTED = (structureId?: string): Msg => ({ type: 'FETCH_DATA_REQUESTED', structureId });
@@ -31,3 +35,7 @@ export const CREATE_BET_CLICKED = (drawId: string, title: string): Msg => ({ typ
 export const TICK = (): Msg => ({ type: 'TICK' });
 export const SET_COMMISSION_RATE = (rate: number): Msg => ({ type: 'SET_COMMISSION_RATE', rate });
 export const AUTH_USER_SYNCED = (user: any): Msg => ({ type: 'AUTH_USER_SYNCED', user });
+export const HELP_CLICKED = (): Msg => ({ type: 'HELP_CLICKED' });
+export const NOTIFICATIONS_CLICKED = (): Msg => ({ type: 'NOTIFICATIONS_CLICKED' });
+export const SETTINGS_CLICKED = (): Msg => ({ type: 'SETTINGS_CLICKED' });
+export const TOGGLE_BALANCE = (): Msg => ({ type: 'TOGGLE_BALANCE' });

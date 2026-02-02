@@ -2,6 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Label } from '../../../../shared/components';
 import { TrendingDown, TrendingUp, DollarSign } from 'lucide-react-native';
+import { useDashboardStore } from '../core/store';
 
 interface SummaryCardProps {
   title: string;
@@ -16,6 +17,7 @@ export default function SummaryCard({
   type,
   index = 0,
 }: SummaryCardProps) {
+  const showBalance = useDashboardStore((state) => state.model.showBalance);
 
   const getTextColor = () => {
     switch (type) {
@@ -28,6 +30,10 @@ export default function SummaryCard({
     }
   };
 
+  const displayAmount = showBalance 
+    ? `$${Math.abs(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` 
+    : '****';
+
   return (
     <View style={styles.card}>
       <Label
@@ -39,7 +45,7 @@ export default function SummaryCard({
       <Label
         style={[styles.value, { color: getTextColor() }]}
       >
-        {`$${Math.abs(amount).toFixed(2)}`}
+        {displayAmount}
       </Label>
     </View>
   );

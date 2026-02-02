@@ -24,7 +24,7 @@ export const subscriptions = (model: Model) => {
 };
 
 const fetchChildrenCmd = (structureId: string | null): Cmd => {
-    if (!structureId) return Cmd.none;
+    if (!structureId || structureId === '0') return Cmd.none;
     return RemoteDataHttp.fetch(
         () => StructureService.getChildren(Number(structureId)) as any,
         (webData) => ({ type: 'CHILDREN_RECEIVED', webData })
@@ -32,7 +32,7 @@ const fetchChildrenCmd = (structureId: string | null): Cmd => {
 };
 
 const fetchStatsCmd = (structureId: string | null): Cmd => {
-    if (!structureId) return Cmd.none;
+    if (!structureId || structureId === '0') return Cmd.none;
     return RemoteDataHttp.fetch(
         () => FinancialSummaryService.getDashboardStats(structureId),
         (webData) => ({ type: 'STATS_RECEIVED', webData })

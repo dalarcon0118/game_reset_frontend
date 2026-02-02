@@ -36,7 +36,7 @@ export const subscriptions = (model: Model) => {
                 }
                 return { type: 'NONE' };
             },
-            'notifications-sse',
+            `notifications-sse-${model.authToken}`, // Dynamic ID based on token to force reconnection on change
             { 'Authorization': `Bearer ${model.authToken}` }
         );
         subs.push(sseSub);

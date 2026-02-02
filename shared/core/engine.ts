@@ -165,13 +165,20 @@ export const createElmStore = <TModel, TMsg>(
             }
 
             if (sub.type === 'SSE') {
-                const { id, url, msgCreator } = sub.payload;
+                const { id, url, msgCreator, headers } = sub.payload;
                 if (!activeSubs.has(id)) {
                     logger.info(`Connecting to SSE stream: ${url}`, 'ENGINE');
                     try {
-                        const eventSource = new EventSource(url);
+                        const GlobalEventSource = (global as any).EventSource || (window as any).EventSource || (typeof EventSource !== 'undefined' ? EventSource : null);
 
-                        eventSource.onmessage = (event) => {
+                        if (!GlobalEventSource) {
+                            throw new Error("EventSource is not defined in this environment");
+                        }
+
+                        // Pass headers to EventSource (supported by event-source-polyfill)
+                        const eventSource = new GlobalEventSource(url, { headers });
+
+                        eventSource.onmessage = (event: any) => {
                             try {
                                 const data = JSON.parse(event.data);
                                 logger.debug('SSE Message received', 'ENGINE', data);
@@ -181,8 +188,13 @@ export const createElmStore = <TModel, TMsg>(
                             }
                         };
 
-                        eventSource.onerror = (error) => {
-                            logger.error(`SSE Stream Error for ${id}`, 'ENGINE', error);
+                        eventSource.onerror = (error: any) => {
+                            // Enhanced error logging for 401 Unauthorized
+                            if (error && error.status === 401) {
+                                logger.error(`SSE Auth Error (401) for ${id}. Token might be expired.`, 'ENGINE', error);
+                            } else {
+                                logger.error(`SSE Stream Error for ${id}`, 'ENGINE', error);
+                            }
                         };
 
                         activeSubs.set(id, { type: 'SSE', eventSource });
