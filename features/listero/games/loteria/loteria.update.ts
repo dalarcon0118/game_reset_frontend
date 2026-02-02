@@ -82,7 +82,7 @@ export const updateLoteria = (model: GlobalModel, msg: LoteriaMsg): Return<Globa
             return singleton(model);
         })
         .with({ type: LoteriaMsgType.PROCESS_BET_INPUT }, ({ input }) => {
-            const betValue = parseInt(input, 10);
+            const betValue = input;
             const editingBetId = model.loteriaSession.editingBetId;
 
             // Check for fixed amount rules
@@ -196,7 +196,7 @@ export const updateLoteria = (model: GlobalModel, msg: LoteriaMsg): Return<Globa
                 },
                 editSession: {
                     ...model.editSession,
-                    currentInput: String(betToEdit.bet)
+                    currentInput: betToEdit.bet
                 }
             });
         })

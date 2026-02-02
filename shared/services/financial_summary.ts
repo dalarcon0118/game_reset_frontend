@@ -27,24 +27,19 @@ interface BackendFinancialSummary {
 
 export class FinancialSummaryService {
   /**
-   * Get financial summary data for the current user's structure
-   * @param structureId - Optional structure ID to filter by
+   * Get financial summary for dashboard
+   * @param structureId - ID of the structure
+   * @param date - Optional date filter (YYYY-MM-DD). Defaults to today.
    * @returns Promise<AsyncResult<FinancialSummary>>
    */
-  static get(structureId?: string | number | null): Promise<AsyncResult<FinancialSummary>> {
+  static async get(structureId: string | number, date?: string): Promise<AsyncResult<FinancialSummary>> {
     const promise = (async () => {
-      let endpoint = settings.api.endpoints.financialStatement(); 
-
-      // Add structure filter if provided
-      if (structureId) {
-        const separator = endpoint.includes('?') ? '&' : '?';
-        endpoint += `${separator}structure_id=${structureId}`;
-      }
-
-      const response: BackendFinancialSummary[] = await apiClient.get<BackendFinancialSummary[]>(endpoint, {
-        cacheTTL: settings.api.defaults.cacheTTL,
-        retryCount: settings.api.defaults.retryCount
-      });
+      // Default to today if not provided
+      const targetDate = date || new Date().toISOString().split('T')[0];
+      
+      // Endpoint: /api/financial-statement/summary/?structure_id=...&date=...
+      const endpoint = `${settings.api.endpoints.financialStatement()}?structure_id=${structureId}&date=${targetDate}`;
+      const response = await apiClient.get<any[]>(endpoint);
 
       // The API returns an array, but we expect a single summary
       // For dashboard, we take the first result (user's structure)
@@ -97,7 +92,10 @@ export class FinancialSummaryService {
       if (date) params.append('date', date);
 
       const endpoint = `${settings.api.endpoints.financialStatements()}node-summary/?${params.toString()}`;
-      return await apiClient.get<NodeFinancialSummary>(endpoint);
+      return await apiClient.get<NodeFinancialSummary>(endpoint, {
+        cacheTTL: 0, // Disable cache for financial data to ensure freshness
+        retryCount: settings.api.defaults.retryCount
+      });
     } catch (error) {
       console.error(`Error fetching node financial summary for ID ${id}:`, error);
       throw error;
@@ -127,8 +125,11 @@ export class FinancialSummaryService {
       if (filters.to) params.append('to', filters.to);
 
       const endpoint = `${settings.api.endpoints.financialStatements()}v2/statements/?${params.toString()}`;
-      const response = await apiClient.get<any[]>(endpoint);
-      
+      const response = await apiClient.get<any[]>(endpoint, {
+        cacheTTL: 0, // Disable cache for financial data to ensure freshness
+        retryCount: settings.api.defaults.retryCount
+      });
+
       // Map RESTful response to frontend FinancialSummary format
       return response.map(item => ({
         totalCollected: parseFloat(item.total_collected),

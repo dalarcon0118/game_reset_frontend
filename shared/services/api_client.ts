@@ -215,7 +215,7 @@ const apiClient = {
               statusText: response.statusText
             });
           }
-          
+
           consecutiveFailures++;
           if (consecutiveFailures >= FAILURE_THRESHOLD) {
             logger.error(`CRITICAL: Multiple consecutive API failures (${consecutiveFailures})`, 'API', {
@@ -294,7 +294,7 @@ const apiClient = {
         clearTimeout(id);
 
         const fullUrl = `${settings.api.baseUrl}${endpoint}`;
-        
+
         // Only log network/request errors if not silenced
         if (!options.silentErrors) {
           logger.error(`Network or Request Error: ${endpoint}`, 'API', {
@@ -380,11 +380,36 @@ const apiClient = {
 
   isTokenExpired(token: string): boolean {
     try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
+      if (!token || !token.includes('.')) return true;
+
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+
+      // Use global atob or fallback if needed
+      const atobFunc = typeof atob !== 'undefined'
+        ? atob
+        : (typeof window !== 'undefined' && window.atob)
+          ? window.atob.bind(window)
+          : null;
+
+      if (!atobFunc) {
+        logger.warn('atob is not available, assuming token is expired for safety', 'API');
+        return true;
+      }
+
+      const jsonPayload = decodeURIComponent(
+        atobFunc(base64)
+          .split('')
+          .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+          .join('')
+      );
+
+      const payload = JSON.parse(jsonPayload);
       const now = Math.floor(Date.now() / 1000);
-      // Refresh 30 seconds before actual expiration
-      return payload.exp - now < 30;
-    } catch {
+      // Refresh 60 seconds before actual expiration for more safety
+      return payload.exp - now < 60;
+    } catch (error) {
+      logger.error('Error decoding token', 'API', error);
       return true;
     }
   }

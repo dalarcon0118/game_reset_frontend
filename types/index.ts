@@ -94,7 +94,7 @@ export interface CentenaBet {
 
 export interface LoteriaBet {
   id: string;
-  bet: number;
+  bet: string;
   amount: number | null;
 }
 

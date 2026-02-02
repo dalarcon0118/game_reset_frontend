@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View, TouchableOpacity } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, View, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { match } from 'ts-pattern';
 import { Label, Flex } from '@/shared/components';
@@ -79,6 +79,14 @@ export default function DashboardScreen() {
                 style={styles.container} 
                 contentContainerStyle={styles.scrollContent}
                 stickyHeaderIndices={[1]}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={draws.type === 'Loading'}
+                        onRefresh={() => dispatch(REFRESH_CLICKED())}
+                        colors={['#00C48C']} // Android
+                        tintColor="#00C48C" // iOS
+                    />
+                }
             >
                 {match(summary)
                     .with({ type: 'Failure' }, ({ error }) => (

@@ -282,9 +282,13 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
         })
 
         .with({ type: 'TICK' }, () => {
-            // Just trigger a re-render to update timers (isClosingSoon, isExpired)
-            // In a more complex scenario, we could re-calculate totals here too
-            return singleton(model);
+            // Trigger a refresh of the financial summary to keep data up-to-date
+            // This ensures that as bets are placed, the dashboard reflects the changes in near real-time.
+            // We don't necessarily need to re-fetch the Draws list every time, just the financials.
+            return ret(
+                model,
+                fetchSummaryCmd(model.userStructureId)
+            );
         })
 
         .with({ type: 'SET_COMMISSION_RATE' }, ({ rate }) => {
