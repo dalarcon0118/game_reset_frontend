@@ -68,8 +68,8 @@ export const settings = {
     },
     endpoints: {
       auth: () => '/auth',
-      login: () => '/auth/token/',
-      refresh: () => '/auth/token/refresh/',
+      login: () => '/auth/login/',
+      refresh: () => '/auth/login/refresh/',
       logout: () => '/auth/logout/',
       me: () => '/auth/me/',
       register: () => '/auth/register/',
