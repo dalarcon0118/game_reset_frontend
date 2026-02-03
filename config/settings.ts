@@ -59,7 +59,7 @@ export const settings = {
     timeout: 15000, // Default 15s timeout
     timeoutProfiles: {
       FAST: 5000,    // 5s for auth/validations
-      NORMAL: 15000, // 15s for standard CRUD
+      NORMAL: 60000, // 60s for standard CRUD (increased for Render cold starts)
       SLOW: 60000    // 60s for reports/heavy data
     },
     defaults: {

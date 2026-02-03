@@ -306,8 +306,17 @@ const apiClient = {
 
         if (error instanceof ApiClientError) throw error;
         if (error instanceof Error && error.name === 'AbortError') {
-          logger.debug('Request aborted', 'API', { endpoint });
-          throw error;
+          // If explicitly aborted by the user (via options.abortSignal), rethrow
+          if (options.abortSignal?.aborted) {
+            logger.debug('Request aborted by user', 'API', { endpoint });
+            throw error;
+          }
+          // Otherwise it's a timeout (our internal controller aborted)
+          logger.warn(`Request timed out (attempt ${attempt})`, 'API', { endpoint });
+          lastError = error;
+          if (attempt < retryCount) {
+             continue;
+          }
         }
 
         lastError = error;

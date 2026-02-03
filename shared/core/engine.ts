@@ -168,39 +168,63 @@ export const createElmStore = <TModel, TMsg>(
                 const { id, url, msgCreator, headers } = sub.payload;
                 if (!activeSubs.has(id)) {
                     logger.info(`Connecting to SSE stream: ${url}`, 'ENGINE');
-                    try {
-                        const GlobalEventSource = (global as any).EventSource || (window as any).EventSource || (typeof EventSource !== 'undefined' ? EventSource : null);
+                    
+                    // 1. Set placeholder to prevent re-entry and handle early cleanup
+                    let isCancelled = false;
+                    const placeholder = {
+                        close: () => { isCancelled = true; }
+                    };
+                    activeSubs.set(id, { type: 'SSE', eventSource: placeholder });
 
-                        if (!GlobalEventSource) {
-                            throw new Error("EventSource is not defined in this environment");
+                    // 2. Defer creation to next tick to avoid "already sending" race condition
+                    setTimeout(() => {
+                        if (isCancelled || !activeSubs.has(id)) {
+                            logger.debug(`SSE connection cancelled before start: ${id}`, 'ENGINE');
+                            return;
                         }
 
-                        // Pass headers to EventSource (supported by event-source-polyfill)
-                        const eventSource = new GlobalEventSource(url, { headers });
+                        try {
+                            const GlobalEventSource = (global as any).EventSource || (window as any).EventSource || (typeof EventSource !== 'undefined' ? EventSource : null);
 
-                        eventSource.onmessage = (event: any) => {
-                            try {
-                                const data = JSON.parse(event.data);
-                                logger.debug('SSE Message received', 'ENGINE', data);
-                                dispatch(msgCreator(data));
-                            } catch (e) {
-                                logger.error('Error parsing SSE data', 'ENGINE', e);
+                            if (!GlobalEventSource) {
+                                throw new Error("EventSource is not defined in this environment");
                             }
-                        };
 
-                        eventSource.onerror = (error: any) => {
-                            // Enhanced error logging for 401 Unauthorized
-                            if (error && error.status === 401) {
-                                logger.error(`SSE Auth Error (401) for ${id}. Token might be expired.`, 'ENGINE', error);
-                            } else {
-                                logger.error(`SSE Stream Error for ${id}`, 'ENGINE', error);
+                            // Pass headers to EventSource (supported by event-source-polyfill)
+                            const eventSource = new GlobalEventSource(url, { headers });
+
+                            eventSource.onmessage = (event: any) => {
+                                try {
+                                    const data = JSON.parse(event.data);
+                                    logger.debug('SSE Message received', 'ENGINE', data);
+                                    dispatch(msgCreator(data));
+                                } catch (e) {
+                                    logger.error('Error parsing SSE data', 'ENGINE', e);
+                                }
+                            };
+
+                            eventSource.onerror = (error: any) => {
+                                // Enhanced error logging for 401 Unauthorized
+                                if (error && error.status === 401) {
+                                    logger.error(`SSE Auth Error (401) for ${id}. Token might be expired. Closing connection.`, 'ENGINE', error);
+                                    eventSource.close();
+                                } else {
+                                    logger.error(`SSE Stream Error for ${id}`, 'ENGINE', error);
+                                }
+                            };
+
+                            // Double check cancellation before finalizing
+                            if (isCancelled || !activeSubs.has(id)) {
+                                eventSource.close();
+                                return;
                             }
-                        };
 
-                        activeSubs.set(id, { type: 'SSE', eventSource });
-                    } catch (e) {
-                        logger.error(`Failed to create EventSource for ${id}`, 'ENGINE', e);
-                    }
+                            activeSubs.set(id, { type: 'SSE', eventSource });
+                        } catch (e) {
+                            logger.error(`Failed to create EventSource for ${id}`, 'ENGINE', e);
+                            activeSubs.delete(id); // Remove placeholder if creation failed
+                        }
+                    }, 0);
                 }
             }
         };

@@ -39,7 +39,7 @@ export class ErrorHandler {
   static isRetryable(error: any): boolean {
     const classified = this.classify(error);
     const retryableTypes: ApiErrorType[] = ['NetworkError', 'ServerError'];
-    const retryableStatuses = [408, 429, 500, 502, 503, 504];
+    const retryableStatuses = [408, 429, 499, 500, 502, 503, 504];
 
     return (
       retryableTypes.includes(classified.error_type) || 
