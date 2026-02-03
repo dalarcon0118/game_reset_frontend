@@ -62,12 +62,10 @@ jobs:
           EXPO_PUBLIC_APP_ENV: production
           EXPO_PUBLIC_API_URL: ${{ secrets.API_URL || 'https://game-reset-backend.onrender.com/api' }}
 
-      - name: 📤 Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-release-apk
-          path: android/app/build/outputs/apk/release/*.apk
-          retention-days: 7
+      - name: 📦 Prepare APK for Release
+        run: |
+          mkdir -p build-output
+          cp android/app/build/outputs/apk/release/*.apk build-output/game-reset-latest.apk
 
       - name: 🚀 Create or Update GitHub Release
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
@@ -75,10 +73,11 @@ jobs:
         with:
           tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'latest' }}
           name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'Latest Build (Main Branch)' }}
-          files: android/app/build/outputs/apk/release/*.apk
+          files: build-output/game-reset-latest.apk
           generate_release_notes: true
           draft: false
           prerelease: ${{ !startsWith(github.ref, 'refs/tags/v') }}
           make_latest: ${{ startsWith(github.ref, 'refs/tags/v') }}
+          fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
