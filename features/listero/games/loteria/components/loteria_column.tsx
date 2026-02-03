@@ -90,7 +90,7 @@ export const LoteriaColumn: React.FC<LoteriaColumnProps> = ({ isEditing = true }
                     <React.Fragment key={`${num}-${index}`}>
                         <BetCircle
                             value={group}
-                            onPress={() => editLoteriaBet(betId)} 
+                            onPress={() => isEditing && editLoteriaBet(betId)} 
                         />
                         
                     </React.Fragment>
@@ -128,17 +128,17 @@ export const LoteriaColumn: React.FC<LoteriaColumnProps> = ({ isEditing = true }
                         {!hasFixedAmount && (
                             <AmountCircle
                                 amount={item.amount || 0}
-                                onPress={() => openAmountKeyboard(item.id)}
+                                onPress={() => isEditing && openAmountKeyboard(item.id)}
                             />
                         )}
                     </View>
                 ))}
                 
                 <View style={[styles.betRow, hasFixedAmount && styles.betRowCentered]}>
-                    <BetCircle 
+                    {isEditing&& <BetCircle 
                         value={"+"} 
                         onPress={openBetKeyboard} 
-                    />
+                    />}
                 </View>
 
                 {loteriaList.length > 0 && (

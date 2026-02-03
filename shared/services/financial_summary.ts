@@ -39,26 +39,44 @@ export class FinancialSummaryService {
       
       // Endpoint: /api/financial-statement/summary/?structure_id=...&date=...
       const endpoint = `${settings.api.endpoints.financialStatement()}?structure_id=${structureId}&date=${targetDate}`;
-      const response = await apiClient.get<any[]>(endpoint);
+      const response = await apiClient.get<any>(endpoint);
 
-      // The API returns an array, but we expect a single summary
-      // For dashboard, we take the first result (user's structure)
-      const summary = response.length > 0 ? response[0] : {
-        id_estructura: 0,
-        nombre_estructura: '',
-        padre_id: null,
-        colectado_total: 0,
-        pagado_total: 0,
-        neto_total: 0,
-        sorteos: []
-      };
+      // Defensive parsing: handle both array and object responses
+      let summary: BackendFinancialSummary;
+      
+      if (Array.isArray(response)) {
+        // Backend returns array - take first element or default
+        summary = response.length > 0 ? response[0] : {
+          id_estructura: 0,
+          nombre_estructura: '',
+          padre_id: null,
+          colectado_total: 0,
+          pagado_total: 0,
+          neto_total: 0,
+          sorteos: []
+        };
+      } else if (response && typeof response === 'object') {
+        // Backend returns object directly
+        summary = response as BackendFinancialSummary;
+      } else {
+        // Fallback for unexpected response format
+        summary = {
+          id_estructura: 0,
+          nombre_estructura: '',
+          padre_id: null,
+          colectado_total: 0,
+          pagado_total: 0,
+          neto_total: 0,
+          sorteos: []
+        };
+      }
 
-      // Map backend response to frontend FinancialSummary format
+      // Map backend response to frontend FinancialSummary format with safe defaults
       return {
-        totalCollected: summary.colectado_total,
-        premiumsPaid: summary.pagado_total,
-        netResult: summary.neto_total,
-        draws: summary.sorteos,
+        totalCollected: summary.colectado_total || 0,
+        premiumsPaid: summary.pagado_total || 0,
+        netResult: summary.neto_total || 0,
+        draws: summary.sorteos || [],
       };
     })();
 
