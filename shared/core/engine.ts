@@ -168,7 +168,7 @@ export const createElmStore = <TModel, TMsg>(
                 const { id, url, msgCreator, headers } = sub.payload;
                 if (!activeSubs.has(id)) {
                     logger.info(`Connecting to SSE stream: ${url}`, 'ENGINE');
-                    
+
                     // 1. Set placeholder to prevent re-entry and handle early cleanup
                     let isCancelled = false;
                     const placeholder = {
@@ -177,6 +177,7 @@ export const createElmStore = <TModel, TMsg>(
                     activeSubs.set(id, { type: 'SSE', eventSource: placeholder });
 
                     // 2. Defer creation to next tick to avoid "already sending" race condition
+                    // Increased timeout to 500ms to allow proper XHR cleanup in React Native
                     setTimeout(() => {
                         if (isCancelled || !activeSubs.has(id)) {
                             logger.debug(`SSE connection cancelled before start: ${id}`, 'ENGINE');
@@ -191,7 +192,11 @@ export const createElmStore = <TModel, TMsg>(
                             }
 
                             // Pass headers to EventSource (supported by event-source-polyfill)
-                            const eventSource = new GlobalEventSource(url, { headers });
+                            // Use heartbeatTimeout to detect stale connections
+                            const eventSource = new GlobalEventSource(url, {
+                                headers,
+                                heartbeatTimeout: 45000 // 45s heartbeat timeout
+                            });
 
                             eventSource.onmessage = (event: any) => {
                                 try {
@@ -204,13 +209,19 @@ export const createElmStore = <TModel, TMsg>(
                             };
 
                             eventSource.onerror = (error: any) => {
-                                // Enhanced error logging for 401 Unauthorized
-                                if (error && error.status === 401) {
-                                    logger.error(`SSE Auth Error (401) for ${id}. Token might be expired. Closing connection.`, 'ENGINE', error);
+                                // Enhanced error logging
+                                logger.error(`SSE Stream Error for ${id}`, 'ENGINE', error);
+
+                                // Always close on error to prevent polyfill's internal retry loop 
+                                // which can cause "Cannot open, already sending" errors in RN
+                                try {
                                     eventSource.close();
-                                } else {
-                                    logger.error(`SSE Stream Error for ${id}`, 'ENGINE', error);
+                                } catch (e) {
+                                    logger.warn('Error closing EventSource', 'ENGINE', e);
                                 }
+
+                                // Remove from active subs so it can be recreated on next cycle
+                                activeSubs.delete(id);
                             };
 
                             // Double check cancellation before finalizing
@@ -224,7 +235,7 @@ export const createElmStore = <TModel, TMsg>(
                             logger.error(`Failed to create EventSource for ${id}`, 'ENGINE', e);
                             activeSubs.delete(id); // Remove placeholder if creation failed
                         }
-                    }, 0);
+                    }, 500);
                 }
             }
         };
