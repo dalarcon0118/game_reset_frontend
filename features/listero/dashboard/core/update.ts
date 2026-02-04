@@ -14,15 +14,10 @@ import { singleton, ret, Return } from '@/shared/core/return';
 
 import { useAuthStore } from '@/features/auth/store/store';
 import { AUTH_USER_SYNCED } from './msg';
+import settings from '@/config/settings';
+import apiClient from '@/shared/services/api_client';
 
 export const subscriptions = (model: Model) => {
-    // Refresh every 10 seconds if we have data to update expiration and counters
-    const tickSub = match(model.draws)
-        .with({ type: 'Success' }, (rd) =>
-            rd.data.length > 0 ? Sub.every(10000, { type: 'TICK' }, 'dashboard-tick') : Sub.none()
-        )
-        .otherwise(() => Sub.none());
-
     // Sincronización automática con el store de Auth
     const authSub = Sub.watchStore(
         useAuthStore,
@@ -31,7 +26,36 @@ export const subscriptions = (model: Model) => {
         'dashboard-auth-sync'
     );
 
-    return Sub.batch([tickSub, authSub]);
+    const subs = [authSub];
+
+    // SSE Subscription for real-time financial updates
+    // We only enable it if we have an authToken and a userStructureId
+    if (model.authToken && model.userStructureId) {
+        const sseUrl = `${settings.api.baseUrl}/financial/stream/`;
+        const sseSub = Sub.sse(
+            sseUrl,
+            (payload) => {
+                console.log('Dashboard SSE message received:', payload);
+
+                // Handle different types of SSE messages
+                if (payload.type === 'FINANCIAL_UPDATE') {
+                    return { type: 'FINANCIAL_UPDATE_RECEIVED', update: payload };
+                } else if (payload.type === 'connected') {
+                    return { type: 'SSE_CONNECTED' };
+                } else if (payload.type === 'error') {
+                    return { type: 'SSE_ERROR', error: payload.message || 'Unknown SSE error' };
+                }
+
+                // Ignore other message types
+                return { type: 'NONE' };
+            },
+            `dashboard-sse-${model.authToken}`, // Dynamic ID based on token to force reconnection on change
+            { 'Authorization': `Bearer ${model.authToken}` }
+        );
+        subs.push(sseSub);
+    }
+
+    return Sub.batch(subs);
 };
 
 const summaryToTotals = (summary: FinancialSummary, commissionRate: number): DailyTotals => {
@@ -219,13 +243,32 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
         )
 
         .with({ type: 'AUTH_USER_SYNCED' }, ({ user }) => {
+            // Only update and trigger task if the user has actually changed OR if we don't have a token
+            const currentUserId = model.currentUser?.id || model.currentUser?.pk;
+            const nextUserId = user?.id || user?.pk;
+
+            // If user is null, reset state
+            if (!user) {
+                return singleton({
+                    ...model,
+                    currentUser: null,
+                    authToken: null,
+                    userStructureId: null
+                });
+            }
+
+            // If user is the same AND we already have a token, do nothing
+            if (currentUserId === nextUserId && model.authToken !== null) {
+                return singleton(model);
+            }
+
             const structure = user?.structure;
             const structureId = (structure?.id && structure.id !== 0) ? structure.id.toString() : null;
             const backendRate = structure?.commission_rate || 0;
             const currentCommissionRate = model.commissionRate;
             const nextCommissionRate = backendRate / 100;
 
-            let nextModel = { ...model };
+            let nextModel = { ...model, currentUser: user };
             let cmds: CommandDescriptor[] = [];
 
             // 1. Sincronizar ID de estructura si ha cambiado
@@ -251,7 +294,21 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
                 }
             }
 
-            return cmds.length > 0 ? ret(nextModel, cmds as any) : singleton(nextModel);
+            // 3. Obtener el token de autenticación
+            cmds.push(Cmd.task({
+                task: () => apiClient.getAuthToken(),
+                onSuccess: (token) => ({ type: 'AUTH_TOKEN_UPDATED', token }),
+                onFailure: () => ({ type: 'NONE' } as any)
+            }) as any);
+
+            return ret(nextModel, cmds as any);
+        })
+
+        .with({ type: 'AUTH_TOKEN_UPDATED' }, ({ token }) => {
+            if (model.authToken === token) {
+                return singleton(model);
+            }
+            return singleton({ ...model, authToken: token });
         })
 
         .with({ type: 'SET_USER_STRUCTURE' }, ({ id }) =>
@@ -304,6 +361,46 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
             }
 
             return singleton(nextModel);
+        })
+
+        // SSE Event Handlers
+        .with({ type: 'FINANCIAL_UPDATE_RECEIVED' }, ({ update }) => {
+            console.log('update: FINANCIAL_UPDATE_RECEIVED', update);
+
+            // Process financial update based on the update type
+            if (update.type === 'FINANCIAL_UPDATE' && update.data) {
+                // If we have a structure_id in the update, verify it matches our current structure
+                if (update.structure_id && update.structure_id !== model.userStructureId) {
+                    console.log('update: FINANCIAL_UPDATE_RECEIVED ignored (different structure)');
+                    return singleton(model);
+                }
+
+                // Refresh the financial summary to get the latest data
+                return ret(
+                    { ...model, summary: RemoteData.loading() },
+                    fetchSummaryCmd(model.userStructureId)
+                );
+            }
+
+            return singleton(model);
+        })
+
+        .with({ type: 'SSE_CONNECTED' }, () => {
+            console.log('update: SSE_CONNECTED');
+            // SSE connection established - we could show a visual indicator if needed
+            return singleton(model);
+        })
+
+        .with({ type: 'SSE_ERROR' }, ({ error }) => {
+            console.error('update: SSE_ERROR', error);
+            // SSE connection error - we could show an error message or attempt reconnection
+            // For now, just log the error and continue
+            return singleton(model);
+        })
+
+        .with({ type: 'NONE' }, () => {
+            // No-op message for ignoring certain events
+            return singleton(model);
         })
 
         // Navigation

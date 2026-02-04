@@ -12,4 +12,6 @@ export interface Model {
     appliedFilter: StatusFilter;
     commissionRate: number;
     showBalance: boolean;
+    authToken: string | null;
+    currentUser: any | null;
 }
