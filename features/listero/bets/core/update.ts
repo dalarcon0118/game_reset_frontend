@@ -113,35 +113,39 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
                     } as Model);
                 })
                 .with({ type: CoreMsgType.SET_NAVIGATION }, ({ navigation }) => {
-                    return singleton({ ...model, navigation });
+                    const routeName = (navigation as any)?.getCurrentRoute()?.name || '';
+                    const isEditing = routeName.includes('entry') || routeName.includes('anotacion') || routeName.includes('create');
+                    return singleton({ ...model, navigation, isEditing });
                 })
                 .with({ type: CoreMsgType.CLEAR_NAVIGATION }, () => {
                     return singleton({ ...model, navigation: null });
                 })
-                .with({ type: CoreMsgType.SCREEN_FOCUSED }, ({ drawId }) => {
-                    // Para SCREEN_FOCUSED, solo cargar las apuestas si el drawId es diferente al actual
-                    if (drawId === model.drawId) {
-                        return singleton(model); // No hacer nada si es el mismo draw
+                .with({ type: CoreMsgType.SCREEN_FOCUSED }, ({ drawId, isEditing }) => {
+                    const drawIdChanged = drawId !== model.drawId;
+                    const isEditingChanged = isEditing !== model.isEditing;
+
+                    if (!drawIdChanged && !isEditingChanged) {
+                        return singleton(model);
                     }
 
-                    // Solo cargar la info del draw si no estamos en modo edición (anotación)
-                    // En modo edición, la info del draw ya se cargó en el init y no debería cambiar.
-                    const loadDrawCmd = !model.managementSession.isEditing
-                        ? Cmd.ofMsg({
+                    const nextModel = { ...model, drawId, isEditing };
+
+                    // Si no estamos editando (estamos en lista), cargamos los datos
+                    if (!isEditing) {
+                        const loadDrawCmd = Cmd.ofMsg({
                             type: 'CORE',
                             payload: { type: CoreMsgType.DRAW_INFO_REQUESTED, drawId }
-                        })
-                        : Cmd.none;
+                        });
 
-                    // También cargar las apuestas para este draw, si no estamos en modo edición (anotación)
-                    const loadBetsCmd = !model.managementSession.isEditing
-                        ? Cmd.ofMsg({
+                        const loadBetsCmd = Cmd.ofMsg({
                             type: 'LIST',
                             payload: { type: ListMsgType.REFRESH_BETS_REQUESTED, drawId }
-                        })
-                        : Cmd.none;
+                        });
 
-                    return ret(model, Cmd.batch([loadDrawCmd, loadBetsCmd]));
+                        return ret(nextModel, Cmd.batch([loadDrawCmd, loadBetsCmd]));
+                    }
+
+                    return singleton(nextModel);
                 })
                 .with({ type: CoreMsgType.NAVIGATION_BEFORE_REMOVE }, ({ event, navigation }) => {
                     // Si ya se guardó con éxito o no hay apuestas, no prevenimos la navegación
@@ -172,6 +176,20 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
                     });
 
                     return ret(model, confirmCmd);
+                })
+                .with({ type: CoreMsgType.SET_IS_EDITING }, ({ isEditing }) => {
+                    if (!model.drawId) {
+                        return singleton({ ...model, isEditing });
+                    }
+
+                    const viewMode: ViewMode = isEditing ? 'annotation' : 'list';
+                    validateViewMode(viewMode);
+                    const dataFetchingCommands = buildCommandsForMode(viewMode, model.drawId);
+
+                    return ret(
+                        { ...model, isEditing },
+                        Cmd.batch(dataFetchingCommands)
+                    );
                 })
                 .exhaustive();
         })
@@ -279,17 +297,38 @@ export const subscriptions = (model: Model): SubDescriptor<Msg> => {
         return Sub.none();
     }
 
-    return Sub.watchEvent(
-        BeforeRemove,
-        () => model.navigation,
-        (event) => ({
-            type: 'CORE',
-            payload: {
-                type: CoreMsgType.NAVIGATION_BEFORE_REMOVE,
-                event,
-                navigation: model.navigation
-            }
-        }),
-        'bolita-before-remove'
-    );
+    return Sub.batch([
+        Sub.watchEvent(
+            BeforeRemove,
+            () => model.navigation,
+            (event) => ({
+                type: 'CORE',
+                payload: {
+                    type: CoreMsgType.NAVIGATION_BEFORE_REMOVE,
+                    event,
+                    navigation: model.navigation
+                }
+            }),
+            'bolita-before-remove'
+        ),
+        Sub.watchStore(
+            { getState: () => model.navigation },
+            (nav: any) => {
+                const route = nav?.getCurrentRoute();
+                return {
+                    name: route?.name || '',
+                    drawId: route?.params?.id || route?.params?.drawId || null
+                };
+            },
+            ({ name, drawId }) => ({
+                type: 'CORE',
+                payload: {
+                    type: CoreMsgType.SCREEN_FOCUSED,
+                    drawId: drawId || model.drawId || '',
+                    isEditing: name?.includes('entry') || name?.includes('anotacion') || name?.includes('create')
+                }
+            }),
+            'navigation-route-sync'
+        )
+    ]);
 };

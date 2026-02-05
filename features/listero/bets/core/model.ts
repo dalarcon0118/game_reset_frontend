@@ -19,6 +19,7 @@ export interface Model extends UiState {
     drawId: string | null;
     drawTypeCode: WebData<string>;
     navigation: any | null;
+    isEditing: boolean;
 
     // Sessions
     createSession: CreateSession;

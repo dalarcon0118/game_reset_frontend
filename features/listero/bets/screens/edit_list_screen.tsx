@@ -27,14 +27,8 @@ export const EditListScreen: React.FC<EditListScreenProps> = ({ drawId, title })
         listRemoteData: model.listSession.remoteData.type
     });
 
-    React.useEffect(() => {
-        if (drawId) {
-            console.log('EditListScreen: Forcing clean initialization for drawId:', drawId);
-            // Marcamos isEditing: true para indicar que estamos en modo anotación/edición
-            // y evitar cargas innecesarias de datos históricos o reglas.
-            init({ drawId, fetchExistingBets: false, isEditing: true });
-        }
-    }, [drawId, init]);
+    // La carga y configuración del modo ahora se maneja mediante la suscripción TEA en update.ts
+    // que observa los cambios en la ruta de navegación y dispara SCREEN_FOCUSED.
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: Colors[colorScheme].background }]} edges={['bottom']}>

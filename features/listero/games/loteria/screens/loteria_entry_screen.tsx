@@ -2,7 +2,7 @@ import React, { useEffect, useMemo } from 'react';
 import { View, StyleSheet, Alert, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Layout, Text, Button } from '@ui-kitten/components';
-import { useNavigation } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import Colors from '@/constants/colors';
 import LayoutConstants from '@/constants/layout';
 import { LoteriaColumn } from '../components/loteria_column';
@@ -33,6 +33,8 @@ const LoteriaEntryScreen: React.FC<LoteriaEntryScreenProps> = ({ drawId, title }
         }
     }, [navigation, model.navigation, dispatch]);
 
+    const isSaving = model.managementSession.saveStatus.type === 'Loading';
+
     const hasBets = useMemo(() => {
         // Si ya se guardó con éxito, no consideramos que haya apuestas pendientes por guardar
         // BUT we should still show the save button if there are bets to save
@@ -59,7 +61,7 @@ const LoteriaEntryScreen: React.FC<LoteriaEntryScreenProps> = ({ drawId, title }
         const { loteria } = model.listSession.remoteData.type === 'Success'
             ? model.listSession.remoteData.data
             : { loteria: [] };
-        return loteria.reduce((total, bet) => total + (bet.amount || 0), 0);
+        return loteria.reduce((total: number, bet: any) => total + (bet.amount || 0), 0);
     }, [model.listSession.remoteData]);
 
     const handleSave = () => {
@@ -73,7 +75,6 @@ const LoteriaEntryScreen: React.FC<LoteriaEntryScreenProps> = ({ drawId, title }
 
     const renderSavingFooterBar = () => {
         if (!hasBets) return null;
-        const isSaving = model.managementSession.saveStatus.type === 'Loading';
         return (
             <Layout style={[styles.footer, { borderTopColor: themeColors.border }]} level='1'>
                 <View style={styles.grandTotalContainer}>

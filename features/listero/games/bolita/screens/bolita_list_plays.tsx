@@ -10,6 +10,7 @@ import { ParletColumn } from '@/features/listero/bets/features/parlet/components
 import { CentenaColumn } from '@/features/listero/bets/features/centena/components/centena_column';
 import { SumRowComponent } from '@/features/listero/bets/shared/components/sum_row_component';
 import { ListMsgType } from '@/features/listero/bets/features/bet-list/list.types';
+import { CoreMsgType } from '@/features/listero/bets/core/msg';
 
 interface BolitaListPlaysProps {
     drawId?: string;
@@ -41,13 +42,13 @@ export const BolitaListPlays: React.FC<BolitaListPlaysProps> = ({ drawId }) => {
 
     const { fijosCorridos, parlets, centenas } = model.listSession.remoteData.data;
 
-    const fijosCorridosTotal = fijosCorridos.reduce((total, bet) => {
+    const fijosCorridosTotal = fijosCorridos.reduce((total: number, bet: any) => {
         const fijoAmount = bet.fijoAmount || 0;
         const corridoAmount = bet.corridoAmount || 0;
         return total + fijoAmount + corridoAmount;
     }, 0);
 
-    const parletsTotal = parlets.reduce((total, parlet) => {
+    const parletsTotal = parlets.reduce((total: number, parlet: any) => {
         if (parlet.bets && parlet.bets.length > 0 && parlet.amount) {
             const numBets = parlet.bets.length;
             const parletTotal = numBets * (numBets - 1) * parlet.amount;
@@ -56,7 +57,7 @@ export const BolitaListPlays: React.FC<BolitaListPlaysProps> = ({ drawId }) => {
         return total;
     }, 0);
 
-    const centenasTotal = centenas.reduce((total, centena) => {
+    const centenasTotal = centenas.reduce((total: number, centena: any) => {
         return total + (centena.amount || 0);
     }, 0);
 

@@ -24,6 +24,7 @@ export enum CoreMsgType {
     SET_NAVIGATION = 'CORE.SET_NAVIGATION',
     CLEAR_NAVIGATION = 'CORE.CLEAR_NAVIGATION',
     NAVIGATION_BEFORE_REMOVE = 'CORE.NAVIGATION_BEFORE_REMOVE',
+    SET_IS_EDITING = 'CORE.SET_IS_EDITING',
 }
 
 export type CoreMsg =
@@ -32,7 +33,8 @@ export type CoreMsg =
     | { type: CoreMsgType.SCREEN_FOCUSED; drawId: string; isEditing: boolean }
     | { type: CoreMsgType.SET_NAVIGATION; navigation: any }
     | { type: CoreMsgType.CLEAR_NAVIGATION }
-    | { type: CoreMsgType.NAVIGATION_BEFORE_REMOVE; event: any; navigation: any };
+    | { type: CoreMsgType.NAVIGATION_BEFORE_REMOVE; event: any; navigation: any }
+    | { type: CoreMsgType.SET_IS_EDITING; isEditing: boolean };
 
 export type SuccessFeatMsg = { type: 'SUCCESS'; payload: SuccessMsg };
 

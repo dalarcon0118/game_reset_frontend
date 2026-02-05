@@ -36,21 +36,9 @@ export const BetsListScreen = ({ drawId, title }: BetsListScreenProps) => {
         console.log('BetsListScreen render: FAILURE error =', model.listSession.remoteData.error);
     }
 
-    // La carga de apuestas ahora se maneja mediante la suscripción TEA
-    // Eliminamos useFocusEffect para evitar el loop de re-renders
+    // La carga de apuestas ahora se maneja mediante la suscripción TEA en update.ts
+    // que observa los cambios en la ruta de navegación y dispara SCREEN_FOCUSED.
     
-    // Inicializar cuando el componente se monta o si el drawId cambia
-    // También reinicializamos si estábamos en modo edición (isEditing: true)
-    // para asegurar que el modo lista (isEditing: false) se active y se carguen los datos.
-    useEffect(() => {
-        const shouldInit = (drawId && !model.drawId) || model.managementSession.isEditing;
-        
-        if (shouldInit && drawId) {
-            console.log('BetsListScreen: Initializing/Resetting to List Mode with drawId =', drawId);
-            init({ drawId, fetchExistingBets: true, isEditing: false });
-        }
-    }, [drawId, model.drawId, model.managementSession.isEditing, init]);
-
     const handleRefresh = useCallback(() => {
         console.log('BetsListScreen: handleRefresh triggered, drawId =', drawId);
         if (drawId) {

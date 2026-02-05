@@ -23,6 +23,7 @@ export const initialModel: Model = {
     drawId: null,
     drawTypeCode: RemoteData.notAsked(),
     navigation: null,
+    isEditing: false,
 
     // Sessions
     createSession: initialCreateState,

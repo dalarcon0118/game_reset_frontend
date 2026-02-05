@@ -5,6 +5,7 @@ import Colors from '@/constants/colors';
 import LayoutConstants from '@/constants/layout';
 import { useBetsStore, selectBetsModel, selectDispatch } from '@/features/listero/bets/core/store';
 import { ListMsgType } from '@/features/listero/bets/features/bet-list/list.types';
+import { CoreMsgType } from '@/features/listero/bets/core/msg';
 import { SumRowComponent } from '@/features/listero/bets/shared/components/sum_row_component';
 import { LoteriaColumn } from '../components/loteria_column';
 
@@ -35,7 +36,7 @@ export const LoteriaListPlays: React.FC<LoteriaListPlaysProps> = ({ drawId }) =>
         const { loteria } = model.listSession.remoteData.type === 'Success'
             ? model.listSession.remoteData.data
             : { loteria: [] };
-        return loteria.reduce((total, bet) => total + (bet.amount || 0), 0);
+        return loteria.reduce((total: number, bet: any) => total + (bet.amount || 0), 0);
     }, [model.listSession.remoteData]);
 
     if (model.listSession.remoteData.type !== 'Success') {
