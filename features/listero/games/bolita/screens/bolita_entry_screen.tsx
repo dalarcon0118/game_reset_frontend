@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, useColorScheme, ScrollView, ActivityIndicator, Alert } from 'react-native';
-import { useNavigation, useFocusEffect } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { Layout, Text, Button } from '@ui-kitten/components';
 import { match } from 'ts-pattern';
 import Colors from '@/constants/colors';
@@ -14,6 +13,7 @@ import { ParletColumn } from '@/features/listero/bets/features/parlet/components
 import { CentenaColumn } from '@/features/listero/bets/features/centena/components/centena_column';
 import { useBetsStore, selectBetsModel, selectDispatch, selectInit } from '@/features/listero/bets/core/store';
 import { ManagementMsgType } from '@/features/listero/bets/features/management/management.types';
+import { CoreMsgType } from '@/features/listero/bets/core/msg';
 
 interface BolitaEntryScreenProps {
     drawId?: string;
@@ -31,22 +31,17 @@ const BolitaEntryScreen: React.FC<BolitaEntryScreenProps> = ({ drawId, title }) 
 
     const navigation = useNavigation();
 
-    // Ya no inicializamos aquí, lo hace EditListScreen
-    /*
-    useFocusEffect(
-        React.useCallback(() => {
-            if (drawId) {
-                // Clear previous state first
-                dispatch({
-                    type: 'MANAGEMENT',
-                    payload: { type: ManagementMsgType.RESET_BETS }
-                });
-                // Initialize for the current draw
-                init({ drawId, fetchExistingBets: false });
-            }
-        }, [drawId, init, dispatch])
-    );
-    */
+    // Inyectar navegación para que las subscripciones puedan usarla
+    // Usamos useEffect para despachar el mensaje después del renderizado inicial
+    // para evitar el error de "Cannot update a component while rendering a different component".
+    React.useEffect(() => {
+        if (model.navigation !== navigation) {
+            dispatch({
+                type: 'CORE',
+                payload: { type: CoreMsgType.SET_NAVIGATION, navigation }
+            });
+        }
+    }, [navigation, model.navigation, dispatch]);
 
     const isSaving = model.managementSession.saveStatus.type === 'Loading';
 
@@ -108,26 +103,6 @@ const BolitaEntryScreen: React.FC<BolitaEntryScreenProps> = ({ drawId, title }) 
         return fijosCorridos.length > 0 || parlets.length > 0 || centenas.length > 0;
     }, [model.listSession.remoteData, model.managementSession.saveSuccess]);
 
-    React.useEffect(() => {
-        const unsubscribe = navigation.addListener('beforeRemove', (e) => {
-            if (!hasBets) {
-                return;
-            }
-
-            e.preventDefault();
-
-            dispatch({
-                type: 'MANAGEMENT',
-                payload: {
-                    type: ManagementMsgType.NAVIGATE_REQUESTED,
-                    onConfirm: () => navigation.dispatch(e.data.action)
-                }
-            });
-        });
-
-        return unsubscribe;
-    }, [navigation, hasBets]);
-
     const handleSave = () => {
         if (!drawId) return;
 
@@ -138,84 +113,90 @@ const BolitaEntryScreen: React.FC<BolitaEntryScreenProps> = ({ drawId, title }) 
     };
 
     const renderContent = () => {
-        return match(model.listSession.remoteData)
-            .with({ type: 'NotAsked' }, () => null)
-            .with({ type: 'Loading' }, () => (
+        const remoteData = model.listSession.remoteData as any;
+        
+        if (remoteData.type === 'NotAsked') return null;
+        if (remoteData.type === 'Loading') {
+            return (
                 <View style={styles.centerContainer}>
                     <ActivityIndicator size="large" color={Colors[colorScheme].primary} />
                 </View>
-            ))
-            .with({ type: 'Failure' }, ({ error }) => (
+            );
+        }
+        if (remoteData.type === 'Failure') {
+            return (
                 <View style={styles.centerContainer}>
-                    <Text status="danger">Error: {error}</Text>
+                    <Text status="danger">Error: {remoteData.error}</Text>
                 </View>
-            ))
-            .with({ type: 'Success' }, ({ data }) => {
-                const { fijosCorridos, parlets, centenas } = data;
+            );
+        }
+        if (remoteData.type === 'Success') {
+            const { fijosCorridos, parlets, centenas } = remoteData.data;
 
-                const fijosCorridosTotal = fijosCorridos.reduce((total, bet) => {
-                    const fijoAmount = bet.fijoAmount || 0;
-                    const corridoAmount = bet.corridoAmount || 0;
-                    return total + fijoAmount + corridoAmount;
-                }, 0);
+            const fijosCorridosTotal = fijosCorridos.reduce((total: number, bet: any) => {
+                const fijoAmount = bet.fijoAmount || 0;
+                const corridoAmount = bet.corridoAmount || 0;
+                return total + fijoAmount + corridoAmount;
+            }, 0);
 
-                const parletsTotal = parlets.reduce((total, parlet) => {
-                    if (parlet.bets && parlet.bets.length > 0 && parlet.amount) {
-                        const numBets = parlet.bets.length;
-                        const parletTotal = numBets * (numBets - 1) * parlet.amount;
-                        return total + parletTotal;
-                    }
-                    return total;
-                }, 0);
+            const parletsTotal = parlets.reduce((total: number, parlet: any) => {
+                if (parlet.bets && parlet.bets.length > 0 && parlet.amount) {
+                    const numBets = parlet.bets.length;
+                    const parletTotal = numBets * (numBets - 1) * parlet.amount;
+                    return total + parletTotal;
+                }
+                return total;
+            }, 0);
 
-                const centenasTotal = centenas.reduce((total, centena) => {
-                    return total + (centena.amount || 0);
-                }, 0);
+            const centenasTotal = centenas.reduce((total: number, centena: any) => {
+                return total + (centena.amount || 0);
+            }, 0);
 
-                const grandTotal = fijosCorridosTotal + parletsTotal + centenasTotal;
+            const grandTotal = fijosCorridosTotal + parletsTotal + centenasTotal;
 
-                console.log('BolitaEntryScreen: Rendering Success state with data:', {
-                    fijosCorridos: fijosCorridos.length,
-                    parlets: parlets.length,
-                    centenas: centenas.length
-                });
+            console.log('BolitaEntryScreen: Rendering Success state with data:', {
+                fijosCorridos: fijosCorridos.length,
+                parlets: parlets.length,
+                centenas: centenas.length
+            });
 
-                return (
-                    <>
-                        <ScrollView 
-                            style={styles.scrollContainer}
-                            contentContainerStyle={styles.scrollContent}
-                        >
-                            <View style={styles.betContainer}>
-                                <View style={styles.columnsContainer}>
-                                    <View style={styles.columnWrapperFijos}>
-                                        <FijosCorridosColumn editable={true} />
-                                    </View>
-                                    <View style={styles.columnWrapperParlet}>
-                                        <ParletColumn fijosCorridosList={fijosCorridos} editable={true} />
-                                    </View>
-                                    <View style={styles.columnWrapperCentena}>
-                                        <CentenaColumn editable={true} />
-                                    </View>
+            return (
+                <>
+                    <ScrollView 
+                        style={styles.scrollContainer}
+                        contentContainerStyle={styles.scrollContent}
+                    >
+                        <View style={styles.betContainer}>
+                            <View style={styles.columnsContainer}>
+                                <View style={styles.columnWrapperFijos}>
+                                    <FijosCorridosColumn editable={true} />
+                                </View>
+                                <View style={styles.columnWrapperParlet}>
+                                    <ParletColumn fijosCorridosList={fijosCorridos} editable={true} />
+                                </View>
+                                <View style={styles.columnWrapperCentena}>
+                                    <CentenaColumn editable={true} />
                                 </View>
                             </View>
-                        </ScrollView>
-                        {renderSavingFooterBar({
-                            fijosCorridos,
-                            parlets,
-                            centenas,
-                            handleSave,
-                            isSaving,
-                            themeColors,
-                            fijosCorridosTotal,
-                            parletsTotal,
-                            centenasTotal,
-                            grandTotal
-                        })}
-                    </>
-                );
-            })
-            .exhaustive();
+                        </View>
+                    </ScrollView>
+                    {renderSavingFooterBar({
+                        fijosCorridos,
+                        parlets,
+                        centenas,
+                        handleSave,
+                        isSaving,
+                        themeColors,
+                        fijosCorridosTotal,
+                        parletsTotal,
+                        centenasTotal,
+                        grandTotal
+                    })}
+                </>
+            );
+        }
+        
+        return null;
     };
 
     return (

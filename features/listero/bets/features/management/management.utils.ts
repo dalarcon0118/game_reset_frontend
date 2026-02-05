@@ -1,7 +1,7 @@
 import { GameType } from '@/types';
-import { Model as GlobalModel } from '../../core/model';
+import { Model as GlobalModel } from '@/features/listero/bets/core/model';
 
-import { ListMsgType } from '../bet-list/list.types';
+import { ListMsgType } from '@/features/listero/bets/features/bet-list/list.types';
 
 /**
  * Action factories for interacting with the LIST feature.

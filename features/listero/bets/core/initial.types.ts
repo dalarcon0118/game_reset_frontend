@@ -22,6 +22,7 @@ export const initialModel: Model = {
     // Core data
     drawId: null,
     drawTypeCode: RemoteData.notAsked(),
+    navigation: null,
 
     // Sessions
     createSession: initialCreateState,

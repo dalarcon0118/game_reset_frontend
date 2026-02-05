@@ -8,6 +8,7 @@ import LayoutConstants from '@/constants/layout';
 import { LoteriaColumn } from '../components/loteria_column';
 import { useBetsStore, selectBetsModel, selectDispatch } from '@/features/listero/bets/core/store';
 import { ManagementMsgType } from '@/features/listero/bets/features/management/management.types';
+import { CoreMsgType } from '@/features/listero/bets/core/msg';
 import { SumRowComponent } from '@/features/listero/bets/shared/components/sum_row_component';
 
 interface LoteriaEntryScreenProps {
@@ -22,21 +23,15 @@ const LoteriaEntryScreen: React.FC<LoteriaEntryScreenProps> = ({ drawId, title }
     const dispatch = useBetsStore(selectDispatch);
     const navigation = useNavigation();
 
-    // Ya no inicializamos aquí, lo hace EditListScreen
-    /*
-    useEffect(() => {
-        if (drawId) {
+    // Inyectar navegación para que las subscripciones puedan usarla
+    React.useEffect(() => {
+        if (model.navigation !== navigation) {
             dispatch({
-                type: 'MANAGEMENT',
-                payload: {
-                    type: ManagementMsgType.INIT,
-                    drawId,
-                    fetchExistingBets: true
-                }
+                type: 'CORE',
+                payload: { type: CoreMsgType.SET_NAVIGATION, navigation }
             });
         }
-    }, [drawId, dispatch]);
-    */
+    }, [navigation, model.navigation, dispatch]);
 
     const hasBets = useMemo(() => {
         // Si ya se guardó con éxito, no consideramos que haya apuestas pendientes por guardar
@@ -66,22 +61,6 @@ const LoteriaEntryScreen: React.FC<LoteriaEntryScreenProps> = ({ drawId, title }
             : { loteria: [] };
         return loteria.reduce((total, bet) => total + (bet.amount || 0), 0);
     }, [model.listSession.remoteData]);
-
-    useEffect(() => {
-        const unsubscribe = navigation.addListener('beforeRemove', (e) => {
-            if (!hasBets)return;
-            e.preventDefault();
-            dispatch({
-                type: 'MANAGEMENT',
-                payload: {
-                    type: ManagementMsgType.NAVIGATE_REQUESTED,
-                    onConfirm: () => navigation.dispatch(e.data.action)
-                }
-            });
-        });
-
-        return unsubscribe;
-    }, [navigation, hasBets]);
 
     const handleSave = () => {
         if (!drawId) return;

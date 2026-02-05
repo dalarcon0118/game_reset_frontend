@@ -27,6 +27,7 @@ export default function DashboardScreen() {
     const commissionRate = useDashboardStore((state) => state.model.commissionRate);
     const filteredDraws = useDashboardStore((state) => state.model.filteredDraws);
     const userStructureId = useDashboardStore((state) => state.model.userStructureId);
+    const isRateLimited = useDashboardStore((state) => state.model.isRateLimited);
     const dispatch = useDashboardStore((state) => state.dispatch);
 
     // Debugging current state
@@ -95,6 +96,14 @@ export default function DashboardScreen() {
                         </View>
                     ))
                     .otherwise(() => null)}
+
+                {isRateLimited && (
+                    <View style={styles.warningBanner}>
+                        <Label style={styles.warningText}>
+                            Modo de espera: Mostrando datos locales debido a saturación del servidor.
+                        </Label>
+                    </View>
+                )}
 
                 <GlobalSummary totals={dailyTotals} commissionRate={commissionRate} />
                 
@@ -182,6 +191,21 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         borderWidth: 1,
         borderColor: '#FF3B30',
+    },
+    warningBanner: {
+        backgroundColor: '#FFF4E5',
+        padding: 12,
+        marginHorizontal: 16,
+        marginTop: 8,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#FF9500',
+    },
+    warningText: {
+        color: '#FF9500',
+        fontSize: 12,
+        fontWeight: '600',
+        textAlign: 'center',
     },
     filtersWrapper: {
         backgroundColor: '#FFF',

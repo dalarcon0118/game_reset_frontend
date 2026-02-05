@@ -1,5 +1,4 @@
-import React, { useCallback } from 'react';
-import { useFocusEffect } from 'expo-router';
+import React, { useCallback, useEffect } from 'react';
 import { StyleSheet, View, ScrollView, ActivityIndicator, useColorScheme, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, Layout } from '@ui-kitten/components';
@@ -37,15 +36,20 @@ export const BetsListScreen = ({ drawId, title }: BetsListScreenProps) => {
         console.log('BetsListScreen render: FAILURE error =', model.listSession.remoteData.error);
     }
 
-    // Force fetch bets when screen comes into focus
-    useFocusEffect(
-        useCallback(() => {
-            if (drawId) {
-                console.log('BetsListScreen: Force fetching bets for drawId =', drawId);
-                init({ drawId, fetchExistingBets: true });
-            }
-        }, [drawId, init])
-    );
+    // La carga de apuestas ahora se maneja mediante la suscripción TEA
+    // Eliminamos useFocusEffect para evitar el loop de re-renders
+    
+    // Inicializar cuando el componente se monta o si el drawId cambia
+    // También reinicializamos si estábamos en modo edición (isEditing: true)
+    // para asegurar que el modo lista (isEditing: false) se active y se carguen los datos.
+    useEffect(() => {
+        const shouldInit = (drawId && !model.drawId) || model.managementSession.isEditing;
+        
+        if (shouldInit && drawId) {
+            console.log('BetsListScreen: Initializing/Resetting to List Mode with drawId =', drawId);
+            init({ drawId, fetchExistingBets: true, isEditing: false });
+        }
+    }, [drawId, model.drawId, model.managementSession.isEditing, init]);
 
     const handleRefresh = useCallback(() => {
         console.log('BetsListScreen: handleRefresh triggered, drawId =', drawId);

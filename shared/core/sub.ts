@@ -3,7 +3,7 @@
  * Permite escuchar eventos externos de forma declarativa basándose en el estado del Modelo.
  */
 
-export type SubType = 'NONE' | 'EVERY' | 'BATCH' | 'WATCH_STORE' | 'SSE';
+export type SubType = 'NONE' | 'EVERY' | 'BATCH' | 'WATCH_STORE' | 'SSE' | 'EVENT';
 
 export interface SubDescriptor<Msg> {
     type: SubType;
@@ -69,5 +69,22 @@ export const Sub = {
     ): SubDescriptor<Msg> => ({
         type: 'WATCH_STORE',
         payload: { store, selector, msgCreator, id }
+    }),
+
+    /**
+     * Crea una subscripción que escucha eventos externos usando objetos TEA-agnósticos.
+     * @param event Descriptor del evento (objeto TEA-agnóstico).
+     * @param target Origen del evento (puede ser una función que retorna el target).
+     * @param msgCreator Función que crea un mensaje a partir del evento recibido.
+     * @param id Identificador único para la subscripción.
+     */
+    watchEvent: <Msg>(
+        event: any,
+        target: any | (() => any),
+        msgCreator: (event: any) => Msg,
+        id: string
+    ): SubDescriptor<Msg> => ({
+        type: 'EVENT',
+        payload: { event, target, msgCreator, id }
     })
 };

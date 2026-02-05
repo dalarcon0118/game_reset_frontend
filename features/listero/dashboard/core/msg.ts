@@ -39,8 +39,7 @@ export type Msg =
     | { type: 'NOTIFICATIONS_CLICKED' }
     | { type: 'SETTINGS_CLICKED' }
     | { type: 'TOGGLE_BALANCE' }
-    | { type: 'NONE' }
-    | { type: 'TICK' };
+    | { type: 'NONE' };
 
 export const FETCH_DATA_REQUESTED = (structureId?: string): Msg => ({ type: 'FETCH_DATA_REQUESTED', structureId });
 export const REFRESH_CLICKED = (): Msg => ({ type: 'REFRESH_CLICKED' });

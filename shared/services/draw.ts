@@ -3,6 +3,7 @@ import { mockDraws } from '@/data/mock_data';
 import apiClient from '@/shared/services/api_client';
 import settings from '@/config/settings';
 import { to, AsyncResult } from '../utils/generators';
+import { OfflineStorage } from './offline_storage';
 
 // Simulate server response delay
 const RESPONSE_DELAY = 500;
@@ -143,7 +144,7 @@ export class DrawService {
       // Build query params
       const params = new URLSearchParams();
       params.append('today', 'true');
-      
+
       let structureId: number | undefined;
       let limit: number | undefined;
       let offset: number | undefined;
@@ -171,7 +172,29 @@ export class DrawService {
         headers['X-Owner-Structure'] = structureId.toString();
       }
 
-      const response = await apiClient.get<BackendDraw[]>(endpoint, { headers });
+      let response: any;
+      try {
+        response = await apiClient.get<BackendDraw[]>(endpoint, { headers });
+      } catch (error: any) {
+        // If rate limited (429), try to get from offline storage
+        if (error?.status === 429 || error?.message?.includes('throttled')) {
+          console.warn('DrawService.list: Rate limited, attempting to load from offline storage');
+          const offlineDraws = await OfflineStorage.getLastDraws();
+          if (offlineDraws) {
+            console.log('DrawService.list: Successfully loaded draws from offline storage');
+            response = offlineDraws;
+          } else {
+            throw error;
+          }
+        } else {
+          throw error;
+        }
+      }
+
+      // Save to offline storage for future use if rate limited
+      if (Array.isArray(response) && response.length > 0) {
+        OfflineStorage.saveLastDraws(response);
+      }
 
       // NOTE: ApiClient already extracts .results if it detects a paginated response
       if (!Array.isArray(response)) {

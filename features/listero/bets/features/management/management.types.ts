@@ -12,6 +12,8 @@ export interface ManagementState {
     };
     saveStatus: WebData<BetType | BetType[]>;
     saveSuccess: boolean;
+    fetchExistingBets: boolean;
+    isEditing: boolean;
 }
 
 export const initialManagementState: ManagementState = {
@@ -25,6 +27,8 @@ export const initialManagementState: ManagementState = {
     },
     saveStatus: RemoteData.notAsked(),
     saveSuccess: false,
+    fetchExistingBets: true,
+    isEditing: false,
 };
 
 export enum ManagementMsgType {
@@ -44,7 +48,7 @@ export enum ManagementMsgType {
 }
 
 export type ManagementMsg =
-    | { type: ManagementMsgType.INIT; drawId: string; fetchExistingBets?: boolean }
+    | { type: ManagementMsgType.INIT; drawId: string; fetchExistingBets?: boolean; isEditing?: boolean }
     | { type: ManagementMsgType.FETCH_BET_TYPES_REQUESTED; drawId: string }
     | { type: ManagementMsgType.FETCH_BET_TYPES_RESPONSE; response: WebData<GameType[]> }
     | { type: ManagementMsgType.FETCH_DRAW_DETAILS_RESPONSE; response: WebData<DrawType> }

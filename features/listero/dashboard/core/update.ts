@@ -186,6 +186,18 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
         .with({ type: 'DRAWS_RECEIVED' }, ({ webData }) => {
             console.log('update: DRAWS_RECEIVED state', webData.type);
 
+            // Handle 429 Rate Limiting
+            if (webData.type === 'Failure') {
+                const error = webData.error;
+                const isRateLimited = error?.status === 429 || error?.message?.includes('throttled');
+
+                // If we are rate limited and ALREADY HAVE DATA, we keep the previous data
+                if (isRateLimited && model.draws.type === 'Success') {
+                    console.log('update: Rate limited, keeping previous draws data');
+                    return singleton({ ...model, isRateLimited: true });
+                }
+            }
+
             let enrichedWebData = webData;
             if (webData.type === 'Success') {
                 const summary = model.summary.type === 'Success' ? model.summary.data : null;
@@ -195,7 +207,7 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
                 };
             }
 
-            const nextModel = { ...model, draws: enrichedWebData };
+            const nextModel = { ...model, draws: enrichedWebData, isRateLimited: false };
 
             // Recalculate totals if success
             if (enrichedWebData.type === 'Success') {
@@ -217,7 +229,19 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
 
         .with({ type: 'SUMMARY_RECEIVED' }, ({ webData }) => {
             console.log('update: SUMMARY_RECEIVED state', webData.type);
-            const nextModel = { ...model, summary: webData };
+
+            // Handle 429 Rate Limiting
+            if (webData.type === 'Failure') {
+                const error = webData.error;
+                const isRateLimited = error?.status === 429 || error?.message?.includes('throttled');
+
+                if (isRateLimited && model.summary.type === 'Success') {
+                    console.log('update: Rate limited, keeping previous summary data');
+                    return singleton({ ...model, isRateLimited: true });
+                }
+            }
+
+            const nextModel = { ...model, summary: webData, isRateLimited: false };
 
             // Si el resumen es exitoso, actualizamos los totales diarios prioritariamente
             if (webData.type === 'Success') {
@@ -257,13 +281,22 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
                 });
             }
 
-            // If user is the same AND we already have a token, do nothing
-            if (currentUserId === nextUserId && model.authToken !== null) {
+            const structure = user?.structure;
+            const structureId = (structure?.id && structure.id !== 0) ? structure.id.toString() : null;
+
+            // Guard: If user is the same AND we already have a structureId and token, do nothing
+            // We only trigger fetches if structureId changes or if we're completely empty
+            const hasDataOrLoading =
+                (model.draws.type === 'Success' || model.draws.type === 'Loading') &&
+                (model.summary.type === 'Success' || model.summary.type === 'Loading');
+
+            if (currentUserId === nextUserId &&
+                model.authToken !== null &&
+                model.userStructureId === structureId &&
+                hasDataOrLoading) {
                 return singleton(model);
             }
 
-            const structure = user?.structure;
-            const structureId = (structure?.id && structure.id !== 0) ? structure.id.toString() : null;
             const backendRate = structure?.commission_rate || 0;
             const currentCommissionRate = model.commissionRate;
             const nextCommissionRate = backendRate / 100;
@@ -275,6 +308,13 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
             if (structureId && structureId !== model.userStructureId) {
                 console.log('update: AUTH_USER_SYNCED new structure detected', structureId);
                 nextModel.userStructureId = structureId;
+                nextModel.draws = RemoteData.loading();
+                nextModel.summary = RemoteData.loading();
+                cmds.push(fetchDrawsCmd(structureId) as any);
+                cmds.push(fetchSummaryCmd(structureId) as any);
+            } else if (structureId && !hasDataOrLoading) {
+                // If structure is the same but we are empty, trigger initial fetch
+                console.log('update: AUTH_USER_SYNCED same structure, initial fetch triggered');
                 nextModel.draws = RemoteData.loading();
                 nextModel.summary = RemoteData.loading();
                 cmds.push(fetchDrawsCmd(structureId) as any);
@@ -315,6 +355,16 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
             ret({ ...model, userStructureId: id }, [fetchDrawsCmd(id), fetchSummaryCmd(id)] as Cmd)
         )
 
+        .with({ type: 'TICK' }, () => {
+            // Re-fetch everything on each tick (approx 60s)
+            // But only if we have a structureId
+            if (model.userStructureId && !model.isRateLimited) {
+                console.log('update: TICK triggered fetch');
+                return ret(model, [fetchDrawsCmd(model.userStructureId), fetchSummaryCmd(model.userStructureId)] as Cmd);
+            }
+            return singleton(model);
+        })
+
         .with({ type: 'STATUS_FILTER_CHANGED' }, ({ filter }) =>
             ret(
                 { ...model, statusFilter: filter },
@@ -336,16 +386,6 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
                 }
             }
             return singleton(nextModel);
-        })
-
-        .with({ type: 'TICK' }, () => {
-            // Trigger a refresh of the financial summary to keep data up-to-date
-            // This ensures that as bets are placed, the dashboard reflects the changes in near real-time.
-            // We don't necessarily need to re-fetch the Draws list every time, just the financials.
-            return ret(
-                model,
-                fetchSummaryCmd(model.userStructureId)
-            );
         })
 
         .with({ type: 'SET_COMMISSION_RATE' }, ({ rate }) => {

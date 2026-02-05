@@ -20,11 +20,19 @@ export * from './core.types';
 export enum CoreMsgType {
     DRAW_INFO_REQUESTED = 'CORE.DRAW_INFO_REQUESTED',
     DRAW_INFO_RECEIVED = 'CORE.DRAW_INFO_RECEIVED',
+    SCREEN_FOCUSED = 'CORE.SCREEN_FOCUSED',
+    SET_NAVIGATION = 'CORE.SET_NAVIGATION',
+    CLEAR_NAVIGATION = 'CORE.CLEAR_NAVIGATION',
+    NAVIGATION_BEFORE_REMOVE = 'CORE.NAVIGATION_BEFORE_REMOVE',
 }
 
 export type CoreMsg =
     | { type: CoreMsgType.DRAW_INFO_REQUESTED; drawId: string }
-    | { type: CoreMsgType.DRAW_INFO_RECEIVED; webData: WebData<string> };
+    | { type: CoreMsgType.DRAW_INFO_RECEIVED; webData: WebData<string> }
+    | { type: CoreMsgType.SCREEN_FOCUSED; drawId: string; isEditing: boolean }
+    | { type: CoreMsgType.SET_NAVIGATION; navigation: any }
+    | { type: CoreMsgType.CLEAR_NAVIGATION }
+    | { type: CoreMsgType.NAVIGATION_BEFORE_REMOVE; event: any; navigation: any };
 
 export type SuccessFeatMsg = { type: 'SUCCESS'; payload: SuccessMsg };
 

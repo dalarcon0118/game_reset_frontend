@@ -14,4 +14,5 @@ export interface Model {
     showBalance: boolean;
     authToken: string | null;
     currentUser: any | null;
+    isRateLimited: boolean;
 }

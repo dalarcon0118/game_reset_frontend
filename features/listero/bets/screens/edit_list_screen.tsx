@@ -28,14 +28,13 @@ export const EditListScreen: React.FC<EditListScreenProps> = ({ drawId, title })
     });
 
     React.useEffect(() => {
-        // Siempre inicializar con fetchExistingBets: false al entrar en la pantalla de anotación.
-        // Esto garantiza que la interfaz de anotación siempre empiece limpia,
-        // cumpliendo con el requerimiento de que cada sesión de anotación sea independiente.
         if (drawId) {
             console.log('EditListScreen: Forcing clean initialization for drawId:', drawId);
-            init({ drawId, fetchExistingBets: false });
+            // Marcamos isEditing: true para indicar que estamos en modo anotación/edición
+            // y evitar cargas innecesarias de datos históricos o reglas.
+            init({ drawId, fetchExistingBets: false, isEditing: true });
         }
-    }, [drawId, init]); // Eliminamos la dependencia de model.drawId y remoteData.type para forzar el reinicio
+    }, [drawId, init]);
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: Colors[colorScheme].background }]} edges={['bottom']}>

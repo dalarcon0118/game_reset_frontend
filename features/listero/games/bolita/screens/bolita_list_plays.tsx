@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
 import { StyleSheet, View, ScrollView, RefreshControl, useColorScheme, TouchableOpacity, Text } from 'react-native';
-import { Button } from '@ui-kitten/components';
+import { useRouter } from 'expo-router';
 import Colors from '@/constants/colors';
 import LayoutConstants from '@/constants/layout';
 import { useBetsStore, selectBetsModel, selectDispatch } from '@/features/listero/bets/core/store';
@@ -10,7 +10,6 @@ import { ParletColumn } from '@/features/listero/bets/features/parlet/components
 import { CentenaColumn } from '@/features/listero/bets/features/centena/components/centena_column';
 import { SumRowComponent } from '@/features/listero/bets/shared/components/sum_row_component';
 import { ListMsgType } from '@/features/listero/bets/features/bet-list/list.types';
-import { useRouter } from 'expo-router';
 
 interface BolitaListPlaysProps {
     drawId?: string;

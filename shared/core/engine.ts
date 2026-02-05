@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { SubDescriptor } from './sub';
 import { logger } from '../utils/logger';
+import { globalEventRegistry } from './events';
 
 // Un comando es un descriptor que el Engine puede ejecutar usando effectHandlers
 export interface CommandDescriptor {
@@ -164,6 +165,22 @@ export const createElmStore = <TModel, TMsg>(
                 }
             }
 
+            if (sub.type === 'EVENT') {
+                const { id, event, target, msgCreator } = sub.payload;
+                if (!activeSubs.has(id)) {
+                    const handler = globalEventRegistry.getHandler(event);
+                    if (handler) {
+                        const resolvedTarget = typeof target === 'function' ? target() : target;
+                        const unsubscribe = handler.subscribe(resolvedTarget, (eventData: any) => {
+                            dispatch(msgCreator(eventData));
+                        });
+                        activeSubs.set(id, { type: 'EVENT', unsubscribe });
+                    } else {
+                        logger.warn(`No handler registered for event type: ${event.type}`, 'ENGINE');
+                    }
+                }
+            }
+
             if (sub.type === 'SSE') {
                 const { id, url, msgCreator, headers } = sub.payload;
                 if (!activeSubs.has(id)) {
@@ -245,7 +262,7 @@ export const createElmStore = <TModel, TMsg>(
                 if (!currentSubs.has(id)) {
                     if (sub.type === 'EVERY') {
                         clearInterval(sub.interval);
-                    } else if (sub.type === 'WATCH_STORE') {
+                    } else if (sub.type === 'WATCH_STORE' || sub.type === 'EVENT') {
                         sub.unsubscribe();
                     } else if (sub.type === 'SSE') {
                         logger.info(`Disconnecting SSE stream: ${id}`, 'ENGINE');
@@ -259,7 +276,7 @@ export const createElmStore = <TModel, TMsg>(
         const getActiveIds = (sub: SubDescriptor<TMsg>, ids: Set<string> = new Set()): Set<string> => {
             if (sub.type === 'BATCH') {
                 sub.payload.forEach((s: SubDescriptor<TMsg>) => getActiveIds(s, ids));
-            } else if ((sub.type === 'EVERY' || sub.type === 'WATCH_STORE' || sub.type === 'SSE') && sub.payload.id) {
+            } else if ((sub.type === 'EVERY' || sub.type === 'WATCH_STORE' || sub.type === 'SSE' || sub.type === 'EVENT') && sub.payload.id) {
                 ids.add(sub.payload.id);
             }
             return ids;

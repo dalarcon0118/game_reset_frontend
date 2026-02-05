@@ -4,44 +4,50 @@ import { initialModel, Msg } from './msg';
 import { Cmd } from '@/shared/core/cmd';
 import { singleton, ret } from '@/shared/core/return';
 
-import { updateManagement } from '../features/management/management.update';
-import { updateKeyboard } from '../features/keyboard/keyboard.update';
-import { updateList } from '../features/bet-list/list.update';
-import { updateCreate } from '../features/create-bet/create.update';
-import { updateEdit } from '../features/edit-bet/edit.update';
-import { updateParlet } from '../features/parlet/parlet.update';
-import { updateCentena } from '../features/centena/centena.update';
-import { updateRules } from '../features/rules/rules.update';
-import { updateRewardsRules } from '../features/rewards-rules/rewards.update';
-import { RewardsRulesMsgType } from '../features/rewards-rules/rewards.types';
-import { updateUi } from '../features/bet-ui/ui.update';
-import { updateFijos } from '../features/fijos-corridos/fijos.update';
-import { updateSuccess } from '../features/success/success.update';
+import { updateManagement } from '@/features/listero/bets/features/management/management.update';
+import { updateKeyboard } from '@/features/listero/bets/features/keyboard/keyboard.update';
+import { updateList } from '@/features/listero/bets/features/bet-list/list.update';
+import { updateCreate } from '@/features/listero/bets/features/create-bet/create.update';
+import { updateEdit } from '@/features/listero/bets/features/edit-bet/edit.update';
+import { updateParlet } from '@/features/listero/bets/features/parlet/parlet.update';
+import { updateCentena } from '@/features/listero/bets/features/centena/centena.update';
+import { updateRules } from '@/features/listero/bets/features/rules/rules.update';
+import { updateRewardsRules } from '@/features/listero/bets/features/rewards-rules/rewards.update';
+import { ListMsgType } from '@/features/listero/bets/features/bet-list/list.types';
+import { RewardsRulesMsgType } from '@/features/listero/bets/features/rewards-rules/rewards.types';
+import { updateUi } from '@/features/listero/bets/features/bet-ui/ui.update';
+import { updateFijos } from '@/features/listero/bets/features/fijos-corridos/fijos.update';
+import { updateSuccess } from '@/features/listero/bets/features/success/success.update';
 import { updateLoteria } from '@/features/listero/games/loteria/loteria.update';
-import { ManagementMsgType } from '../features/management/management.types';
-import { CoreMsgType } from './msg';
+import { ManagementMsgType } from '@/features/listero/bets/features/management/management.types';
+import { CoreMsgType } from '@/features/listero/bets/core/msg';
 import { DrawService } from '@/shared/services/draw';
 import { RemoteDataHttp } from '@/shared/core/remote.data.http';
 import { RemoteData } from '@/shared/core/remote.data';
+import { Sub, SubDescriptor } from '@/shared/core/sub';
+import { BeforeRemove } from '@/shared/react-native-events';
+import { buildCommandsForMode, validateViewMode, ViewMode } from '@/features/listero/bets/features/management/data-fetching.strategies';
 
 /**
  * Curried constructor helper for the Model.
  */
 const makeModel = (m: Model) => m;
 
-export const init = (params?: string | { drawId: string, fetchExistingBets?: boolean }): [Model, Cmd] => {
+export const init = (params?: string | { drawId: string, fetchExistingBets?: boolean, isEditing?: boolean }): [Model, Cmd] => {
     const model = initialModel;
 
     if (!params) return [model, Cmd.none];
 
     let drawId: string;
     let fetchExistingBets = true;
+    let isEditing = false;
 
     if (typeof params === 'string') {
         drawId = params;
     } else {
         drawId = params.drawId;
         fetchExistingBets = params.fetchExistingBets ?? true;
+        isEditing = params.isEditing ?? false;
     }
 
     if (!drawId) return [model, Cmd.none];
@@ -50,42 +56,19 @@ export const init = (params?: string | { drawId: string, fetchExistingBets?: boo
     const result = singleton(makeModel)
         .andMapCmd(
             (sub) => ({ type: 'MANAGEMENT', payload: sub }),
-            updateManagement(model, { type: ManagementMsgType.INIT, drawId, fetchExistingBets })
+            updateManagement(model, { type: ManagementMsgType.INIT, drawId, fetchExistingBets, isEditing })
         );
 
-    // Agregamos el comando para obtener la info del sorteo
-    const drawInfoCmd = RemoteDataHttp.fetch(
-        async () => {
-            const draw = await DrawService.getOne(drawId);
-            if (!draw) {
-                throw new Error('No se encontró el sorteo');
-            }
-            if (!draw.draw_type_details?.code) {
-                throw new Error('El sorteo no tiene código de tipo');
-            }
-            return draw.draw_type_details.code;
-        },
-        (webData) => ({
-            type: 'CORE',
-            payload: { type: CoreMsgType.DRAW_INFO_RECEIVED, webData }
-        })
-    );
+    // Apply Configuration Object Pattern for clean data fetching
+    const viewMode: ViewMode = isEditing ? 'annotation' : 'list';
+    validateViewMode(viewMode);
 
-    // Agregamos el comando para obtener las reglas de validación
-    const fetchRulesCmd = {
-        type: 'MSG',
-        payload: {
-            type: 'REWARDS_RULES',
-            payload: {
-                type: RewardsRulesMsgType.FETCH_RULES_REQUESTED,
-                drawId
-            }
-        }
-    };
+    // Build commands using declarative configuration
+    const dataFetchingCommands = buildCommandsForMode(viewMode, drawId);
 
     return [
         { ...result.model, drawId },
-        [result.cmd, drawInfoCmd, fetchRulesCmd] as Cmd
+        [result.cmd, ...dataFetchingCommands] as Cmd
     ];
 };
 
@@ -128,6 +111,67 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
                         ...model,
                         drawTypeCode: webData as any
                     } as Model);
+                })
+                .with({ type: CoreMsgType.SET_NAVIGATION }, ({ navigation }) => {
+                    return singleton({ ...model, navigation });
+                })
+                .with({ type: CoreMsgType.CLEAR_NAVIGATION }, () => {
+                    return singleton({ ...model, navigation: null });
+                })
+                .with({ type: CoreMsgType.SCREEN_FOCUSED }, ({ drawId }) => {
+                    // Para SCREEN_FOCUSED, solo cargar las apuestas si el drawId es diferente al actual
+                    if (drawId === model.drawId) {
+                        return singleton(model); // No hacer nada si es el mismo draw
+                    }
+
+                    // Solo cargar la info del draw si no estamos en modo edición (anotación)
+                    // En modo edición, la info del draw ya se cargó en el init y no debería cambiar.
+                    const loadDrawCmd = !model.managementSession.isEditing
+                        ? Cmd.ofMsg({
+                            type: 'CORE',
+                            payload: { type: CoreMsgType.DRAW_INFO_REQUESTED, drawId }
+                        })
+                        : Cmd.none;
+
+                    // También cargar las apuestas para este draw, si no estamos en modo edición (anotación)
+                    const loadBetsCmd = !model.managementSession.isEditing
+                        ? Cmd.ofMsg({
+                            type: 'LIST',
+                            payload: { type: ListMsgType.REFRESH_BETS_REQUESTED, drawId }
+                        })
+                        : Cmd.none;
+
+                    return ret(model, Cmd.batch([loadDrawCmd, loadBetsCmd]));
+                })
+                .with({ type: CoreMsgType.NAVIGATION_BEFORE_REMOVE }, ({ event, navigation }) => {
+                    // Si ya se guardó con éxito o no hay apuestas, no prevenimos la navegación
+                    if (model.managementSession.saveSuccess) {
+                        return singleton(model);
+                    }
+
+                    const { fijosCorridos, parlets, centenas } = model.listSession.remoteData.type === 'Success'
+                        ? model.listSession.remoteData.data
+                        : { fijosCorridos: [], parlets: [], centenas: [] };
+
+                    const hasBets = fijosCorridos.length > 0 || parlets.length > 0 || centenas.length > 0;
+
+                    if (!hasBets) {
+                        return singleton(model);
+                    }
+
+                    // Prevenir navegación por defecto
+                    event.preventDefault();
+
+                    // Disparar mensaje de confirmación de gestión
+                    const confirmCmd = Cmd.ofMsg({
+                        type: 'MANAGEMENT',
+                        payload: {
+                            type: ManagementMsgType.NAVIGATE_REQUESTED,
+                            onConfirm: () => navigation.dispatch(event.data.action)
+                        }
+                    });
+
+                    return ret(model, confirmCmd);
                 })
                 .exhaustive();
         })
@@ -224,4 +268,28 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
         .exhaustive();
 
     return [result.model, result.cmd];
+};
+
+/**
+ * Subscriptions para observar cambios externos
+ */
+export const subscriptions = (model: Model): SubDescriptor<Msg> => {
+    // Si no hay drawId o no hay navegación, no hay nada que observar
+    if (!model.drawId || !model.navigation) {
+        return Sub.none();
+    }
+
+    return Sub.watchEvent(
+        BeforeRemove,
+        () => model.navigation,
+        (event) => ({
+            type: 'CORE',
+            payload: {
+                type: CoreMsgType.NAVIGATION_BEFORE_REMOVE,
+                event,
+                navigation: model.navigation
+            }
+        }),
+        'bolita-before-remove'
+    );
 };

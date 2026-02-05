@@ -93,5 +93,12 @@ export const Cmd = {
     }): CommandDescriptor => ({
         type: 'ALERT',
         payload: config
+    }),
+    /**
+     * Envuelve un mensaje en un comando para ser despachado por el motor.
+     */
+    ofMsg: (msg: any): CommandDescriptor => ({
+        type: 'MSG',
+        payload: msg
     })
 };

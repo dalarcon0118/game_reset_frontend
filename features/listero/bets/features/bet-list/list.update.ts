@@ -224,6 +224,13 @@ export const updateList = (model: Model, msg: ListMsg): Return<Model, ListMsg> =
     return match<ListMsg, Return<Model, ListMsg>>(msg)
         .with({ type: ListMsgType.FETCH_BETS_REQUESTED }, ({ drawId }) => {
             console.log('LIST FETCH_BETS_REQUESTED called with drawId:', drawId);
+            
+            // Si ya tenemos datos en éxito y no estamos forzando refresco, no hacemos nada
+            if (model.listSession.remoteData.type === 'Success' && model.drawId === drawId) {
+                console.log('LIST FETCH_BETS_REQUESTED ignored (already have data)');
+                return singleton(model);
+            }
+
             const nextListSession: ListState = {
                 ...model.listSession,
                 remoteData: RemoteData.loading(),

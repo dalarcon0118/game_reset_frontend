@@ -24,7 +24,11 @@ import { BottomDrawerProvider } from '../components/ui/use_bottom_drawer';
 import { roleToScreenMap, routes } from '../config/routes';
 import { ArrowLeft } from "lucide-react-native";
 import { logger } from '../shared/utils/logger';
+import { registerReactNativeEvents } from '../shared/react-native-events';
 import { useNotificationStore, selectNotificationDispatch } from '../features/notification/core/store';
+
+// Register platform specific events for TEA
+registerReactNativeEvents();
 import { FETCH_NOTIFICATIONS_REQUESTED } from '../features/notification/core/msg';
 
 // Register global error handlers

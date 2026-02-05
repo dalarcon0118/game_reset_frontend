@@ -3,6 +3,7 @@ import apiClient from '@/shared/services/api_client';
 import settings from '@/config/settings';
 import { to, AsyncResult } from '../utils/generators';
 import { DashboardStats } from '@/features/colector/dashboard/core/model';
+import { OfflineStorage } from './offline_storage';
 
 export interface NodeFinancialSummary {
   structure_id: number;
@@ -36,14 +37,36 @@ export class FinancialSummaryService {
     const promise = (async () => {
       // Default to today if not provided
       const targetDate = date || new Date().toISOString().split('T')[0];
-      
+
       // Endpoint: /api/financial-statement/summary/?structure_id=...&date=...
       const endpoint = `${settings.api.endpoints.financialStatement()}?structure_id=${structureId}&date=${targetDate}`;
-      const response = await apiClient.get<any>(endpoint);
+
+      let response: any;
+      try {
+        response = await apiClient.get<any>(endpoint);
+        // Save to cache on success
+        if (response) {
+          OfflineStorage.saveLastSummary(response);
+        }
+      } catch (error: any) {
+        // Fallback to cache if rate limited
+        if (error?.status === 429 || error?.message?.includes('throttled')) {
+          console.warn('FinancialSummaryService.get: Rate limited, attempting to load from offline storage');
+          const cached = await OfflineStorage.getLastSummary();
+          if (cached) {
+            console.log('FinancialSummaryService.get: Successfully loaded summary from offline storage');
+            response = cached;
+          } else {
+            throw error;
+          }
+        } else {
+          throw error;
+        }
+      }
 
       // Defensive parsing: handle both array and object responses
       let summary: BackendFinancialSummary;
-      
+
       if (Array.isArray(response)) {
         // Backend returns array - take first element or default
         summary = response.length > 0 ? response[0] : {

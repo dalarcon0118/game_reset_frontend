@@ -19,4 +19,5 @@ export const initialState: Model = {
     showBalance: true,
     authToken: null,
     currentUser: null,
+    isRateLimited: false,
 };
