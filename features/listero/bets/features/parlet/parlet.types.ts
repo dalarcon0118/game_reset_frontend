@@ -1,30 +1,7 @@
-import { FijosCorridosBet, ParletBet, GameType } from '@/types';
+import { ParletBet } from '@/types';
+import { FijosCorridosBet } from '@/types';
 
-export interface Model {
-    potentialParletNumbers: number[];
-    fromFijosyCorridoBet: boolean;
-    parletAlertVisibleState: boolean;
-    activeParletBetId: string | null;
-    isParletDrawerVisible: boolean;
-    isParletModalVisible: boolean;
-    isAmountDrawerVisible: boolean;
-    activeAnnotationType: string | null;
-    activeGameType: GameType | null;
-    canceledFromFijosyCorridoBet: boolean;
-}
-
-export const initialParletState: Model = {
-    potentialParletNumbers: [],
-    fromFijosyCorridoBet: false,
-    parletAlertVisibleState: false,
-    activeParletBetId: null,
-    isParletDrawerVisible: false,
-    isParletModalVisible: false,
-    isAmountDrawerVisible: false,
-    activeAnnotationType: null,
-    activeGameType: null,
-    canceledFromFijosyCorridoBet: false,
-};
+export const PARLET_EDITING_TYPE = 'parlet';
 
 export enum ParletMsgType {
     PRESS_ADD_PARLET = 'PRESS_ADD_PARLET',
@@ -42,6 +19,7 @@ export enum ParletMsgType {
     KEY_PRESSED = 'KEY_PRESSED',
     CONFIRM_INPUT = 'CONFIRM_INPUT',
     CLOSE_AMOUNT_KEYBOARD = 'CLOSE_AMOUNT_KEYBOARD',
+    CLOSE_BET_KEYBOARD = 'CLOSE_BET_KEYBOARD',
 }
 
 export type ParletMsg =
@@ -59,6 +37,7 @@ export type ParletMsg =
     | { type: ParletMsgType.SUBMIT_AMOUNT_INPUT; amountString: string }
     | { type: ParletMsgType.KEY_PRESSED; key: string }
     | { type: ParletMsgType.CONFIRM_INPUT }
-    | { type: ParletMsgType.CLOSE_AMOUNT_KEYBOARD };
+    | { type: ParletMsgType.CLOSE_AMOUNT_KEYBOARD }
+    | { type: ParletMsgType.CLOSE_BET_KEYBOARD };
 
 export type ParletFeatMsg = { type: 'PARLET'; payload: ParletMsg };

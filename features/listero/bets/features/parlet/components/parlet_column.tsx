@@ -8,6 +8,7 @@ import { FijosCorridosBet } from '@/types';
 import { BetNumericKeyboard, AmountNumericKeyboard } from '../../../shared/components/numeric_keyboard';
 import { AnnotationType, AnnotationTypes } from '@/constants/bet';
 import { useParlet } from '../use_parlet';
+import { PARLET_EDITING_TYPE } from '../parlet.types';
 import BottomDrawer from '@/components/ui/bottom_drawer';
 
 interface ParletColumnProps {
@@ -21,6 +22,7 @@ export const ParletColumn: React.FC<ParletColumnProps> = ({ fijosCorridosList, e
         editingAmountType,
         currentInput,
         showAmountKeyboard,
+        showBetKeyboard,
         isParletDrawerVisible,
         isAmountDrawerVisible,
         editParletBet,
@@ -29,17 +31,21 @@ export const ParletColumn: React.FC<ParletColumnProps> = ({ fijosCorridosList, e
         showParletDrawer,
         showAmountDrawer,
         hideAmountKeyboard,
+        hideBetKeyboard,
         handleKeyPress,
         handleConfirmInput,
     } = useParlet(fijosCorridosList);
 
     const renderKeyboard = (annotationType: AnnotationType) => {
         const isVisible = annotationType === AnnotationTypes.Amount
-            ? showAmountKeyboard && editingAmountType === 'parlet'
-            : isParletDrawerVisible;
+            ? showAmountKeyboard && editingAmountType === PARLET_EDITING_TYPE
+            : (showBetKeyboard && editingAmountType === PARLET_EDITING_TYPE) || isParletDrawerVisible;
         const onClose = annotationType === AnnotationTypes.Amount
             ? () => hideAmountKeyboard()
-            : () => showParletDrawer(false);
+            : () => {
+                if (showBetKeyboard) hideBetKeyboard();
+                if (isParletDrawerVisible) showParletDrawer(false);
+            };
 
         if (!isVisible) return null;
 
@@ -63,7 +69,7 @@ export const ParletColumn: React.FC<ParletColumnProps> = ({ fijosCorridosList, e
     };
     const renderParletList = () => (
         <View style={styles.columnContent}>
-            {parletList.map((item) => (
+            {parletList.map((item: ParletBet) => (
                 <View key={item.id} style={styles.parletBlock}>
                     <View style={styles.parletNumbers}>
                         {item.bets.map((bet: number, index: number) => (
