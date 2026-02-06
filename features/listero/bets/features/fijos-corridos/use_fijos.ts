@@ -13,7 +13,9 @@ export const useFijos = ({ onSelectPlay }: { onSelectPlay?: (bets: FijosCorridos
 
   const {
     listSession,
-    editSession
+    editSession,
+    isEditing,
+    entrySession
   } = model;
 
   const {
@@ -21,14 +23,16 @@ export const useFijos = ({ onSelectPlay }: { onSelectPlay?: (bets: FijosCorridos
     showAmountKeyboard,
     amountConfirmationDetails,
     currentInput,
+    editingAmountType,
   } = editSession;
 
-  console.log('useFijos state:', { showBetKeyboard, showAmountKeyboard, currentInput });
+  console.log('useFijos state:', { showBetKeyboard, showAmountKeyboard, currentInput, editingAmountType });
 
-  const fijosCorridos =
-    listSession.remoteData.type === 'Success'
+  const fijosCorridos = isEditing
+    ? entrySession.fijosCorridos
+    : (listSession.remoteData.type === 'Success'
       ? listSession.remoteData.data.fijosCorridos
-      : [];
+      : []);
 
   const openBetKeyboard = useCallback(() => dispatch(FijosCmd.OPEN_BET_KEYBOARD()), [dispatch]);
   const closeBetKeyboard = useCallback(() => dispatch(FijosCmd.CLOSE_BET_KEYBOARD()), [dispatch]);
@@ -53,6 +57,7 @@ export const useFijos = ({ onSelectPlay }: { onSelectPlay?: (bets: FijosCorridos
     fijosCorridosList: fijosCorridos,
     showBetKeyboard,
     showAmountKeyboard,
+    editingAmountType,
     currentInput,
     handleAddBetPress: openBetKeyboard,
     handleAmountCirclePress: openAmountKeyboard,

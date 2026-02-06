@@ -2,4 +2,5 @@
 // Note: Most modules have been migrated to features/
 export * from '@/types';
 export * from '../core/model';
-export * from '../core/initial.types';
+// Note: initial.types exports are intentionally not re-exported here
+// to avoid sharing mutable initialModel object across modules

@@ -1,14 +1,14 @@
 export const listerRoutes = {
   lister: {
     tabs: {
-      screen: 'lister/(tabs)',
+      screen: '/lister/(tabs)',
       options: {
         headerShown: false,
         headerTitle: '',
       },
     },
     bets_create: {
-      screen: 'lister/bets_create/[id]',
+      screen: '/lister/bets_create/[id]',
       options: {
         headerShown: true,
         headerTitle: 'Anotar',
@@ -17,7 +17,7 @@ export const listerRoutes = {
       },
     },
     bets_list: {
-      screen: 'lister/bets_list/[id]',
+      screen: '/lister/bets_list/[id]',
       options: {
         headerShown: true,
         headerTitle: 'Lista',
@@ -27,7 +27,7 @@ export const listerRoutes = {
       },
     },
     bets_rules: {
-      screen: 'lister/bets_rules/[id]',
+      screen: '/lister/bets_rules/[id]',
       options: {
         headerShown: true,
         headerTitle: 'Reglamento',
@@ -37,7 +37,7 @@ export const listerRoutes = {
       },
     },
     rewards: {
-      screen: 'lister/rewards/[id]',
+      screen: '/lister/rewards/[id]',
       options: {
         headerShown: true,
         headerTitle: 'Premios',
@@ -47,7 +47,7 @@ export const listerRoutes = {
       },
     },
     profile: {
-      screen: 'lister/profile',
+      screen: '/lister/profile',
       options: {
         headerShown: true,
         headerTitle: 'Perfil',
@@ -57,7 +57,7 @@ export const listerRoutes = {
       },
     },
     change_password: {
-      screen: 'lister/change_password',
+      screen: '/lister/change_password',
       options: {
         headerShown: true,
         headerTitle: 'Cambiar PIN',

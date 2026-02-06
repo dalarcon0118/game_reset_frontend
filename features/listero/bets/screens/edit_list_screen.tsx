@@ -1,70 +1,79 @@
-import React from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { View, StyleSheet, useColorScheme, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Layout, Text } from '@ui-kitten/components';
-import { match } from 'ts-pattern';
 import Colors from '@/constants/colors';
 import LayoutConstants from '@/constants/layout';
+import { match } from 'ts-pattern';
 
 import { getGameComponent } from '@/features/listero/games/registry';
-import { useBetsStore, selectBetsModel, selectInit } from '../core/store';
+import { useBetsStore, selectBetsModel, selectDispatch } from '../core/store';
+import { CoreMsgType } from '../core/msg';
 
 interface EditListScreenProps {
     drawId?: string;
     title?: string;
 }
 
-
 export const EditListScreen: React.FC<EditListScreenProps> = ({ drawId, title }) => {
     const colorScheme = useColorScheme() ?? 'light';
     const model = useBetsStore(selectBetsModel);
-    const init = useBetsStore(selectInit);
+    const dispatch = useBetsStore(selectDispatch);
 
-    console.log('EditListScreen render:', {
-        drawId,
-        modelDrawId: model.drawId,
-        drawTypeCode: model.drawTypeCode.type,
-        listRemoteData: model.listSession.remoteData.type
-    });
+    useEffect(() => {
+        if (drawId) {
+            dispatch({
+                type: 'CORE',
+                payload: {
+                    type: CoreMsgType.SCREEN_FOCUSED,
+                    drawId,
+                    isEditing: true
+                }
+            });
+        }
+    }, [drawId, dispatch]);
 
-    // La carga y configuración del modo ahora se maneja mediante la suscripción TEA en update.ts
-    // que observa los cambios en la ruta de navegación y dispara SCREEN_FOCUSED.
+    const renderContent = () => {
+        return match(model.drawTypeCode)
+            .with({ type: 'Loading' }, () => (
+                <View style={styles.centerContainer}>
+                    <ActivityIndicator size="large" color={Colors[colorScheme].primary} />
+                    <Text category='s1' style={{ marginTop: 10 }}>Cargando configuración...</Text>
+                </View>
+            ))
+            .with({ type: 'Success' }, ({ data: code }) => {
+                const GameComponent = getGameComponent(code);
+
+                if (GameComponent) {
+                    return <GameComponent drawId={drawId} title={title} />;
+                }
+
+                return (
+                    <View style={styles.centerContainer}>
+                        <Text category='h6'>Tipo de sorteo no soportado</Text>
+                        <Text appearance='hint'>{code || 'Sin código'}</Text>
+                    </View>
+                );
+            })
+            .with({ type: 'Failure' }, ({ error }) => (
+                <View style={styles.centerContainer}>
+                    <Text category='h6' status='danger'>Error al cargar el sorteo</Text>
+                    <Text appearance='hint'>{error}</Text>
+                </View>
+            ))
+            .otherwise(() => (
+                <View style={styles.centerContainer}>
+                    <ActivityIndicator size="large" color={Colors[colorScheme].primary} />
+                </View>
+            ));
+    };
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: Colors[colorScheme].background }]} edges={['bottom']}>
             <Layout style={[styles.header, { borderBottomColor: Colors[colorScheme].border }]} level='1'>
                 <Text category='h6' style={styles.headerText}>{title}</Text>
             </Layout>
-            {match(model.drawTypeCode)
-                .with({ type: 'Loading' }, () => (
-                    <View style={styles.centerContainer}>
-                        <ActivityIndicator size="large" color={Colors[colorScheme].primary} />
-                    </View>
-                ))
-                .with({ type: 'Failure' }, ({ error }) => (
-                    <View style={styles.centerContainer}>
-                        <Text status="danger">{typeof error === 'string' ? error : 'Error al cargar el sorteo'}</Text>
-                    </View>
-                ))
-                .with({ type: 'Success' }, ({ data: drawTypeCode }) => {
-                    const GameComponent = getGameComponent(drawTypeCode);
-                    
-                    if (GameComponent) {
-                        return <GameComponent drawId={drawId} title={title} />;
-                    }
-
-                    return (
-                        <View style={styles.centerContainer}>
-                            <Text category='h6'>Tipo de sorteo no soportado</Text>
-                            <Text appearance='hint'>{drawTypeCode}</Text> 
-                        </View>
-                    );
-                })
-                .otherwise(() => (
-                    <View style={styles.centerContainer}>
-                        <ActivityIndicator size="small" color={Colors[colorScheme].primary} />
-                    </View>
-                ))}
+            {renderContent()}
         </SafeAreaView>
     );
 };

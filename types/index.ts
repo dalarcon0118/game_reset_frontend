@@ -23,6 +23,13 @@ export interface DrawType {
   premiumsPaid?: number;
   netResult?: number;
 
+  draw_type_details?: {
+    id: number;
+    name: string;
+    description: string;
+    code: string;
+  };
+
   // Campos calculados para UI (mantener compatibilidad)
   source?: string; // Alias de 'name' para compatibilidad
   date?: string; // Fecha formateada

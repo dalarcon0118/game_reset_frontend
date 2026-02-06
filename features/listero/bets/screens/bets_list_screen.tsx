@@ -1,15 +1,15 @@
 import React, { useCallback, useEffect } from 'react';
+import { match } from 'ts-pattern';
 import { StyleSheet, View, ScrollView, ActivityIndicator, useColorScheme, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Text, Layout } from '@ui-kitten/components';
-import { match } from 'ts-pattern';
-
+import { Text, Layout, Button } from '@ui-kitten/components';
 import Colors from '@/constants/colors';
 import LayoutConstants from '@/constants/layout';
 
-import { useBetsStore, selectBetsModel, selectInit, selectDispatch } from '../core/store';
+import { useBetsStore, selectBetsModel, selectDispatch } from '../core/store';
 import { getGameListComponent } from '@/features/listero/games/registry';
 import { ListMsgType } from '../features/bet-list/list.types';
+import { CoreMsgType } from '../core/msg';
 
 interface BetsListScreenProps {
     drawId?: string;
@@ -20,27 +20,28 @@ export const BetsListScreen = ({ drawId, title }: BetsListScreenProps) => {
     const colorScheme = (useColorScheme() ?? 'light') as keyof typeof Colors;
 
     const model = useBetsStore(selectBetsModel);
-    const init = useBetsStore(selectInit);
     const dispatch = useBetsStore(selectDispatch);
 
-    const { isRefreshing } = model.listSession;
-    console.log('BetsListScreen render: isRefreshing =', isRefreshing);
-    console.log('BetsListScreen render: drawId from route =', drawId);
-    console.log('BetsListScreen render: model.drawId =', model.drawId);
-    console.log('BetsListScreen render: remoteData type =', model.listSession.remoteData.type);
+    useEffect(() => {
+        if (drawId) {
+            dispatch({
+                type: 'CORE',
+                payload: {
+                    type: CoreMsgType.SCREEN_FOCUSED,
+                    drawId,
+                    isEditing: false
+                }
+            });
+        }
+    }, [drawId, dispatch]);
 
-    // Log the full remoteData for debugging
-    if (model.listSession.remoteData.type === 'Success') {
-        console.log('BetsListScreen render: SUCCESS data =', model.listSession.remoteData.data);
-    } else if (model.listSession.remoteData.type === 'Failure') {
-        console.log('BetsListScreen render: FAILURE error =', model.listSession.remoteData.error);
-    }
+    const { isRefreshing } = model.listSession;
+
 
     // La carga de apuestas ahora se maneja mediante la suscripción TEA en update.ts
     // que observa los cambios en la ruta de navegación y dispara SCREEN_FOCUSED.
-    
+
     const handleRefresh = useCallback(() => {
-        console.log('BetsListScreen: handleRefresh triggered, drawId =', drawId);
         if (drawId) {
             dispatch({
                 type: 'LIST',
@@ -49,50 +50,39 @@ export const BetsListScreen = ({ drawId, title }: BetsListScreenProps) => {
                     drawId
                 }
             });
-        } else {
-            console.log('BetsListScreen: handleRefresh ABORTED - no drawId');
         }
     }, [drawId, dispatch]);
 
     const renderContent = () => {
-        // Wait for draw type info before deciding what to render
-        if (model.drawTypeCode.type === 'Loading') {
-            return (
-                <View style={styles.centerContainer}>
-                    <ActivityIndicator size="large" color={Colors[colorScheme].primary} />
-                    <Text style={styles.loadingText}>Cargando información del sorteo...</Text>
-                </View>
-            );
-        }
-
-        if (model.drawTypeCode.type === 'Failure') {
-            return (
-                <View style={styles.centerContainer}>
-                    <Text status="danger">Error cargando info del sorteo: {model.drawTypeCode.error}</Text>
-                </View>
-            );
-        }
-
-        return match(model.listSession.remoteData)
-            .with({ type: 'NotAsked' }, () => null)
+        return match(model.drawTypeCode)
             .with({ type: 'Loading' }, () => (
                 <View style={styles.centerContainer}>
                     <ActivityIndicator size="large" color={Colors[colorScheme].primary} />
-                    <Text style={styles.loadingText}>Cargando apuestas...</Text>
+                    <Text category='s1' style={{ marginTop: 10 }}>Cargando configuración...</Text>
                 </View>
             ))
-            .with({ type: 'Failure' }, ({ error }) => (
-                <View style={styles.centerContainer}>
-                    <Text status="danger">Error: {error}</Text>
-                </View>
-            ))
-            .with({ type: 'Success' }, () => {
-                const drawTypeCode = model.drawTypeCode.type === 'Success' 
-                    ? model.drawTypeCode.data 
-                    : 'BL';
-                
-                console.log('BetsListScreen Success: drawTypeCode =', drawTypeCode);
-                const GameListComponent = getGameListComponent(drawTypeCode);
+            .with({ type: 'Success' }, ({ data: code }) => {
+                // Si el estado es Success y no hay apuestas, mostramos el mensaje de lista vacía
+                if (model.listSession.remoteData.type === 'Success') {
+                    const { fijosCorridos, parlets, centenas, loteria = [] } = model.listSession.remoteData.data;
+                    const hasNoBets = fijosCorridos.length === 0 && parlets.length === 0 && centenas.length === 0 && loteria.length === 0;
+
+                    if (hasNoBets) {
+                        return (
+                            <View style={styles.centerContainer}>
+                                <Text category='h6' style={styles.emptyText}>Todavía no hay apuestas para mostrar</Text>
+                                <Button
+                                    style={styles.actionButton}
+                                    onPress={() => dispatch({ type: 'CORE', payload: { type: CoreMsgType.NAVIGATE_TO_CREATE } })}
+                                >
+                                    Anotar
+                                </Button>
+                            </View>
+                        );
+                    }
+                }
+
+                const GameListComponent = getGameListComponent(code);
 
                 if (GameListComponent) {
                     return <GameListComponent drawId={drawId} title={title} />;
@@ -101,19 +91,43 @@ export const BetsListScreen = ({ drawId, title }: BetsListScreenProps) => {
                 return (
                     <View style={styles.centerContainer}>
                         <Text category='h6'>Tipo de sorteo no soportado</Text>
-                        <Text appearance='hint'>{drawTypeCode}</Text>
+                        <Text appearance='hint'>{code || 'Sin código'}</Text>
                     </View>
                 );
             })
-            .exhaustive();
+            .with({ type: 'Failure' }, ({ error }) => (
+                <View style={styles.centerContainer}>
+                    <Text category='h6' status='danger'>Error al cargar el sorteo</Text>
+                    <Text appearance='hint'>{error}</Text>
+                </View>
+            ))
+            .otherwise(() => (
+                <View style={styles.centerContainer}>
+                    <ActivityIndicator size="large" color={Colors[colorScheme].primary} />
+                </View>
+            ));
     };
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: Colors[colorScheme].background }]} edges={['bottom']}>
             <Layout style={[styles.header, { borderBottomColor: Colors[colorScheme].border }]} level='1'>
-                <Text category='h6' style={styles.title}>{title || ''} - {drawId || ''}</Text>
+                <Text category='h6' style={styles.title}>{title}</Text>
             </Layout>
-            {renderContent()}
+
+            <ScrollView
+                style={styles.scrollContainer}
+                contentContainerStyle={styles.scrollContent}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={isRefreshing}
+                        onRefresh={handleRefresh}
+                        colors={[Colors[colorScheme].primary]}
+                        tintColor={Colors[colorScheme].primary}
+                    />
+                }
+            >
+                {renderContent()}
+            </ScrollView>
         </SafeAreaView>
     );
 };
@@ -147,6 +161,14 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         padding: 20,
+    },
+    emptyText: {
+        textAlign: 'center',
+        marginBottom: 20,
+        color: '#8F9BB3',
+    },
+    actionButton: {
+        minWidth: 150,
     },
     loadingText: {
         marginTop: 10,

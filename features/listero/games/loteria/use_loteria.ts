@@ -7,15 +7,17 @@ export const useLoteria = () => {
     const model = useBetsStore(selectBetsModel);
     const dispatch = useBetsStore(selectDispatch);
 
-    const { loteriaSession, editSession, listSession, managementSession, rules } = model;
+    const { loteriaSession, editSession, listSession, managementSession, rules, isEditing, entrySession } = model;
 
     const drawDetails = managementSession.drawDetails.type === 'Success'
         ? managementSession.drawDetails.data
         : null;
 
-    const loteriaList = listSession.remoteData.type === 'Success'
-        ? listSession.remoteData.data.loteria
-        : [];
+    const loteriaList = isEditing 
+        ? entrySession.loteria
+        : (listSession.remoteData.type === 'Success'
+            ? listSession.remoteData.data.loteria
+            : []);
 
     const fixedAmount = useMemo(() => {
         const loteriaBetTypeId = managementSession.betTypes.loteria;

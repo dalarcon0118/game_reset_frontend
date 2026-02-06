@@ -14,6 +14,7 @@ import { FijosFeatMsg } from '../features/fijos-corridos/fijos.types';
 import { SuccessMsg } from '../features/success/success.types';
 import { LoteriaFeatMsg } from '@/features/listero/games/loteria/loteria.types';
 import { WebData } from '@/shared/core/remote.data';
+import { DrawType } from '@/types';
 
 export * from './core.types';
 
@@ -25,16 +26,18 @@ export enum CoreMsgType {
     CLEAR_NAVIGATION = 'CORE.CLEAR_NAVIGATION',
     NAVIGATION_BEFORE_REMOVE = 'CORE.NAVIGATION_BEFORE_REMOVE',
     SET_IS_EDITING = 'CORE.SET_IS_EDITING',
+    NAVIGATE_TO_CREATE = 'CORE.NAVIGATE_TO_CREATE',
 }
 
 export type CoreMsg =
     | { type: CoreMsgType.DRAW_INFO_REQUESTED; drawId: string }
-    | { type: CoreMsgType.DRAW_INFO_RECEIVED; webData: WebData<string> }
+    | { type: CoreMsgType.DRAW_INFO_RECEIVED; webData: WebData<DrawType> }
     | { type: CoreMsgType.SCREEN_FOCUSED; drawId: string; isEditing: boolean }
     | { type: CoreMsgType.SET_NAVIGATION; navigation: any }
     | { type: CoreMsgType.CLEAR_NAVIGATION }
     | { type: CoreMsgType.NAVIGATION_BEFORE_REMOVE; event: any; navigation: any }
-    | { type: CoreMsgType.SET_IS_EDITING; isEditing: boolean };
+    | { type: CoreMsgType.SET_IS_EDITING; isEditing: boolean }
+    | { type: CoreMsgType.NAVIGATE_TO_CREATE };
 
 export type SuccessFeatMsg = { type: 'SUCCESS'; payload: SuccessMsg };
 

@@ -1,7 +1,7 @@
 export const colectorRoutes = {
   colector: {
     tabs: {
-      screen: 'colector/(tabs)',
+      screen: '/colector/(tabs)',
       options: {
         headerShown: false,
         headerTitle: 'Dashboard',
@@ -11,7 +11,7 @@ export const colectorRoutes = {
       },
     },
     details: {
-      screen: 'details/[id]',
+      screen: '/colector/details/[id]',
       options: {
         headerShown: true,
         headerTitle: '',
@@ -21,37 +21,37 @@ export const colectorRoutes = {
       },
     },
     dashboard: {
-      screen: 'index',
+      screen: '/index',
       options: {
         title: 'Dashboard',
       }
     },
     operations: {
-      screen: 'listas',
+      screen: '/listas',
       options: {
         title: 'Mis Listas',
       }
     },
     reports: {
-      screen: 'reports',
+      screen: '/reports',
       options: {
         title: 'Mis Reportes',
       }
     },
     settings: {
-      screen: 'settings',
+      screen: '/settings',
       options: {
         title: 'Configuración',
       }
     },
     bets: {
-      screen: 'bets',
+      screen: '/bets',
       options: {
         href: null
       }
     },
     reports_form: {
-      screen: 'reports/form',
+      screen: '/colector/reports/form',
       options: {
         headerShown: false,
         headerTitle: 'Reportar Incidencia',
@@ -61,7 +61,7 @@ export const colectorRoutes = {
       },
     },
     update_rule:{
-      screen:"update_rule",
+      screen: "/colector/update_rule",
        options: {
         headerShown: false,
         headerTitle: '',
@@ -71,7 +71,7 @@ export const colectorRoutes = {
       }
     },
     node_rule:{
-       screen:"rules",
+       screen: "/colector/rules",
        options: {
         headerShown: false,
         headerTitle: '',

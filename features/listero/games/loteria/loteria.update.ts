@@ -103,54 +103,88 @@ export const updateLoteria = (model: GlobalModel, msg: LoteriaMsg): Return<Globa
             const fixedAmount = getFixedAmountFromRules(betTypeRules);
             console.log('[loteria.update] Detected fixedAmount:', fixedAmount);
 
-            let nextRemoteData;
             let shouldShowAmountKeyboard = false;
             let finalEditingBetId = null;
 
-            if (editingBetId) {
-                // Update existing bet
-                nextRemoteData = RemoteData.map<any, ListData, ListData>(data => ({
-                    ...data,
-                    loteria: data.loteria.map(bet =>
+            if (model.isEditing) {
+                let updatedEntrySession = { ...model.entrySession };
+
+                if (editingBetId) {
+                    // Update existing bet in entrySession
+                    updatedEntrySession.loteria = updatedEntrySession.loteria.map(bet =>
                         bet.id === editingBetId ? { ...bet, bet: betValue } : bet
-                    )
-                }), model.listSession.remoteData);
+                    );
+                    shouldShowAmountKeyboard = false;
+                    finalEditingBetId = null;
+                } else {
+                    // Create new bet in entrySession
+                    const newBet = {
+                        id: Math.random().toString(36).substr(2, 9),
+                        bet: betValue,
+                        amount: fixedAmount || 0
+                    };
+                    updatedEntrySession.loteria = [...updatedEntrySession.loteria, newBet];
+                    shouldShowAmountKeyboard = fixedAmount === null;
+                    finalEditingBetId = shouldShowAmountKeyboard ? newBet.id : null;
+                }
 
-                // When editing, we usually don't need to re-enter amount if it's already set or fixed
-                shouldShowAmountKeyboard = false;
-                finalEditingBetId = null;
-            } else {
-                // Create new bet
-                const newBet = {
-                    id: Math.random().toString(36).substr(2, 9),
-                    bet: betValue,
-                    amount: fixedAmount || 0 // Use fixed amount if found, else 0 for user to input
-                };
-
-                nextRemoteData = RemoteData.map<any, ListData, ListData>(data => ({
-                    ...data,
-                    loteria: [...data.loteria, newBet]
-                }), model.listSession.remoteData);
-
-                // If we have a fixed amount, we don't need to show the amount keyboard
-                shouldShowAmountKeyboard = fixedAmount === null;
-                finalEditingBetId = shouldShowAmountKeyboard ? newBet.id : null;
-            }
-
-            return ret(
-                {
-                    ...model,
-                    listSession: { ...model.listSession, remoteData: nextRemoteData },
-                    loteriaSession: {
-                        ...model.loteriaSession,
-                        isBetKeyboardVisible: false,
-                        isAmountKeyboardVisible: shouldShowAmountKeyboard,
-                        editingBetId: finalEditingBetId
+                return ret(
+                    {
+                        ...model,
+                        entrySession: updatedEntrySession,
+                        loteriaSession: {
+                            ...model.loteriaSession,
+                            isBetKeyboardVisible: false,
+                            isAmountKeyboardVisible: shouldShowAmountKeyboard,
+                            editingBetId: finalEditingBetId
+                        },
+                        editSession: { ...model.editSession, currentInput: '' }
                     },
-                    editSession: { ...model.editSession, currentInput: '' }
-                },
-                []
-            );
+                    []
+                );
+            } else {
+                // Modo lista
+                let nextRemoteData;
+                if (editingBetId) {
+                    // Update existing bet in listSession
+                    nextRemoteData = RemoteData.map<any, ListData, ListData>(data => ({
+                        ...data,
+                        loteria: data.loteria.map(bet =>
+                            bet.id === editingBetId ? { ...bet, bet: betValue } : bet
+                        )
+                    }), model.listSession.remoteData);
+                    shouldShowAmountKeyboard = false;
+                    finalEditingBetId = null;
+                } else {
+                    // Create new bet in listSession
+                    const newBet = {
+                        id: Math.random().toString(36).substr(2, 9),
+                        bet: betValue,
+                        amount: fixedAmount || 0
+                    };
+                    nextRemoteData = RemoteData.map<any, ListData, ListData>(data => ({
+                        ...data,
+                        loteria: [...data.loteria, newBet]
+                    }), model.listSession.remoteData);
+                    shouldShowAmountKeyboard = fixedAmount === null;
+                    finalEditingBetId = shouldShowAmountKeyboard ? newBet.id : null;
+                }
+
+                return ret(
+                    {
+                        ...model,
+                        listSession: { ...model.listSession, remoteData: nextRemoteData },
+                        loteriaSession: {
+                            ...model.loteriaSession,
+                            isBetKeyboardVisible: false,
+                            isAmountKeyboardVisible: shouldShowAmountKeyboard,
+                            editingBetId: finalEditingBetId
+                        },
+                        editSession: { ...model.editSession, currentInput: '' }
+                    },
+                    []
+                );
+            }
         })
         .with({ type: LoteriaMsgType.SUBMIT_AMOUNT_INPUT }, ({ amount }) => {
             const amountValue = parseInt(amount, 10);
@@ -158,32 +192,55 @@ export const updateLoteria = (model: GlobalModel, msg: LoteriaMsg): Return<Globa
 
             if (!betId) return singleton(model);
 
-            const nextRemoteData = RemoteData.map<any, ListData, ListData>(data => ({
-                ...data,
-                loteria: data.loteria.map(bet =>
-                    bet.id === betId ? { ...bet, amount: amountValue } : bet
-                )
-            }), model.listSession.remoteData);
+            if (model.isEditing) {
+                const updatedEntrySession = {
+                    ...model.entrySession,
+                    loteria: model.entrySession.loteria.map(bet =>
+                        bet.id === betId ? { ...bet, amount: amountValue } : bet
+                    )
+                };
 
-            return singleton({
-                ...model,
-                listSession: { ...model.listSession, remoteData: nextRemoteData },
-                loteriaSession: {
-                    ...model.loteriaSession,
-                    isAmountKeyboardVisible: false,
-                    editingBetId: null
-                },
-                editSession: { ...model.editSession, currentInput: '' }
-            });
+                return singleton({
+                    ...model,
+                    entrySession: updatedEntrySession,
+                    loteriaSession: {
+                        ...model.loteriaSession,
+                        isAmountKeyboardVisible: false,
+                        editingBetId: null
+                    },
+                    editSession: { ...model.editSession, currentInput: '' }
+                });
+            } else {
+                const nextRemoteData = RemoteData.map<any, ListData, ListData>(data => ({
+                    ...data,
+                    loteria: data.loteria.map(bet =>
+                        bet.id === betId ? { ...bet, amount: amountValue } : bet
+                    )
+                }), model.listSession.remoteData);
+
+                return singleton({
+                    ...model,
+                    listSession: { ...model.listSession, remoteData: nextRemoteData },
+                    loteriaSession: {
+                        ...model.loteriaSession,
+                        isAmountKeyboardVisible: false,
+                        editingBetId: null
+                    },
+                    editSession: { ...model.editSession, currentInput: '' }
+                });
+            }
         })
         .with({ type: LoteriaMsgType.EDIT_LOTERIA_BET }, ({ betId }) => {
-            const listData = RemoteData.withDefault<any, ListData>({
-                fijosCorridos: [],
-                parlets: [],
-                centenas: [],
-                loteria: []
-            }, model.listSession.remoteData);
-            const betToEdit = listData.loteria.find(b => b.id === betId);
+            const bets = model.isEditing
+                ? model.entrySession.loteria
+                : RemoteData.withDefault<any, ListData>({
+                    fijosCorridos: [],
+                    parlets: [],
+                    centenas: [],
+                    loteria: []
+                }, model.listSession.remoteData).loteria;
+
+            const betToEdit = bets.find(b => b.id === betId);
 
             if (!betToEdit) return singleton(model);
 

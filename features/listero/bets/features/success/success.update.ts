@@ -7,7 +7,7 @@ import { SharingService } from '@/shared/services/sharing';
 import { RemoteDataHttp } from '@/shared/core/remote.data.http';
 import { RemoteData } from '@/shared/core/remote.data';
 
-export function updateSuccess(msg: SuccessMsg, model: GlobalModel): Return<GlobalModel, SuccessMsg> {
+export function updateSuccess(model: GlobalModel, msg: SuccessMsg): Return<GlobalModel, SuccessMsg> {
     console.log('[success.update] Received message:', msg.type);
     return match<SuccessMsg, Return<GlobalModel, SuccessMsg>>(msg)
         .with({ type: SuccessMsgType.SHARE_VOUCHER_REQUESTED }, ({ uri }) => {

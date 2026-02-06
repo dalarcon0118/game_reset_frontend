@@ -1,6 +1,12 @@
+import { FijosCorridosBet } from "@/types";
 import { selectDispatch, useBetsStore } from "../../store";
 
 export enum FijosMsgType {
+  ADD_FIJOS_BET = 'ADD_FIJOS_BET',
+  UPDATE_FIJOS_BET = 'UPDATE_FIJOS_BET',
+  DELETE_FIJOS_BET = 'DELETE_FIJOS_BET',
+  SET_FIJOS_AMOUNT = 'SET_FIJOS_AMOUNT',
+  SET_CORRIDO_AMOUNT = 'SET_CORRIDO_AMOUNT',
   OPEN_BET_KEYBOARD = 'OPEN_BET_KEYBOARD',
   CLOSE_BET_KEYBOARD = 'CLOSE_BET_KEYBOARD',
   OPEN_AMOUNT_KEYBOARD = 'OPEN_AMOUNT_KEYBOARD',
@@ -22,6 +28,11 @@ const createMsg = <T extends FijosMsg>(type: T): FijosFeatMsg => ({
 });
 
 export type FijosMsg =
+  | { type: FijosMsgType.ADD_FIJOS_BET; fijosBet: { number: number; fijoAmount?: number; corridoAmount?: number } }
+  | { type: FijosMsgType.UPDATE_FIJOS_BET; betId: string; changes: Partial<FijosCorridosBet> }
+  | { type: FijosMsgType.DELETE_FIJOS_BET; betId: string }
+  | { type: FijosMsgType.SET_FIJOS_AMOUNT; amount: number }
+  | { type: FijosMsgType.SET_CORRIDO_AMOUNT; amount: number }
   | { type: FijosMsgType.OPEN_BET_KEYBOARD }
   | { type: FijosMsgType.CLOSE_BET_KEYBOARD }
   | { type: FijosMsgType.OPEN_AMOUNT_KEYBOARD; betId: string; amountType: 'fijo' | 'corrido' }

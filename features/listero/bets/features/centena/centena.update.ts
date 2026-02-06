@@ -27,6 +27,8 @@ export const updateCentena = (model: GlobalModel, msg: CentenaMsg): Return<Globa
                     editSession: {
                         ...model.editSession,
                         currentInput: '',
+                        showBetKeyboard: true,
+                        editingAmountType: 'centena',
                     },
                     centenaSession: {
                         ...model.centenaSession,
@@ -42,59 +44,110 @@ export const updateCentena = (model: GlobalModel, msg: CentenaMsg): Return<Globa
                 return singleton(model);
             }
 
-            const nextRemoteData = RemoteData.map((data: ListData) => ({
-                ...data,
-                centenas: data.centenas.map((centena: CentenaBet) =>
-                    centena.id === model.centenaSession.activeCentenaBetId
-                        ? { ...centena, bet: betNumber, amount: 0 }
-                        : centena
-                ),
-            }), model.listSession.remoteData);
+            if (model.isEditing) {
+                const updatedEntrySession = {
+                    ...model.entrySession,
+                    centenas: model.entrySession.centenas.map((centena: CentenaBet) =>
+                        centena.id === model.centenaSession.activeCentenaBetId
+                            ? { ...centena, bet: betNumber, amount: 0 }
+                            : centena
+                    ),
+                };
 
-            return Return.val(
-                {
-                    ...model,
-                    listSession: {
-                        ...model.listSession,
-                        remoteData: nextRemoteData,
+                return Return.val(
+                    {
+                        ...model,
+                        entrySession: updatedEntrySession,
+                        editSession: {
+                            ...model.editSession,
+                            editingAmountType: 'centena',
+                            currentInput: '',
+                        },
+                        centenaSession: {
+                            ...model.centenaSession,
+                            isCentenaDrawerVisible: false,
+                            isAmountDrawerVisible: true,
+                        },
                     },
-                    editSession: {
-                        ...model.editSession,
-                        editingAmountType: 'centena',
-                        currentInput: '',
+                    Cmd.none
+                );
+            } else {
+                const nextRemoteData = RemoteData.map((data: ListData) => ({
+                    ...data,
+                    centenas: data.centenas.map((centena: CentenaBet) =>
+                        centena.id === model.centenaSession.activeCentenaBetId
+                            ? { ...centena, bet: betNumber, amount: 0 }
+                            : centena
+                    ),
+                }), model.listSession.remoteData);
+
+                return Return.val(
+                    {
+                        ...model,
+                        listSession: {
+                            ...model.listSession,
+                            remoteData: nextRemoteData,
+                        },
+                        editSession: {
+                            ...model.editSession,
+                            editingAmountType: 'centena',
+                            currentInput: '',
+                        },
+                        centenaSession: {
+                            ...model.centenaSession,
+                            isCentenaDrawerVisible: false,
+                            isAmountDrawerVisible: true,
+                        },
                     },
-                    centenaSession: {
-                        ...model.centenaSession,
-                        isCentenaDrawerVisible: false,
-                        isAmountDrawerVisible: true,
-                    },
-                },
-                Cmd.none
-            );
+                    Cmd.none
+                );
+            }
         })
         .with({ type: CentenaMsgType.CANCEL_CENTENA_BET }, () => {
-            const nextRemoteData = RemoteData.map((data: ListData) => ({
-                ...data,
-                centenas: data.centenas.filter((centena: CentenaBet) =>
-                    centena.id !== model.centenaSession.activeCentenaBetId
-                ),
-            }), model.listSession.remoteData);
+            if (model.isEditing) {
+                const updatedEntrySession = {
+                    ...model.entrySession,
+                    centenas: model.entrySession.centenas.filter((centena: CentenaBet) =>
+                        centena.id !== model.centenaSession.activeCentenaBetId
+                    ),
+                };
 
-            return Return.val(
-                {
-                    ...model,
-                    listSession: {
-                        ...model.listSession,
-                        remoteData: nextRemoteData,
+                return Return.val(
+                    {
+                        ...model,
+                        entrySession: updatedEntrySession,
+                        centenaSession: {
+                            ...model.centenaSession,
+                            activeCentenaBetId: null,
+                            isCentenaDrawerVisible: false,
+                        },
                     },
-                    centenaSession: {
-                        ...model.centenaSession,
-                        activeCentenaBetId: null,
-                        isCentenaDrawerVisible: false,
+                    Cmd.none
+                );
+            } else {
+                const nextRemoteData = RemoteData.map((data: ListData) => ({
+                    ...data,
+                    centenas: data.centenas.filter((centena: CentenaBet) =>
+                        centena.id !== model.centenaSession.activeCentenaBetId
+                    ),
+                }), model.listSession.remoteData);
+
+                return Return.val(
+                    {
+                        ...model,
+                        listSession: {
+                            ...model.listSession,
+                            remoteData: nextRemoteData,
+                        },
+                        centenaSession: {
+                            ...model.centenaSession,
+                            activeCentenaBetId: null,
+                            isCentenaDrawerVisible: false,
+                        },
                     },
-                },
-                Cmd.none
-            );
+                    Cmd.none
+                );
+            }
         })
         .with({ type: CentenaMsgType.EDIT_CENTENA_BET }, ({ betId }) => {
             return Return.val(
@@ -103,6 +156,8 @@ export const updateCentena = (model: GlobalModel, msg: CentenaMsg): Return<Globa
                     editSession: {
                         ...model.editSession,
                         currentInput: '',
+                        showBetKeyboard: true,
+                        editingAmountType: 'centena',
                     },
                     centenaSession: {
                         ...model.centenaSession,
@@ -114,44 +169,80 @@ export const updateCentena = (model: GlobalModel, msg: CentenaMsg): Return<Globa
             );
         })
         .with({ type: CentenaMsgType.DELETE_CENTENA_BET }, ({ betId }) => {
-            const nextRemoteData = RemoteData.map((data: ListData) => ({
-                ...data,
-                centenas: data.centenas.filter((centena: CentenaBet) => centena.id !== betId),
-            }), model.listSession.remoteData);
+            if (model.isEditing) {
+                const updatedEntrySession = {
+                    ...model.entrySession,
+                    centenas: model.entrySession.centenas.filter((centena: CentenaBet) => centena.id !== betId),
+                };
 
-            return Return.val(
-                {
-                    ...model,
-                    listSession: {
-                        ...model.listSession,
-                        remoteData: nextRemoteData,
+                return Return.val(
+                    {
+                        ...model,
+                        entrySession: updatedEntrySession,
+                        centenaSession: {
+                            ...model.centenaSession,
+                            activeCentenaBetId: model.centenaSession.activeCentenaBetId === betId ? null : model.centenaSession.activeCentenaBetId,
+                        },
                     },
-                    centenaSession: {
-                        ...model.centenaSession,
-                        activeCentenaBetId: model.centenaSession.activeCentenaBetId === betId ? null : model.centenaSession.activeCentenaBetId,
+                    Cmd.none
+                );
+            } else {
+                const nextRemoteData = RemoteData.map((data: ListData) => ({
+                    ...data,
+                    centenas: data.centenas.filter((centena: CentenaBet) => centena.id !== betId),
+                }), model.listSession.remoteData);
+
+                return Return.val(
+                    {
+                        ...model,
+                        listSession: {
+                            ...model.listSession,
+                            remoteData: nextRemoteData,
+                        },
+                        centenaSession: {
+                            ...model.centenaSession,
+                            activeCentenaBetId: model.centenaSession.activeCentenaBetId === betId ? null : model.centenaSession.activeCentenaBetId,
+                        },
                     },
-                },
-                Cmd.none
-            );
+                    Cmd.none
+                );
+            }
         })
         .with({ type: CentenaMsgType.UPDATE_CENTENA_BET }, ({ betId, changes }) => {
-            const nextRemoteData = RemoteData.map((data: ListData) => ({
-                ...data,
-                centenas: data.centenas.map((centena: CentenaBet) =>
-                    centena.id === betId ? { ...centena, ...changes } : centena
-                ),
-            }), model.listSession.remoteData);
+            if (model.isEditing) {
+                const updatedEntrySession = {
+                    ...model.entrySession,
+                    centenas: model.entrySession.centenas.map((centena: CentenaBet) =>
+                        centena.id === betId ? { ...centena, ...changes } : centena
+                    ),
+                };
 
-            return Return.val(
-                {
-                    ...model,
-                    listSession: {
-                        ...model.listSession,
-                        remoteData: nextRemoteData,
+                return Return.val(
+                    {
+                        ...model,
+                        entrySession: updatedEntrySession,
                     },
-                },
-                Cmd.none
-            );
+                    Cmd.none
+                );
+            } else {
+                const nextRemoteData = RemoteData.map((data: ListData) => ({
+                    ...data,
+                    centenas: data.centenas.map((centena: CentenaBet) =>
+                        centena.id === betId ? { ...centena, ...changes } : centena
+                    ),
+                }), model.listSession.remoteData);
+
+                return Return.val(
+                    {
+                        ...model,
+                        listSession: {
+                            ...model.listSession,
+                            remoteData: nextRemoteData,
+                        },
+                    },
+                    Cmd.none
+                );
+            }
         })
         .with({ type: CentenaMsgType.OPEN_CENTENA_AMOUNT_KEYBOARD }, ({ betId }) => {
             return Return.val(
@@ -160,13 +251,14 @@ export const updateCentena = (model: GlobalModel, msg: CentenaMsg): Return<Globa
                     editSession: {
                         ...model.editSession,
                         editingAmountType: 'centena',
-                        showCentenaKeyboard: false,
+                        editingBetId: betId,
+                        showAmountKeyboard: true,
+                        showBetKeyboard: false,
                         currentInput: '',
                     },
                     centenaSession: {
                         ...model.centenaSession,
                         activeCentenaBetId: betId,
-                        isAmountDrawerVisible: true,
                     },
                 },
                 Cmd.none
@@ -178,6 +270,7 @@ export const updateCentena = (model: GlobalModel, msg: CentenaMsg): Return<Globa
                     ...model,
                     editSession: {
                         ...model.editSession,
+                        showBetKeyboard: visible,
                         currentInput: visible ? model.editSession.currentInput : '',
                     },
                     centenaSession: {
@@ -194,6 +287,8 @@ export const updateCentena = (model: GlobalModel, msg: CentenaMsg): Return<Globa
                     ...model,
                     editSession: {
                         ...model.editSession,
+                        showAmountKeyboard: visible,
+                        editingAmountType: visible ? 'centena' : null,
                         currentInput: visible ? model.editSession.currentInput : '',
                     },
                     centenaSession: {
@@ -221,14 +316,13 @@ export const updateCentena = (model: GlobalModel, msg: CentenaMsg): Return<Globa
             });
         })
         .with({ type: CentenaMsgType.CONFIRM_INPUT }, () => {
-            const { currentInput } = model.editSession;
-            const { isCentenaDrawerVisible, isAmountDrawerVisible } = model.centenaSession;
+            const { currentInput, showBetKeyboard, showAmountKeyboard, editingAmountType } = model.editSession;
 
-            if (isCentenaDrawerVisible) {
+            if (showBetKeyboard) {
                 return updateCentena(model, { type: CentenaMsgType.PROCESS_BET_INPUT, inputString: currentInput });
             }
 
-            if (isAmountDrawerVisible) {
+            if (showAmountKeyboard && editingAmountType === 'centena') {
                 return updateCentena(model, { type: CentenaMsgType.SUBMIT_AMOUNT_INPUT, amountString: currentInput });
             }
 
@@ -246,6 +340,7 @@ export const updateCentena = (model: GlobalModel, msg: CentenaMsg): Return<Globa
                         editSession: {
                             ...model.editSession,
                             currentInput: '',
+                            showBetKeyboard: false,
                         },
                         centenaSession: {
                             ...model.centenaSession,
@@ -265,9 +360,95 @@ export const updateCentena = (model: GlobalModel, msg: CentenaMsg): Return<Globa
                     amount: 0,
                 };
 
+                if (model.isEditing) {
+                    const updatedEntrySession = {
+                        ...model.entrySession,
+                        centenas: [...model.entrySession.centenas, newCentena],
+                    };
+
+                    return Return.val(
+                        {
+                            ...model,
+                            entrySession: updatedEntrySession,
+                            editSession: {
+                                ...model.editSession,
+                                currentInput: '',
+                                showBetKeyboard: false,
+                                showAmountKeyboard: true,
+                                editingAmountType: 'centena',
+                                editingBetId: newCentena.id,
+                            },
+                            centenaSession: {
+                                ...model.centenaSession,
+                                isCentenaDrawerVisible: false,
+                                activeCentenaBetId: newCentena.id,
+                            }
+                        },
+                        Cmd.none
+                    );
+                } else {
+                    const nextRemoteData = RemoteData.map((data: ListData) => ({
+                        ...data,
+                        centenas: [...data.centenas, newCentena],
+                    }), model.listSession.remoteData);
+
+                    return Return.val(
+                        {
+                            ...model,
+                            listSession: {
+                                ...model.listSession,
+                                remoteData: nextRemoteData,
+                            },
+                            editSession: {
+                                ...model.editSession,
+                                currentInput: '',
+                                showBetKeyboard: false,
+                                showAmountKeyboard: true,
+                                editingAmountType: 'centena',
+                                editingBetId: newCentena.id,
+                            },
+                            centenaSession: {
+                                ...model.centenaSession,
+                                isCentenaDrawerVisible: false,
+                                activeCentenaBetId: newCentena.id,
+                            }
+                        },
+                        Cmd.none
+                    );
+                }
+            }
+
+            // Otherwise update existing bet (just the number)
+            if (model.isEditing) {
+                const updatedEntrySession = {
+                    ...model.entrySession,
+                    centenas: model.entrySession.centenas.map((c: CentenaBet) =>
+                        c.id === activeCentenaBetId ? { ...c, bet: betNumber } : c
+                    ),
+                };
+
+                return Return.val(
+                    {
+                        ...model,
+                        entrySession: updatedEntrySession,
+                        editSession: {
+                            ...model.editSession,
+                            currentInput: '',
+                            showBetKeyboard: false,
+                        },
+                        centenaSession: {
+                            ...model.centenaSession,
+                            isCentenaDrawerVisible: false,
+                        }
+                    },
+                    Cmd.none
+                );
+            } else {
                 const nextRemoteData = RemoteData.map((data: ListData) => ({
                     ...data,
-                    centenas: [...data.centenas, newCentena],
+                    centenas: data.centenas.map((c: CentenaBet) =>
+                        c.id === activeCentenaBetId ? { ...c, bet: betNumber } : c
+                    ),
                 }), model.listSession.remoteData);
 
                 return Return.val(
@@ -280,76 +461,84 @@ export const updateCentena = (model: GlobalModel, msg: CentenaMsg): Return<Globa
                         editSession: {
                             ...model.editSession,
                             currentInput: '',
+                            showBetKeyboard: false,
                         },
                         centenaSession: {
                             ...model.centenaSession,
                             isCentenaDrawerVisible: false,
+                        }
+                    },
+                    Cmd.none
+                );
+            }
+        })
+        .with({ type: CentenaMsgType.SUBMIT_AMOUNT_INPUT }, ({ amountString }) => {
+            const { activeCentenaBetId } = model.centenaSession;
+            const betIdToUpdate = activeCentenaBetId || model.editSession.editingBetId;
+
+            if (!betIdToUpdate) return singleton(model);
+
+            const amount = parseInt(amountString, 10);
+            if (isNaN(amount)) return singleton(model);
+
+            if (model.isEditing) {
+                const updatedEntrySession = {
+                    ...model.entrySession,
+                    centenas: model.entrySession.centenas.map((c: CentenaBet) =>
+                        c.id === betIdToUpdate ? { ...c, amount } : c
+                    ),
+                };
+
+                return Return.val(
+                    {
+                        ...model,
+                        entrySession: updatedEntrySession,
+                        editSession: {
+                            ...model.editSession,
+                            currentInput: '',
+                            showAmountKeyboard: false,
+                            editingAmountType: null,
+                            editingBetId: null,
+                        },
+                        centenaSession: {
+                            ...model.centenaSession,
+                            isAmountDrawerVisible: false,
+                            activeCentenaBetId: null,
+                        }
+                    },
+                    Cmd.none
+                );
+            } else {
+                const nextRemoteData = RemoteData.map((data: ListData) => ({
+                    ...data,
+                    centenas: data.centenas.map((c: CentenaBet) =>
+                        c.id === betIdToUpdate ? { ...c, amount } : c
+                    ),
+                }), model.listSession.remoteData);
+
+                return Return.val(
+                    {
+                        ...model,
+                        listSession: {
+                            ...model.listSession,
+                            remoteData: nextRemoteData,
+                        },
+                        editSession: {
+                            ...model.editSession,
+                            currentInput: '',
+                            showAmountKeyboard: false,
+                            editingAmountType: null,
+                            editingBetId: null,
+                        },
+                        centenaSession: {
+                            ...model.centenaSession,
+                            isAmountDrawerVisible: false,
                             activeCentenaBetId: null,
                         }
                     },
                     Cmd.none
                 );
             }
-
-            // Otherwise update existing bet
-            const nextRemoteData = RemoteData.map((data: ListData) => ({
-                ...data,
-                centenas: data.centenas.map((c: CentenaBet) =>
-                    c.id === activeCentenaBetId ? { ...c, bet: betNumber } : c
-                ),
-            }), model.listSession.remoteData);
-
-            return Return.val(
-                {
-                    ...model,
-                    listSession: {
-                        ...model.listSession,
-                        remoteData: nextRemoteData,
-                    },
-                    editSession: {
-                        ...model.editSession,
-                        currentInput: '',
-                    },
-                    centenaSession: {
-                        ...model.centenaSession,
-                        isCentenaDrawerVisible: false,
-                    }
-                },
-                Cmd.none
-            );
-        })
-        .with({ type: CentenaMsgType.SUBMIT_AMOUNT_INPUT }, ({ amountString }) => {
-            const { activeCentenaBetId } = model.centenaSession;
-            if (!activeCentenaBetId) return singleton(model);
-
-            const amount = parseInt(amountString, 10);
-            if (isNaN(amount)) return singleton(model);
-
-            const nextRemoteData = RemoteData.map((data: ListData) => ({
-                ...data,
-                centenas: data.centenas.map((c: CentenaBet) =>
-                    c.id === activeCentenaBetId ? { ...c, amount } : c
-                ),
-            }), model.listSession.remoteData);
-
-            return Return.val(
-                {
-                    ...model,
-                    listSession: {
-                        ...model.listSession,
-                        remoteData: nextRemoteData,
-                    },
-                    editSession: {
-                        ...model.editSession,
-                        currentInput: '',
-                    },
-                    centenaSession: {
-                        ...model.centenaSession,
-                        isAmountDrawerVisible: false,
-                    }
-                },
-                Cmd.none
-            );
         })
         .exhaustive();
 };

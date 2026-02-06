@@ -1,77 +1,14 @@
-import { match } from 'ts-pattern';
-import { Model as GlobalModel } from '../../core/model';
-import { ParletMsgType, ParletMsg } from './parlet.types';
+import { singleton, ret, Return } from '@/shared/core/return';
 import { Cmd } from '@/shared/core/cmd';
-import { Return, singleton } from '@/shared/core/return';
-import { generateRandomId, splitStringToPairs } from '../../shared/utils/numbers';
-import { ParletBet } from '@/types';
+import { Model } from '../../core/model';
+import { ParletMsg, ParletMsgType } from './parlet.types';
+import { match } from 'ts-pattern';
 import { RemoteData } from '@/shared/core/remote.data';
-import { ListData } from '../bet-list/list.types';
+import { generateRandomId } from '../../shared/utils/numbers';
+import { ParletBet } from '@/types';
 
-// Initial state for this submodule
-export const initParlet = (model: GlobalModel): Return<GlobalModel, ParletMsg> => {
-    return singleton({
-        ...model,
-        parletSession: {
-            ...model.parletSession,
-            parletAlertVisibleState: false,
-        },
-    });
-};
-
-const findPotentialParletNumbers = (fijosCorridosList: any[]): number[] => {
-    // Get unique bet numbers from fijos/corridos that have amounts
-    const numbersWithAmounts = fijosCorridosList
-        .filter(bet => bet.fijoAmount !== null || bet.corridoAmount !== null)
-        .map(bet => bet.bet);
-
-    return [...new Set(numbersWithAmounts)].sort((a, b) => a - b);
-};
-
-export const updateParlet = (model: GlobalModel, msg: ParletMsg): Return<GlobalModel, ParletMsg> => {
-    return match<ParletMsg, Return<GlobalModel, ParletMsg>>(msg)
-        .with({ type: ParletMsgType.PRESS_ADD_PARLET }, ({ fijosCorridosList }) => {
-            const potentialNumbers = findPotentialParletNumbers(fijosCorridosList);
-
-            if (potentialNumbers.length < 2) {
-                // Just open the drawer without creating a bet yet
-                return Return.val(
-                    {
-                        ...model,
-                        editSession: {
-                            ...model.editSession,
-                            currentInput: '',
-                        },
-                        parletSession: {
-                            ...model.parletSession,
-                            activeParletBetId: null, // null means we are creating a new one
-                            isParletDrawerVisible: true,
-                        },
-                    },
-                    Cmd.none
-                );
-            }
-
-            return Return.val(
-                {
-                    ...model,
-                    parletSession: {
-                        ...model.parletSession,
-                        potentialParletNumbers: potentialNumbers,
-                        fromFijosyCorridoBet: true,
-                        parletAlertVisibleState: true,
-                    },
-                },
-                Cmd.alert({
-                    title: "¿Desea Agregar estos números como parlet?",
-                    message: `Lista de números [${potentialNumbers.join(', ')}] como parlet?`,
-                    buttons: [
-                        { text: "Cancel", onPressMsg: { type: ParletMsgType.CANCEL_PARLET_BET }, style: "cancel" },
-                        { text: "OK", onPressMsg: { type: ParletMsgType.CONFIRM_PARLET_BET } }
-                    ]
-                })
-            );
-        })
+export function updateParlet(model: Model, msg: ParletMsg): Return<Model, ParletMsg> {
+    return match<ParletMsg, Return<Model, ParletMsg>>(msg)
         .with({ type: ParletMsgType.CONFIRM_PARLET_BET }, () => {
             if (!model.parletSession.fromFijosyCorridoBet || model.parletSession.potentialParletNumbers.length < 2) {
                 return singleton(model);
@@ -84,240 +21,38 @@ export const updateParlet = (model: GlobalModel, msg: ParletMsg): Return<GlobalM
                 amount: 0, // Will be set later
             };
 
-            const nextRemoteData = RemoteData.map((data: ListData) => ({
-                ...data,
-                parlets: [...data.parlets, newParlet],
-            }), model.listSession.remoteData);
+            if (model.isEditing) {
+                // En modo edición, actualizar entrySession directamente
+                const updatedEntrySession = {
+                    ...model.entrySession,
+                    parlets: [...model.entrySession.parlets, newParlet]
+                };
 
-            return Return.val(
-                {
-                    ...model,
-                    listSession: {
-                        ...model.listSession,
-                        remoteData: nextRemoteData,
-                    },
-                    editSession: {
-                        ...model.editSession,
-                        editingAmountType: 'parlet',
-                        currentInput: '',
-                    },
-                    parletSession: {
-                        ...model.parletSession,
-                        potentialParletNumbers: [],
-                        fromFijosyCorridoBet: false,
-                        parletAlertVisibleState: false,
-                        activeParletBetId: newParlet.id,
-                        isAmountDrawerVisible: true,
-                    },
-                },
-                Cmd.none
-            );
-        })
-        .with({ type: ParletMsgType.CANCEL_PARLET_BET }, () => {
-            return Return.val(
-                {
-                    ...model,
-                    editSession: {
-                        ...model.editSession,
-                        currentInput: '',
-                    },
-                    parletSession: {
-                        ...model.parletSession,
-                        potentialParletNumbers: [],
-                        fromFijosyCorridoBet: false,
-                        parletAlertVisibleState: false,
-                        canceledFromFijosyCorridoBet: true,
-                        activeParletBetId: null,
-                        isParletDrawerVisible: true,
-                    },
-                },
-                Cmd.none
-            );
-        })
-        .with({ type: ParletMsgType.EDIT_PARLET_BET }, ({ betId }) => {
-            return Return.val(
-                {
-                    ...model,
-                    editSession: {
-                        ...model.editSession,
-                        currentInput: '',
-                    },
-                    parletSession: {
-                        ...model.parletSession,
-                        activeParletBetId: betId,
-                        isParletDrawerVisible: true,
-                    },
-                },
-                Cmd.none
-            );
-        })
-        .with({ type: ParletMsgType.DELETE_PARLET_BET }, ({ betId }) => {
-            const nextRemoteData = RemoteData.map((data: ListData) => ({
-                ...data,
-                parlets: data.parlets.filter((parlet: ParletBet) => parlet.id !== betId),
-            }), model.listSession.remoteData);
-
-            return Return.val(
-                {
-                    ...model,
-                    listSession: {
-                        ...model.listSession,
-                        remoteData: nextRemoteData,
-                    },
-                    parletSession: {
-                        ...model.parletSession,
-                        activeParletBetId: model.parletSession.activeParletBetId === betId ? null : model.parletSession.activeParletBetId,
-                    },
-                },
-                Cmd.none
-            );
-        })
-        .with({ type: ParletMsgType.UPDATE_PARLET_BET }, ({ betId, changes }) => {
-            const nextRemoteData = RemoteData.map((data: ListData) => ({
-                ...data,
-                parlets: data.parlets.map((parlet: ParletBet) =>
-                    parlet.id === betId ? { ...parlet, ...changes } : parlet
-                ),
-            }), model.listSession.remoteData);
-
-            return Return.val(
-                {
-                    ...model,
-                    listSession: {
-                        ...model.listSession,
-                        remoteData: nextRemoteData,
-                    },
-                },
-                Cmd.none
-            );
-        })
-        .with({ type: ParletMsgType.OPEN_PARLET_AMOUNT_KEYBOARD }, ({ betId }) => {
-            return Return.val(
-                {
-                    ...model,
-                    editSession: {
-                        ...model.editSession,
-                        editingAmountType: 'parlet',
-                        showParletKeyboard: false,
-                        currentInput: '',
-                    },
-                    parletSession: {
-                        ...model.parletSession,
-                        activeParletBetId: betId,
-                        isAmountDrawerVisible: true,
-                    },
-                },
-                Cmd.none
-            );
-        })
-        .with({ type: ParletMsgType.SHOW_PARLET_DRAWER }, ({ visible }) => {
-            return Return.val(
-                {
-                    ...model,
-                    editSession: {
-                        ...model.editSession,
-                        currentInput: visible ? model.editSession.currentInput : '',
-                    },
-                    parletSession: {
-                        ...model.parletSession,
-                        isParletDrawerVisible: visible,
-                    },
-                },
-                Cmd.none
-            );
-        })
-        .with({ type: ParletMsgType.SHOW_PARLET_MODAL }, ({ visible }) => {
-            return Return.val(
-                {
-                    ...model,
-                    editSession: {
-                        ...model.editSession,
-                        currentInput: visible ? model.editSession.currentInput : '',
-                    },
-                    parletSession: {
-                        ...model.parletSession,
-                        isAmountDrawerVisible: visible,
-                    },
-                },
-                Cmd.none
-            );
-        })
-        .with({ type: ParletMsgType.SHOW_PARLET_ALERT }, ({ visible }) => {
-            return Return.val(
-                {
-                    ...model,
-                    parletSession: {
-                        ...model.parletSession,
-                        parletAlertVisibleState: visible,
-                    },
-                },
-                Cmd.none
-            );
-        })
-        .with({ type: ParletMsgType.KEY_PRESSED }, ({ key }) => {
-            let newInput = model.editSession.currentInput;
-            if (key === 'backspace') {
-                newInput = newInput.slice(0, -1);
-            } else {
-                newInput += key;
-            }
-
-            return singleton({
-                ...model,
-                editSession: {
-                    ...model.editSession,
-                    currentInput: newInput,
-                }
-            });
-        })
-        .with({ type: ParletMsgType.CONFIRM_INPUT }, () => {
-            const { currentInput, showAmountKeyboard } = model.editSession;
-            const { isParletDrawerVisible } = model.parletSession;
-
-            if (isParletDrawerVisible) {
-                return updateParlet(model, { type: ParletMsgType.PROCESS_BET_INPUT, inputString: currentInput });
-            }
-
-            if (showAmountKeyboard || model.parletSession.isAmountDrawerVisible) {
-                return updateParlet(model, { type: ParletMsgType.SUBMIT_AMOUNT_INPUT, amountString: currentInput });
-            }
-
-            return singleton(model);
-        })
-        .with({ type: ParletMsgType.PROCESS_BET_INPUT }, ({ inputString }) => {
-            const { activeParletBetId } = model.parletSession;
-
-            const pairs = splitStringToPairs(inputString);
-            const numbers = pairs.map(p => parseInt(p, 10)).filter(n => !isNaN(n));
-
-            // If no valid numbers, just close and do nothing
-            if (numbers.length === 0) {
                 return Return.val(
                     {
                         ...model,
+                        entrySession: updatedEntrySession,
                         editSession: {
                             ...model.editSession,
+                            editingAmountType: 'parlet',
+                            editingBetId: newParlet.id,
                             currentInput: '',
+                            showAmountKeyboard: true,
+                            showBetKeyboard: false,
                         },
                         parletSession: {
                             ...model.parletSession,
-                            isParletDrawerVisible: false,
-                            activeParletBetId: null,
-                        }
+                            potentialParletNumbers: [],
+                            fromFijosyCorridoBet: false,
+                            parletAlertVisibleState: false,
+                            activeParletBetId: newParlet.id,
+                        },
                     },
                     Cmd.none
                 );
-            }
-
-            // If activeParletBetId is null, it's a new bet
-            if (!activeParletBetId) {
-                const newParlet: ParletBet = {
-                    id: generateRandomId(),
-                    bets: numbers,
-                    amount: 0,
-                };
-
-                const nextRemoteData = RemoteData.map((data: ListData) => ({
+            } else {
+                // En modo lista, actualizar listSession como antes
+                const nextRemoteData = RemoteData.map((data: any) => ({
                     ...data,
                     parlets: [...data.parlets, newParlet],
                 }), model.listSession.remoteData);
@@ -331,77 +66,320 @@ export const updateParlet = (model: GlobalModel, msg: ParletMsg): Return<GlobalM
                         },
                         editSession: {
                             ...model.editSession,
+                            editingAmountType: 'parlet',
+                            editingBetId: newParlet.id,
                             currentInput: '',
+                            showAmountKeyboard: true,
+                            showBetKeyboard: false,
                         },
                         parletSession: {
                             ...model.parletSession,
-                            isParletDrawerVisible: false,
-                            activeParletBetId: null,
+                            potentialParletNumbers: [],
+                            fromFijosyCorridoBet: false,
+                            parletAlertVisibleState: false,
+                            activeParletBetId: newParlet.id,
+                        },
+                    },
+                    Cmd.none
+                );
+            }
+        })
+
+        .with({ type: ParletMsgType.DELETE_PARLET_BET }, ({ betId }) => {
+            if (model.isEditing) {
+                // En modo edición, eliminar de entrySession
+                const updatedEntrySession = {
+                    ...model.entrySession,
+                    parlets: model.entrySession.parlets.filter(parlet => parlet.id !== betId)
+                };
+
+                return Return.val(
+                    {
+                        ...model,
+                        entrySession: updatedEntrySession,
+                        parletSession: {
+                            ...model.parletSession,
+                            activeParletBetId: null
+                        }
+                    },
+                    Cmd.none
+                );
+            } else {
+                // En modo lista, eliminar de listSession
+                const nextRemoteData = RemoteData.map((data: any) => ({
+                    ...data,
+                    parlets: data.parlets.filter((parlet: ParletBet) => parlet.id !== betId),
+                }), model.listSession.remoteData);
+
+                return Return.val(
+                    {
+                        ...model,
+                        listSession: {
+                            ...model.listSession,
+                            remoteData: nextRemoteData,
+                        },
+                        parletSession: {
+                            ...model.parletSession,
+                            activeParletBetId: null
                         }
                     },
                     Cmd.none
                 );
             }
+        })
 
-            // Otherwise, update existing bet
-            const nextRemoteData = RemoteData.map((data: ListData) => ({
-                ...data,
-                parlets: data.parlets.map((p: ParletBet) =>
-                    p.id === activeParletBetId ? { ...p, bets: numbers } : p
-                ),
-            }), model.listSession.remoteData);
+        .with({ type: ParletMsgType.UPDATE_PARLET_BET }, ({ betId, changes }) => {
+            if (model.isEditing) {
+                // En modo edición, actualizar en entrySession
+                const updatedEntrySession = {
+                    ...model.entrySession,
+                    parlets: model.entrySession.parlets.map(parlet =>
+                        parlet.id === betId ? { ...parlet, ...changes } : parlet
+                    )
+                };
 
+                return Return.val(
+                    {
+                        ...model,
+                        entrySession: updatedEntrySession,
+                    },
+                    Cmd.none
+                );
+            } else {
+                // En modo lista, actualizar en listSession
+                const nextRemoteData = RemoteData.map((data: any) => ({
+                    ...data,
+                    parlets: data.parlets.map((parlet: ParletBet) =>
+                        parlet.id === betId ? { ...parlet, ...changes } : parlet
+                    ),
+                }), model.listSession.remoteData);
+
+                return Return.val(
+                    {
+                        ...model,
+                        listSession: {
+                            ...model.listSession,
+                            remoteData: nextRemoteData,
+                        },
+                    },
+                    Cmd.none
+                );
+            }
+        })
+
+        .with({ type: ParletMsgType.EDIT_PARLET_BET }, ({ betId }) => {
             return Return.val(
                 {
                     ...model,
-                    listSession: {
-                        ...model.listSession,
-                        remoteData: nextRemoteData,
+                    parletSession: {
+                        ...model.parletSession,
+                        activeParletBetId: betId,
                     },
                     editSession: {
                         ...model.editSession,
-                        currentInput: '',
+                        editingAmountType: 'parlet',
+                        editingBetId: betId,
                     },
-                    parletSession: {
-                        ...model.parletSession,
-                        isParletDrawerVisible: false,
-                    }
                 },
                 Cmd.none
             );
         })
+
+        .with({ type: ParletMsgType.OPEN_PARLET_AMOUNT_KEYBOARD }, ({ betId }) => {
+            const parlet = model.isEditing
+                ? model.entrySession.parlets.find(p => p.id === betId)
+                : (model.listSession.remoteData.type === 'Success'
+                    ? model.listSession.remoteData.data.parlets.find((p: ParletBet) => p.id === betId)
+                    : null);
+
+            if (!parlet) {
+                return singleton(model);
+            }
+
+            return Return.val(
+                {
+                    ...model,
+                    parletSession: {
+                        ...model.parletSession,
+                        activeParletBetId: betId,
+                    },
+                    editSession: {
+                        ...model.editSession,
+                        editingAmountType: 'parlet',
+                        editingBetId: betId,
+                        currentInput: parlet.amount?.toString() || '',
+                        showAmountKeyboard: true,
+                        showBetKeyboard: false,
+                    },
+                },
+                Cmd.none
+            );
+        })
+
+        .with({ type: ParletMsgType.CLOSE_AMOUNT_KEYBOARD }, () => {
+            return Return.val(
+                {
+                    ...model,
+                    editSession: {
+                        ...model.editSession,
+                        showAmountKeyboard: false,
+                        editingBetId: null,
+                        editingAmountType: null,
+                        currentInput: '',
+                    },
+                },
+                Cmd.none
+            );
+        })
+
+        .with({ type: ParletMsgType.KEY_PRESSED }, ({ key }) => {
+            const currentInput = model.editSession.currentInput;
+            const newInput = key === 'backspace'
+                ? currentInput.slice(0, -1)
+                : currentInput + key;
+
+            return Return.val(
+                {
+                    ...model,
+                    editSession: {
+                        ...model.editSession,
+                        currentInput: newInput,
+                    },
+                },
+                Cmd.none
+            );
+        })
+
         .with({ type: ParletMsgType.SUBMIT_AMOUNT_INPUT }, ({ amountString }) => {
-            const { activeParletBetId } = model.parletSession;
-            if (!activeParletBetId) return singleton(model);
+            const amount = parseFloat(amountString || model.editSession.currentInput) || 0;
+            const betId = model.editSession.editingBetId;
 
-            const amount = parseInt(amountString, 10);
-            if (isNaN(amount)) return singleton(model);
+            if (!betId || model.editSession.editingAmountType !== 'parlet') {
+                return singleton(model);
+            }
 
-            const nextRemoteData = RemoteData.map((data: ListData) => ({
-                ...data,
-                parlets: data.parlets.map((p: ParletBet) =>
-                    p.id === activeParletBetId ? { ...p, amount } : p
-                ),
-            }), model.listSession.remoteData);
-
-            return Return.val(
+            // Usar UPDATE_PARLET_BET para actualizar el monto
+            return updateParlet(
                 {
                     ...model,
-                    listSession: {
-                        ...model.listSession,
-                        remoteData: nextRemoteData,
-                    },
                     editSession: {
                         ...model.editSession,
                         currentInput: '',
+                        editingBetId: null,
+                        showAmountKeyboard: false,
+                        editingAmountType: null,
                     },
+                },
+                { type: ParletMsgType.UPDATE_PARLET_BET, betId, changes: { amount } }
+            );
+        })
+
+        .with({ type: ParletMsgType.CONFIRM_INPUT }, () => {
+            return updateParlet(
+                model,
+                { type: ParletMsgType.SUBMIT_AMOUNT_INPUT, amountString: model.editSession.currentInput }
+            );
+        })
+
+        .with({ type: ParletMsgType.SHOW_PARLET_DRAWER }, ({ visible }) => {
+            return Return.val(
+                {
+                    ...model,
                     parletSession: {
                         ...model.parletSession,
-                        isAmountDrawerVisible: false,
-                    }
+                        isParletDrawerVisible: visible
+                    },
                 },
                 Cmd.none
             );
         })
-        .exhaustive();
-};
+
+        .with({ type: ParletMsgType.SHOW_PARLET_MODAL }, ({ visible }) => {
+            return Return.val(
+                {
+                    ...model,
+                    parletSession: {
+                        ...model.parletSession,
+                        isParletModalVisible: visible
+                    },
+                },
+                Cmd.none
+            );
+        })
+
+        .with({ type: ParletMsgType.SHOW_PARLET_ALERT }, ({ visible }) => {
+            return Return.val(
+                {
+                    ...model,
+                    parletSession: {
+                        ...model.parletSession,
+                        parletAlertVisibleState: visible,
+                    },
+                },
+                Cmd.none
+            );
+        })
+
+        .with({ type: ParletMsgType.PROCESS_BET_INPUT }, ({ inputString }) => {
+            // Process bet input logic here
+            return singleton(model);
+        })
+
+        .with({ type: ParletMsgType.PRESS_ADD_PARLET }, ({ fijosCorridosList }) => {
+            const numbers = fijosCorridosList.map(bet => bet.bet);
+
+            if (numbers.length < 2) {
+                return singleton(model);
+            }
+
+            return Return.val(
+                {
+                    ...model,
+                    editSession: {
+                        ...model.editSession,
+                        showBetKeyboard: true,
+                        editingAmountType: 'parlet',
+                        currentInput: '',
+                    },
+                    parletSession: {
+                        ...model.parletSession,
+                        potentialParletNumbers: numbers,
+                        fromFijosyCorridoBet: true,
+                        parletAlertVisibleState: true,
+                    },
+                },
+                Cmd.alert({
+                    title: 'Crear Parlet',
+                    message: `¿Deseas crear un parlet con los números: ${numbers.join(', ')}?`,
+                    buttons: [
+                        {
+                            text: 'Cancelar',
+                            style: 'cancel',
+                            onPressMsg: { type: ParletMsgType.CANCEL_PARLET_BET } as ParletMsg
+                        },
+                        {
+                            text: 'Crear',
+                            onPressMsg: { type: ParletMsgType.CONFIRM_PARLET_BET } as ParletMsg
+                        }
+                    ]
+                })
+            );
+        })
+
+        .with({ type: ParletMsgType.CANCEL_PARLET_BET }, () => {
+            return singleton({
+                ...model,
+                parletSession: {
+                    ...model.parletSession,
+                    potentialParletNumbers: [],
+                    fromFijosyCorridoBet: false,
+                    canceledFromFijosyCorridoBet: true
+                }
+            });
+        })
+
+        .otherwise(() => {
+            console.warn('Unhandled parlet message type:', msg);
+            return singleton(model);
+        });
+}

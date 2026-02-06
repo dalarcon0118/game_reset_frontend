@@ -1,3 +1,4 @@
+import React from 'react';
 import { BetsListScreen } from '@/features/listero/bets/screens/bets_list_screen';
 import { useLocalSearchParams } from 'expo-router';
 

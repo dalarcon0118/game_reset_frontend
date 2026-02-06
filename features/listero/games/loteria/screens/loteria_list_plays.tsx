@@ -18,6 +18,8 @@ export const LoteriaListPlays: React.FC<LoteriaListPlaysProps> = ({ drawId }) =>
     const model = useBetsStore(selectBetsModel);
     const dispatch = useBetsStore(selectDispatch);
 
+    const { loteriaTotal } = model.summary;
+
     const { isRefreshing } = model.listSession;
 
     const handleRefresh = useCallback(() => {
@@ -31,13 +33,6 @@ export const LoteriaListPlays: React.FC<LoteriaListPlaysProps> = ({ drawId }) =>
             });
         }
     }, [drawId, dispatch]);
-
-    const loteriaTotal = useMemo(() => {
-        const { loteria } = model.listSession.remoteData.type === 'Success'
-            ? model.listSession.remoteData.data
-            : { loteria: [] };
-        return loteria.reduce((total: number, bet: any) => total + (bet.amount || 0), 0);
-    }, [model.listSession.remoteData]);
 
     if (model.listSession.remoteData.type !== 'Success') {
         return null;

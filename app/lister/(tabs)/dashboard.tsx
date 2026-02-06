@@ -1,13 +1,11 @@
-import { useState } from 'react';
 import {  StyleSheet, SafeAreaView } from 'react-native';
 import { useColorScheme } from 'react-native';
 import Colors from '@/constants/colors';
-import { DashboardScreen as ListeroDashboard } from '../../../features/listero';
+import DashboardScreen from '../../../features/listero/dashboard/views';
 
 
-export default function ListeroTab() {
+export default function ListeroDashboardTab() {
   const colorScheme = useColorScheme() ?? 'light';
-
 
 
   return (
@@ -15,7 +13,7 @@ export default function ListeroTab() {
       styles.container,
       { backgroundColor: Colors[colorScheme].background }
     ]}>
-      <ListeroDashboard/>
+      <DashboardScreen/>
 
     </SafeAreaView>
   );

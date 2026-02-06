@@ -21,11 +21,11 @@ import { RewardsRulesMsgType } from '@/features/listero/bets/features/rewards-ru
 
 export const VIEW_CONFIGS = {
   annotation: {
-    fetchBetTypes: false,
+    fetchBetTypes: true,
     fetchExistingBets: false,
-    fetchRules: false,
+    fetchRules: true,
     fetchDrawInfo: true,
-    description: 'Modo anotación - sin carga de datos del backend',
+    description: 'Modo anotación - carga solo metadata necesaria',
     purpose: 'Para pantallas de entrada/anotación como BolitaEntryScreen'
   },
   list: {

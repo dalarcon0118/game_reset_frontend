@@ -20,6 +20,7 @@ export const ParletColumn: React.FC<ParletColumnProps> = ({ fijosCorridosList, e
         parletList,
         editingAmountType,
         currentInput,
+        showAmountKeyboard,
         isParletDrawerVisible,
         isAmountDrawerVisible,
         editParletBet,
@@ -27,17 +28,20 @@ export const ParletColumn: React.FC<ParletColumnProps> = ({ fijosCorridosList, e
         pressAddParlet,
         showParletDrawer,
         showAmountDrawer,
+        hideAmountKeyboard,
         handleKeyPress,
         handleConfirmInput,
     } = useParlet(fijosCorridosList);
 
     const renderKeyboard = (annotationType: AnnotationType) => {
         const isVisible = annotationType === AnnotationTypes.Amount
-            ? isAmountDrawerVisible && editingAmountType === 'parlet'
+            ? showAmountKeyboard && editingAmountType === 'parlet'
             : isParletDrawerVisible;
         const onClose = annotationType === AnnotationTypes.Amount
-            ? () => showAmountDrawer(false)
+            ? () => hideAmountKeyboard()
             : () => showParletDrawer(false);
+
+        if (!isVisible) return null;
 
         return (
             <BottomDrawer isVisible={isVisible} onClose={onClose} height={"60%"} title=''>

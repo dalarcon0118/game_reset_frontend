@@ -5,6 +5,7 @@ import { Cmd } from '@/shared/core/cmd';
 import { WinningService } from '@/shared/services/winning';
 import { RulesService } from '@/shared/services/rules';
 import { Return, ret, singleton } from '@/shared/core/return';
+import { RemoteData } from '@/shared/core/remote.data';
 
 export const updateRewardsRules = (model: GlobalModel, msg: RewardsRulesMsg): Return<GlobalModel, RewardsRulesMsg> => {
     return match<RewardsRulesMsg, Return<GlobalModel, RewardsRulesMsg>>(msg)
@@ -12,7 +13,7 @@ export const updateRewardsRules = (model: GlobalModel, msg: RewardsRulesMsg): Re
             return ret(
                 {
                     ...model,
-                    rewards: { ...model.rewards, isLoading: true, error: null },
+                    rewards: { status: RemoteData.loading() },
                 },
                 Cmd.task({
                     task: () => WinningService.getWinningNumber(drawId),
@@ -24,7 +25,7 @@ export const updateRewardsRules = (model: GlobalModel, msg: RewardsRulesMsg): Re
         .with({ type: RewardsRulesMsgType.FETCH_REWARDS_SUCCEEDED }, ({ rewards }) => {
             return singleton({
                 ...model,
-                rewards: { data: rewards, isLoading: false, error: null },
+                rewards: { status: RemoteData.success(rewards) },
             });
         })
         .with({ type: RewardsRulesMsgType.FETCH_REWARDS_FAILED }, ({ error }) => {
@@ -40,11 +41,7 @@ export const updateRewardsRules = (model: GlobalModel, msg: RewardsRulesMsg): Re
 
             return singleton({
                 ...model,
-                rewards: { 
-                    ...model.rewards, 
-                    isLoading: false, 
-                    error: errorData
-                },
+                rewards: { status: RemoteData.failure(errorData) },
             });
         })
         .with({ type: RewardsRulesMsgType.FETCH_RULES_REQUESTED }, ({ drawId }) => {
@@ -52,7 +49,7 @@ export const updateRewardsRules = (model: GlobalModel, msg: RewardsRulesMsg): Re
             return ret(
                 {
                     ...model,
-                    rules: { ...model.rules, isLoading: true, error: null },
+                    rules: { status: RemoteData.loading() },
                 },
                 Cmd.task({
                     task: () => RulesService.getAllRulesForDraw(drawId),
@@ -70,13 +67,13 @@ export const updateRewardsRules = (model: GlobalModel, msg: RewardsRulesMsg): Re
         .with({ type: RewardsRulesMsgType.FETCH_RULES_SUCCEEDED }, ({ rules }) => {
             return singleton({
                 ...model,
-                rules: { data: rules, isLoading: false, error: null },
+                rules: { status: RemoteData.success(rules) },
             });
         })
         .with({ type: RewardsRulesMsgType.FETCH_RULES_FAILED }, ({ error }) => {
             return singleton({
                 ...model,
-                rules: { ...model.rules, isLoading: false, error },
+                rules: { status: RemoteData.failure(error) },
             });
         })
         .otherwise(() => singleton(model));

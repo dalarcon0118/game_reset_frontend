@@ -18,6 +18,8 @@ export const CentenaColumn: React.FC<CentenaColumnProps> = ({ editable = false }
         centenaList,
         editingAmountType,
         currentInput,
+        showBetKeyboard,
+        showAmountKeyboard,
         isCentenaDrawerVisible,
         isAmountDrawerVisible,
         editCentenaBet,
@@ -31,11 +33,13 @@ export const CentenaColumn: React.FC<CentenaColumnProps> = ({ editable = false }
 
     const renderKeyboard = (annotationType: AnnotationType) => {
         const isVisible = annotationType === AnnotationTypes.Amount
-            ? isAmountDrawerVisible && editingAmountType === 'centena'
-            : isCentenaDrawerVisible;
+            ? showAmountKeyboard && editingAmountType === 'centena'
+            : showBetKeyboard && editingAmountType === 'centena';
         const onClose = annotationType === AnnotationTypes.Amount
             ? () => showAmountDrawer(false)
             : () => showCentenaDrawer(false);
+
+        if (!isVisible) return null;
 
         return (
             <BottomDrawer isVisible={isVisible} onClose={onClose} height={"60%"} title=''>

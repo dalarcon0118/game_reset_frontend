@@ -22,6 +22,14 @@ export class Return<Model, Msg> {
     constructor(public model: Model, public cmd: Cmd) { }
 
     /**
+     * Permite desestructurar el objeto como [model, cmd] para compatibilidad con el Engine.
+     */
+    *[Symbol.iterator]() {
+        yield this.model;
+        yield this.cmd;
+    }
+
+    /**
      * Create a Return with a model and no commands.
      */
     static singleton<M>(model: M): Return<M, any> {

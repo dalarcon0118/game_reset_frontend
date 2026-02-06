@@ -21,48 +21,8 @@ const LoteriaEntryScreen: React.FC<LoteriaEntryScreenProps> = ({ drawId, title }
     const themeColors = Colors[colorScheme as keyof typeof Colors];
     const model = useBetsStore(selectBetsModel);
     const dispatch = useBetsStore(selectDispatch);
-    const navigation = useNavigation();
 
-    // Inyectar navegación para que las subscripciones puedan usarla
-    React.useEffect(() => {
-        if (model.navigation !== navigation) {
-            dispatch({
-                type: 'CORE',
-                payload: { type: CoreMsgType.SET_NAVIGATION, navigation }
-            });
-        }
-    }, [navigation, model.navigation, dispatch]);
-
-    const isSaving = model.managementSession.saveStatus.type === 'Loading';
-
-    const hasBets = useMemo(() => {
-        // Si ya se guardó con éxito, no consideramos que haya apuestas pendientes por guardar
-        // BUT we should still show the save button if there are bets to save
-        console.log('[LoteriaEntryScreen] Checking hasBets:', {
-            saveSuccess: model.managementSession.saveSuccess,
-            listSessionType: model.listSession.remoteData.type
-        });
-
-        if (model.managementSession.saveSuccess) {
-            console.log('[LoteriaEntryScreen] Save was successful, checking if we should reset for new bets');
-            // Only return false if we actually saved and there are no new bets
-            // For now, let's always allow saving if there are bets, regardless of previous success
-        }
-
-        const { loteria } = model.listSession.remoteData.type === 'Success'
-            ? model.listSession.remoteData.data
-            : { loteria: [] };
-
-        console.log('[LoteriaEntryScreen] Loteria bets count:', loteria.length);
-        return loteria.length > 0;
-    }, [model.listSession.remoteData, model.managementSession.saveSuccess]);
-
-    const loteriaTotal = useMemo(() => {
-        const { loteria } = model.listSession.remoteData.type === 'Success'
-            ? model.listSession.remoteData.data
-            : { loteria: [] };
-        return loteria.reduce((total: number, bet: any) => total + (bet.amount || 0), 0);
-    }, [model.listSession.remoteData]);
+    const { loteriaTotal, hasBets, isSaving } = model.summary;
 
     const handleSave = () => {
         if (!drawId) return;
@@ -101,7 +61,7 @@ const LoteriaEntryScreen: React.FC<LoteriaEntryScreenProps> = ({ drawId, title }
     return (
         <View style={[styles.container, { backgroundColor: Colors[colorScheme].background }]}>
             <View style={styles.content}>
-                <LoteriaColumn isEditing={true} />
+                <LoteriaColumn isEditing={model.isEditing} />
             </View>
             {renderSavingFooterBar()}
         </View>

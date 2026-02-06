@@ -1,5 +1,6 @@
 import React from 'react';
 import { match } from 'ts-pattern';
+import { View, Text } from 'react-native';
 
 // Import components directly (lazy loading can be added later if needed)
 import BolitaEntryScreen from './bolita/screens/bolita_entry_screen';
@@ -78,11 +79,23 @@ export function renderGameComponent(
     return match(drawTypeCode)
         .with('BL', () => React.createElement(BolitaEntryScreen, props))
         .with('LS_WEEKLY', () => React.createElement(LoteriaEntryScreen, props))
-        .otherwise(() => React.createElement('div', {
-            style: { padding: 20, textAlign: 'center' }
-        }, [
-            React.createElement('h2', { key: 'title' }, 'Game Type Not Supported'),
-            React.createElement('p', { key: 'message' }, `The draw type "${drawTypeCode}" is not currently supported.`),
-            React.createElement('p', { key: 'contact' }, 'Please contact support if you believe this is an error.')
-        ]));
+        .otherwise(() => React.createElement(
+            View,
+            { style: { padding: 20, alignItems: 'center', justifyContent: 'center' } },
+            React.createElement(
+                Text,
+                { style: { fontSize: 20, fontWeight: 'bold' } },
+                ' Game Type Not Supported '
+            ),
+            React.createElement(
+                Text,
+                null,
+                `The draw type "${drawTypeCode}" is not currently supported.`
+            ),
+            React.createElement(
+                Text,
+                { style: { marginTop: 10, color: 'gray' } },
+                'Please contact support if you believe this is an error.'
+            )
+        ));
 }

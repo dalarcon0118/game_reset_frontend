@@ -29,7 +29,7 @@ export default function ListerTabLayout() {
       }}
     >
        <Tabs.Screen
-        name="index" // Corresponds to app/lister/index.tsx
+        name="dashboard" // Corresponds to app/lister/(tabs)/dashboard.tsx
         options={{
           title: 'Panel', // Tab title
           tabBarIcon: ({ color, size }) => (

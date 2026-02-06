@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { SubDescriptor } from './sub';
 import { logger } from '../utils/logger';
 import { globalEventRegistry } from './events';
+import { Return } from './return';
 
 // Un comando es un descriptor que el Engine puede ejecutar usando effectHandlers
 export interface CommandDescriptor {
@@ -12,7 +13,7 @@ export interface CommandDescriptor {
 export type Cmd = CommandDescriptor | CommandDescriptor[] | null | undefined;
 
 // La estructura que debe devolver cualquier función 'update'
-export type UpdateResult<TModel, TMsg> = [TModel, Cmd?];
+export type UpdateResult<TModel, TMsg> = [TModel, Cmd?] | Return<TModel, TMsg>;
 
 export const createElmStore = <TModel, TMsg>(
     initial: TModel | ((params?: any) => UpdateResult<TModel, TMsg>),
@@ -85,18 +86,19 @@ export const createElmStore = <TModel, TMsg>(
 
         // Pre-calculate initial model and commands
         const initialResult = typeof initial === 'function' ? (initial as any)() : [initial, null];
+        const [initialModel, initialCmd] = initialResult;
 
         return {
-            model: initialResult[0],
+            model: initialModel,
             init: (params?: any) => {
                 // If called with params, or if it's the first time and we have initial commands
                 if (params !== undefined && typeof initial === 'function') {
                     const [nextModel, cmd] = (initial as Function)(params);
                     set({ model: nextModel });
                     if (cmd) executeCmds(cmd);
-                } else if (initialResult[1]) {
+                } else if (initialCmd) {
                     // Execute initial commands if they exist
-                    executeCmds(initialResult[1]);
+                    executeCmds(initialCmd);
                 }
             },
             dispatch: (msg: TMsg) => {
@@ -237,8 +239,9 @@ export const createElmStore = <TModel, TMsg>(
                                     logger.warn('Error closing EventSource', 'ENGINE', e);
                                 }
 
-                                // Remove from active subs so it can be recreated on next cycle
+                                // Remove from active subs and lastIds so it can be recreated on next cycle
                                 activeSubs.delete(id);
+                                lastIds.delete(id);
                             };
 
                             // Double check cancellation before finalizing
@@ -289,8 +292,10 @@ export const createElmStore = <TModel, TMsg>(
             const currentIds = getActiveIds(currentSub);
 
             // Evitar re-procesamiento si los IDs de las subscripciones no han cambiado
+            // Y si todas las subscripciones actuales están realmente activas
             const idsChanged = currentIds.size !== lastIds.size ||
-                Array.from(currentIds).some(id => !lastIds.has(id));
+                Array.from(currentIds).some(id => !lastIds.has(id)) ||
+                Array.from(currentIds).some(id => !activeSubs.has(id));
 
             if (!idsChanged) {
                 return;

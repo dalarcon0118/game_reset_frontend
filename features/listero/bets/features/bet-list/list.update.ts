@@ -1,6 +1,6 @@
 import { match } from 'ts-pattern';
+import { ListMsgType, ListMsg, ListState, ListData } from './list.types';
 import { Model } from '../../core/model';
-import { ListMsgType, ListMsg, ListState } from './list.types';
 import { Cmd } from '@/shared/core/cmd';
 import { BetType } from '@/types';
 import { Return, ret, singleton } from '@/shared/core/return';
@@ -222,11 +222,11 @@ const transformBetTypeToLoteria = (bets: BetType[]): any[] => {
 
 export const updateList = (model: Model, msg: ListMsg): Return<Model, ListMsg> => {
     return match<ListMsg, Return<Model, ListMsg>>(msg)
-        .with({ type: ListMsgType.FETCH_BETS_REQUESTED }, ({ drawId }) => {
+        .with({ type: ListMsgType.FETCH_BETS_REQUESTED }, ({ drawId }: { drawId: string }) => {
             console.log('LIST FETCH_BETS_REQUESTED called with drawId:', drawId);
-            
+
             // Si ya tenemos datos en éxito y no estamos forzando refresco, no hacemos nada
-            if (model.listSession.remoteData.type === 'Success' && model.drawId === drawId) {
+            if (model.listSession.remoteData.type === 'Success' && model.currentDrawId === drawId) {
                 console.log('LIST FETCH_BETS_REQUESTED ignored (already have data)');
                 return singleton(model);
             }
@@ -238,7 +238,7 @@ export const updateList = (model: Model, msg: ListMsg): Return<Model, ListMsg> =
             return ret(
                 {
                     ...model,
-                    drawId,
+                    currentDrawId: drawId,
                     listSession: nextListSession,
                 },
                 Cmd.task(
@@ -271,7 +271,7 @@ export const updateList = (model: Model, msg: ListMsg): Return<Model, ListMsg> =
                 )
             );
         })
-        .with({ type: ListMsgType.REFRESH_BETS_REQUESTED }, ({ drawId }) => {
+        .with({ type: ListMsgType.REFRESH_BETS_REQUESTED }, ({ drawId }: { drawId: string }) => {
             console.log('list.update: REFRESH_BETS_REQUESTED for drawId', drawId);
             const nextListSession: ListState = {
                 ...model.listSession,
@@ -307,7 +307,7 @@ export const updateList = (model: Model, msg: ListMsg): Return<Model, ListMsg> =
                 )
             );
         })
-        .with({ type: ListMsgType.FETCH_BETS_SUCCEEDED }, ({ fijosCorridos, parlets, centenas, loteria }) => {
+        .with({ type: ListMsgType.FETCH_BETS_SUCCEEDED }, ({ fijosCorridos, parlets, centenas, loteria }: { fijosCorridos: any[], parlets: any[], centenas: any[], loteria: any[] }) => {
             console.log('LIST FETCH_BETS_SUCCEEDED processed:', { fijosCorridos, parlets, centenas, loteria });
             const result = singleton({
                 ...model,
@@ -325,7 +325,7 @@ export const updateList = (model: Model, msg: ListMsg): Return<Model, ListMsg> =
             console.log('LIST state updated to SUCCESS');
             return result;
         })
-        .with({ type: ListMsgType.FETCH_BETS_FAILED }, ({ error }) => {
+        .with({ type: ListMsgType.FETCH_BETS_FAILED }, ({ error }: { error: string }) => {
             return singleton({
                 ...model,
                 listSession: {
@@ -335,11 +335,14 @@ export const updateList = (model: Model, msg: ListMsg): Return<Model, ListMsg> =
                 },
             });
         })
-        .with({ type: ListMsgType.REMOVE_BET }, ({ betId, category }) => {
-            const nextRemoteData = RemoteData.map<any, ListData, ListData>((data) => ({
-                ...data,
-                [category]: data[category].filter((bet: any) => bet.id !== betId)
-            }), model.listSession.remoteData);
+        .with({ type: ListMsgType.REMOVE_BET }, ({ betId, category }: { betId: string, category: keyof ListData }) => {
+            const nextRemoteData = RemoteData.map<any, ListData, ListData>((data: ListData) => {
+                const updatedCategory = data[category].filter((bet: any) => bet.id !== betId);
+                return {
+                    ...data,
+                    [category]: updatedCategory
+                };
+            }, model.listSession.remoteData);
 
             return singleton({
                 ...model,
@@ -364,7 +367,7 @@ export const updateList = (model: Model, msg: ListMsg): Return<Model, ListMsg> =
                 },
             });
         })
-        .with({ type: ListMsgType.UPDATE_LIST_FILTER }, ({ filter }) => {
+        .with({ type: ListMsgType.UPDATE_LIST_FILTER }, ({ filter }: { filter: string }) => {
             return singleton({
                 ...model,
                 listSession: {

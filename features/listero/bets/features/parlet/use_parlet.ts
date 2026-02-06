@@ -11,16 +11,20 @@ export const useParlet = (fijosCorridosList: FijosCorridosBet[]) => {
     listSession,
     editSession,
     parletSession,
+    isEditing,
+    entrySession
   } = model;
 
-  const parletList =
-    listSession.remoteData.type === 'Success'
+  const parletList = isEditing
+    ? entrySession.parlets
+    : (listSession.remoteData.type === 'Success'
       ? listSession.remoteData.data.parlets
-      : [];
+      : []);
 
   const {
     editingAmountType,
     currentInput,
+    showAmountKeyboard,
   } = editSession;
 
   const {
@@ -33,6 +37,7 @@ export const useParlet = (fijosCorridosList: FijosCorridosBet[]) => {
   const pressAddParlet = () => dispatch({ type: 'PARLET', payload: { type: ParletMsgType.PRESS_ADD_PARLET, fijosCorridosList } });
   const showParletDrawer = (visible: boolean) => dispatch({ type: 'PARLET', payload: { type: ParletMsgType.SHOW_PARLET_DRAWER, visible } });
   const showAmountDrawer = (visible: boolean) => dispatch({ type: 'PARLET', payload: { type: ParletMsgType.SHOW_PARLET_MODAL, visible } });
+  const hideAmountKeyboard = () => dispatch({ type: 'PARLET', payload: { type: ParletMsgType.CLOSE_AMOUNT_KEYBOARD } });
   const handleKeyPress = (key: string) => dispatch({ type: 'PARLET', payload: { type: ParletMsgType.KEY_PRESSED, key } });
   const handleConfirmInput = () => dispatch({ type: 'PARLET', payload: { type: ParletMsgType.CONFIRM_INPUT } });
 
@@ -40,6 +45,7 @@ export const useParlet = (fijosCorridosList: FijosCorridosBet[]) => {
     parletList,
     editingAmountType,
     currentInput,
+    showAmountKeyboard,
     isParletDrawerVisible,
     isAmountDrawerVisible,
     editParletBet,
@@ -47,6 +53,7 @@ export const useParlet = (fijosCorridosList: FijosCorridosBet[]) => {
     pressAddParlet,
     showParletDrawer,
     showAmountDrawer,
+    hideAmountKeyboard,
     handleKeyPress,
     handleConfirmInput,
   };

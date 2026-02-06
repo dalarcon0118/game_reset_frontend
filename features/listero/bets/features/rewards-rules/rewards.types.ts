@@ -1,16 +1,13 @@
 import { WinningRecord } from '@/types';
 import { UnifiedRulesResponse } from '@/shared/services/rules';
+import { WebData, RemoteData } from '@/shared/core/remote.data';
 
 export interface RewardsCache {
-    data: WinningRecord | null;
-    isLoading: boolean;
-    error: any;
+    status: WebData<WinningRecord | null>;
 }
 
 export interface RulesCache {
-    data: UnifiedRulesResponse | null;
-    isLoading: boolean;
-    error: any;
+    status: WebData<UnifiedRulesResponse | null>;
 }
 
 export enum RewardsRulesMsgType {
@@ -32,6 +29,11 @@ export type RewardsRulesMsg =
 
 export type RewardsRulesFeatMsg = { type: 'REWARDS_RULES'; payload: RewardsRulesMsg };
 
-// Initial values
-export const rewardsCache: RewardsCache = { data: null, isLoading: false, error: null };
-export const rulesCache: RulesCache = { data: null, isLoading: false, error: null };
+// Factory functions to create fresh cache instances
+export const createRewardsCache = (): RewardsCache => ({
+    status: RemoteData.notAsked()
+});
+
+export const createRulesCache = (): RulesCache => ({
+    status: RemoteData.notAsked()
+});

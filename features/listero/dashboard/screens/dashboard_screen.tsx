@@ -40,6 +40,7 @@ export default function DashboardScreen() {
 
     const filterOptions: { label: string; value: StatusFilter }[] = [
         { label: 'Abierto', value: 'open' },
+        { label: 'Próximos', value: 'scheduled' },
         { label: 'Cerrado', value: 'closed' },
         { label: 'Premiados', value: 'rewarded' },
         { label: 'Todos', value: 'all' }
@@ -150,8 +151,9 @@ export default function DashboardScreen() {
                         .with({ type: 'Success' }, () => (
                             <View>
                                 {filteredDraws.length > 0 ? (
-                                    filteredDraws.map((draw, index) => (
-                                        <DrawItem 
+                                    filteredDraws.map((draw, index) => {
+                                       
+                                        return <DrawItem 
                                             key={draw.id} 
                                             draw={draw} 
                                             index={index}
@@ -160,7 +162,7 @@ export default function DashboardScreen() {
                                             onBetsListPress={(id, title) => dispatch(BETS_LIST_CLICKED(id, title))}
                                             onCreateBetPress={(id, title) => dispatch(CREATE_BET_CLICKED(id, title))}
                                         />
-                                    ))
+                                    })
                                 ) : (
                                     <View style={styles.emptyContainer}>
                                         <Label style={styles.emptyText}>No hay sorteos para este filtro</Label>

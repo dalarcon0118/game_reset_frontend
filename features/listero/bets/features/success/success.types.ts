@@ -28,3 +28,7 @@ export interface VoucherMetadata {
 export interface SuccessState {
     sharingStatus: WebData<boolean>;
 }
+
+export const initialSuccessState: SuccessState = {
+    sharingStatus: { type: 'NotAsked' }
+};

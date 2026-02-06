@@ -60,8 +60,13 @@ export const identifyBetTypes = (betTypes: GameType[]) => {
 
 /**
  * Selects the current bet list data from the global model.
+ * If isEditing is true, it uses entrySession, otherwise it uses listSession.
  */
 export const selectListData = (model: GlobalModel) => {
+    if (model.isEditing) {
+        return model.entrySession;
+    }
+
     return model.listSession.remoteData.type === 'Success'
         ? model.listSession.remoteData.data
         : { fijosCorridos: [], parlets: [], centenas: [], loteria: [] };

@@ -22,8 +22,8 @@ export const routes = {
 
 
 export const roleToScreenMap: Record<UserRole | string, string> = {
-  admin: '(admin)',
-  listero: "lister",
-  colector: 'colector/(tabs)',
-  banker: 'banker',
+  admin: '/(admin)',
+  listero: "/lister",
+  colector: '/colector/(tabs)',
+  banker: '/banker',
 };

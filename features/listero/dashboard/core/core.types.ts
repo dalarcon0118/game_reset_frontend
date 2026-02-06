@@ -1,6 +1,6 @@
 import { DrawType } from '@/types';
 
-export type StatusFilter = 'all' | 'open' | 'closed' | 'closing_soon' | 'rewarded';
+export type StatusFilter = 'all' | 'open' | 'closed' | 'closing_soon' | 'rewarded' | 'scheduled';
 
 export interface DailyTotals {
     totalCollected: number;

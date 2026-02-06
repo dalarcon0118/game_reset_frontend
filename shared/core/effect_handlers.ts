@@ -110,6 +110,8 @@ export const effectHandlers = {
         }
     },
     'NAVIGATE': async (payload: { pathname: string, params?: Record<string, any>, method?: 'push' | 'replace' | 'back' }) => {
+        console.log('[NAVIGATE] Handler called with payload:', JSON.stringify(payload, null, 2));
+
         if (!payload) {
             logger.error(`Navigation failed - missing payload`, 'NAVIGATE');
             return;
@@ -117,6 +119,7 @@ export const effectHandlers = {
         const { pathname, params, method = 'push' } = payload;
 
         if (method === 'back') {
+            console.log('[NAVIGATE] Going back');
             router.back();
             return;
         }
@@ -129,10 +132,10 @@ export const effectHandlers = {
         // --- Navigation Guard Implementation ---
         const now = Date.now();
         const currentParamsStr = JSON.stringify(params || {});
-        
+
         if (
-            pathname === lastNavigation.pathname && 
-            currentParamsStr === lastNavigation.params && 
+            pathname === lastNavigation.pathname &&
+            currentParamsStr === lastNavigation.params &&
             (now - lastNavigation.timestamp) < NAVIGATION_THRESHOLD_MS
         ) {
             logger.warn(
@@ -157,12 +160,15 @@ export const effectHandlers = {
         }
 
         try {
+            console.log('[NAVIGATE] Calling router.' + method + ' with:', { pathname, params });
             if (method === 'replace') {
                 router.replace({ pathname: pathname as any, params });
             } else {
                 router.push({ pathname: pathname as any, params });
             }
+            console.log('[NAVIGATE] Router call completed successfully');
         } catch (error) {
+            console.error('[NAVIGATE] Router call failed:', error);
             logger.error(`Navigation failed - router error`, 'NAVIGATE', error, { pathname, method });
         }
     },

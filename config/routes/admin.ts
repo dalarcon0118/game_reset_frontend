@@ -1,6 +1,6 @@
 export const adminRoutes = {
   admin: {
-    screen: '(admin)',
+    screen: '/(admin)',
     options: {
       title: 'Admin',
     },

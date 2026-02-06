@@ -3,18 +3,12 @@ import 'react-native-reanimated';
 import 'react-native-url-polyfill/auto';
 import { EventSourcePolyfill } from 'event-source-polyfill';
 import React, { useCallback, useEffect, useMemo } from 'react';
-
-// Setup EventSource for React Native
-if (typeof window !== 'undefined') {
-  (window as any).EventSource = EventSourcePolyfill;
-} else {
-  (global as any).EventSource = EventSourcePolyfill;
-}
 import { View, Text, StyleSheet, Platform } from 'react-native';
 // Import router
 import { Stack, usePathname, router, ErrorBoundary as ExpoErrorBoundary } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { navigationRef } from '../shared/navigation/navigation_service';
 import { useFrameworkReady } from '../hooks/use_framework_ready';
 import { useAuth } from '../features/auth/hooks/use_auth';
 import { useColorScheme } from 'react-native';
@@ -26,10 +20,17 @@ import { ArrowLeft } from "lucide-react-native";
 import { logger } from '../shared/utils/logger';
 import { registerReactNativeEvents } from '../shared/react-native-events';
 import { useNotificationStore, selectNotificationDispatch } from '../features/notification/core/store';
+import { FETCH_NOTIFICATIONS_REQUESTED } from '../features/notification/core/msg';
+
+// Setup EventSource for React Native
+if (typeof window !== 'undefined') {
+  (window as any).EventSource = EventSourcePolyfill;
+} else {
+  (global as any).EventSource = EventSourcePolyfill;
+}
 
 // Register platform specific events for TEA
 registerReactNativeEvents();
-import { FETCH_NOTIFICATIONS_REQUESTED } from '../features/notification/core/msg';
 
 // Register global error handlers
 if (!__DEV__) {
@@ -129,14 +130,15 @@ function RootLayout() {
   }, [handleBackPress]);
 
   return (
-    <Stack screenOptions={{
-      headerShown: true,
-      headerLeft: () => BackButton,
-      freezeOnBlur: true,
-
-    }}>
-      <Stack.Screen name={routes.login.screen} options={routes.login.options} />
-      <Stack.Screen name={routes.admin.screen} options={routes.admin.options} />
+    <Stack
+      navigationKey={pathname} // Force re-render of stack options when pathname changes
+      screenOptions={{
+        headerShown: true,
+        headerLeft: () => BackButton,
+        freezeOnBlur: true,
+      }}>
+      <Stack.Screen name="login" options={routes.login.options} />
+      <Stack.Screen name="(admin)" options={routes.admin.options} />
       <Stack.Screen name="lister" options={{ headerShown: false }} />
       <Stack.Screen name="colector" options={{ headerShown: false }} />
       <Stack.Screen name="banker" options={{ headerShown: false }} />

@@ -8,11 +8,22 @@ import { initialListState } from '../features/bet-list/list.types';
 import { initialLoteriaState } from '@/features/listero/games/loteria/loteria.types';
 import { initialManagementState } from '../features/management/management.types';
 import { SuccessState } from '../features/success/success.types';
-import { rewardsCache, rulesCache } from '../features/rewards-rules/rewards.types';
+import { createRewardsCache, createRulesCache } from '../features/rewards-rules/rewards.types';
 import { RemoteData } from '@/shared/core/remote.data';
 
 export const initialSuccessState: SuccessState = {
     sharingStatus: RemoteData.notAsked(),
+};
+
+export const initialSummary = {
+    loteriaTotal: 0,
+    fijosCorridosTotal: 0,
+    parletsTotal: 0,
+    centenasTotal: 0,
+    grandTotal: 0,
+    hasBets: false,
+    isSaving: false,
+    count: 0,
 };
 
 export const initialModel: Model = {
@@ -20,10 +31,11 @@ export const initialModel: Model = {
     error: null,
 
     // Core data
-    drawId: null,
+    currentDrawId: null,
     drawTypeCode: RemoteData.notAsked(),
-    navigation: null,
     isEditing: false,
+    summary: initialSummary,
+    navigation: null,
 
     // Sessions
     createSession: initialCreateState,
@@ -33,10 +45,16 @@ export const initialModel: Model = {
     rulesSession: initialRulesState,
     loteriaSession: initialLoteriaState,
     listSession: initialListState,
+    entrySession: {
+        fijosCorridos: [],
+        parlets: [],
+        centenas: [],
+        loteria: []
+    }, // Nueva sesión inicializada con listas vacías
     managementSession: initialManagementState,
     successSession: initialSuccessState,
 
     // Cache
-    rewards: rewardsCache,
-    rules: rulesCache,
+    rewards: createRewardsCache(),
+    rules: createRulesCache(),
 };

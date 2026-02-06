@@ -18,6 +18,12 @@ export const Blur: EventDescriptor = {
     eventName: 'blur'
 };
 
+export const NavigationState: EventDescriptor = {
+    type: 'navigation.state',
+    platform: 'react-native',
+    eventName: 'state'
+};
+
 export const ReactNativeNavigationHandler: EventHandler = {
     subscribe(target: any, handler: (event: any) => void) {
         if (!target || !target.addListener) {
@@ -87,8 +93,31 @@ export const ReactNativeBlurHandler: EventHandler = {
     }
 };
 
+export const ReactNativeNavigationStateHandler: EventHandler = {
+    subscribe(target: any, handler: (event: any) => void) {
+        if (!target || !target.addListener) {
+            return () => { };
+        }
+        try {
+            const unsubscribe = target.addListener('state', () => {
+                handler(target);
+            });
+            return () => {
+                try {
+                    unsubscribe();
+                } catch (error) {
+                    console.warn('Error al desuscribirse de state:', error);
+                }
+            };
+        } catch (error) {
+            return () => { };
+        }
+    }
+};
+
 export function registerReactNativeEvents(): void {
     globalEventRegistry.register(BeforeRemove, ReactNativeNavigationHandler);
     globalEventRegistry.register(Focus, ReactNativeFocusHandler);
     globalEventRegistry.register(Blur, ReactNativeBlurHandler);
+    globalEventRegistry.register(NavigationState, ReactNativeNavigationStateHandler);
 }

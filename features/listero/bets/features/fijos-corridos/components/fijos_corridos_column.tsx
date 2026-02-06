@@ -17,6 +17,7 @@ export default function FijosCorridosColumn({ editable = false }: FijosCorridosC
         fijosCorridosList,
         showBetKeyboard,
         showAmountKeyboard,
+        editingAmountType,
         currentInput,
         handleAddBetPress,
         handleAmountCirclePress,
@@ -30,10 +31,12 @@ export default function FijosCorridosColumn({ editable = false }: FijosCorridosC
 
 
   const renderKeyboard = () => {
-    const isVisible = showBetKeyboard || showAmountKeyboard;
+    const isVisible = showBetKeyboard || (showAmountKeyboard && (editingAmountType === 'fijo' || editingAmountType === 'corrido'));
     const onClose = showBetKeyboard ? hideBetKeyboard : hideAmountKeyboard;
 
-    console.log('FijosCorridosColumn: Rendering Keyboard. showBetKeyboard:', showBetKeyboard, 'showAmountKeyboard:', showAmountKeyboard, 'isVisible:', isVisible);
+    if (!isVisible) return null;
+
+    console.log('FijosCorridosColumn: Rendering Keyboard. showBetKeyboard:', showBetKeyboard, 'showAmountKeyboard:', showAmountKeyboard, 'editingAmountType:', editingAmountType, 'isVisible:', isVisible);
 
     return (
       <BottomDrawer isVisible={isVisible} onClose={onClose} title='' height={"60%"}>

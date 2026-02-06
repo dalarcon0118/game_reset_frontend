@@ -41,6 +41,7 @@ export enum ParletMsgType {
     SUBMIT_AMOUNT_INPUT = 'SUBMIT_AMOUNT_INPUT',
     KEY_PRESSED = 'KEY_PRESSED',
     CONFIRM_INPUT = 'CONFIRM_INPUT',
+    CLOSE_AMOUNT_KEYBOARD = 'CLOSE_AMOUNT_KEYBOARD',
 }
 
 export type ParletMsg =
@@ -57,6 +58,7 @@ export type ParletMsg =
     | { type: ParletMsgType.PROCESS_BET_INPUT; inputString: string }
     | { type: ParletMsgType.SUBMIT_AMOUNT_INPUT; amountString: string }
     | { type: ParletMsgType.KEY_PRESSED; key: string }
-    | { type: ParletMsgType.CONFIRM_INPUT };
+    | { type: ParletMsgType.CONFIRM_INPUT }
+    | { type: ParletMsgType.CLOSE_AMOUNT_KEYBOARD };
 
 export type ParletFeatMsg = { type: 'PARLET'; payload: ParletMsg };

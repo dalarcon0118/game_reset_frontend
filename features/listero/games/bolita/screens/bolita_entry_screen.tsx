@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, useColorScheme, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, StyleSheet, useColorScheme, ScrollView, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Layout, Text, Button } from '@ui-kitten/components';
 import { match } from 'ts-pattern';
@@ -31,22 +31,10 @@ const BolitaEntryScreen: React.FC<BolitaEntryScreenProps> = ({ drawId, title }) 
 
     const navigation = useNavigation();
 
-    // Inyectar navegación para que las subscripciones puedan usarla
-    // Usamos useEffect para despachar el mensaje después del renderizado inicial
-    // para evitar el error de "Cannot update a component while rendering a different component".
-    React.useEffect(() => {
-        if (model.navigation !== navigation) {
-            dispatch({
-                type: 'CORE',
-                payload: { type: CoreMsgType.SET_NAVIGATION, navigation }
-            });
-        }
-    }, [navigation, model.navigation, dispatch]);
+    const { fijosCorridosTotal, parletsTotal, centenasTotal, grandTotal, hasBets, isSaving } = model.summary;
 
-    const isSaving = model.managementSession.saveStatus.type === 'Loading';
-
-    const renderSavingFooterBar = ({ fijosCorridos, parlets, centenas, handleSave, isSaving, themeColors, fijosCorridosTotal, parletsTotal, centenasTotal, grandTotal }: { fijosCorridos: any[], parlets: any[], centenas: any[], handleSave: () => void, isSaving: boolean, themeColors: any, fijosCorridosTotal: number, parletsTotal: number, centenasTotal: number, grandTotal: number }) => {
-        return (fijosCorridos.length > 0 || parlets.length > 0 || centenas.length > 0) && (
+    const renderSavingFooterBar = () => {
+        return hasBets && (
             <Layout style={[styles.footer, { borderTopColor: themeColors.border }]} level='1'>
                 <View style={styles.totalsRowContainer}>
                     <View style={styles.columnWrapperFijos}>
@@ -89,20 +77,6 @@ const BolitaEntryScreen: React.FC<BolitaEntryScreenProps> = ({ drawId, title }) 
         )
     }
 
-
-
-    const hasBets = React.useMemo(() => {
-        // Si ya se guardó con éxito, no consideramos que haya apuestas pendientes por guardar
-        if (model.managementSession.saveSuccess) {
-            return false;
-        }
-
-        const { fijosCorridos, parlets, centenas } = model.listSession.remoteData.type === 'Success'
-            ? model.listSession.remoteData.data
-            : { fijosCorridos: [], parlets: [], centenas: [] };
-        return fijosCorridos.length > 0 || parlets.length > 0 || centenas.length > 0;
-    }, [model.listSession.remoteData, model.managementSession.saveSuccess]);
-
     const handleSave = () => {
         if (!drawId) return;
 
@@ -113,90 +87,32 @@ const BolitaEntryScreen: React.FC<BolitaEntryScreenProps> = ({ drawId, title }) 
     };
 
     const renderContent = () => {
-        const remoteData = model.listSession.remoteData as any;
-        
-        if (remoteData.type === 'NotAsked') return null;
-        if (remoteData.type === 'Loading') {
-            return (
-                <View style={styles.centerContainer}>
-                    <ActivityIndicator size="large" color={Colors[colorScheme].primary} />
-                </View>
-            );
-        }
-        if (remoteData.type === 'Failure') {
-            return (
-                <View style={styles.centerContainer}>
-                    <Text status="danger">Error: {remoteData.error}</Text>
-                </View>
-            );
-        }
-        if (remoteData.type === 'Success') {
-            const { fijosCorridos, parlets, centenas } = remoteData.data;
+        // Always use entrySession for the entry screen
+        const { fijosCorridos } = model.entrySession;
 
-            const fijosCorridosTotal = fijosCorridos.reduce((total: number, bet: any) => {
-                const fijoAmount = bet.fijoAmount || 0;
-                const corridoAmount = bet.corridoAmount || 0;
-                return total + fijoAmount + corridoAmount;
-            }, 0);
-
-            const parletsTotal = parlets.reduce((total: number, parlet: any) => {
-                if (parlet.bets && parlet.bets.length > 0 && parlet.amount) {
-                    const numBets = parlet.bets.length;
-                    const parletTotal = numBets * (numBets - 1) * parlet.amount;
-                    return total + parletTotal;
-                }
-                return total;
-            }, 0);
-
-            const centenasTotal = centenas.reduce((total: number, centena: any) => {
-                return total + (centena.amount || 0);
-            }, 0);
-
-            const grandTotal = fijosCorridosTotal + parletsTotal + centenasTotal;
-
-            console.log('BolitaEntryScreen: Rendering Success state with data:', {
-                fijosCorridos: fijosCorridos.length,
-                parlets: parlets.length,
-                centenas: centenas.length
-            });
-
-            return (
-                <>
-                    <ScrollView 
-                        style={styles.scrollContainer}
-                        contentContainerStyle={styles.scrollContent}
-                    >
-                        <View style={styles.betContainer}>
-                            <View style={styles.columnsContainer}>
-                                <View style={styles.columnWrapperFijos}>
-                                    <FijosCorridosColumn editable={true} />
-                                </View>
-                                <View style={styles.columnWrapperParlet}>
-                                    <ParletColumn fijosCorridosList={fijosCorridos} editable={true} />
-                                </View>
-                                <View style={styles.columnWrapperCentena}>
-                                    <CentenaColumn editable={true} />
-                                </View>
+        return (
+            <>
+                <ScrollView
+                    style={styles.scrollContainer}
+                    contentContainerStyle={styles.scrollContent}
+                >
+                    <View style={styles.betContainer}>
+                        <View style={styles.columnsContainer}>
+                            <View style={styles.columnWrapperFijos}>
+                                <FijosCorridosColumn editable={true} />
+                            </View>
+                            <View style={styles.columnWrapperParlet}>
+                                <ParletColumn fijosCorridosList={fijosCorridos} editable={true} />
+                            </View>
+                            <View style={styles.columnWrapperCentena}>
+                                <CentenaColumn editable={true} />
                             </View>
                         </View>
-                    </ScrollView>
-                    {renderSavingFooterBar({
-                        fijosCorridos,
-                        parlets,
-                        centenas,
-                        handleSave,
-                        isSaving,
-                        themeColors,
-                        fijosCorridosTotal,
-                        parletsTotal,
-                        centenasTotal,
-                        grandTotal
-                    })}
-                </>
-            );
-        }
-        
-        return null;
+                    </View>
+                </ScrollView>
+                {renderSavingFooterBar()}
+            </>
+        );
     };
 
     return (

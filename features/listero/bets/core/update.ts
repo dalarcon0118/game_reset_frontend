@@ -1,334 +1,322 @@
-import { match } from 'ts-pattern';
-import { Model } from './model';
-import { initialModel, Msg } from './msg';
+import { singleton, ret, Return } from '@/shared/core/return';
 import { Cmd } from '@/shared/core/cmd';
-import { singleton, ret } from '@/shared/core/return';
-
-import { updateManagement } from '@/features/listero/bets/features/management/management.update';
-import { updateKeyboard } from '@/features/listero/bets/features/keyboard/keyboard.update';
-import { updateList } from '@/features/listero/bets/features/bet-list/list.update';
-import { updateCreate } from '@/features/listero/bets/features/create-bet/create.update';
-import { updateEdit } from '@/features/listero/bets/features/edit-bet/edit.update';
-import { updateParlet } from '@/features/listero/bets/features/parlet/parlet.update';
-import { updateCentena } from '@/features/listero/bets/features/centena/centena.update';
-import { updateRules } from '@/features/listero/bets/features/rules/rules.update';
-import { updateRewardsRules } from '@/features/listero/bets/features/rewards-rules/rewards.update';
-import { ListMsgType } from '@/features/listero/bets/features/bet-list/list.types';
-import { RewardsRulesMsgType } from '@/features/listero/bets/features/rewards-rules/rewards.types';
-import { updateUi } from '@/features/listero/bets/features/bet-ui/ui.update';
-import { updateFijos } from '@/features/listero/bets/features/fijos-corridos/fijos.update';
-import { updateSuccess } from '@/features/listero/bets/features/success/success.update';
-import { updateLoteria } from '@/features/listero/games/loteria/loteria.update';
-import { ManagementMsgType } from '@/features/listero/bets/features/management/management.types';
-import { CoreMsgType } from '@/features/listero/bets/core/msg';
-import { DrawService } from '@/shared/services/draw';
-import { RemoteDataHttp } from '@/shared/core/remote.data.http';
+import { Model, initialSummary, BetSummary } from './model';
+import { Msg, CoreMsg, CoreMsgType } from './msg';
+import { match } from 'ts-pattern';
 import { RemoteData } from '@/shared/core/remote.data';
-import { Sub, SubDescriptor } from '@/shared/core/sub';
-import { BeforeRemove } from '@/shared/react-native-events';
-import { buildCommandsForMode, validateViewMode, ViewMode } from '@/features/listero/bets/features/management/data-fetching.strategies';
+import { updateParlet } from '../features/parlet/parlet.update';
+import { updateFijos } from '../features/fijos-corridos/fijos.update';
+import { updateCentena } from '../features/centena/centena.update';
+import { updateLoteria } from '@/features/listero/games/loteria/loteria.update';
+import { updateManagement } from '../features/management/management.update';
+import { updateKeyboard } from '../features/keyboard/keyboard.update';
+import { updateList } from '../features/bet-list/list.update';
+import { updateCreate } from '../features/create-bet/create.update';
+import { updateEdit } from '../features/edit-bet/edit.update';
+import { updateRules } from '../features/rules/rules.update';
+import { updateRewardsRules } from '../features/rewards-rules/rewards.update';
+import { updateUi } from '../features/bet-ui/ui.update';
+import { updateSuccess } from '../features/success/success.update';
+
+// Initial states from features
+import { initialParletState } from '../features/parlet/parlet.types';
+import { initialCentenaState } from '../features/centena/centena.types';
+import { initialLoteriaState } from '@/features/listero/games/loteria/loteria.types';
+import { initialManagementState } from '../features/management/management.types';
+import { initialEditState } from '../features/edit-bet/edit.types';
+import { initialCreateState } from '../features/create-bet/create.types';
+import { ListMsgType, initialListState } from '../features/bet-list/list.types';
+import { initialSuccessState } from '../features/success/success.types';
+import { createRewardsCache, createRulesCache } from '../features/rewards-rules/rewards.types';
+import { initialRulesState } from '../features/rules/rules.types';
 
 /**
- * Curried constructor helper for the Model.
+ * Helper to calculate the summary of bets.
+ * Uses entrySession when isEditing is true, otherwise uses listSession.remoteData
  */
-const makeModel = (m: Model) => m;
+const calculateSummary = (model: Model): BetSummary => {
+    const isSaving = model.managementSession.saveStatus.type === 'Loading';
 
-export const init = (params?: string | { drawId: string, fetchExistingBets?: boolean, isEditing?: boolean }): [Model, Cmd] => {
-    const model = initialModel;
+    // Usar entrySession cuando estamos en modo edición, de lo contrario usar listSession
+    const dataSource = model.isEditing ? model.entrySession :
+        (model.listSession.remoteData.type === 'Success' ? model.listSession.remoteData.data : null);
 
-    if (!params) return [model, Cmd.none];
-
-    let drawId: string;
-    let fetchExistingBets = true;
-    let isEditing = false;
-
-    if (typeof params === 'string') {
-        drawId = params;
-    } else {
-        drawId = params.drawId;
-        fetchExistingBets = params.fetchExistingBets ?? true;
-        isEditing = params.isEditing ?? false;
+    if (!dataSource) {
+        return {
+            ...initialSummary,
+            isSaving
+        };
     }
 
-    if (!drawId) return [model, Cmd.none];
+    const { fijosCorridos, parlets, centenas, loteria } = dataSource;
 
-    // Reutilizamos la lógica de MANAGEMENT.INIT envolviendo los comandos correctamente
-    const result = singleton(makeModel)
-        .andMapCmd(
-            (sub) => ({ type: 'MANAGEMENT', payload: sub }),
-            updateManagement(model, { type: ManagementMsgType.INIT, drawId, fetchExistingBets, isEditing })
-        );
+    const loteriaTotal = loteria.reduce((total, bet) => total + (bet.amount || 0), 0);
 
-    // Apply Configuration Object Pattern for clean data fetching
-    const viewMode: ViewMode = isEditing ? 'annotation' : 'list';
-    validateViewMode(viewMode);
+    const fijosCorridosTotal = fijosCorridos.reduce((total, bet) => {
+        const fijoAmount = bet.fijoAmount || 0;
+        const corridoAmount = bet.corridoAmount || 0;
+        return total + fijoAmount + corridoAmount;
+    }, 0);
 
-    // Build commands using declarative configuration
-    const dataFetchingCommands = buildCommandsForMode(viewMode, drawId);
+    const parletsTotal = parlets.reduce((total, parlet) => {
+        if (parlet.bets && parlet.bets.length > 0 && parlet.amount) {
+            const numBets = parlet.bets.length;
+            const parletTotal = numBets * (numBets - 1) * parlet.amount;
+            return total + parletTotal;
+        }
+        return total;
+    }, 0);
 
-    return [
-        { ...result.model, drawId },
-        [result.cmd, ...dataFetchingCommands] as Cmd
-    ];
+    const centenasTotal = centenas.reduce((total, centena) => total + (centena.amount || 0), 0);
+
+    const grandTotal = loteriaTotal + fijosCorridosTotal + parletsTotal + centenasTotal;
+    const count = loteria.length + fijosCorridos.length + parlets.length + centenas.length;
+    const hasBets = count > 0;
+
+    return {
+        loteriaTotal,
+        fijosCorridosTotal,
+        parletsTotal,
+        centenasTotal,
+        grandTotal,
+        hasBets,
+        isSaving,
+        count
+    };
 };
 
 /**
- * Main update function using Hierarchical Message Composition.
- * Each module is responsible for its own state transition and commands,
- * which are wrapped back into the global Msg type.
+ * Helper to wrap feature update calls and update summary.
  */
-export const update = (model: Model, msg: Msg): [Model, Cmd] => {
-    const result = match(msg)
-        .with({ type: 'CORE' }, ({ payload }) => {
-            return match(payload)
-                .with({ type: CoreMsgType.DRAW_INFO_REQUESTED }, ({ drawId }) => {
-                    const nextModel: Model = {
-                        ...model,
-                        drawTypeCode: RemoteData.loading<any, string>()
-                    };
+function wrapUpdate<SubMsg>(
+    msgWrapper: (subMsg: SubMsg) => Msg,
+    subReturn: Return<Model, SubMsg>
+): Return<Model, Msg> {
+    const updatedModel = {
+        ...subReturn.model,
+        summary: calculateSummary(subReturn.model)
+    };
 
-                    const cmd = RemoteDataHttp.fetch(
-                        async () => {
-                            const draw = await DrawService.getOne(drawId);
-                            if (!draw) {
-                                throw new Error('No se encontró el sorteo');
-                            }
-                            if (!draw.draw_type_details?.code) {
-                                throw new Error('El sorteo no tiene código de tipo');
-                            }
-                            return draw.draw_type_details.code;
-                        },
-                        (webData) => ({
-                            type: 'CORE',
-                            payload: { type: CoreMsgType.DRAW_INFO_RECEIVED, webData }
-                        })
-                    );
+    return Return.singleton((_: any) => updatedModel).andMapCmd(
+        msgWrapper,
+        subReturn
+    );
+}
 
-                    return ret(nextModel, cmd);
-                })
-                .with({ type: CoreMsgType.DRAW_INFO_RECEIVED }, ({ webData }) => {
-                    return singleton({
-                        ...model,
-                        drawTypeCode: webData as any
-                    } as Model);
-                })
-                .with({ type: CoreMsgType.SET_NAVIGATION }, ({ navigation }) => {
-                    const routeName = (navigation as any)?.getCurrentRoute()?.name || '';
-                    const isEditing = routeName.includes('entry') || routeName.includes('anotacion') || routeName.includes('create');
-                    return singleton({ ...model, navigation, isEditing });
-                })
-                .with({ type: CoreMsgType.CLEAR_NAVIGATION }, () => {
-                    return singleton({ ...model, navigation: null });
-                })
-                .with({ type: CoreMsgType.SCREEN_FOCUSED }, ({ drawId, isEditing }) => {
-                    const drawIdChanged = drawId !== model.drawId;
-                    const isEditingChanged = isEditing !== model.isEditing;
-
-                    if (!drawIdChanged && !isEditingChanged) {
-                        return singleton(model);
-                    }
-
-                    const nextModel = { ...model, drawId, isEditing };
-
-                    // Si no estamos editando (estamos en lista), cargamos los datos
-                    if (!isEditing) {
-                        const loadDrawCmd = Cmd.ofMsg({
-                            type: 'CORE',
-                            payload: { type: CoreMsgType.DRAW_INFO_REQUESTED, drawId }
-                        });
-
-                        const loadBetsCmd = Cmd.ofMsg({
-                            type: 'LIST',
-                            payload: { type: ListMsgType.REFRESH_BETS_REQUESTED, drawId }
-                        });
-
-                        return ret(nextModel, Cmd.batch([loadDrawCmd, loadBetsCmd]));
-                    }
-
-                    return singleton(nextModel);
-                })
-                .with({ type: CoreMsgType.NAVIGATION_BEFORE_REMOVE }, ({ event, navigation }) => {
-                    // Si ya se guardó con éxito o no hay apuestas, no prevenimos la navegación
-                    if (model.managementSession.saveSuccess) {
-                        return singleton(model);
-                    }
-
-                    const { fijosCorridos, parlets, centenas } = model.listSession.remoteData.type === 'Success'
-                        ? model.listSession.remoteData.data
-                        : { fijosCorridos: [], parlets: [], centenas: [] };
-
-                    const hasBets = fijosCorridos.length > 0 || parlets.length > 0 || centenas.length > 0;
-
-                    if (!hasBets) {
-                        return singleton(model);
-                    }
-
-                    // Prevenir navegación por defecto
-                    event.preventDefault();
-
-                    // Disparar mensaje de confirmación de gestión
-                    const confirmCmd = Cmd.ofMsg({
-                        type: 'MANAGEMENT',
-                        payload: {
-                            type: ManagementMsgType.NAVIGATE_REQUESTED,
-                            onConfirm: () => navigation.dispatch(event.data.action)
-                        }
-                    });
-
-                    return ret(model, confirmCmd);
-                })
-                .with({ type: CoreMsgType.SET_IS_EDITING }, ({ isEditing }) => {
-                    if (!model.drawId) {
-                        return singleton({ ...model, isEditing });
-                    }
-
-                    const viewMode: ViewMode = isEditing ? 'annotation' : 'list';
-                    validateViewMode(viewMode);
-                    const dataFetchingCommands = buildCommandsForMode(viewMode, model.drawId);
-
-                    return ret(
-                        { ...model, isEditing },
-                        Cmd.batch(dataFetchingCommands)
-                    );
-                })
-                .exhaustive();
-        })
+export function update(model: Model, msg: Msg): Return<Model, Msg> {
+    return match<Msg, Return<Model, Msg>>(msg)
+        .with({ type: 'CORE' }, ({ payload }) => handleCoreMessage(payload, model))
 
         .with({ type: 'MANAGEMENT' }, ({ payload }) =>
-            singleton(makeModel).andMapCmd(
-                (sub) => ({ type: 'MANAGEMENT', payload: sub }),
+            wrapUpdate(
+                (subMsg) => ({ type: 'MANAGEMENT', payload: subMsg }),
                 updateManagement(model, payload)
             )
         )
 
         .with({ type: 'KEYBOARD' }, ({ payload }) =>
-            singleton(makeModel).andMapCmd(
-                (sub) => ({ type: 'KEYBOARD', payload: sub }),
+            wrapUpdate(
+                (subMsg) => ({ type: 'KEYBOARD', payload: subMsg }),
                 updateKeyboard(model, payload)
             )
         )
 
-        .with({ type: 'LIST' }, ({ payload }) =>
-            singleton(makeModel).andMapCmd(
-                (sub) => ({ type: 'LIST', payload: sub }),
-                updateList(model, payload)
-            )
-        )
-
-        .with({ type: 'CREATE' }, ({ payload }) =>
-            singleton(makeModel).andMapCmd(
-                (sub) => ({ type: 'CREATE', payload: sub }),
-                updateCreate(model, payload)
-            )
-        )
-
-        .with({ type: 'EDIT' }, ({ payload }) =>
-            singleton(makeModel).andMapCmd(
-                (sub) => ({ type: 'EDIT', payload: sub }),
-                updateEdit(model, payload)
-            )
-        )
-
         .with({ type: 'PARLET' }, ({ payload }) =>
-            singleton(makeModel).andMapCmd(
-                (sub) => ({ type: 'PARLET', payload: sub }),
-                updateParlet(model, payload)
+            wrapUpdate(
+                (subMsg) => ({ type: 'PARLET', payload: subMsg }),
+                updateParlet(model, payload as any)
+            )
+        )
+
+        .with({ type: 'FIJOS' }, ({ payload }) =>
+            wrapUpdate(
+                (subMsg) => ({ type: 'FIJOS', payload: subMsg }),
+                updateFijos(model, payload as any)
             )
         )
 
         .with({ type: 'CENTENA' }, ({ payload }) =>
-            singleton(makeModel).andMapCmd(
-                (sub) => ({ type: 'CENTENA', payload: sub }),
-                updateCentena(model, payload)
+            wrapUpdate(
+                (subMsg) => ({ type: 'CENTENA', payload: subMsg }),
+                updateCentena(model, payload as any)
+            )
+        )
+
+        .with({ type: 'LOTERIA' }, ({ payload }) =>
+            wrapUpdate(
+                (subMsg) => ({ type: 'LOTERIA', payload: subMsg }),
+                updateLoteria(model, payload as any)
+            )
+        )
+
+        .with({ type: 'LIST' }, ({ payload }) =>
+            wrapUpdate(
+                (subMsg) => ({ type: 'LIST', payload: subMsg }),
+                updateList(model, payload as any)
+            )
+        )
+
+        .with({ type: 'CREATE' }, ({ payload }) =>
+            wrapUpdate(
+                (subMsg) => ({ type: 'CREATE', payload: subMsg }),
+                updateCreate(model, payload as any)
+            )
+        )
+
+        .with({ type: 'EDIT' }, ({ payload }) =>
+            wrapUpdate(
+                (subMsg) => ({ type: 'EDIT', payload: subMsg }),
+                updateEdit(model, payload as any)
             )
         )
 
         .with({ type: 'RULES' }, ({ payload }) =>
-            singleton(makeModel).andMapCmd(
-                (sub) => ({ type: 'RULES', payload: sub }),
-                updateRules(model, payload)
+            wrapUpdate(
+                (subMsg) => ({ type: 'RULES', payload: subMsg }),
+                updateRules(model, payload as any)
             )
         )
 
         .with({ type: 'REWARDS_RULES' }, ({ payload }) =>
-            singleton(makeModel).andMapCmd(
-                (sub) => ({ type: 'REWARDS_RULES', payload: sub }),
-                updateRewardsRules(model, payload)
+            wrapUpdate(
+                (subMsg) => ({ type: 'REWARDS_RULES', payload: subMsg }),
+                updateRewardsRules(model, payload as any)
             )
         )
 
         .with({ type: 'UI' }, ({ payload }) =>
-            singleton(makeModel).andMapCmd(
-                (sub) => ({ type: 'UI', payload: sub }),
-                updateUi(model, payload)
+            wrapUpdate(
+                (subMsg) => ({ type: 'UI', payload: subMsg }),
+                updateUi(model, payload as any)
             )
         )
-        .with({ type: 'FIJOS' }, ({ payload }) =>
-            singleton(makeModel).andMapCmd(
-                (sub) => ({ type: 'FIJOS', payload: sub }),
-                updateFijos(model, payload)
+
+        .with({ type: 'SUCCESS' }, ({ payload }) =>
+            wrapUpdate(
+                (subMsg) => ({ type: 'SUCCESS', payload: subMsg }),
+                updateSuccess(model, payload)
             )
         )
-        .with({ type: 'LOTERIA' }, ({ payload }) =>
-            singleton(makeModel).andMapCmd(
-                (sub) => ({ type: 'LOTERIA', payload: sub }),
-                updateLoteria(model, payload)
-            )
-        )
-        .with({ type: 'SUCCESS' }, ({ payload }) => {
-            console.log('[core.update] Routing to SUCCESS feature:', payload.type);
-            return singleton(makeModel).andMapCmd(
-                (sub) => ({ type: 'SUCCESS', payload: sub }),
-                updateSuccess(payload, model)
-            )
+
+        .otherwise(() => {
+            console.warn('Unhandled message type:', msg);
+            return singleton(model);
+        });
+}
+
+function handleCoreMessage(msg: CoreMsg, model: Model): Return<Model, Msg> {
+    return match<CoreMsg, Return<Model, Msg>>(msg)
+        .with({ type: CoreMsgType.DRAW_INFO_REQUESTED }, ({ drawId }) => {
+            return ret(
+                model,
+                Cmd.http(
+                    { url: `/draw/draws/${drawId}/` },
+                    (res: any) => ({
+                        type: 'CORE',
+                        payload: {
+                            type: CoreMsgType.DRAW_INFO_RECEIVED,
+                            webData: RemoteData.success(res)
+                        }
+                    }),
+                    (error: any) => ({
+                        type: 'CORE',
+                        payload: {
+                            type: CoreMsgType.DRAW_INFO_RECEIVED,
+                            webData: RemoteData.failure(error?.message || 'Error al obtener información del sorteo')
+                        }
+                    })
+                )
+            );
         })
 
-        .exhaustive();
+        .with({ type: CoreMsgType.DRAW_INFO_RECEIVED }, ({ webData }) => {
+            return singleton({
+                ...model,
+                drawTypeCode: RemoteData.map(data => data?.draw_type_details?.code || '', webData),
+                managementSession: { ...model.managementSession, drawDetails: webData }
+            });
+        })
 
-    return [result.model, result.cmd];
-};
+        .with({ type: CoreMsgType.SCREEN_FOCUSED }, (m) => {
+            const { drawId, isEditing } = m;
 
-/**
- * Subscriptions para observar cambios externos
- */
-export const subscriptions = (model: Model): SubDescriptor<Msg> => {
-    // Si no hay drawId o no hay navegación, no hay nada que observar
-    if (!model.drawId || !model.navigation) {
-        return Sub.none();
-    }
+            // Si ya tenemos el tipo de sorteo para este ID, no lo ponemos en Loading para evitar parpadeos/bloqueos
+            const alreadyHasDrawInfo = model.drawTypeCode.type === 'Success' && model.currentDrawId === drawId;
 
-    return Sub.batch([
-        Sub.watchEvent(
-            BeforeRemove,
-            () => model.navigation,
-            (event) => ({
-                type: 'CORE',
-                payload: {
-                    type: CoreMsgType.NAVIGATION_BEFORE_REMOVE,
-                    event,
-                    navigation: model.navigation
-                }
-            }),
-            'bolita-before-remove'
-        ),
-        Sub.watchStore(
-            { getState: () => model.navigation },
-            (nav: any) => {
-                const route = nav?.getCurrentRoute();
-                return {
-                    name: route?.name || '',
-                    drawId: route?.params?.id || route?.params?.drawId || null
-                };
-            },
-            ({ name, drawId }) => ({
-                type: 'CORE',
-                payload: {
-                    type: CoreMsgType.SCREEN_FOCUSED,
-                    drawId: drawId || model.drawId || '',
-                    isEditing: name?.includes('entry') || name?.includes('anotacion') || name?.includes('create')
-                }
-            }),
-            'navigation-route-sync'
-        )
-    ]);
-};
+            const nextModel: Model = {
+                ...model,
+                currentDrawId: drawId,
+                isEditing,
+                drawTypeCode: alreadyHasDrawInfo ? model.drawTypeCode : RemoteData.loading<any, string>()
+            };
+
+            return ret(
+                nextModel,
+                Cmd.batch([
+                    Cmd.ofMsg({
+                        type: 'CORE',
+                        payload: { type: CoreMsgType.DRAW_INFO_REQUESTED, drawId }
+                    }),
+                    // Siempre cargar la lista del backend (listSession) independientemente de si estamos anotando
+                    Cmd.ofMsg({
+                        type: 'LIST',
+                        payload: { type: ListMsgType.FETCH_BETS_REQUESTED, drawId }
+                    })
+                ])
+            );
+        })
+
+        .with({ type: CoreMsgType.SET_NAVIGATION }, ({ navigation }) => {
+            return singleton({ ...model, navigation });
+        })
+
+        .with({ type: CoreMsgType.CLEAR_NAVIGATION }, () => {
+            return singleton({ ...model, navigation: null });
+        })
+
+        .with({ type: CoreMsgType.SET_IS_EDITING }, ({ isEditing }) => {
+            return singleton({ ...model, isEditing });
+        })
+        .with({ type: CoreMsgType.NAVIGATE_TO_CREATE }, () => {
+            if (!model.currentDrawId) return singleton(model);
+            return ret(
+                model,
+                Cmd.navigate(`/lister/bets_create/${model.currentDrawId}`)
+            );
+        })
+        .otherwise(() => singleton(model));
+}
+
+export function init(): Return<Model, Msg> {
+    const initialModel: Model = {
+        error: null,
+        currentDrawId: '',
+        drawTypeCode: RemoteData.notAsked(),
+        isEditing: false,
+        navigation: null,
+        summary: initialSummary,
+        listSession: initialListState,
+        entrySession: {
+            fijosCorridos: [],
+            parlets: [],
+            centenas: [],
+            loteria: []
+        },
+        managementSession: initialManagementState,
+        createSession: initialCreateState,
+        editSession: initialEditState,
+        parletSession: initialParletState,
+        centenaSession: initialCentenaState,
+        loteriaSession: initialLoteriaState,
+        rulesSession: initialRulesState,
+        successSession: initialSuccessState,
+        rewards: createRewardsCache(),
+        rules: createRulesCache()
+    };
+
+    return singleton(initialModel);
+}
+
+export function subscriptions(model: Model): any[] {
+    return [];
+}

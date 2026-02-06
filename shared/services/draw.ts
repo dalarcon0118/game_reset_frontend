@@ -85,6 +85,11 @@ export class DrawService {
     try {
       const response = await apiClient.get<BackendDraw>(`${settings.api.endpoints.draws()}${id}/`);
 
+      if (!response) {
+        console.warn(`Draw with ID ${id} returned empty response`);
+        return null;
+      }
+
       return {
         // Backend fields
         id: response.id.toString(),
@@ -127,11 +132,17 @@ export class DrawService {
     }
   }
 
-  /**
-   * Get bet types for a specific draw
-   */
+  // Get bet types for a specific draw
   static async getBetTypes(drawId: string): Promise<GameType[]> {
-    return apiClient.get<GameType[]>(`${settings.api.endpoints.draws()}${drawId}/bet-types/`);
+    const endpoint = `${settings.api.endpoints.draws()}${drawId}/bet-types/`;
+    try {
+      const response = await apiClient.get<GameType[]>(endpoint);
+      console.log(`DrawService.getBetTypes: Fetched bet types for draw ${drawId}`);
+      return response;
+    } catch (error: any) {
+      console.error(`DrawService.getBetTypes: Error fetching bet types for draw ${drawId}`, error);
+      throw error;
+    }
   }
 
   /**
@@ -175,6 +186,8 @@ export class DrawService {
       let response: any;
       try {
         response = await apiClient.get<BackendDraw[]>(endpoint, { headers });
+        console.log('DrawService.list: Successfully fetched draws from backend');
+        console.log(response);
       } catch (error: any) {
         // If rate limited (429), try to get from offline storage
         if (error?.status === 429 || error?.message?.includes('throttled')) {
@@ -193,6 +206,7 @@ export class DrawService {
 
       // Save to offline storage for future use if rate limited
       if (Array.isArray(response) && response.length > 0) {
+
         OfflineStorage.saveLastDraws(response);
       }
 

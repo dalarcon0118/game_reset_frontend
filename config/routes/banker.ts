@@ -1,7 +1,7 @@
 export const bankerRoutes = {
   banker: {
     tabs: {
-      screen: 'banker/(tabs)',
+      screen: '/banker/(tabs)',
       options: {
         headerShown: false,
         headerTitle: 'Dashboard',
@@ -11,7 +11,7 @@ export const bankerRoutes = {
       },
     },
     drawer: {
-      screen: 'banker/drawers/[id]',
+      screen: '/banker/drawers/[id]',
       options: {
         headerShown: false,
         headerTitle: 'Listas',
@@ -21,7 +21,7 @@ export const bankerRoutes = {
       },
     },
     listerias: {
-      screen: 'banker/listerias/[id]',
+      screen: '/banker/listerias/[id]',
       options: {
         headerShown: false,
         headerTitle: 'Listas',
@@ -31,13 +31,13 @@ export const bankerRoutes = {
       }
     },
     reports: {
-      screen: 'banker/reports',
+      screen: '/banker/reports',
       options: {
         title: 'Reports',
       }
     },
     reports_form: {
-      screen: 'banker/reports/form',
+      screen: '/banker/reports/form',
       options: {
         headerShown: false,
         headerTitle: 'Report Details',
@@ -47,13 +47,13 @@ export const bankerRoutes = {
       },
     },
     dashboard: {
-      screen: 'index',
+      screen: '/index',
       options: {
         title: 'Dashboard',
       }
     },
     rules: {
-      screen: 'banker/rules',
+      screen: '/banker/rules',
       options: {
         headerShown: false,
         headerTitle: 'Bank Rules Management',
@@ -63,7 +63,7 @@ export const bankerRoutes = {
       }
     },
     settings: {
-      screen: 'banker/settings',
+      screen: '/banker/settings',
       options: {
         headerShown: false,
         headerTitle: 'Bank Settings',

@@ -9,16 +9,21 @@ export const useCentena = () => {
         listSession,
         editSession,
         centenaSession,
+        isEditing,
+        entrySession
     } = model;
 
-    const centenaList =
-        listSession.remoteData.type === 'Success'
+    const centenaList = isEditing
+        ? entrySession.centenas
+        : (listSession.remoteData.type === 'Success'
             ? listSession.remoteData.data.centenas
-            : [];
+            : []);
 
     const {
         editingAmountType,
         currentInput,
+        showBetKeyboard,
+        showAmountKeyboard,
     } = editSession;
 
     const {
@@ -38,6 +43,8 @@ export const useCentena = () => {
         centenaList,
         editingAmountType,
         currentInput,
+        showBetKeyboard,
+        showAmountKeyboard,
         isCentenaDrawerVisible,
         isAmountDrawerVisible,
         editCentenaBet,

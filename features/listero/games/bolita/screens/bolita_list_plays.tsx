@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
-import { StyleSheet, View, ScrollView, RefreshControl, useColorScheme, TouchableOpacity, Text } from 'react-native';
-import { useRouter } from 'expo-router';
+import { StyleSheet, View, ScrollView, RefreshControl, useColorScheme, TouchableOpacity, Text, ActivityIndicator } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import Colors from '@/constants/colors';
 import LayoutConstants from '@/constants/layout';
 import { useBetsStore, selectBetsModel, selectDispatch } from '@/features/listero/bets/core/store';
@@ -18,10 +18,11 @@ interface BolitaListPlaysProps {
 
 export const BolitaListPlays: React.FC<BolitaListPlaysProps> = ({ drawId }) => {
     const colorScheme = (useColorScheme() ?? 'light') as keyof typeof Colors;
-    const router = useRouter();
+    const navigation = useNavigation<any>();
     const model = useBetsStore(selectBetsModel);
     const dispatch = useBetsStore(selectDispatch);
 
+    const { fijosCorridosTotal, parletsTotal, centenasTotal, grandTotal, isSaving } = model.summary;
     const { isRefreshing } = model.listSession;
 
     const handleRefresh = useCallback(() => {
@@ -36,43 +37,34 @@ export const BolitaListPlays: React.FC<BolitaListPlaysProps> = ({ drawId }) => {
         }
     }, [drawId, dispatch]);
 
-    if (model.listSession.remoteData.type !== 'Success') {
-        return null;
+    const remoteData = model.listSession.remoteData as any;
+
+    if (remoteData.type === 'NotAsked') return null;
+    if (remoteData.type === 'Loading') {
+        return (
+            <View style={styles.centerContainer}>
+                <ActivityIndicator size="large" color={Colors[colorScheme].primary} />
+                <Text style={styles.loadingText}>Cargando lista...</Text>
+            </View>
+        );
+    }
+    if (remoteData.type === 'Failure') {
+        return (
+            <View style={styles.centerContainer}>
+                <Text category='label' style={{ color: 'red' }}>Error: {remoteData.error}</Text>
+            </View>
+        );
     }
 
-    const { fijosCorridos, parlets, centenas } = model.listSession.remoteData.data;
-
-    const fijosCorridosTotal = fijosCorridos.reduce((total: number, bet: any) => {
-        const fijoAmount = bet.fijoAmount || 0;
-        const corridoAmount = bet.corridoAmount || 0;
-        return total + fijoAmount + corridoAmount;
-    }, 0);
-
-    const parletsTotal = parlets.reduce((total: number, parlet: any) => {
-        if (parlet.bets && parlet.bets.length > 0 && parlet.amount) {
-            const numBets = parlet.bets.length;
-            const parletTotal = numBets * (numBets - 1) * parlet.amount;
-            return total + parletTotal;
-        }
-        return total;
-    }, 0);
-
-    const centenasTotal = centenas.reduce((total: number, centena: any) => {
-        return total + (centena.amount || 0);
-    }, 0);
-
-    const grandTotal = fijosCorridosTotal + parletsTotal + centenasTotal;
+    const { fijosCorridos, centenas, parlets } = model.listSession.remoteData.data;
 
     const handleViewReceipt = () => {
         // Navigate to success screen with current draw context
         // Pass the drawId as a parameter to ensure the success screen has the right context
         if (drawId) {
-            router.push({
-                pathname: '/lister/bets/success',
-                params: { drawId }
-            });
+            navigation.navigate('/lister/bets/success', { drawId });
         } else {
-            router.push('/lister/bets/success');
+            navigation.navigate('/lister/bets/success');
         }
     };
 
@@ -106,16 +98,18 @@ export const BolitaListPlays: React.FC<BolitaListPlaysProps> = ({ drawId }) => {
                         <CentenaColumn editable={false} />
                     </View>
                 </View>
-                
+
                 {/* Separador con botón "Ver comprobante" */}
-                <View style={styles.receiptSeparator}>
-                    <TouchableOpacity 
-                        style={[styles.receiptButton, { backgroundColor: Colors[colorScheme].primary }]} 
-                        onPress={handleViewReceipt}
-                    >
-                        <Text style={styles.receiptButtonText}>Ver comprobante</Text>
-                    </TouchableOpacity>
-                </View>
+                {(fijosCorridos.length > 0 || centenas.length > 0 || parlets.length > 0) && (
+                    <View style={styles.receiptSeparator}>
+                        <TouchableOpacity
+                            style={[styles.receiptButton, { backgroundColor: Colors[colorScheme].primary }]}
+                            onPress={handleViewReceipt}
+                        >
+                            <Text style={styles.receiptButtonText}>Ver comprobante</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
             </ScrollView>
             <View style={styles.footer}>
                 <View style={styles.totalsRowContainer}>
@@ -176,6 +170,14 @@ const styles = StyleSheet.create({
         borderTopWidth: 2,
         borderTopColor: '#E8E8E8',
         paddingTop: LayoutConstants.spacing.xs,
+    },
+    centerContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    loadingText: {
+        marginTop: 10,
     },
 });
 

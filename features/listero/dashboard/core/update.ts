@@ -31,7 +31,7 @@ export const subscriptions = (model: Model) => {
     // SSE Subscription for real-time financial updates
     // We only enable it if we have an authToken and a userStructureId
     if (model.authToken && model.userStructureId) {
-        const sseUrl = `${settings.api.baseUrl}/financial/stream/`;
+        const sseUrl = `${settings.api.baseUrl}/financial-statement/stream/`;
         const sseSub = Sub.sse(
             sseUrl,
             (payload) => {
@@ -410,8 +410,14 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
             // Process financial update based on the update type
             if (update.type === 'FINANCIAL_UPDATE' && update.data) {
                 // If we have a structure_id in the update, verify it matches our current structure
-                if (update.structure_id && update.structure_id !== model.userStructureId) {
-                    console.log('update: FINANCIAL_UPDATE_RECEIVED ignored (different structure)');
+                // Convert both to string for safe comparison (backend might send number)
+                const updateStructureId = update.structure_id ? String(update.structure_id) : null;
+                
+                if (updateStructureId && updateStructureId !== model.userStructureId) {
+                    console.log('update: FINANCIAL_UPDATE_RECEIVED ignored (different structure)', {
+                        updateId: updateStructureId,
+                        modelId: model.userStructureId
+                    });
                     return singleton(model);
                 }
 
@@ -444,12 +450,14 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
         })
 
         // Navigation
-        .with({ type: 'RULES_CLICKED' }, ({ drawId }) =>
-            ret(model, Cmd.navigate({ pathname: routes.lister.bets_rules.screen, params: { id: drawId } }))
-        )
-        .with({ type: 'REWARDS_CLICKED' }, ({ drawId, title }) =>
-            ret(model, Cmd.navigate({ pathname: routes.lister.rewards.screen, params: { id: drawId, title } }))
-        )
+        .with({ type: 'RULES_CLICKED' }, ({ drawId }) => {
+            console.log('[DASHBOARD] RULES_CLICKED - Navigating to:', routes.lister.bets_rules.screen, 'with id:', drawId);
+            return ret(model, Cmd.navigate({ pathname: routes.lister.bets_rules.screen, params: { id: drawId } }));
+        })
+        .with({ type: 'REWARDS_CLICKED' }, ({ drawId, title }) => {
+            console.log('[DASHBOARD] REWARDS_CLICKED - Navigating to:', routes.lister.rewards.screen, 'with id:', drawId, 'title:', title);
+            return ret(model, Cmd.navigate({ pathname: routes.lister.rewards.screen, params: { id: drawId, title } }));
+        })
         .with({ type: 'BETS_LIST_CLICKED' }, ({ drawId, title }) =>
             ret(model, Cmd.navigate({ pathname: routes.lister.bets_list.screen, params: { id: drawId, title } }))
         )
@@ -477,13 +485,17 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
 };
 
 const filterDraws = (draws: any[], filter: string) => {
-    return draws.filter((draw) => {
+    const filtered = draws.filter((draw) => {
         const expired = isExpired(draw);
 
         if (filter === 'all') return true;
 
         if (filter === 'open') {
             return (draw.status === 'open' || draw.is_betting_open === true) && !expired;
+        }
+
+        if (filter === 'scheduled') {
+            return draw.status === 'pending' && !expired;
         }
 
         if (filter === 'closed') {
@@ -504,5 +516,26 @@ const filterDraws = (draws: any[], filter: string) => {
         }
 
         return true;
+    });
+
+    // Sort draws: Open first, then Pending, then by time
+    return filtered.sort((a, b) => {
+        const aOpen = a.status === 'open' || a.is_betting_open === true;
+        const bOpen = b.status === 'open' || b.is_betting_open === true;
+
+        if (aOpen && !bOpen) return -1;
+        if (!aOpen && bOpen) return 1;
+
+        const aPending = a.status === 'pending';
+        const bPending = b.status === 'pending';
+
+        if (aPending && !bPending) return -1;
+        if (!aPending && bPending) return 1;
+
+        // If same status, sort by end time
+        const aTime = a.betting_end_time ? new Date(a.betting_end_time).getTime() : Infinity;
+        const bTime = b.betting_end_time ? new Date(b.betting_end_time).getTime() : Infinity;
+
+        return aTime - bTime;
     });
 };

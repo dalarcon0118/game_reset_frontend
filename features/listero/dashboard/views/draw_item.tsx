@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Label, Card, Flex, ButtonKit, Badge } from '../../../../shared/components';
-import { CalendarClock, Clock3, ChevronRight, AlarmClock } from 'lucide-react-native';
+import { CalendarClock, Clock3, AlarmClock } from 'lucide-react-native';
 import { DrawType } from '@/types';
 import SummaryCard from './summary_card';
 
@@ -86,12 +86,21 @@ export default function DrawItem({
             content="Cerrado"
           />
         );
+      case 'scheduled':
+      case 'pending':
+        return (
+          <Badge 
+            color="#8F9BB3" 
+            textColor="#FFFFFF"
+            content="Programado"
+          />
+        );
       default:
         return (
           <Badge 
             color="#8F9BB3" 
             textColor="#FFFFFF"
-            content={effectiveStatus}
+            content={effectiveStatus === 'scheduled' ? 'Programado' : effectiveStatus}
           />
         );
     }
@@ -112,8 +121,8 @@ export default function DrawItem({
   return (
     <Card style={[styles.container, closingInfo?.isCritical && styles.criticalContainer]}>
       {/* Header with Title and Status */}
-      <Flex justify="between" align="center" style={styles.header}>
-        <View>
+      <Flex justify="between" align="start" style={styles.header}>
+        <View style={styles.titleContainer}>
           <Label style={styles.drawTitle}>{draw.source}</Label>
           <Flex align="center" gap={4}>
             <CalendarClock size={12} color="#8F9BB3" />
@@ -124,8 +133,8 @@ export default function DrawItem({
             </Label>
           </Flex>
         </View>
-        <Flex align="center" gap={8}>
-         
+        <Flex align="center" justify="end" gap={8} style={styles.statusWrapper}>
+          {getStatusBadge()}
           {closingInfo?.isCritical && (
             <AlarmClock size={20} color="#FF3D71" />
           )}
@@ -164,7 +173,11 @@ export default function DrawItem({
           appearance="outline"
           status="primary"
           size="small"
-          style={styles.actionButton}
+          disabled={effectiveStatus === 'scheduled' || effectiveStatus === 'pending'}
+          style={[
+            styles.actionButton,
+            (effectiveStatus === 'scheduled' || effectiveStatus === 'pending') && styles.disabledButton
+          ]}
           onPress={handleBetsListPress}
           label="Ver Lista"
         />
@@ -183,9 +196,13 @@ export default function DrawItem({
             appearance="filled"
             status="primary"
             size="small"
-            style={styles.actionButton}
+            disabled={effectiveStatus === 'scheduled' || effectiveStatus === 'pending'}
+            style={[
+              styles.actionButton, 
+              (effectiveStatus === 'scheduled' || effectiveStatus === 'pending') && styles.disabledButton
+            ]}
             onPress={handleCreateBetPress}
-            label="Anotar"
+            label={effectiveStatus === 'scheduled' || effectiveStatus === 'pending' ? "Próximamente" : "Anotar"}
           />
         )}
       </Flex>
@@ -210,6 +227,14 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 12,
+    minHeight: 40,
+  },
+  titleContainer: {
+    flex: 1,
+    marginRight: 12,
+  },
+  statusWrapper: {
+    minWidth: 80,
   },
   drawTitle: {
     fontSize: 16,
@@ -240,6 +265,10 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 36,
     borderRadius: 8,
+  },
+  disabledButton: {
+    backgroundColor: '#EDF1F7',
+    borderColor: '#E4E9F2',
   },
   reglamentoButton: {
     flex: 0.7,

@@ -1,9 +1,9 @@
-import { Stack, ErrorBoundary } from "expo-router";
+import { Stack, ErrorBoundary as ExpoErrorBoundary } from "expo-router";
 import { routes } from "../../config/routes";
 import { SyncManager } from "../../shared/components/sync_manager";
 import { View } from "react-native";
 
-export { ErrorBoundary };
+export { ExpoErrorBoundary as ErrorBoundary };
 
 export default function AuthenticatedLayout() {
   return (
@@ -15,6 +15,7 @@ export default function AuthenticatedLayout() {
         <Stack.Screen name="bets_rules/[id]" options={routes.lister.bets_rules.options} />
         <Stack.Screen name="rewards/[id]" options={routes.lister.rewards.options} />
         <Stack.Screen name="profile" options={routes.lister.profile.options} />
+        <Stack.Screen name="change_password" options={routes.lister.change_password.options} />
       </Stack>
       <SyncManager />
     </View>
