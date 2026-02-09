@@ -4,7 +4,7 @@ import Layout from '@/constants/layout';
 import Colors from '@/constants/colors';
 import AmountCircle from '../../../shared/components/amount_circle';
 import BetCircle from '../../../shared/components/bet_circle';
-import { FijosCorridosBet } from '@/types';
+import { FijosCorridosBet, ParletBet } from '@/types';
 import { BetNumericKeyboard, AmountNumericKeyboard } from '../../../shared/components/numeric_keyboard';
 import { AnnotationType, AnnotationTypes } from '@/constants/bet';
 import { useParlet } from '../use_parlet';
@@ -14,17 +14,17 @@ import BottomDrawer from '@/components/ui/bottom_drawer';
 interface ParletColumnProps {
     fijosCorridosList: FijosCorridosBet[];
     editable?: boolean;
+    data?: ParletBet[];
 }
 
-export const ParletColumn: React.FC<ParletColumnProps> = ({ fijosCorridosList, editable = false }) => {
+export const ParletColumn: React.FC<ParletColumnProps> = ({ fijosCorridosList, editable = false, data }) => {
     const {
-        parletList,
+        parletList: hookList,
         editingAmountType,
         currentInput,
         showAmountKeyboard,
         showBetKeyboard,
         isParletDrawerVisible,
-        isAmountDrawerVisible,
         editParletBet,
         editAmountKeyboard,
         pressAddParlet,
@@ -35,6 +35,8 @@ export const ParletColumn: React.FC<ParletColumnProps> = ({ fijosCorridosList, e
         handleKeyPress,
         handleConfirmInput,
     } = useParlet(fijosCorridosList);
+
+    const parletList = data || hookList;
 
     const renderKeyboard = (annotationType: AnnotationType) => {
         const isVisible = annotationType === AnnotationTypes.Amount

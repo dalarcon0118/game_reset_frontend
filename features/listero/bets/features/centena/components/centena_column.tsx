@@ -11,11 +11,12 @@ import BottomDrawer from '@/components/ui/bottom_drawer';
 
 interface CentenaColumnProps {
     editable?: boolean;
+    data?: any[];
 }
 
-export const CentenaColumn: React.FC<CentenaColumnProps> = ({ editable = false }) => {
+export const CentenaColumn: React.FC<CentenaColumnProps> = ({ editable = false, data }) => {
     const {
-        centenaList,
+        centenaList: hookList,
         editingAmountType,
         currentInput,
         showBetKeyboard,
@@ -30,6 +31,8 @@ export const CentenaColumn: React.FC<CentenaColumnProps> = ({ editable = false }
         handleKeyPress,
         handleConfirmInput,
     } = useCentena();
+
+    const centenaList = data || hookList;
 
     const renderKeyboard = (annotationType: AnnotationType) => {
         const isVisible = annotationType === AnnotationTypes.Amount

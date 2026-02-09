@@ -16,6 +16,7 @@ export default function AuthenticatedLayout() {
         <Stack.Screen name="rewards/[id]" options={routes.lister.rewards.options} />
         <Stack.Screen name="profile" options={routes.lister.profile.options} />
         <Stack.Screen name="change_password" options={routes.lister.change_password.options} />
+        <Stack.Screen name="bet_success" options={routes.lister.success.options} />
       </Stack>
       <SyncManager />
     </View>

@@ -13,7 +13,7 @@ export const useSuccess = () => {
     const dispatch = useBetsStore(selectDispatch);
     const [drawDetails, setDrawDetails] = useState<ExtendedDrawType | null>(null);
 
-    const { betId } = useLocalSearchParams<{ betId: string }>();
+    const { betId, receiptCode: paramReceiptCode } = useLocalSearchParams<{ betId: string, receiptCode: string }>();
     const drawId = model.drawId;
 
     // Load draw details
@@ -34,9 +34,14 @@ export const useSuccess = () => {
             // Fetch fresh bets data from backend to ensure receipt codes are up-to-date
             BetService.list({ drawId }).then(bets => {
                 if (bets.length > 0) {
+                    // Filter by receipt code if provided
+                    const filteredBets = paramReceiptCode
+                        ? bets.filter(bet => bet.receiptCode === paramReceiptCode)
+                        : bets;
+
                     // Transform bets to match the expected format
                     const transformedData = {
-                        fijosCorridos: bets
+                        fijosCorridos: filteredBets
                             .filter(bet => {
                                 const betType = typeof bet.type === 'string' ? bet.type.toLowerCase() : '';
                                 return betType === 'fijo' || betType === 'corrido';
@@ -48,7 +53,7 @@ export const useSuccess = () => {
                                 corridoAmount: typeof bet.type === 'string' && bet.type.toLowerCase() === 'corrido' ? bet.amount : null,
                                 receiptCode: bet.receiptCode
                             })),
-                        parlets: bets
+                        parlets: filteredBets
                             .filter(bet => {
                                 const betType = typeof bet.type === 'string' ? bet.type.toLowerCase() : '';
                                 return betType === 'parlet';
@@ -59,7 +64,7 @@ export const useSuccess = () => {
                                 amount: bet.amount,
                                 receiptCode: bet.receiptCode
                             })),
-                        centenas: bets
+                        centenas: filteredBets
                             .filter(bet => {
                                 const betType = typeof bet.type === 'string' ? bet.type.toLowerCase() : '';
                                 return betType === 'centena';
@@ -70,7 +75,7 @@ export const useSuccess = () => {
                                 amount: bet.amount,
                                 receiptCode: bet.receiptCode
                             })),
-                        loteria: bets
+                        loteria: filteredBets
                             .filter(bet => {
                                 const betType = typeof bet.type === 'string' ? bet.type.toLowerCase() : '';
                                 return betType === 'loteria' || betType === 'cuaterna semanal';
@@ -156,7 +161,7 @@ export const useSuccess = () => {
         // Si después de intentar el jackpot sigue siendo "Según Reglas", probamos con las reglas
         if (totalPrize === 'Según Reglas' && model.rules.data?.reward_rules) {
             // Buscamos una regla que parezca indicar el premio máximo o principal
-            const mainRule = model.rules.data.reward_rules.find(r =>
+            const mainRule = model.rules.data.reward_rules.find((r: any) =>
                 r.name.toLowerCase().includes('fijo') ||
                 r.name.toLowerCase().includes('exacta')
             );
@@ -188,6 +193,8 @@ export const useSuccess = () => {
     }, [model.managementSession.saveStatus]);
 
     const receiptCode = useMemo(() => {
+        if (paramReceiptCode) return paramReceiptCode;
+
         console.log('[useSuccess] Computing receiptCode. betId from params:', betId);
         console.log('[useSuccess] managementData present:', !!managementData);
         console.log('[useSuccess] freshBetsData present:', !!freshBetsData);
@@ -215,7 +222,7 @@ export const useSuccess = () => {
         // Si no está ahí, intentamos sacar el código del estado de guardado reciente
         if (managementData) {
             if (Array.isArray(managementData)) {
-                const betWithCode = managementData.find(b => (b as any).receiptCode || (b as any).receipt_code);
+                const betWithCode = managementData.find((b: any) => (b as any).receiptCode || (b as any).receipt_code);
                 if (betWithCode) {
                     const code = (betWithCode as any).receiptCode || (betWithCode as any).receipt_code;
                     console.log('[useSuccess] Found code in managementData (array):', code);
@@ -329,10 +336,10 @@ export const useSuccess = () => {
             const groupedFijosCorridos = new Map<string, any>();
             const otherBets: any[] = [];
 
-            data.forEach(b => {
+            data.forEach((b: any) => {
                 const numbers = formatNumbers(b.numbers || b.bet || b.bets);
                 const type = typeof b.type === 'string' ? b.type.toLowerCase() : '';
-                
+
                 if (type === 'fijo' || type === 'corrido' || b.type === 'Fijo/Corrido') {
                     const numStr = numbers[0];
                     const existing = groupedFijosCorridos.get(numStr) || {
@@ -351,7 +358,7 @@ export const useSuccess = () => {
                     existing.fijoAmount += fijo;
                     existing.corridoAmount += corrido;
                     existing.amount = existing.fijoAmount + existing.corridoAmount;
-                    
+
                     groupedFijosCorridos.set(numStr, existing);
                 } else {
                     otherBets.push({
@@ -376,7 +383,7 @@ export const useSuccess = () => {
         if (model.listSession.remoteData.type === 'Success') {
             const data = model.listSession.remoteData.data;
 
-            const rawFijos = data.fijosCorridos.map(b => ({
+            const rawFijos = data.fijosCorridos.map((b: any) => ({
                 id: b.id || Math.random().toString(),
                 type: 'Fijo/Corrido',
                 numbers: formatNumbers(b.bet),
@@ -385,21 +392,21 @@ export const useSuccess = () => {
                 corridoAmount: Number(b.corridoAmount) || 0
             }));
 
-            const rawParlets = data.parlets.map(b => ({
+            const rawParlets = data.parlets.map((b: any) => ({
                 id: b.id || Math.random().toString(),
                 type: 'Parlet',
                 numbers: b.bets.map(String),
                 amount: Number(b.amount) || 0
             }));
 
-            const rawCentenas = data.centenas.map(b => ({
+            const rawCentenas = data.centenas.map((b: any) => ({
                 id: b.id || Math.random().toString(),
                 type: 'Centena',
                 numbers: [formatNumbers(b.bet).join('')],
                 amount: Number(b.amount) || 0
             }));
 
-            const rawLoteria = data.loteria.map(b => ({
+            const rawLoteria = data.loteria.map((b: any) => ({
                 id: b.id || Math.random().toString(),
                 type: 'Lotería',
                 numbers: formatNumbers(b.bet),

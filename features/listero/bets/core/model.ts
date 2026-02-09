@@ -6,7 +6,7 @@ import { Model as ParletSession } from '../features/parlet/parlet.types';
 import { Model as CentenaSession } from '../features/centena/centena.types';
 import { Model as RulesSession } from '../features/rules/rules.types';
 import { LoteriaState } from '@/features/listero/games/loteria/loteria.types';
-import { ListState, ListData } from '../features/bet-list/list.types';
+import { ListState, ListData as ListStateData } from '../features/bet-list/list.types';
 import { ManagementState } from '../features/management/management.types';
 import { SuccessState } from '../features/success/success.types';
 import { RewardsCache, RulesCache } from '../features/rewards-rules/rewards.types';
@@ -31,17 +31,6 @@ export interface ListData {
     centenas: any[];
     loteria: any[];
 }
-
-export const initialSummary: BetSummary = {
-    loteriaTotal: 0,
-    fijosCorridosTotal: 0,
-    parletsTotal: 0,
-    centenasTotal: 0,
-    grandTotal: 0,
-    hasBets: false,
-    isSaving: false,
-    count: 0
-};
 
 export interface Model extends UiState {
     // Core data

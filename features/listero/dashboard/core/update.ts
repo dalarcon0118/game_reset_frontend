@@ -1,541 +1,117 @@
 import { match } from 'ts-pattern';
 import { Model } from './model';
 import { Msg } from './msg';
-import { Cmd, CommandDescriptor } from '@/shared/core/cmd';
+import { Cmd } from '@/shared/core/cmd';
 import { Sub } from '@/shared/core/sub';
-import { RemoteDataHttp } from '@/shared/core/remote.data.http';
-import { RemoteData } from '@/shared/core/remote.data';
-import { DrawService } from '@/shared/services/draw';
-import { FinancialSummaryService } from '@/shared/services/financial_summary';
-import { routes } from '@/config';
-import { isClosingSoon, isExpired, DailyTotals } from './core.types';
-import { FinancialSummary } from '@/types';
-import { singleton, ret, Return } from '@/shared/core/return';
+import { Return, singleton } from '@/shared/core/return';
 
-import { useAuthStore } from '@/features/auth/store/store';
-import { AUTH_USER_SYNCED } from './msg';
-import settings from '@/config/settings';
-import apiClient from '@/shared/services/api_client';
+import { getAuthSub, getFinancialUpdatesSub } from './subscriptions';
+
+// Handlers
+import { DataHandler } from './handlers/data.handler';
+import { NavigationHandler } from './handlers/navigation.handler';
+import { FilterHandler } from './handlers/filter.handler';
+import { AuthHandler } from './handlers/auth.handler';
 
 export const subscriptions = (model: Model) => {
-    // Sincronización automática con el store de Auth
-    const authSub = Sub.watchStore(
-        useAuthStore,
-        (state: any) => state?.model?.user ?? state?.user,
-        (user) => AUTH_USER_SYNCED(user),
-        'dashboard-auth-sync'
-    );
-
-    const subs = [authSub];
+    const subs = [getAuthSub()];
 
     // SSE Subscription for real-time financial updates
     // We only enable it if we have an authToken and a userStructureId
     if (model.authToken && model.userStructureId) {
-        const sseUrl = `${settings.api.baseUrl}/financial-statement/stream/`;
-        const sseSub = Sub.sse(
-            sseUrl,
-            (payload) => {
-                console.log('Dashboard SSE message received:', payload);
-
-                // Handle different types of SSE messages
-                if (payload.type === 'FINANCIAL_UPDATE') {
-                    return { type: 'FINANCIAL_UPDATE_RECEIVED', update: payload };
-                } else if (payload.type === 'connected') {
-                    return { type: 'SSE_CONNECTED' };
-                } else if (payload.type === 'error') {
-                    return { type: 'SSE_ERROR', error: payload.message || 'Unknown SSE error' };
-                }
-
-                // Ignore other message types
-                return { type: 'NONE' };
-            },
-            `dashboard-sse-${model.authToken}`, // Dynamic ID based on token to force reconnection on change
-            { 'Authorization': `Bearer ${model.authToken}` }
-        );
-        subs.push(sseSub);
+        subs.push(getFinancialUpdatesSub(model.authToken));
     }
 
     return Sub.batch(subs);
 };
 
-const summaryToTotals = (summary: FinancialSummary, commissionRate: number): DailyTotals => {
-    const collected = summary.totalCollected || 0;
-    const premiums = summary.premiumsPaid || 0;
-    const net = summary.netResult || (collected - premiums);
-    const commission = collected * commissionRate;
-
-    return {
-        totalCollected: collected,
-        premiumsPaid: premiums,
-        netResult: net,
-        estimatedCommission: commission,
-        amountToRemit: net - commission,
-    };
-};
-
-/**
- * Enriches draws with financial information from a summary.
- */
-const enrichDraws = (draws: any[], summary: FinancialSummary | null): any[] => {
-    if (!summary || !summary.draws) return draws;
-
-    const financialMap = new Map(
-        summary.draws.map(d => [d.id_sorteo.toString(), d])
-    );
-
-    return draws.map(draw => {
-        const financial = financialMap.get(draw.id.toString());
-        if (financial) {
-            return {
-                ...draw,
-                totalCollected: financial.colectado,
-                premiumsPaid: financial.pagado,
-                netResult: financial.neto,
-            };
-        }
-        return draw;
-    });
-};
-
-const calculateTotals = (draws: any[], commissionRate: number): DailyTotals => {
-    return draws.reduce(
-        (acc, draw) => {
-            const collected = draw.totalCollected || 0;
-            const premiums = draw.premiumsPaid || 0;
-            const net = draw.netResult || (collected - premiums);
-            const commission = collected * commissionRate;
-
-            return {
-                totalCollected: acc.totalCollected + collected,
-                premiumsPaid: acc.premiumsPaid + premiums,
-                netResult: acc.netResult + net,
-                estimatedCommission: acc.estimatedCommission + commission,
-                amountToRemit: acc.amountToRemit + (net - commission),
-            };
-        },
-        {
-            totalCollected: 0,
-            premiumsPaid: 0,
-            netResult: 0,
-            estimatedCommission: 0,
-            amountToRemit: 0
-        }
-    );
-};
-
-const fetchDrawsCmd = (structureId: string | null): Cmd => {
-    if (!structureId || structureId === '0') return Cmd.none;
-    console.log('fetchDrawsCmd: Requesting draws for structure', structureId);
-    return RemoteDataHttp.fetch(
-        () => DrawService.list(Number(structureId)),
-        (webData) => {
-            console.log('fetchDrawsCmd: Received DRAWS_RECEIVED', webData.type);
-            return { type: 'DRAWS_RECEIVED', webData };
-        }
-    );
-};
-
-const fetchSummaryCmd = (structureId: string | null): Cmd => {
-    if (!structureId || structureId === '0') return Cmd.none;
-    console.log('fetchSummaryCmd: Requesting financial summary for structure', structureId);
-    return RemoteDataHttp.fetch(
-        () => FinancialSummaryService.get(structureId),
-        (webData) => {
-            console.log('fetchSummaryCmd: Received SUMMARY_RECEIVED', webData.type);
-            return { type: 'SUMMARY_RECEIVED', webData };
-        }
-    );
-};
-
 export const update = (model: Model, msg: Msg): [Model, Cmd] => {
     const result = match<Msg, Return<Model, Msg>>(msg)
-        .with({ type: 'FETCH_DATA_REQUESTED' }, ({ structureId }) => {
-            const id = structureId || model.userStructureId;
-
-            if (!id || id === '0') {
-                console.log('update: FETCH_DATA_REQUESTED ignored (invalid id)', id);
-                return singleton(model);
-            }
-
-            // Si ya tenemos datos exitosos para este ID, no volvemos a poner Loading
-            // a menos que el ID sea diferente al que ya teníamos.
-            // Esto evita que efectos de React disparados accidentalmente reseteen el estado.
-            if (model.draws.type === 'Success' && model.userStructureId === id) {
-                console.log('update: FETCH_DATA_REQUESTED ignored (already have data for)', id);
-                return singleton(model);
-            }
-
-            // Si ya estamos cargando para este mismo ID, también ignoramos.
-            if (model.draws.type === 'Loading' && model.userStructureId === id) {
-                console.log('update: FETCH_DATA_REQUESTED ignored (already loading)', id);
-                return singleton(model);
-            }
-
-            console.log('update: FETCH_DATA_REQUESTED starting load for', id);
-            return ret(
-                {
-                    ...model,
-                    userStructureId: id,
-                    draws: RemoteData.loading(),
-                    summary: RemoteData.loading()
-                },
-                [fetchDrawsCmd(id), fetchSummaryCmd(id)] as Cmd
-            );
-        })
-
-        .with({ type: 'DRAWS_RECEIVED' }, ({ webData }) => {
-            console.log('update: DRAWS_RECEIVED state', webData.type);
-
-            // Handle 429 Rate Limiting
-            if (webData.type === 'Failure') {
-                const error = webData.error;
-                const isRateLimited = error?.status === 429 || error?.message?.includes('throttled');
-
-                // If we are rate limited and ALREADY HAVE DATA, we keep the previous data
-                if (isRateLimited && model.draws.type === 'Success') {
-                    console.log('update: Rate limited, keeping previous draws data');
-                    return singleton({ ...model, isRateLimited: true });
-                }
-            }
-
-            let enrichedWebData = webData;
-            if (webData.type === 'Success') {
-                const summary = model.summary.type === 'Success' ? model.summary.data : null;
-                enrichedWebData = {
-                    ...webData,
-                    data: enrichDraws(webData.data, summary)
-                };
-            }
-
-            const nextModel = { ...model, draws: enrichedWebData, isRateLimited: false };
-
-            // Recalculate totals if success
-            if (enrichedWebData.type === 'Success') {
-                const filtered = filterDraws(enrichedWebData.data, model.appliedFilter);
-                nextModel.filteredDraws = filtered;
-
-                // Prioritize summary data for daily totals if available
-                if (model.summary.type === 'Success') {
-                    console.log('update: Prioritizing summary data over draws calculation');
-                    nextModel.dailyTotals = summaryToTotals(model.summary.data, model.commissionRate);
-                } else {
-                    nextModel.dailyTotals = calculateTotals(filtered, model.commissionRate);
-                }
-            } else {
-                nextModel.filteredDraws = [];
-            }
-            return singleton(nextModel);
-        })
-
-        .with({ type: 'SUMMARY_RECEIVED' }, ({ webData }) => {
-            console.log('update: SUMMARY_RECEIVED state', webData.type);
-
-            // Handle 429 Rate Limiting
-            if (webData.type === 'Failure') {
-                const error = webData.error;
-                const isRateLimited = error?.status === 429 || error?.message?.includes('throttled');
-
-                if (isRateLimited && model.summary.type === 'Success') {
-                    console.log('update: Rate limited, keeping previous summary data');
-                    return singleton({ ...model, isRateLimited: true });
-                }
-            }
-
-            const nextModel = { ...model, summary: webData, isRateLimited: false };
-
-            // Si el resumen es exitoso, actualizamos los totales diarios prioritariamente
-            if (webData.type === 'Success') {
-                console.log('update: Updating dailyTotals from real-time summary', webData.data);
-                nextModel.dailyTotals = summaryToTotals(webData.data, model.commissionRate);
-
-                // Also enrich existing draws with new summary info
-                if (model.draws.type === 'Success') {
-                    const enrichedDrawsList = enrichDraws(model.draws.data, webData.data);
-                    nextModel.draws = {
-                        ...model.draws,
-                        data: enrichedDrawsList
-                    };
-                    nextModel.filteredDraws = filterDraws(enrichedDrawsList, model.appliedFilter);
-                }
-            }
-
-            return singleton(nextModel);
-        })
-
+        // Data Handling
+        .with({ type: 'FETCH_DATA_REQUESTED' }, ({ structureId }) =>
+            DataHandler.handleFetchDataRequested(model, structureId)
+        )
+        .with({ type: 'DRAWS_RECEIVED' }, ({ webData }) =>
+            DataHandler.handleDrawsReceived(model, webData)
+        )
+        .with({ type: 'SUMMARY_RECEIVED' }, ({ webData }) =>
+            DataHandler.handleSummaryReceived(model, webData)
+        )
+        .with({ type: 'PENDING_BETS_LOADED' }, ({ bets }) =>
+            DataHandler.handlePendingBetsLoaded(model, bets)
+        )
         .with({ type: 'REFRESH_CLICKED' }, () =>
-            ret(model, [fetchDrawsCmd(model.userStructureId), fetchSummaryCmd(model.userStructureId)] as Cmd)
+            DataHandler.handleRefreshClicked(model)
+        )
+        .with({ type: 'TICK' }, () =>
+            DataHandler.handleTick(model)
+        )
+        .with({ type: 'FINANCIAL_UPDATE_RECEIVED' }, ({ update }) =>
+            DataHandler.handleFinancialUpdateReceived(model, update)
+        )
+        .with({ type: 'SSE_CONNECTED' }, () =>
+            DataHandler.handleSseConnected(model)
+        )
+        .with({ type: 'SSE_ERROR' }, ({ error }) =>
+            DataHandler.handleSseError(model, error)
         )
 
-        .with({ type: 'AUTH_USER_SYNCED' }, ({ user }) => {
-            // Only update and trigger task if the user has actually changed OR if we don't have a token
-            const currentUserId = model.currentUser?.id || model.currentUser?.pk;
-            const nextUserId = user?.id || user?.pk;
-
-            // If user is null, reset state
-            if (!user) {
-                return singleton({
-                    ...model,
-                    currentUser: null,
-                    authToken: null,
-                    userStructureId: null
-                });
-            }
-
-            const structure = user?.structure;
-            const structureId = (structure?.id && structure.id !== 0) ? structure.id.toString() : null;
-
-            // Guard: If user is the same AND we already have a structureId and token, do nothing
-            // We only trigger fetches if structureId changes or if we're completely empty
-            const hasDataOrLoading =
-                (model.draws.type === 'Success' || model.draws.type === 'Loading') &&
-                (model.summary.type === 'Success' || model.summary.type === 'Loading');
-
-            if (currentUserId === nextUserId &&
-                model.authToken !== null &&
-                model.userStructureId === structureId &&
-                hasDataOrLoading) {
-                return singleton(model);
-            }
-
-            const backendRate = structure?.commission_rate || 0;
-            const currentCommissionRate = model.commissionRate;
-            const nextCommissionRate = backendRate / 100;
-
-            let nextModel = { ...model, currentUser: user };
-            let cmds: CommandDescriptor[] = [];
-
-            // 1. Sincronizar ID de estructura si ha cambiado
-            if (structureId && structureId !== model.userStructureId) {
-                console.log('update: AUTH_USER_SYNCED new structure detected', structureId);
-                nextModel.userStructureId = structureId;
-                nextModel.draws = RemoteData.loading();
-                nextModel.summary = RemoteData.loading();
-                cmds.push(fetchDrawsCmd(structureId) as any);
-                cmds.push(fetchSummaryCmd(structureId) as any);
-            } else if (structureId && !hasDataOrLoading) {
-                // If structure is the same but we are empty, trigger initial fetch
-                console.log('update: AUTH_USER_SYNCED same structure, initial fetch triggered');
-                nextModel.draws = RemoteData.loading();
-                nextModel.summary = RemoteData.loading();
-                cmds.push(fetchDrawsCmd(structureId) as any);
-                cmds.push(fetchSummaryCmd(structureId) as any);
-            }
-
-            // 2. Sincronizar tasa de comisión si ha cambiado
-            if (nextCommissionRate !== currentCommissionRate) {
-                console.log('update: AUTH_USER_SYNCED new commission rate', backendRate);
-                nextModel.commissionRate = nextCommissionRate;
-
-                // Recalcular totales con la nueva tasa si ya tenemos datos
-                if (nextModel.summary.type === 'Success') {
-                    nextModel.dailyTotals = summaryToTotals(nextModel.summary.data, nextCommissionRate);
-                } else if (nextModel.draws.type === 'Success') {
-                    nextModel.dailyTotals = calculateTotals(nextModel.filteredDraws, nextCommissionRate);
-                }
-            }
-
-            // 3. Obtener el token de autenticación
-            cmds.push(Cmd.task({
-                task: () => apiClient.getAuthToken(),
-                onSuccess: (token) => ({ type: 'AUTH_TOKEN_UPDATED', token }),
-                onFailure: () => ({ type: 'NONE' } as any)
-            }) as any);
-
-            return ret(nextModel, cmds as any);
-        })
-
-        .with({ type: 'AUTH_TOKEN_UPDATED' }, ({ token }) => {
-            if (model.authToken === token) {
-                return singleton(model);
-            }
-            return singleton({ ...model, authToken: token });
-        })
-
+        // Auth Handling
+        .with({ type: 'AUTH_USER_SYNCED' }, ({ user }) =>
+            AuthHandler.handleAuthUserSynced(model, user)
+        )
+        .with({ type: 'AUTH_TOKEN_UPDATED' }, ({ token }) =>
+            AuthHandler.handleAuthTokenUpdated(model, token)
+        )
         .with({ type: 'SET_USER_STRUCTURE' }, ({ id }) =>
-            ret({ ...model, userStructureId: id }, [fetchDrawsCmd(id), fetchSummaryCmd(id)] as Cmd)
-        )
-
-        .with({ type: 'TICK' }, () => {
-            // Re-fetch everything on each tick (approx 60s)
-            // But only if we have a structureId
-            if (model.userStructureId && !model.isRateLimited) {
-                console.log('update: TICK triggered fetch');
-                return ret(model, [fetchDrawsCmd(model.userStructureId), fetchSummaryCmd(model.userStructureId)] as Cmd);
-            }
-            return singleton(model);
-        })
-
-        .with({ type: 'STATUS_FILTER_CHANGED' }, ({ filter }) =>
-            ret(
-                { ...model, statusFilter: filter },
-                Cmd.sleep(500, { type: 'APPLY_STATUS_FILTER', filter })
-            )
-        )
-
-        .with({ type: 'APPLY_STATUS_FILTER' }, ({ filter }) => {
-            const nextModel = { ...model, appliedFilter: filter };
-            if (model.draws.type === 'Success') {
-                const filtered = filterDraws(model.draws.data, filter);
-                nextModel.filteredDraws = filtered;
-
-                // Prioritize summary data for daily totals if available
-                if (model.summary.type === 'Success') {
-                    nextModel.dailyTotals = summaryToTotals(model.summary.data, model.commissionRate);
-                } else {
-                    nextModel.dailyTotals = calculateTotals(filtered, model.commissionRate);
-                }
-            }
-            return singleton(nextModel);
-        })
-
-        .with({ type: 'SET_COMMISSION_RATE' }, ({ rate }) => {
-            // Convert to decimal (e.g. 30 -> 0.3)
-            const commissionRate = rate / 100;
-            const nextModel = { ...model, commissionRate };
-
-            // Recalculate totals with new rate if we have data
-            if (model.summary.type === 'Success') {
-                nextModel.dailyTotals = summaryToTotals(model.summary.data, commissionRate);
-            } else if (model.draws.type === 'Success') {
-                nextModel.dailyTotals = calculateTotals(model.filteredDraws, commissionRate);
-            }
-
-            return singleton(nextModel);
-        })
-
-        // SSE Event Handlers
-        .with({ type: 'FINANCIAL_UPDATE_RECEIVED' }, ({ update }) => {
-            console.log('update: FINANCIAL_UPDATE_RECEIVED', update);
-
-            // Process financial update based on the update type
-            if (update.type === 'FINANCIAL_UPDATE' && update.data) {
-                // If we have a structure_id in the update, verify it matches our current structure
-                // Convert both to string for safe comparison (backend might send number)
-                const updateStructureId = update.structure_id ? String(update.structure_id) : null;
-                
-                if (updateStructureId && updateStructureId !== model.userStructureId) {
-                    console.log('update: FINANCIAL_UPDATE_RECEIVED ignored (different structure)', {
-                        updateId: updateStructureId,
-                        modelId: model.userStructureId
-                    });
-                    return singleton(model);
-                }
-
-                // Refresh the financial summary to get the latest data
-                return ret(
-                    { ...model, summary: RemoteData.loading() },
-                    fetchSummaryCmd(model.userStructureId)
-                );
-            }
-
-            return singleton(model);
-        })
-
-        .with({ type: 'SSE_CONNECTED' }, () => {
-            console.log('update: SSE_CONNECTED');
-            // SSE connection established - we could show a visual indicator if needed
-            return singleton(model);
-        })
-
-        .with({ type: 'SSE_ERROR' }, ({ error }) => {
-            console.error('update: SSE_ERROR', error);
-            // SSE connection error - we could show an error message or attempt reconnection
-            // For now, just log the error and continue
-            return singleton(model);
-        })
-
-        .with({ type: 'NONE' }, () => {
-            // No-op message for ignoring certain events
-            return singleton(model);
-        })
-
-        // Navigation
-        .with({ type: 'RULES_CLICKED' }, ({ drawId }) => {
-            console.log('[DASHBOARD] RULES_CLICKED - Navigating to:', routes.lister.bets_rules.screen, 'with id:', drawId);
-            return ret(model, Cmd.navigate({ pathname: routes.lister.bets_rules.screen, params: { id: drawId } }));
-        })
-        .with({ type: 'REWARDS_CLICKED' }, ({ drawId, title }) => {
-            console.log('[DASHBOARD] REWARDS_CLICKED - Navigating to:', routes.lister.rewards.screen, 'with id:', drawId, 'title:', title);
-            return ret(model, Cmd.navigate({ pathname: routes.lister.rewards.screen, params: { id: drawId, title } }));
-        })
-        .with({ type: 'BETS_LIST_CLICKED' }, ({ drawId, title }) =>
-            ret(model, Cmd.navigate({ pathname: routes.lister.bets_list.screen, params: { id: drawId, title } }))
-        )
-        .with({ type: 'CREATE_BET_CLICKED' }, ({ drawId, title }) =>
-            ret(model, Cmd.navigate({ pathname: routes.lister.bets_create.screen, params: { id: drawId, title } }))
-        )
-        .with({ type: 'NAVIGATE_TO_ERROR' }, () =>
-            ret(model, Cmd.navigate({ pathname: '/error' }))
-        )
-        .with({ type: 'HELP_CLICKED' }, () =>
-            ret(model, Cmd.navigate({ pathname: '/help' }))
-        )
-        .with({ type: 'NOTIFICATIONS_CLICKED' }, () =>
-            ret(model, Cmd.navigate({ pathname: '/notifications' }))
-        )
-        .with({ type: 'SETTINGS_CLICKED' }, () =>
-            ret(model, Cmd.navigate({ pathname: routes.lister.profile.screen }))
+            AuthHandler.handleSetUserStructure(model, id)
         )
         .with({ type: 'TOGGLE_BALANCE' }, () =>
-            singleton({ ...model, showBalance: !model.showBalance })
+            AuthHandler.handleToggleBalance(model)
+        )
+
+        // Filter Handling
+        .with({ type: 'STATUS_FILTER_CHANGED' }, ({ filter }) =>
+            FilterHandler.handleStatusFilterChanged(model, filter)
+        )
+        .with({ type: 'APPLY_STATUS_FILTER' }, ({ filter }) =>
+            FilterHandler.handleApplyStatusFilter(model, filter)
+        )
+        .with({ type: 'SET_COMMISSION_RATE' }, ({ rate }) =>
+            FilterHandler.handleSetCommissionRate(model, rate)
+        )
+
+        // Navigation Handling
+        .with({ type: 'RULES_CLICKED' }, ({ drawId }) =>
+            NavigationHandler.handleRulesClicked(model, drawId)
+        )
+        .with({ type: 'REWARDS_CLICKED' }, ({ drawId, title }) =>
+            NavigationHandler.handleRewardsClicked(model, drawId, title)
+        )
+        .with({ type: 'BETS_LIST_CLICKED' }, ({ drawId, title }) =>
+            NavigationHandler.handleBetsListClicked(model, drawId, title)
+        )
+        .with({ type: 'CREATE_BET_CLICKED' }, ({ drawId, title }) =>
+            NavigationHandler.handleCreateBetClicked(model, drawId, title)
+        )
+        .with({ type: 'NAVIGATE_TO_ERROR' }, () =>
+            NavigationHandler.handleNavigateToError(model)
+        )
+        .with({ type: 'HELP_CLICKED' }, () =>
+            NavigationHandler.handleHelpClicked(model)
+        )
+        .with({ type: 'NOTIFICATIONS_CLICKED' }, () =>
+            NavigationHandler.handleNotificationsClicked(model)
+        )
+        .with({ type: 'SETTINGS_CLICKED' }, () =>
+            NavigationHandler.handleSettingsClicked(model)
+        )
+
+        // Default
+        .with({ type: 'NONE' }, () =>
+            singleton(model)
         )
         .exhaustive();
 
     return [result.model, result.cmd];
-};
-
-const filterDraws = (draws: any[], filter: string) => {
-    const filtered = draws.filter((draw) => {
-        const expired = isExpired(draw);
-
-        if (filter === 'all') return true;
-
-        if (filter === 'open') {
-            return (draw.status === 'open' || draw.is_betting_open === true) && !expired;
-        }
-
-        if (filter === 'scheduled') {
-            return draw.status === 'pending' && !expired;
-        }
-
-        if (filter === 'closed') {
-            return (
-                draw.status === 'closed' ||
-                draw.status === 'completed' ||
-                draw.status === 'cancelled' ||
-                (draw.status === 'open' && expired)
-            );
-        }
-
-        if (filter === 'closing_soon') {
-            return (draw.status === 'open' || draw.is_betting_open === true) && isClosingSoon(draw.betting_end_time);
-        }
-
-        if (filter === 'rewarded') {
-            return draw.status === 'rewarded' || draw.is_rewarded === true;
-        }
-
-        return true;
-    });
-
-    // Sort draws: Open first, then Pending, then by time
-    return filtered.sort((a, b) => {
-        const aOpen = a.status === 'open' || a.is_betting_open === true;
-        const bOpen = b.status === 'open' || b.is_betting_open === true;
-
-        if (aOpen && !bOpen) return -1;
-        if (!aOpen && bOpen) return 1;
-
-        const aPending = a.status === 'pending';
-        const bPending = b.status === 'pending';
-
-        if (aPending && !bPending) return -1;
-        if (!aPending && bPending) return 1;
-
-        // If same status, sort by end time
-        const aTime = a.betting_end_time ? new Date(a.betting_end_time).getTime() : Infinity;
-        const bTime = b.betting_end_time ? new Date(b.betting_end_time).getTime() : Infinity;
-
-        return aTime - bTime;
-    });
 };

@@ -30,7 +30,7 @@ export const useParlet = (fijosCorridosList: FijosCorridosBet[]) => {
 
   const {
     isParletDrawerVisible,
-    isAmountDrawerVisible,
+    isParletModalVisible,
   } = parletSession;
 
   const editParletBet = (betId: string) => dispatch({ type: 'PARLET', payload: { type: ParletMsgType.EDIT_PARLET_BET, betId } });
@@ -50,7 +50,7 @@ export const useParlet = (fijosCorridosList: FijosCorridosBet[]) => {
     showAmountKeyboard,
     showBetKeyboard,
     isParletDrawerVisible,
-    isAmountDrawerVisible,
+    isParletModalVisible,
     editParletBet,
     editAmountKeyboard,
     pressAddParlet,

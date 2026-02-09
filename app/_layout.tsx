@@ -13,7 +13,8 @@ import { useFrameworkReady } from '../hooks/use_framework_ready';
 import { useAuth } from '../features/auth/hooks/use_auth';
 import { useColorScheme } from 'react-native';
 import * as eva from '@eva-design/eva'; // Import eva
-import { ApplicationProvider, Button, Icon } from '@ui-kitten/components';
+import { ApplicationProvider, Button, Icon, IconRegistry } from '@ui-kitten/components';
+import { EvaIconsPack } from '@ui-kitten/eva-icons';
 import { BottomDrawerProvider } from '../components/ui/use_bottom_drawer';
 import { roleToScreenMap, routes } from '../config/routes';
 import { ArrowLeft } from "lucide-react-native";
@@ -58,6 +59,7 @@ export default function RootLayoutNav() {
 
   return (
     <SafeAreaProvider>
+      <IconRegistry icons={EvaIconsPack} />
       <ApplicationProvider {...eva} theme={eva[colorScheme]}>
         <BottomDrawerProvider>
           <RootLayout />

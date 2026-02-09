@@ -155,7 +155,11 @@ export default function DrawItem({
           type="paid"
         />
         <View style={styles.verticalDivider} />
-        
+        <SummaryCard
+          title="Ganancia"
+          amount={draw.netResult ?? 0}
+          type="net"
+        />
       </View>
 
       {/* Action Buttons */}

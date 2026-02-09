@@ -3,7 +3,6 @@ import { effectHandlers } from '@/shared/core/effect_handlers';
 import { Model } from './model';
 import { Msg } from './msg';
 import { update, init, subscriptions } from './update';
-import { SubDescriptor } from '@/shared/core/sub';
 
 export const useBetsStore = createElmStore<Model, Msg>(
     init,

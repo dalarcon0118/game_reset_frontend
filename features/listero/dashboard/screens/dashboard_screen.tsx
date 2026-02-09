@@ -2,6 +2,7 @@ import React from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { match } from 'ts-pattern';
+import { RemoteData } from '@/shared/core/remote.data';
 import { Label, Flex } from '@/shared/components';
 import { useDashboardStore } from '../core/store';
 import { 
@@ -74,6 +75,56 @@ export default function DashboardScreen() {
         </ScrollView>
     );
 
+    const renderNotAsked = () => null;
+
+    const renderLoading = () => {
+        console.log('DashboardScreen: Rendering Loading state', { 
+            draws: draws.type, 
+            summary: summary.type 
+        });
+        return (
+            <View style={styles.centerContainer}>
+                <ActivityIndicator size="large" color="#00C48C" />
+                <Label style={styles.loadingText}>Cargando sorteos...</Label>
+            </View>
+        );
+    };
+
+    const renderError = ({ error }: any) => (
+        <View style={styles.centerContainer}>
+            <Label style={styles.errorText}>Error al cargar sorteos</Label>
+            <Label type="detail">{error?.message || String(error)}</Label>
+            <TouchableOpacity 
+                style={styles.retryButton}
+                onPress={() => dispatch(REFRESH_CLICKED())}
+            >
+                <Label style={styles.retryText}>Reintentar</Label>
+            </TouchableOpacity>
+        </View>
+    );
+
+    const renderSuccess = () => (
+        <View>
+            {filteredDraws.length > 0 ? (
+                filteredDraws.map((draw, index) => (
+                    <DrawItem 
+                        key={draw.id} 
+                        draw={draw} 
+                        index={index}
+                        onRulePress={(id) => dispatch(RULES_CLICKED(id))}
+                        onRewardsPress={(id, title) => dispatch(REWARDS_CLICKED(id, title))}
+                        onBetsListPress={(id, title) => dispatch(BETS_LIST_CLICKED(id, title))}
+                        onCreateBetPress={(id, title) => dispatch(CREATE_BET_CLICKED(id, title))}
+                    />
+                ))
+            ) : (
+                <View style={styles.emptyContainer}>
+                    <Label style={styles.emptyText}>No hay sorteos para este filtro</Label>
+                </View>
+            )}
+        </View>
+    );
+
     return (
         <SafeAreaView style={styles.container}>
             <Header onRefresh={() => dispatch(REFRESH_CLICKED())} />
@@ -83,7 +134,7 @@ export default function DashboardScreen() {
                 stickyHeaderIndices={[1]}
                 refreshControl={
                     <RefreshControl
-                        refreshing={draws.type === 'Loading'}
+                        refreshing={RemoteData.isLoading(draws)}
                         onRefresh={() => dispatch(REFRESH_CLICKED())}
                         colors={['#00C48C']} // Android
                         tintColor="#00C48C" // iOS
@@ -91,7 +142,7 @@ export default function DashboardScreen() {
                 }
             >
                 {match(summary)
-                    .with({ type: 'Failure' }, ({ error }) => (
+                    .with(RemoteData.Failure.type(), ({ error }) => (
                         <View style={styles.errorBanner}>
                             <Label style={styles.errorText}>Error al cargar resumen: {error?.message || String(error)}</Label>
                         </View>
@@ -117,59 +168,16 @@ export default function DashboardScreen() {
                         <Label style={styles.sectionTitle}>Sorteos</Label>
                         <Label type="detail" style={styles.drawCount}>
                             {match(draws)
-                                .with({ type: 'Success' }, ({ data }) => `${data.length} disponibles`)
+                                .with(RemoteData.Success.type(), ({ data }) => `${data.length} disponibles`)
                                 .otherwise(() => 'Cargando...')}
                         </Label>
                     </Flex>
 
                     {match(draws)
-                        .with({ type: 'NotAsked' }, () => null)
-                        .with({ type: 'Loading' }, () => {
-                            console.log('DashboardScreen: Rendering Loading state', { 
-                                draws: draws.type, 
-                                summary: summary.type 
-                            });
-                            return (
-                                <View style={styles.centerContainer}>
-                                    <ActivityIndicator size="large" color="#00C48C" />
-                                    <Label style={styles.loadingText}>Cargando sorteos...</Label>
-                                </View>
-                            );
-                        })
-                        .with({ type: 'Failure' }, ({ error }) => (
-                            <View style={styles.centerContainer}>
-                                <Label style={styles.errorText}>Error al cargar sorteos</Label>
-                                <Label type="detail">{error?.message || String(error)}</Label>
-                                <TouchableOpacity 
-                                    style={styles.retryButton}
-                                    onPress={() => dispatch(REFRESH_CLICKED())}
-                                >
-                                    <Label style={styles.retryText}>Reintentar</Label>
-                                </TouchableOpacity>
-                            </View>
-                        ))
-                        .with({ type: 'Success' }, () => (
-                            <View>
-                                {filteredDraws.length > 0 ? (
-                                    filteredDraws.map((draw, index) => {
-                                       
-                                        return <DrawItem 
-                                            key={draw.id} 
-                                            draw={draw} 
-                                            index={index}
-                                            onRulePress={(id) => dispatch(RULES_CLICKED(id))}
-                                            onRewardsPress={(id, title) => dispatch(REWARDS_CLICKED(id, title))}
-                                            onBetsListPress={(id, title) => dispatch(BETS_LIST_CLICKED(id, title))}
-                                            onCreateBetPress={(id, title) => dispatch(CREATE_BET_CLICKED(id, title))}
-                                        />
-                                    })
-                                ) : (
-                                    <View style={styles.emptyContainer}>
-                                        <Label style={styles.emptyText}>No hay sorteos para este filtro</Label>
-                                    </View>
-                                )}
-                            </View>
-                        ))
+                        .with(RemoteData.NotAsked.type(), renderNotAsked)
+                        .with(RemoteData.Loading.type(), renderLoading)
+                        .with(RemoteData.Failure.type(), renderError)
+                        .with(RemoteData.Success.type(), renderSuccess)
                         .exhaustive()}
                 </View>
             </ScrollView>

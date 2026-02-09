@@ -6,6 +6,10 @@ import { match } from 'ts-pattern';
 import { ParletDomain } from './parlet.domain';
 import { ParletState } from './parlet.state';
 
+const getCombinationKey = (numbers: number[]): string => {
+    return [...numbers].sort((a, b) => a - b).join('-');
+};
+
 export function updateParlet(model: Model, msg: ParletMsg): Return<Model, ParletMsg> {
     return match<ParletMsg, Return<Model, ParletMsg>>(msg)
         .with({ type: ParletMsgType.CONFIRM_PARLET_BET }, () => {
@@ -17,8 +21,18 @@ export function updateParlet(model: Model, msg: ParletMsg): Return<Model, Parlet
             const newParlet = ParletDomain.create(model.parletSession.potentialParletNumbers);
             const updatedModel = ParletDomain.addToState(model, newParlet);
 
+            // Mark this combination as used
+            const combinationKey = getCombinationKey(model.parletSession.potentialParletNumbers);
+            const nextModel = {
+                ...updatedModel,
+                parletSession: {
+                    ...updatedModel.parletSession,
+                    usedFijosCombinations: [...updatedModel.parletSession.usedFijosCombinations, combinationKey]
+                }
+            };
+
             return Return.val(
-                ParletState.toAmountInput(updatedModel, newParlet.id),
+                ParletState.toAmountInput(nextModel, newParlet.id),
                 Cmd.none
             );
         })
@@ -183,6 +197,14 @@ export function updateParlet(model: Model, msg: ParletMsg): Return<Model, Parlet
             const numbers = fijosCorridosList.map(bet => bet.bet);
 
             if (numbers.length < 2) {
+                return Return.val(
+                    ParletState.toBetInput(model),
+                    Cmd.none
+                );
+            }
+
+            const combinationKey = getCombinationKey(numbers);
+            if (model.parletSession.usedFijosCombinations.includes(combinationKey)) {
                 return Return.val(
                     ParletState.toBetInput(model),
                     Cmd.none

@@ -18,6 +18,7 @@ export interface CreateBetDTO {
     fijosCorridos?: any[];
     parlets?: any[];
     loteria?: any[];
+    receiptCode?: string;
 }
 
 // Backend response interface matching BetSerializer
@@ -64,26 +65,49 @@ export class BetService {
         const isOnline = state.isConnected && state.isInternetReachable !== false;
         console.log('[BetService.create] Network state:', { isConnected: state.isConnected, isInternetReachable: state.isInternetReachable, isOnline });
 
-        if (!isOnline) {
-            console.log('[BetService.create] Offline mode detected. Saving bet locally...');
-            await OfflineStorage.savePendingBet(betData);
+        // Sanitize payload: Remove 0 amounts to prevent backend validation errors
+        // Backend expects null/undefined for "no bet", but 0 triggers "must be > 0" error.
+        const sanitizedData = { ...betData };
+        if (sanitizedData.fijosCorridos) {
+            sanitizedData.fijosCorridos = sanitizedData.fijosCorridos.map(item => {
+                const sanitizedItem: any = { ...item };
+                if (sanitizedItem.fijoAmount !== undefined && sanitizedItem.fijoAmount <= 0) {
+                    sanitizedItem.fijoAmount = undefined;
+                }
+                if (sanitizedItem.corridoAmount !== undefined && sanitizedItem.corridoAmount <= 0) {
+                    sanitizedItem.corridoAmount = undefined;
+                }
+                return sanitizedItem;
+            });
+        }
 
-            // Retornamos un objeto BetType ficticio con estado pendiente
-            return {
-                id: `offline-${Math.random().toString(36).substring(7)}`,
-                type: 'Fijo', // Valor por defecto para el placeholder
-                numbers: JSON.stringify(betData.numbers_played || []),
-                amount: betData.amount || 0,
-                draw: (betData.draw || betData.drawId || '').toString(),
-                createdAt: new Date().toLocaleTimeString(),
-                isPending: true // Nuevo campo opcional para la UI
-            };
+        // ALWAYS Save locally first (Optimistic/Offline-First)
+        console.log('[BetService.create] Saving to offline storage (Optimistic)...');
+        const offlineId = await OfflineStorage.savePendingBet(sanitizedData);
+
+        // Construct pending bet object for UI
+        const pendingBet: BetType = {
+            id: `offline-${offlineId}`,
+            type: 'Fijo', // Placeholder
+            numbers: JSON.stringify(sanitizedData.numbers_played || []),
+            amount: sanitizedData.amount || 0,
+            draw: (sanitizedData.draw || sanitizedData.drawId || '').toString(),
+            createdAt: new Date().toLocaleTimeString(),
+            isPending: true
+        };
+
+        if (!isOnline) {
+            console.log('[BetService.create] Offline mode. Returning pending bet.');
+            return pendingBet;
         }
 
         try {
             console.log('[BetService.create] Making API call to:', settings.api.endpoints.bets());
-            const response = await apiClient.post<BackendBet | BackendBet[]>(settings.api.endpoints.bets(), betData);
+            const response = await apiClient.post<BackendBet | BackendBet[]>(settings.api.endpoints.bets(), sanitizedData);
             console.log('[BetService.create] API response received:', JSON.stringify(response, null, 2));
+
+            // Success: Remove from offline storage
+            await OfflineStorage.removePendingBet(offlineId);
 
             if (Array.isArray(response)) {
                 if (response.length === 0) {
@@ -93,9 +117,23 @@ export class BetService {
             } else {
                 return BetService.mapBackendBetToFrontend(response);
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('[BetService.create] API call failed:', error);
-            throw error;
+
+            // Check if it's a client error (4xx) or server/network error
+            const status = error?.status || error?.response?.status;
+            const isClientError = status >= 400 && status < 500;
+
+            if (isClientError) {
+                // Invalid data - remove from offline storage and throw error
+                console.log('[BetService.create] Client error (Invalid Data). Removing from offline storage.');
+                await OfflineStorage.removePendingBet(offlineId);
+                throw error;
+            } else {
+                // Network/Server error - Keep in offline storage and return pending bet
+                console.log('[BetService.create] Network/Server error. Keeping bet in offline storage.');
+                return pendingBet;
+            }
         }
     }
 
@@ -105,6 +143,31 @@ export class BetService {
      * @returns Promise with array of BetType
      */
     static async list(filters?: { drawId?: string; limit?: number; offset?: number }): Promise<BetType[]> {
+        let onlineBets: BetType[] = [];
+        let offlineBets: BetType[] = [];
+
+        // 1. Fetch Pending Bets (Offline)
+        try {
+            const pendingBets = await OfflineStorage.getPendingBets();
+            const relevantPendingBets = filters?.drawId
+                ? pendingBets.filter(pb => (pb.draw || pb.drawId)?.toString() === filters.drawId)
+                : pendingBets;
+
+            offlineBets = relevantPendingBets.map(pb => ({
+                id: `offline-${pb.offlineId}`,
+                type: 'Fijo', // Simplified placeholder, logic in transformer will handle specifics if structure matches
+                numbers: JSON.stringify(pb.numbers_played || []),
+                amount: pb.amount || 0,
+                draw: (pb.draw || pb.drawId || '').toString(),
+                createdAt: new Date(pb.timestamp).toLocaleTimeString(),
+                isPending: true
+            }));
+            console.log(`[BetService.list] Found ${offlineBets.length} pending bets locally.`);
+        } catch (e) {
+            console.warn('[BetService.list] Error fetching offline bets:', e);
+        }
+
+        // 2. Fetch Server Bets
         try {
             const params = new URLSearchParams();
             if (filters?.drawId) {
@@ -121,18 +184,19 @@ export class BetService {
             console.info(`[BetService -> list] ${endpoint}`)
             const response = await apiClient.get<BackendBet[]>(endpoint);
             console.log('Raw response from bets API:', JSON.stringify(response));
-            
+
             // NOTE: ApiClient already extracts .results if it detects a paginated response
             if (!Array.isArray(response)) {
                 console.warn('Unexpected response format from bets API:', response);
-                return [];
+            } else {
+                onlineBets = response.map(bet => BetService.mapBackendBetToFrontend(bet));
             }
-
-            return response.map(bet => BetService.mapBackendBetToFrontend(bet));
         } catch (error) {
             console.error('Error fetching bets:', error);
-            return [];
+            // Continue to return offline bets if server fails
         }
+
+        return [...offlineBets, ...onlineBets];
     }
 
     // Map backend bet to frontend BetType
@@ -140,7 +204,7 @@ export class BetService {
         try {
             console.log('Mapping backend bet:', backendBet);
             return {
-                id: backendBet.id?.toString() || '',
+                id: (backendBet.id || backendBet.receipt_code || Math.random().toString(36).substring(7)).toString(),
                 type: (backendBet.game_type_details?.name || backendBet.bet_type_details?.name || 'Unknown') as 'Fijo' | 'Parlet' | 'Corrido',
                 numbers: JSON.stringify(backendBet.numbers_played),
                 amount: backendBet.amount ? parseFloat(backendBet.amount) : 0,

@@ -10,11 +10,12 @@ import { BetNumericKeyboard, AmountNumericKeyboard } from '../../../shared/compo
 
 interface FijosCorridosColumnProps {
     editable?: boolean;
+    data?: FijosCorridosBet[];
 }
 
-export default function FijosCorridosColumn({ editable = false }: FijosCorridosColumnProps) {
+export default function FijosCorridosColumn({ editable = false, data }: FijosCorridosColumnProps) {
     const {
-        fijosCorridosList,
+        fijosCorridosList: hookList,
         showBetKeyboard,
         showAmountKeyboard,
         editingAmountType,
@@ -26,6 +27,8 @@ export default function FijosCorridosColumn({ editable = false }: FijosCorridosC
         handleKeyPress,
         handleConfirmInput,
     } = useFijos();
+
+    const fijosCorridosList = data || hookList;
 
     console.log('FijosCorridosColumn rendering body... list length:', fijosCorridosList?.length);
 

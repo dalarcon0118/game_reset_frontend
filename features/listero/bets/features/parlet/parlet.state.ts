@@ -131,7 +131,7 @@ export const ParletState = {
         ...model,
         editSession: {
             ...model.editSession,
-            showBetKeyboard: true,
+            showBetKeyboard: false,
             editingAmountType: PARLET_EDITING_TYPE,
             currentInput: '',
         },
@@ -142,7 +142,7 @@ export const ParletState = {
             parletAlertVisibleState: true,
         },
     }),
-    
+
     /**
      * Sets the active parlet bet ID.
      */

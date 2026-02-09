@@ -1,5 +1,6 @@
 import { WebData } from '@/shared/core/remote.data';
 import { FinancialSummary, DrawType } from '@/types';
+import { PendingBet } from '@/shared/services/offline_storage';
 import { StatusFilter } from './core.types';
 
 export interface FinancialUpdate {
@@ -19,6 +20,7 @@ export type Msg =
     | { type: 'FETCH_DATA_REQUESTED'; structureId?: string }
     | { type: 'DRAWS_RECEIVED'; webData: WebData<DrawType[]> }
     | { type: 'SUMMARY_RECEIVED'; webData: WebData<FinancialSummary> }
+    | { type: 'PENDING_BETS_LOADED'; bets: PendingBet[] }
     | { type: 'REFRESH_CLICKED' }
     | { type: 'SET_USER_STRUCTURE'; id: string }
     | { type: 'STATUS_FILTER_CHANGED'; filter: StatusFilter }
@@ -59,3 +61,11 @@ export const NOTIFICATIONS_CLICKED = (): Msg => ({ type: 'NOTIFICATIONS_CLICKED'
 export const SETTINGS_CLICKED = (): Msg => ({ type: 'SETTINGS_CLICKED' });
 export const TOGGLE_BALANCE = (): Msg => ({ type: 'TOGGLE_BALANCE' });
 export const NONE = (): Msg => ({ type: 'NONE' });
+
+export const DRAWS_RECEIVED = (webData: WebData<DrawType[]>): Msg => ({ type: 'DRAWS_RECEIVED', webData });
+export const SUMMARY_RECEIVED = (webData: WebData<FinancialSummary>): Msg => ({ type: 'SUMMARY_RECEIVED', webData });
+export const PENDING_BETS_LOADED = (bets: PendingBet[]): Msg => ({ type: 'PENDING_BETS_LOADED', bets });
+export const NAVIGATE_TO_ERROR = (): Msg => ({ type: 'NAVIGATE_TO_ERROR' });
+export const FINANCIAL_UPDATE_RECEIVED = (update: FinancialUpdate): Msg => ({ type: 'FINANCIAL_UPDATE_RECEIVED', update });
+export const SSE_CONNECTED = (): Msg => ({ type: 'SSE_CONNECTED' });
+export const SSE_ERROR = (error: string): Msg => ({ type: 'SSE_ERROR', error });

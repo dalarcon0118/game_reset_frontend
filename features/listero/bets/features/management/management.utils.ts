@@ -30,6 +30,16 @@ export const ListActions = {
                 loteria: []
             }
         }
+    }),
+    refreshBets: (drawId: string) => ({
+        type: 'MSG' as const,
+        payload: {
+            type: 'LIST' as const,
+            payload: {
+                type: ListMsgType.REFRESH_BETS_REQUESTED,
+                drawId
+            }
+        }
     })
 };
 
@@ -70,4 +80,16 @@ export const selectListData = (model: GlobalModel) => {
     return model.listSession.remoteData.type === 'Success'
         ? model.listSession.remoteData.data
         : { fijosCorridos: [], parlets: [], centenas: [], loteria: [] };
+};
+
+/**
+ * Generates a 5-character alphanumeric receipt code (e.g. "A7X9B").
+ */
+export const generateReceiptCode = (): string => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < 5; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
 };

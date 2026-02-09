@@ -28,9 +28,16 @@ export class OfflineStorage {
       if (!stored) return null;
       const parsed = JSON.parse(stored);
 
-      // We could check if data is too old (e.g. > 24h)
-      const isTooOld = Date.now() - parsed.timestamp > 24 * 60 * 60 * 1000;
-      if (isTooOld) {
+      // Strict Daily Reset: Data is only valid for the current calendar day
+      const savedDate = new Date(parsed.timestamp);
+      const currentDate = new Date();
+
+      const isSameDay = savedDate.getDate() === currentDate.getDate() &&
+        savedDate.getMonth() === currentDate.getMonth() &&
+        savedDate.getFullYear() === currentDate.getFullYear();
+
+      if (!isSameDay) {
+        console.log('OfflineStorage: Draws cache expired (new day). Clearing.');
         await AsyncStorage.removeItem(LAST_DRAWS_KEY);
         return null;
       }
@@ -59,9 +66,16 @@ export class OfflineStorage {
       if (!stored) return null;
       const parsed = JSON.parse(stored);
 
-      // We could check if data is too old (e.g. > 24h)
-      const isTooOld = Date.now() - parsed.timestamp > 24 * 60 * 60 * 1000;
-      if (isTooOld) {
+      // Strict Daily Reset: Summary is only valid for the current calendar day
+      const savedDate = new Date(parsed.timestamp);
+      const currentDate = new Date();
+
+      const isSameDay = savedDate.getDate() === currentDate.getDate() &&
+        savedDate.getMonth() === currentDate.getMonth() &&
+        savedDate.getFullYear() === currentDate.getFullYear();
+
+      if (!isSameDay) {
+        console.log('OfflineStorage: Summary cache expired (new day). Clearing.');
         await AsyncStorage.removeItem(LAST_SUMMARY_KEY);
         return null;
       }
@@ -73,18 +87,20 @@ export class OfflineStorage {
     }
   }
 
-  static async savePendingBet(betData: CreateBetDTO): Promise<void> {
+  static async savePendingBet(betData: CreateBetDTO): Promise<string> {
     try {
       const pendingBets = await this.getPendingBets();
+      const offlineId = Math.random().toString(36).substring(7);
       const newPendingBet: PendingBet = {
         ...betData,
-        offlineId: Math.random().toString(36).substring(7),
+        offlineId,
         timestamp: Date.now(),
       };
 
       pendingBets.push(newPendingBet);
       await AsyncStorage.setItem(PENDING_BETS_KEY, JSON.stringify(pendingBets));
-      console.log('Bet saved offline successfully');
+      console.log('Bet saved offline successfully with ID:', offlineId);
+      return offlineId;
     } catch (error) {
       console.error('Error saving bet offline:', error);
       throw error;
@@ -108,6 +124,26 @@ export class OfflineStorage {
       await AsyncStorage.setItem(PENDING_BETS_KEY, JSON.stringify(filteredBets));
     } catch (error) {
       console.error('Error removing pending bet:', error);
+    }
+  }
+
+  /**
+   * Prunes pending bets that are older than 48 hours to prevent storage clutter.
+   */
+  static async pruneStalePendingBets(maxAgeMs: number = 48 * 60 * 60 * 1000): Promise<void> {
+    try {
+      const pendingBets = await this.getPendingBets();
+      if (pendingBets.length === 0) return;
+
+      const now = Date.now();
+      const validBets = pendingBets.filter(bet => (now - bet.timestamp) <= maxAgeMs);
+
+      if (validBets.length < pendingBets.length) {
+        console.log(`OfflineStorage: Pruning ${pendingBets.length - validBets.length} stale pending bets.`);
+        await AsyncStorage.setItem(PENDING_BETS_KEY, JSON.stringify(validBets));
+      }
+    } catch (error) {
+      console.error('Error pruning stale pending bets:', error);
     }
   }
 

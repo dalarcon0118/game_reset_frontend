@@ -66,5 +66,13 @@ export const listerRoutes = {
         freezeOnBlur: true,
       },
     },
+    success: {
+      screen: '/lister/bet_success',
+      options: {
+        headerShown: false,
+        presentation: 'modal',
+        headerTitle: 'Voucher',
+      },
+    },
   },
 };

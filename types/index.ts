@@ -84,6 +84,7 @@ export interface FijosCorridosBet {
   bet: number;
   fijoAmount: number | null; // Allow null for empty state
   corridoAmount: number | null; // Allow null for empty state
+  receiptCode?: string;
 }
 
 
@@ -91,12 +92,14 @@ export interface ParletBet {
   id: string;
   bets: number[];
   amount?: number | null;
+  receiptCode?: string;
 }
 
 export interface CentenaBet {
   id: string;
   bet: number;
   amount: number;
+  receiptCode?: string;
 }
 
 export interface LoteriaBet {

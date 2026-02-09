@@ -38,6 +38,8 @@ interface BackendDraw {
     code: string;
   };
   total_collected: number;
+  premiums_paid: number;
+  net_result: number;
   name: string;  // Nombre del sorteo (Miami, Florida, etc.)
   description: string | null;  // Descripción del sorteo
   draw_datetime: string;
@@ -145,119 +147,86 @@ export class DrawService {
     }
   }
 
-  /**
-   * Get all draws from backend
-   * @param filters - Optional filters (structureId, limit, offset, etc.)
-   * @returns Promise with array of ExtendedDrawType (filtered by current date on backend)
-   */
-  static list(filtersOrStructureId?: number | { structureId?: number; limit?: number; offset?: number }): Promise<AsyncResult<ExtendedDrawType[]>> {
-    const promise = (async () => {
-      // Build query params
-      const params = new URLSearchParams();
-      params.append('today', 'true');
+  static async list(params: Record<string, any> = {}): Promise<ExtendedDrawType[]> {
+    const queryParams = { ...params };
 
-      let structureId: number | undefined;
-      let limit: number | undefined;
-      let offset: number | undefined;
+    // Map frontend next24h to backend next_24h
+    if (queryParams.next24h) {
+      queryParams.next_24h = queryParams.next24h;
+      delete queryParams.next24h;
+    }
 
-      if (typeof filtersOrStructureId === 'number') {
-        structureId = filtersOrStructureId;
-      } else if (filtersOrStructureId) {
-        structureId = filtersOrStructureId.structureId;
-        limit = filtersOrStructureId.limit;
-        offset = filtersOrStructureId.offset;
+    // Construct query string manually as apiClient.get doesn't handle params
+    const queryString = new URLSearchParams(queryParams).toString();
+    const endpoint = queryString
+      ? `${settings.api.endpoints.draws()}?${queryString}`
+      : settings.api.endpoints.draws();
+
+    let response: BackendDraw[] = [];
+
+    try {
+      // Intenta obtener del backend
+      console.log(`[DrawService] Fetching draws from: ${endpoint}`);
+      response = await apiClient.get<BackendDraw[]>(endpoint);
+      console.log(`[DrawService] Successfully fetched ${response.length} draws`);
+
+      // Si tenemos respuesta exitosa, actualizamos el caché local
+      if (response && Array.isArray(response)) {
+        await OfflineStorage.saveLastDraws(response);
       }
+    } catch (error: any) {
+      console.warn('[DrawService] Network error or rate limit, falling back to offline cache', error);
 
-      if (limit) {
-        params.append('limit', limit.toString());
+      // En caso de CUALQUIER error (no solo 429), intentamos usar el caché
+      const cachedDraws = await OfflineStorage.getLastDraws();
+      if (cachedDraws && Array.isArray(cachedDraws)) {
+        console.log('[DrawService] Successfully loaded offline cache');
+        response = cachedDraws;
+      } else {
+        // Si no hay caché y falló la red, lanzamos el error original
+        throw error;
       }
-      if (offset) {
-        params.append('offset', offset.toString());
-      }
+    }
 
-      const endpoint = `${settings.api.endpoints.draws()}?${params.toString()}`;
+    // Map backend response to frontend ExtendedDrawType with all fields
+    return response.map(backendDraw => ({
+      // Backend fields
+      id: backendDraw.id.toString(),
+      name: backendDraw.name,
+      description: backendDraw.description,
+      draw_datetime: backendDraw.draw_datetime,
+      betting_start_time: backendDraw.betting_start_time,
+      betting_end_time: backendDraw.betting_end_time,
+      totalCollected: backendDraw.total_collected,
+      premiumsPaid: Number(backendDraw.premiums_paid) || 0,
+      netResult: Number(backendDraw.net_result) || 0,
 
-      // Build headers with owner_structure if provided
-      const headers: Record<string, string> = {};
-      if (structureId) {
-        headers['X-Owner-Structure'] = structureId.toString();
-      }
+      status: DrawService.mapStatus(
+        backendDraw.status,
+        backendDraw.betting_start_time,
+        backendDraw.betting_end_time,
+        backendDraw.is_betting_open
+      ),
+      draw_type: backendDraw.draw_type,
+      owner_structure: backendDraw.owner_structure,
+      winning_numbers: backendDraw.winning_numbers,
+      created_at: backendDraw.created_at,
+      updated_at: backendDraw.updated_at,
+      extra_data: backendDraw.extra_data,
 
-      let response: any;
-      try {
-        response = await apiClient.get<BackendDraw[]>(endpoint, { headers });
-        console.log('DrawService.list: Successfully fetched draws from backend');
-        console.log(response);
-      } catch (error: any) {
-        // If rate limited (429), try to get from offline storage
-        if (error?.status === 429 || error?.message?.includes('throttled')) {
-          console.warn('DrawService.list: Rate limited, attempting to load from offline storage');
-          const offlineDraws = await OfflineStorage.getLastDraws();
-          if (offlineDraws) {
-            console.log('DrawService.list: Successfully loaded draws from offline storage');
-            response = offlineDraws;
-          } else {
-            throw error;
-          }
-        } else {
-          throw error;
-        }
-      }
+      // Hierarchical closure fields
+      hierarchical_closure_status: backendDraw.hierarchical_closure_status,
+      closure_confirmations_count: backendDraw.closure_confirmations_count,
+      is_betting_open: backendDraw.is_betting_open,
 
-      // Save to offline storage for future use if rate limited
-      if (Array.isArray(response) && response.length > 0) {
-
-        OfflineStorage.saveLastDraws(response);
-      }
-
-      // NOTE: ApiClient already extracts .results if it detects a paginated response
-      if (!Array.isArray(response)) {
-        console.warn('Unexpected response format from draws API:', response);
-        return [];
-      }
-
-      // Map backend response to frontend ExtendedDrawType with all fields
-      return response.map(backendDraw => ({
-        // Backend fields
-        id: backendDraw.id.toString(),
-        name: backendDraw.name,
-        description: backendDraw.description,
-        draw_datetime: backendDraw.draw_datetime,
-        betting_start_time: backendDraw.betting_start_time,
-        betting_end_time: backendDraw.betting_end_time,
-        totalCollected: backendDraw.total_collected,
-        premiumsPaid: 0, // Will be enriched from summary
-        netResult: backendDraw.total_collected, // Will be enriched from summary
-
-        status: DrawService.mapStatus(
-          backendDraw.status,
-          backendDraw.betting_start_time,
-          backendDraw.betting_end_time,
-          backendDraw.is_betting_open
-        ),
-        draw_type: backendDraw.draw_type,
-        owner_structure: backendDraw.owner_structure,
-        winning_numbers: backendDraw.winning_numbers,
-        created_at: backendDraw.created_at,
-        updated_at: backendDraw.updated_at,
-        extra_data: backendDraw.extra_data,
-
-        // Hierarchical closure fields
-        hierarchical_closure_status: backendDraw.hierarchical_closure_status,
-        closure_confirmations_count: backendDraw.closure_confirmations_count,
-        is_betting_open: backendDraw.is_betting_open,
-
-        // Computed UI fields for compatibility
-        source: backendDraw.name,
-        date: new Date(backendDraw.draw_datetime).toLocaleDateString('es-ES'),
-        time: new Date(backendDraw.draw_datetime).toLocaleTimeString('es-ES', {
-          hour: '2-digit',
-          minute: '2-digit'
-        })
-      }));
-    })();
-
-    return to(promise);
+      // Computed UI fields for compatibility
+      source: backendDraw.name,
+      date: new Date(backendDraw.draw_datetime).toLocaleDateString('es-ES'),
+      time: new Date(backendDraw.draw_datetime).toLocaleTimeString('es-ES', {
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    }));
   }
 
   // Map backend status to frontend status
@@ -266,7 +235,7 @@ export class DrawService {
     bettingStart: string | null,
     bettingEnd: string | null,
     isBettingOpen?: boolean
-  ): 'open' | 'pending' | 'closed' {
+  ): 'open' | 'pending' | 'closed' | 'scheduled' {
     if (backendStatus === 'completed' || backendStatus === 'cancelled') {
       return 'closed';
     }
@@ -284,13 +253,13 @@ export class DrawService {
       if (now >= start && now <= end) {
         return 'open';
       } else if (now < start) {
-        return 'pending';
+        return 'scheduled';
       } else {
         return 'closed';
       }
     }
 
-    return backendStatus === 'scheduled' ? 'pending' : 'closed';
+    return backendStatus === 'scheduled' ? 'scheduled' : 'closed';
   }
 
   // Filter draws based on criteria
@@ -319,7 +288,7 @@ export class DrawService {
           // Map 'active'/'inactive' to draw statuses
           if (criteria.status === 'active') {
             filteredDraws = filteredDraws.filter(draw =>
-              draw.status === 'open' || draw.status === 'pending'
+              draw.status === 'open' || draw.status === 'pending' || draw.status === 'scheduled'
             );
           } else {
             filteredDraws = filteredDraws.filter(draw =>

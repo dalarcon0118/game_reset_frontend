@@ -10,20 +10,10 @@ import { initialManagementState } from '../features/management/management.types'
 import { SuccessState } from '../features/success/success.types';
 import { createRewardsCache, createRulesCache } from '../features/rewards-rules/rewards.types';
 import { RemoteData } from '@/shared/core/remote.data';
+import { initialSummary } from './summary.utils';
 
 export const initialSuccessState: SuccessState = {
     sharingStatus: RemoteData.notAsked(),
-};
-
-export const initialSummary = {
-    loteriaTotal: 0,
-    fijosCorridosTotal: 0,
-    parletsTotal: 0,
-    centenasTotal: 0,
-    grandTotal: 0,
-    hasBets: false,
-    isSaving: false,
-    count: 0,
 };
 
 export const initialModel: Model = {

@@ -49,17 +49,15 @@ export class FinancialSummaryService {
           OfflineStorage.saveLastSummary(response);
         }
       } catch (error: any) {
-        // Fallback to cache if rate limited
-        if (error?.status === 429 || error?.message?.includes('throttled')) {
-          console.warn('FinancialSummaryService.get: Rate limited, attempting to load from offline storage');
-          const cached = await OfflineStorage.getLastSummary();
-          if (cached) {
-            console.log('FinancialSummaryService.get: Successfully loaded summary from offline storage');
-            response = cached;
-          } else {
-            throw error;
-          }
+        console.warn('FinancialSummaryService.get: Network error or rate limit, falling back to offline cache', error);
+        
+        // Attempt to load from offline storage for ANY error
+        const cached = await OfflineStorage.getLastSummary();
+        if (cached) {
+          console.log('FinancialSummaryService.get: Successfully loaded summary from offline storage');
+          response = cached;
         } else {
+          // If no cache and network failed, rethrow
           throw error;
         }
       }

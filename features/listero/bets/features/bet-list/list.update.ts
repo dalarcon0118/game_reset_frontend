@@ -8,7 +8,7 @@ import { RemoteData } from '@/shared/core/remote.data';
 import { BetService } from '@/shared/services/bet';
 
 const transformBetTypeToFijosCorridos = (bets: BetType[]): any[] => {
-    const fijosCorridosMap = new Map<number, any>();
+    const fijosCorridosMap = new Map<string, any>();
 
     bets.forEach((bet) => {
         try {
@@ -41,7 +41,8 @@ const transformBetTypeToFijosCorridos = (bets: BetType[]): any[] => {
                 const number = extractSingleNumber(parsedNumbers);
 
                 if (number !== null && !isNaN(number)) {
-                    const existing = fijosCorridosMap.get(number);
+                    const key = `${number}-${bet.receiptCode || ''}`;
+                    const existing = fijosCorridosMap.get(key);
                     if (existing) {
                         if (bet.type === 'Fijo') {
                             existing.fijoAmount = bet.amount;
@@ -49,11 +50,12 @@ const transformBetTypeToFijosCorridos = (bets: BetType[]): any[] => {
                             existing.corridoAmount = bet.amount;
                         }
                     } else {
-                        fijosCorridosMap.set(number, {
+                        fijosCorridosMap.set(key, {
                             id: bet.id,
                             bet: number,
                             fijoAmount: bet.type === 'Fijo' ? bet.amount : null,
                             corridoAmount: bet.type === 'Corrido' ? bet.amount : null,
+                            receiptCode: bet.receiptCode,
                         });
                     }
                 }
@@ -63,7 +65,12 @@ const transformBetTypeToFijosCorridos = (bets: BetType[]): any[] => {
         }
     });
 
-    return Array.from(fijosCorridosMap.values()).sort((a, b) => a.bet - b.bet);
+    return Array.from(fijosCorridosMap.values()).sort((a, b) => {
+        if (a.receiptCode !== b.receiptCode) {
+            return (a.receiptCode || '').localeCompare(b.receiptCode || '');
+        }
+        return a.bet - b.bet;
+    });
 };
 
 const transformBetTypeToParlets = (bets: BetType[]): any[] => {
@@ -101,6 +108,7 @@ const transformBetTypeToParlets = (bets: BetType[]): any[] => {
                     id: bet.id,
                     bets: numbers,
                     amount: bet.amount,
+                    receiptCode: bet.receiptCode,
                 };
             } catch (e) {
                 console.warn('Error parsing parlet bet:', bet.numbers, e);
@@ -155,6 +163,7 @@ const transformBetTypeToCentenas = (bets: BetType[]): any[] => {
                         id: bet.id,
                         bet: number,
                         amount: bet.amount,
+                        receiptCode: bet.receiptCode,
                     };
                 }
             } catch (e) {

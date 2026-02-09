@@ -1,14 +1,14 @@
 import { match } from 'ts-pattern';
 import { Model as GlobalModel } from '@/features/listero/bets/core/model';
 import { ManagementMsgType, ManagementMsg } from '@/features/listero/bets/features/management/management.types';
-import { identifyBetTypes, selectListData, ListActions } from '@/features/listero/bets/features/management/management.utils';
+import { identifyBetTypes, selectListData, ListActions, generateReceiptCode } from '@/features/listero/bets/features/management/management.utils';
 import { Cmd } from '@/shared/core/cmd';
 import { Return, ret, singleton } from '@/shared/core/return';
 import { RemoteData, WebData } from '@/shared/core/remote.data';
 import { RemoteDataHttp } from '@/shared/core/remote.data.http';
 import { BetService } from '@/shared/services/bet';
 import { DrawService } from '@/shared/services/draw';
-import { GameType } from '@/types';
+import { GameType, BetType } from '@/types';
 import { buildCommandsForMode, validateViewMode, ViewMode } from '@/features/listero/bets/features/management/data-fetching.strategies';
 
 // --- Sub-handlers for better modularity ---
@@ -27,7 +27,7 @@ const handleInit = (model: GlobalModel, drawId: string, fetchExistingBets: boole
     return ret<GlobalModel, ManagementMsg>(
         {
             ...model,
-            drawId,
+            currentDrawId: drawId,
             managementSession: {
                 ...model.managementSession,
                 saveStatus: RemoteData.notAsked(),
@@ -45,14 +45,18 @@ const handleSaveResponse = (model: GlobalModel, response: WebData<any>): Return<
         {
             notAsked: () => singleton(model),
             loading: () => singleton({ ...model, managementSession: { ...model.managementSession, saveStatus: RemoteData.loading() } }),
-            failure: (error) => singleton({
+            failure: (error) => ret({
                 ...model,
                 managementSession: {
                     ...model.managementSession,
                     saveStatus: RemoteData.failure(error),
                     saveSuccess: false
                 }
-            }),
+            }, Cmd.alert({
+                title: 'Error al Guardar',
+                message: typeof error === 'string' ? error : 'No se pudieron guardar las apuestas. Por favor intente nuevamente.',
+                buttons: [{ text: 'OK', style: 'cancel' }]
+            })),
             success: (data) => ret(
                 {
                     ...model,
@@ -62,7 +66,13 @@ const handleSaveResponse = (model: GlobalModel, response: WebData<any>): Return<
                         saveSuccess: true
                     }
                 },
-                { type: ManagementMsgType.SHOW_SAVE_CONFIRMATION, drawId: model.drawId } as any
+                Cmd.batch([
+                    ListActions.refreshBets(model.currentDrawId || ''),
+                    Cmd.navigate({
+                        pathname: '/lister/bet_success',
+                        params: { drawId: model.currentDrawId || '' }
+                    })
+                ])
             )
         },
         response
@@ -86,21 +96,16 @@ export const updateManagement = (model: GlobalModel, msg: ManagementMsg): Return
             )))
 
         .with({ type: ManagementMsgType.FETCH_BET_TYPES_RESPONSE }, ({ response }) =>
-            RemoteData.fold(
-                {
-                    notAsked: () => singleton(model),
-                    loading: () => singleton(model),
-                    failure: (error) => singleton({
-                        ...model,
-                        managementSession: { ...model.managementSession, saveStatus: RemoteData.failure(error) }
-                    } as GlobalModel),
-                    success: (betTypes) => singleton({
-                        ...model,
-                        managementSession: { ...model.managementSession, betTypes: identifyBetTypes(betTypes) },
-                    } as GlobalModel)
-                },
-                response
-            ))
+            match(response)
+                .with({ type: 'Success' }, ({ data }) => singleton({
+                    ...model,
+                    managementSession: { ...model.managementSession, betTypes: identifyBetTypes(data) },
+                }))
+                .with({ type: 'Failure' }, ({ error }) => singleton({
+                    ...model,
+                    managementSession: { ...model.managementSession, saveStatus: RemoteData.failure(error) as WebData<BetType | BetType[]> }
+                }))
+                .otherwise(() => singleton(model)))
 
         .with({ type: ManagementMsgType.FETCH_DRAW_DETAILS_RESPONSE }, ({ response }) =>
             RemoteData.fold(
@@ -111,13 +116,18 @@ export const updateManagement = (model: GlobalModel, msg: ManagementMsg): Return
                     success: () => singleton({
                         ...model,
                         managementSession: { ...model.managementSession, drawDetails: response }
-                    } as GlobalModel)
+                    })
                 },
                 response
             ))
 
-        .with({ type: ManagementMsgType.SAVE_BETS_REQUESTED }, ({ drawId }) =>
-            ret(
+        .with({ type: ManagementMsgType.SAVE_BETS_REQUESTED }, ({ drawId }) => {
+            // Guard: Prevent double submission if already loading
+            if (model.managementSession.saveStatus.type === 'Loading') {
+                return singleton(model);
+            }
+
+            return ret(
                 {
                     ...model,
                     managementSession: {
@@ -127,12 +137,14 @@ export const updateManagement = (model: GlobalModel, msg: ManagementMsg): Return
                 },
                 RemoteDataHttp.fetch(
                     async () => {
-                        const result = await BetService.create({ drawId, ...selectListData(model) });
+                        const receiptCode = generateReceiptCode();
+                        const result = await BetService.create({ drawId, ...selectListData(model), receiptCode });
                         return result as any;
                     },
                     (response: WebData<any>) => ({ type: ManagementMsgType.SAVE_BETS_RESPONSE, response })
                 )
-            ))
+            );
+        })
 
         .with({ type: ManagementMsgType.SAVE_BETS_RESPONSE }, ({ response }) =>
             handleSaveResponse(model, response))
@@ -154,12 +166,12 @@ export const updateManagement = (model: GlobalModel, msg: ManagementMsg): Return
                 ...model.listSession,
                 remoteData: RemoteData.success({ fijosCorridos: [], parlets: [], centenas: [], loteria: [] })
             }
-        } as GlobalModel))
+        }))
 
         .with({ type: ManagementMsgType.CLEAR_MANAGEMENT_ERROR }, () => singleton({
             ...model,
             managementSession: { ...model.managementSession, saveStatus: RemoteData.notAsked() },
-        } as GlobalModel))
+        }))
 
         .with({ type: ManagementMsgType.NAVIGATE_REQUESTED }, ({ onConfirm }) =>
             ret(model, Cmd.alert({

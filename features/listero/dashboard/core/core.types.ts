@@ -10,7 +10,7 @@ export interface DailyTotals {
     amountToRemit: number;
 }
 
-export const isClosingSoon = (bettingEndTime?: string) => {
+export const isClosingSoon = (bettingEndTime?: string | null) => {
     if (!bettingEndTime) return false;
     const now = new Date();
     const endTime = new Date(bettingEndTime);
@@ -19,9 +19,15 @@ export const isClosingSoon = (bettingEndTime?: string) => {
 };
 
 export const isExpired = (draw: DrawType) => {
-    // If backend says it's open, it's not expired, regardless of time
-    if (draw.is_betting_open === true) return false;
+    // 1. Prioritize official server status
+    if (draw.status === 'closed' || draw.status === 'completed') return true;
+    if (draw.status === 'open') return false;
 
+    // 2. Fallback to is_betting_open flag
+    if (draw.is_betting_open === true) return false;
+    if (draw.is_betting_open === false) return true;
+
+    // 3. Last resort: time-based check
     if (!draw.betting_end_time) return false;
     const now = new Date();
     const endTime = new Date(draw.betting_end_time);

@@ -41,3 +41,25 @@ export type ParletMsg =
     | { type: ParletMsgType.CLOSE_BET_KEYBOARD };
 
 export type ParletFeatMsg = { type: 'PARLET'; payload: ParletMsg };
+
+export interface Model {
+    potentialParletNumbers: number[];
+    fromFijosyCorridoBet: boolean;
+    parletAlertVisibleState: boolean;
+    activeParletBetId: string | null;
+    isParletDrawerVisible: boolean;
+    isParletModalVisible: boolean;
+    canceledFromFijosyCorridoBet?: boolean;
+    usedFijosCombinations: string[];
+}
+
+export const initialParletState: Model = {
+    potentialParletNumbers: [],
+    fromFijosyCorridoBet: false,
+    parletAlertVisibleState: false,
+    activeParletBetId: null,
+    isParletDrawerVisible: false,
+    isParletModalVisible: false,
+    canceledFromFijosyCorridoBet: false,
+    usedFijosCombinations: [],
+};
