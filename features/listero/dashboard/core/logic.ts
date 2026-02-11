@@ -1,6 +1,6 @@
-import { FinancialSummary, DrawType } from '@/types';
+import { FinancialSummary, DrawType, DRAW_STATUS } from '@/types';
 import { PendingBet } from '@/shared/services/offline_storage';
-import { DailyTotals, isExpired, isClosingSoon, StatusFilter } from './core.types';
+import { DailyTotals, isExpired, isClosingSoon, StatusFilter, DRAW_FILTER } from './core.types';
 import { Model } from './model';
 import { RemoteData, WebData } from '@/shared/core/remote.data';
 
@@ -111,28 +111,28 @@ export const filterDraws = (draws: DrawType[], filter: StatusFilter): DrawType[]
         const expired = isExpired(draw);
         let passes = false;
 
-        if (filter === 'all') passes = true;
+        if (filter === DRAW_FILTER.ALL) passes = true;
 
-        else if (filter === 'scheduled') {
-            passes = (draw.status === 'scheduled' || draw.status === 'pending') && !expired;
+        else if (filter === DRAW_FILTER.SCHEDULED) {
+            passes = (draw.status === DRAW_STATUS.SCHEDULED || draw.status === DRAW_STATUS.PENDING) && !expired;
         }
 
-        else if (filter === 'open') {
-            passes = draw.status === 'open' && !expired;
+        else if (filter === DRAW_FILTER.OPEN) {
+            passes = draw.status === DRAW_STATUS.OPEN && !expired;
         }
 
-        else if (filter === 'closed') {
-            passes = (draw.status === 'closed' || expired) && !draw.winning_numbers;
+        else if (filter === DRAW_FILTER.CLOSED) {
+            passes = (draw.status === DRAW_STATUS.CLOSED || expired) && !draw.winning_numbers;
         }
 
-        else if (filter === 'closing_soon') {
-            passes = (draw.status === 'open' || draw.is_betting_open === true) && isClosingSoon(draw.betting_end_time);
+        else if (filter === DRAW_FILTER.CLOSING_SOON) {
+            passes = (draw.status === DRAW_STATUS.OPEN || draw.is_betting_open === true) && isClosingSoon(draw.betting_end_time);
         }
 
-        else if (filter === 'rewarded') {
+        else if (filter === DRAW_FILTER.REWARDED) {
             // Explicitly cast status to string to allow comparison with 'rewarded'
             // even if strict types say it's not possible
-            passes = (draw.status as string) === 'rewarded' || draw.is_rewarded === true || !!draw.winning_numbers;
+            passes = (draw.status as string) === DRAW_STATUS.REWARDED || draw.is_rewarded === true || !!draw.winning_numbers;
         }
 
         return passes;
@@ -140,14 +140,14 @@ export const filterDraws = (draws: DrawType[], filter: StatusFilter): DrawType[]
 
     // Sort draws: Open first, then Pending, then by time
     return filtered.sort((a, b) => {
-        const aOpen = a.status === 'open' || a.is_betting_open === true;
-        const bOpen = b.status === 'open' || b.is_betting_open === true;
+        const aOpen = a.status === DRAW_STATUS.OPEN || a.is_betting_open === true;
+        const bOpen = b.status === DRAW_STATUS.OPEN || b.is_betting_open === true;
 
         if (aOpen && !bOpen) return -1;
         if (!aOpen && bOpen) return 1;
 
-        const aPending = a.status === 'pending';
-        const bPending = b.status === 'pending';
+        const aPending = a.status === DRAW_STATUS.PENDING;
+        const bPending = b.status === DRAW_STATUS.PENDING;
 
         if (aPending && !bPending) return -1;
         if (!aPending && bPending) return 1;

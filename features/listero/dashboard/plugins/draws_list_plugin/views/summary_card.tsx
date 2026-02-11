@@ -1,23 +1,20 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Label } from '../../../../shared/components';
-import { TrendingDown, TrendingUp, DollarSign } from 'lucide-react-native';
-import { useDashboardStore } from '../core/store';
+import { Label } from '@/shared/components';
 
 interface SummaryCardProps {
   title: string;
   amount: number;
   type: 'collected' | 'paid' | 'net';
-  index?: number;
+  showBalance: boolean;
 }
 
 export default function SummaryCard({
   title,
   amount,
   type,
-  index = 0,
+  showBalance,
 }: SummaryCardProps) {
-  const showBalance = useDashboardStore((state) => state.model.showBalance);
 
   const getTextColor = () => {
     switch (type) {

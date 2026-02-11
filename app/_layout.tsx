@@ -22,6 +22,7 @@ import { logger } from '../shared/utils/logger';
 import { registerReactNativeEvents } from '../shared/react-native-events';
 import { useNotificationStore, selectNotificationDispatch } from '../features/notification/core/store';
 import { FETCH_NOTIFICATIONS_REQUESTED } from '../features/notification/core/msg';
+import { initPlugins } from '../shared/core/plugins';
 
 // Setup EventSource for React Native
 if (typeof window !== 'undefined') {
@@ -30,18 +31,35 @@ if (typeof window !== 'undefined') {
   (global as any).EventSource = EventSourcePolyfill;
 }
 
+// Initialize global logger capture to ensure all console.error/warn reach the terminal
+if (__DEV__) {
+  logger.initGlobalCapture();
+}
+
 // Register platform specific events for TEA
 registerReactNativeEvents();
 
 // Register global error handlers
-if (!__DEV__) {
-  // Catch unhandled promise rejections
-  const originalHandler = (global as any).onunhandledrejection;
-  (global as any).onunhandledrejection = (error: any) => {
-    logger.error('Unhandled Promise Rejection', 'GLOBAL', error);
-    if (originalHandler) originalHandler(error);
-  };
+// In development, we want to log to terminal even if RedBox appears
+const originalHandler = (global as any).ErrorUtils?.getGlobalHandler();
+if ((global as any).ErrorUtils) {
+  (global as any).ErrorUtils.setGlobalHandler((error: any, isFatal?: boolean) => {
+    // Log to terminal via our logger
+    logger.error(`Global Error Caught (${isFatal ? 'Fatal' : 'Non-fatal'})`, 'FATAL', error);
+    
+    // Call original handler to show RedBox on phone
+    if (originalHandler) {
+      originalHandler(error, isFatal);
+    }
+  });
 }
+
+// Catch unhandled promise rejections
+const originalUnhandledRejection = (global as any).onunhandledrejection;
+(global as any).onunhandledrejection = (error: any) => {
+  logger.error('Unhandled Promise Rejection', 'GLOBAL', error);
+  if (originalUnhandledRejection) originalUnhandledRejection(error);
+};
 
 // Re-export ErrorBoundary for Expo Router to catch internal errors
 export const ErrorBoundary = (props: any) => {
@@ -83,6 +101,8 @@ function RootLayout() {
   useEffect(() => {
     loadSavedUsername();
     checkLoginStatus();
+    // Initialize Plugin System
+    initPlugins();
   }, []);
 
   useEffect(() => {

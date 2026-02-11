@@ -6,6 +6,18 @@ export interface WinningRecord {
   updated_at: string;
 }
 
+export const DRAW_STATUS = {
+  SCHEDULED: 'scheduled',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled',
+  OPEN: 'open',
+  PENDING: 'pending',
+  CLOSED: 'closed',
+  REWARDED: 'rewarded',
+} as const;
+
+export type DrawStatus = typeof DRAW_STATUS[keyof typeof DRAW_STATUS];
+
 export interface DrawType {
   id: string;
   name: string; // Nombre del sorteo (ej: Miami, Florida, México)
@@ -13,7 +25,7 @@ export interface DrawType {
   draw_datetime: string; // ISO datetime string
   betting_start_time: string | null; // ISO datetime string
   betting_end_time: string | null; // ISO datetime string
-  status: 'scheduled' | 'completed' | 'cancelled' | 'open' | 'pending' | 'closed';
+  status: DrawStatus;
   draw_type: number; // ID del DrawType
   owner_structure: number; // ID de la estructura (banco)
   winning_numbers: WinningRecord | null;

@@ -5,7 +5,7 @@ import { Cmd } from '@/shared/core/cmd';
 import { Sub } from '@/shared/core/sub';
 import { Return, singleton } from '@/shared/core/return';
 
-import { getAuthSub, getFinancialUpdatesSub } from './subscriptions';
+import { getAuthSub, getFinancialUpdatesSub, getDashboardPluginEventsSub } from './subscriptions';
 
 // Handlers
 import { DataHandler } from './handlers/data.handler';
@@ -14,10 +14,8 @@ import { FilterHandler } from './handlers/filter.handler';
 import { AuthHandler } from './handlers/auth.handler';
 
 export const subscriptions = (model: Model) => {
-    const subs = [getAuthSub()];
+    const subs = [getAuthSub(), getDashboardPluginEventsSub()];
 
-    // SSE Subscription for real-time financial updates
-    // We only enable it if we have an authToken and a userStructureId
     if (model.authToken && model.userStructureId) {
         subs.push(getFinancialUpdatesSub(model.authToken));
     }

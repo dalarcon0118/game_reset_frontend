@@ -1,8 +1,8 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Label, Card, Flex, ButtonKit, Badge } from '../../../../shared/components';
+import { Label, Card, Flex, ButtonKit, Badge } from '@/shared/components';
 import { CalendarClock, Clock3, AlarmClock } from 'lucide-react-native';
-import { DrawType } from '@/types';
+import { DrawType, DRAW_STATUS } from '@/types';
 import SummaryCard from './summary_card';
 
 interface DrawItemProps {
@@ -12,6 +12,7 @@ interface DrawItemProps {
   onBetsListPress: (id: string, title: string) => void;
   onCreateBetPress: (id: string, title: string) => void;
   index: number;
+  showBalance: boolean;
 }
 
 export default function DrawItem({
@@ -20,7 +21,9 @@ export default function DrawItem({
    onRewardsPress,
    onBetsListPress,
    onCreateBetPress,
-   index }: DrawItemProps) {
+   index,
+   showBalance
+}: DrawItemProps) {
   
   const handleRewardsPress = () => {
     onRewardsPress(draw.id.toString(), draw.source || '');
@@ -35,8 +38,6 @@ export default function DrawItem({
   }
 
   const getDrawStatus = () => {
-    // Si el backend nos dice explícitamente que las apuestas están abiertas, lo respetamos.
-    // Esto es vital para sorteos con ventanas de apuestas largas (ej: Lotería Semanal)
     if (draw.is_betting_open === true) return 'open';
     
     if (!draw.betting_end_time) return draw.status;
@@ -147,18 +148,21 @@ export default function DrawItem({
           title="Ventas"
           amount={draw.totalCollected ?? 0}
           type="collected"
+          showBalance={showBalance}
         />
         <View style={styles.verticalDivider} />
         <SummaryCard
           title="Premios"
           amount={draw.premiumsPaid ?? 0}
           type="paid"
+          showBalance={showBalance}
         />
         <View style={styles.verticalDivider} />
         <SummaryCard
           title="Ganancia"
           amount={draw.netResult ?? 0}
           type="net"
+          showBalance={showBalance}
         />
       </View>
 

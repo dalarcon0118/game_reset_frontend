@@ -72,6 +72,33 @@ class Logger {
             }
         }
     }
+
+    /**
+     * Redirects standard console methods to use this logger.
+     * Useful for capturing logs from 3rd party libraries or old code.
+     */
+    initGlobalCapture() {
+        if (!__DEV__) return; // Only in dev to avoid performance issues in prod
+
+        const originalConsoleError = console.error;
+        console.error = (...args: any[]) => {
+            // Avoid infinite loops if logger itself calls console.error
+            if (args[0] && typeof args[0] === 'string' && args[0].includes('[ERROR]')) {
+                originalConsoleError(...args);
+                return;
+            }
+            this.error('Console error captured', 'CONSOLE', args[0], ...args.slice(1));
+        };
+
+        const originalConsoleWarn = console.warn;
+        console.warn = (...args: any[]) => {
+            if (args[0] && typeof args[0] === 'string' && args[0].includes('[WARN]')) {
+                originalConsoleWarn(...args);
+                return;
+            }
+            this.warn('Console warn captured', 'CONSOLE', ...args);
+        };
+    }
 }
 
 export const logger = new Logger();

@@ -1,6 +1,15 @@
-import { DrawType } from '@/types';
+import { DrawType, DRAW_STATUS } from '@/types';
 
-export type StatusFilter = 'all' | 'open' | 'closed' | 'closing_soon' | 'rewarded' | 'scheduled';
+export const DRAW_FILTER = {
+    ALL: 'all',
+    OPEN: 'open',
+    CLOSED: 'closed',
+    CLOSING_SOON: 'closing_soon',
+    REWARDED: 'rewarded',
+    SCHEDULED: 'scheduled',
+} as const;
+
+export type StatusFilter = typeof DRAW_FILTER[keyof typeof DRAW_FILTER];
 
 export interface DailyTotals {
     totalCollected: number;
@@ -20,12 +29,16 @@ export const isClosingSoon = (bettingEndTime?: string | null) => {
 
 export const isExpired = (draw: DrawType) => {
     // 1. Prioritize official server status
-    if (draw.status === 'closed' || draw.status === 'completed') return true;
-    if (draw.status === 'open') return false;
+    if (draw.status === DRAW_STATUS.CLOSED || draw.status === DRAW_STATUS.COMPLETED) return true;
+    if (draw.status === DRAW_STATUS.OPEN) return false;
+    // Scheduled/Pending draws are not expired by status
+    if (draw.status === DRAW_STATUS.SCHEDULED || draw.status === DRAW_STATUS.PENDING) return false;
 
     // 2. Fallback to is_betting_open flag
+    // ONLY if the status is not clearly defining the state
     if (draw.is_betting_open === true) return false;
-    if (draw.is_betting_open === false) return true;
+    // If it's explicitly false, it might be because it's scheduled (future) or closed (past)
+    // So we don't return true immediately here without checking the time or status
 
     // 3. Last resort: time-based check
     if (!draw.betting_end_time) return false;

@@ -53,8 +53,8 @@ export const loadPendingBetsCmd = (): Cmd => {
         },
         (webData) => {
             return match(webData)
-                .with(RemoteData.Success.type(), ({ data }) => PENDING_BETS_LOADED(data))
-                .with(RemoteData.Failure.type(), ({ error }) => {
+                .with(RemoteData.Success, ({ data }) => PENDING_BETS_LOADED(data))
+                .with(RemoteData.Failure, ({ error }) => {
                     console.error('Error loading pending bets:', error);
                     return PENDING_BETS_LOADED([]);
                 })

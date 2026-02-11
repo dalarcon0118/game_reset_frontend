@@ -25,7 +25,7 @@ export default function Header({ onRefresh }: HeaderProps) {
   return (
     <View style={styles.container}>
       {/* Top Row: User Info and MONSTER Logo */}
-      <Flex justify="between" align="center" margin={[{ type: 'bottom', value: 15 }]}>
+      <Flex justify="between" align="center" margin={[{ type: 'bottom', value: 12 }]}>
         <Flex align="center" gap={10}>
           <TouchableOpacity 
             style={styles.profileIcon}
@@ -35,24 +35,24 @@ export default function Header({ onRefresh }: HeaderProps) {
             <User size={24} color={COLORS.primary} />
           </TouchableOpacity>
           <View>
-            <Flex align="center" gap={4}>
-              <Label type="subheader" style={styles.welcomeText}>Hola,</Label>
+            <Flex align="baseline" gap={6}>
+              <Label type="detail" style={styles.welcomeText}>Hola,</Label>
               <Label type="header" style={styles.userName}>{user?.username || 'Usuario'}</Label>
             </Flex>
             <Label type="subheader" style={styles.structureName}>{user?.structure?.name || 'Mi Estructura'}</Label>
           </View>
         </Flex>
-        <Label type="header" style={styles.appName}>MONSTER</Label>
+        <Label type="subheader" style={styles.appName}>MONSTER</Label>
       </Flex>
 
       {/* Action Icons Row */}
-      <Flex justify="end" align="center" gap={16}>
+      <Flex justify="end" align="center" gap={12} style={styles.actionRow}>
         <TouchableOpacity 
           onPress={() => dispatch(HELP_CLICKED())} 
           style={styles.iconButton}
           activeOpacity={0.7}
         >
-          <HelpCircle size={22} color={COLORS.textLight} />
+          <HelpCircle size={20} color={COLORS.textDark} />
         </TouchableOpacity>
 
         <TouchableOpacity 
@@ -60,7 +60,7 @@ export default function Header({ onRefresh }: HeaderProps) {
           style={styles.iconButton}
           activeOpacity={0.7}
         >
-          <Bell size={22} color={COLORS.textLight} />
+          <Bell size={20} color={COLORS.textDark} />
         </TouchableOpacity>
 
         <TouchableOpacity 
@@ -69,9 +69,9 @@ export default function Header({ onRefresh }: HeaderProps) {
           activeOpacity={0.7}
         >
           {showBalance ? (
-            <Eye size={22} color={COLORS.textLight} />
+            <Eye size={20} color={COLORS.textDark} />
           ) : (
-            <EyeOff size={22} color={COLORS.textLight} />
+            <EyeOff size={20} color={COLORS.textDark} />
           )}
         </TouchableOpacity>
       </Flex>
@@ -82,15 +82,15 @@ export default function Header({ onRefresh }: HeaderProps) {
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 14,
     backgroundColor: '#FFF',
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
   profileIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: COLORS.background,
     justifyContent: 'center',
     alignItems: 'center',
@@ -98,30 +98,36 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
   welcomeText: {
-    fontSize: 14,
+    fontSize: 12,
     color: COLORS.textLight,
   },
   userName: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '700',
     color: COLORS.textDark,
   },
   structureName: {
-    fontSize: 12,
+    fontSize: 13,
     color: COLORS.textLight,
-    marginTop: -2,
+    marginTop: 2,
   },
   appName: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: COLORS.primary,
-    letterSpacing: 1,
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.primaryDark,
+    letterSpacing: 0.5,
+  },
+  actionRow: {
+    marginTop: 2,
   },
   iconButton: {
-    padding: 8,
-    borderRadius: 10,
-    backgroundColor: COLORS.background,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: '#FFF',
     borderWidth: 1,
     borderColor: COLORS.border,
+    justifyContent: 'center',
+    alignItems: 'center',
   }
 });

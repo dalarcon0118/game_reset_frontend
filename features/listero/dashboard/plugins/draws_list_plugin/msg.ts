@@ -1,0 +1,26 @@
+import { createMsg } from '@/shared/core/msg';
+import { PluginContext } from '@/shared/core/plugins/plugin.types';
+import { WebData } from '@/shared/core/remote.data';
+
+import { DrawsListPluginConfig } from './model';
+
+export const INIT_CONTEXT = createMsg<'INIT_CONTEXT', { context: PluginContext; config: DrawsListPluginConfig }>('INIT_CONTEXT');
+export const SYNC_STATE = createMsg<'SYNC_STATE', { draws: WebData<any>; filter: string }>('SYNC_STATE');
+export const FILTER_DRAWS = createMsg<'FILTER_DRAWS', void>('FILTER_DRAWS');
+export const REFRESH_CLICKED = createMsg<'REFRESH_CLICKED', void>('REFRESH_CLICKED');
+export const RULES_CLICKED = createMsg<'RULES_CLICKED', string>('RULES_CLICKED');
+export const REWARDS_CLICKED = createMsg<'REWARDS_CLICKED', { id: string; title: string }>('REWARDS_CLICKED');
+export const BETS_LIST_CLICKED = createMsg<'BETS_LIST_CLICKED', { id: string; title: string }>('BETS_LIST_CLICKED');
+export const CREATE_BET_CLICKED = createMsg<'CREATE_BET_CLICKED', { id: string; title: string }>('CREATE_BET_CLICKED');
+export const NOOP = createMsg<'NOOP', void>('NOOP');
+
+export type Msg =
+  | typeof INIT_CONTEXT._type
+  | typeof SYNC_STATE._type
+  | typeof FILTER_DRAWS._type
+  | typeof REFRESH_CLICKED._type
+  | typeof RULES_CLICKED._type
+  | typeof REWARDS_CLICKED._type
+  | typeof BETS_LIST_CLICKED._type
+  | typeof CREATE_BET_CLICKED._type
+  | typeof NOOP._type;

@@ -20,11 +20,11 @@ export type WebData<A> = RemoteData<any, A>;
 
 // Static constructors and helpers
 export const RemoteData = {
-    // Pattern Matchers
-    NotAsked: { type: () => ({ type: 'NotAsked' as const }) },
-    Loading: { type: () => ({ type: 'Loading' as const }) },
-    Failure: { type: () => ({ type: 'Failure' as const }) },
-    Success: { type: () => ({ type: 'Success' as const }) },
+    // Pattern Matchers for ts-pattern
+    NotAsked: { type: 'NotAsked' as const },
+    Loading: { type: 'Loading' as const },
+    Failure: { type: 'Failure' as const },
+    Success: { type: 'Success' as const },
 
     notAsked: <E, A>(): RemoteData<E, A> => ({ type: 'NotAsked' }),
 

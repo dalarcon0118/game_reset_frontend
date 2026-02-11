@@ -107,11 +107,18 @@ export const createElmStore = <TModel, TMsg>(
 
                 let cmdToRun: Cmd = null;
                 logger.debug(`Dispatching Msg: ${msgType}`, 'ENGINE', msg);
-                set((state) => {
-                    const [nextModel, cmd] = update(state.model, msg);
-                    cmdToRun = cmd;
-                    return { model: nextModel };
-                });
+                
+                try {
+                    set((state) => {
+                        const [nextModel, cmd] = update(state.model, msg);
+                        cmdToRun = cmd;
+                        return { model: nextModel };
+                    });
+                } catch (error) {
+                    logger.error(`Error in update function for Msg: ${msgType}`, 'ENGINE', error, { msg });
+                    // No relanzamos el error para evitar colapsar la UI si es posible
+                }
+
                 if (cmdToRun) executeCmds(cmdToRun);
             },
         };
