@@ -1,14 +1,14 @@
-import { DrawType, DRAW_STATUS } from '@/types';
+import { DRAW_STATUS } from '@/types';
 import { match } from 'ts-pattern';
-import { StatusFilter, isExpired, isClosingSoon, DRAW_FILTER } from '../../core/types';
+import { StatusFilter, isExpired, isClosingSoon, DRAW_FILTER, Draw } from '../../core/types';
 
 export interface FilterDrawsInput {
-  draws: DrawType[];
+  draws: Draw[];
   filter: StatusFilter;
 }
 
 export class FilterDrawsUseCase {
-  execute(input: FilterDrawsInput): DrawType[] {
+  execute(input: FilterDrawsInput): Draw[] {
     const { draws, filter } = input;
 
     const filtered = draws.filter((draw) => {

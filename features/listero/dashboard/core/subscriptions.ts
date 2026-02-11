@@ -75,3 +75,19 @@ export const getDashboardPluginEventsSub = () => {
         createPluginSub('dashboard:create_bet_clicked', (data) => CREATE_BET_CLICKED(data.id, data.title), 'sub-create-bet-clicked'),
     ]);
 };
+
+/**
+ * Suscripción que publica cambios del estado del Host para que los plugins se sincronicen.
+ * Esto evita el uso de useEffect en las vistas de los plugins.
+ */
+export const getHostStateSyncSub = () => {
+    return Sub.watchStore(
+        { getState: () => ({ model: {} }), subscribe: () => () => {} }, // Placeholder, se inyectará el store real
+        (state: any) => state.model,
+        (model) => {
+            pluginEventBus.publish('host:dashboard:updated', model);
+            return NONE();
+        },
+        'host-state-sync'
+    );
+};

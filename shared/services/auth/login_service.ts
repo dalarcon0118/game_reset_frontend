@@ -1,12 +1,6 @@
 import { User } from '@/data/mock_data';
-import settings from '@/config/settings';
-import apiClient, { ApiClientError } from '@/shared/services/api_client'; // Importamos nuestro ApiClient
-
-interface LoginResponse {
-  access: string;
-  refresh?: string;
-  user: User;
-}
+import apiClient, { ApiClientError } from '@/shared/services/api_client';
+import { AuthApi } from './api';
 
 export const LoginService = () => {
   const validateCredentials = (username: string, password: string): string | null => {
@@ -18,14 +12,12 @@ export const LoginService = () => {
 
   const logout = async (): Promise<void> => {
     try {
-      // Llamada al backend para eliminar la cookie de refresh
       try {
-        await apiClient.post(settings.api.endpoints.logout(), {}, { skipAuthHandler: true });
+        await AuthApi.logout();
       } catch (e) {
         console.warn('Failed to logout from server, clearing local session anyway.', e);
       }
       await apiClient.clearAuthToken();
-
     } catch (error) {
       console.error('Logout error', error);
       await apiClient.clearAuthToken();
@@ -43,28 +35,22 @@ export const LoginService = () => {
     }
 
     try {
-      const data = await apiClient.post<LoginResponse>(settings.api.endpoints.login(), { username, password });
-      // Persistir tanto el access token como el refresh token de forma segura
+      const data = await AuthApi.login(username, password);
       await apiClient.setAuthToken(data.access, data.refresh);
-
       return data.user;
     } catch (error) {
       console.error('Login API error in LoginService:', error);
       await apiClient.setAuthToken(null);
-      // El ApiClientError ya tiene un mensaje útil, o es un Error genérico
       if (error instanceof ApiClientError) {
-        // Puedes personalizar más el mensaje si es necesario basado en error.status o error.data
-        throw new Error(error.data.detail || error.message || 'Error al iniciar sesión.');
+        throw new Error(error.data?.detail || error.message || 'Error al iniciar sesión.');
       }
-      throw error; // Re-lanzamos el error para que el componente que llama pueda manejarlo
+      throw error;
     }
   };
 
-
   const checkLoginStatus = async (): Promise<User | null> => {
     try {
-      const me = await apiClient.get<User>(settings.api.endpoints.me());
-      return me;
+      return await AuthApi.getMe();
     } catch (error) {
       if (error instanceof ApiClientError && (error.status === 401 || error.status === 403)) {
         console.log('Session expired or not found (401/403)');

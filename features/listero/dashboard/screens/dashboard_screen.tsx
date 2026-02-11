@@ -58,6 +58,7 @@ export default function DashboardScreen() {
                 <Slot 
                     name="dashboard.summary" 
                     contextData={model} 
+                    hostStore={useDashboardStore}
                 />
                 
                 <Slot name="dashboard.summary_bottom" />
@@ -65,11 +66,13 @@ export default function DashboardScreen() {
                 <Slot 
                     name="dashboard.filters" 
                     contextData={model} 
+                    hostStore={useDashboardStore}
                 />
                 
                 <Slot 
                     name="dashboard.draws_list" 
                     contextData={model} 
+                    hostStore={useDashboardStore}
                 />
             </ScrollView>
         </SafeAreaView>

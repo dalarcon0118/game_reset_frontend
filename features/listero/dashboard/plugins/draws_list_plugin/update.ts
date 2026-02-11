@@ -59,6 +59,7 @@ function handleSyncState(
 
 function handleFilterDraws(model: Model): Return<Model, Msg.Msg> {
   if (model.draws.type !== 'Success') {
+    console.log('[DrawsListPlugin] Skipping filter, draws state is:', model.draws.type);
     return ret({ ...model, filteredDraws: [] }, Cmd.none);
   }
 
@@ -66,6 +67,8 @@ function handleFilterDraws(model: Model): Return<Model, Msg.Msg> {
     draws: model.draws.data,
     filter: model.currentFilter as StatusFilter
   });
+
+  console.log('[DrawsListPlugin] Filtered draws:', filteredDraws.length, 'out of', model.draws.data.length, 'using filter:', model.currentFilter);
 
   return ret({ ...model, filteredDraws }, Cmd.none);
 }

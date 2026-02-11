@@ -1,268 +1,75 @@
 import { DrawType, GameType } from '@/types';
 import { mockDraws } from '@/data/mock_data';
-import apiClient from '@/shared/services/api_client';
-import settings from '@/config/settings';
-import { to, AsyncResult } from '../utils/generators';
 import { OfflineStorage } from './offline_storage';
+import { DrawApi } from './draw/api';
+import { mapBackendDrawToFrontend, mapStatus } from './draw/mapper';
+import { ExtendedDrawType, DrawClosureConfirmation } from './draw/types';
 
-// Simulate server response delay
-const RESPONSE_DELAY = 500;
-
-// Extended DrawType interface to include hierarchical closure data
-export interface ExtendedDrawType extends DrawType {
-  hierarchical_closure_status?: string | null;
-  closure_confirmations_count?: {
-    total: number;
-    pending: number;
-    confirmed_success: number;
-    reported_issue: number;
-    rejected: number;
-  };
-  is_betting_open?: boolean;
-  draw_type_details?: {
-    id: number;
-    name: string;
-    description: string;
-    code: string;
-  };
-}
-
-// Backend response type
-interface BackendDraw {
-  id: number;
-  draw_type: number;  // ID del tipo de sorteo
-  draw_type_details: {
-    id: number;
-    name: string;
-    description: string;
-    code: string;
-  };
-  total_collected: number;
-  premiums_paid: number;
-  net_result: number;
-  name: string;  // Nombre del sorteo (Miami, Florida, etc.)
-  description: string | null;  // Descripción del sorteo
-  draw_datetime: string;
-  betting_start_time: string | null;
-  betting_end_time: string | null;
-  status: string;
-  owner_structure: number;  // ID de la estructura
-  winning_numbers: any | null; // WinningRecord object from backend
-  created_at: string;
-  updated_at: string;
-  hierarchical_closure_status: string | null;
-  closure_confirmations_count: {
-    total: number;
-    pending: number;
-    confirmed_success: number;
-    reported_issue: number;
-    rejected: number;
-  };
-  is_betting_open: boolean;
-  extra_data: any;
-}
-
-// Draw closure confirmation types
-export interface DrawClosureConfirmation {
-  id: number;
-  draw: number;
-  structure: number;
-  structure_name: string;
-  structure_type: string;
-  confirmed_by: number;
-  confirmed_by_name: string;
-  draw_name: string;
-  status: 'pending' | 'confirmed_success' | 'reported_issue' | 'rejected';
-  notes: string;
-  level_required: number;
-  is_mandatory: boolean;
-  requires_notification: boolean;
-  created_at: string;
-  updated_at: string;
-}
+export type { ExtendedDrawType, DrawClosureConfirmation };
 
 export class DrawService {
-  // Get a single draw by ID
+  /**
+   * Get a single draw by ID
+   * @param id - The ID of the draw
+   * @returns Promise with ExtendedDrawType or null
+   */
   static async getOne(id: string): Promise<ExtendedDrawType | null> {
     try {
-      const response = await apiClient.get<BackendDraw>(`${settings.api.endpoints.draws()}${id}/`);
-
-      if (!response) {
-        console.warn(`Draw with ID ${id} returned empty response`);
-        return null;
-      }
-
-      return {
-        // Backend fields
-        id: response.id.toString(),
-        name: response.name,
-        description: response.description,
-        draw_datetime: response.draw_datetime,
-        betting_start_time: response.betting_start_time,
-        betting_end_time: response.betting_end_time,
-        totalCollected: response.total_collected,
-        status: DrawService.mapStatus(
-          response.status,
-          response.betting_start_time,
-          response.betting_end_time,
-          response.is_betting_open
-        ),
-        draw_type: response.draw_type,
-        draw_type_details: response.draw_type_details,
-        owner_structure: response.owner_structure,
-        winning_numbers: response.winning_numbers,
-        created_at: response.created_at,
-        updated_at: response.updated_at,
-        extra_data: response.extra_data,
-
-        // Hierarchical closure fields
-        hierarchical_closure_status: response.hierarchical_closure_status,
-        closure_confirmations_count: response.closure_confirmations_count,
-        is_betting_open: response.is_betting_open,
-
-        // Computed UI fields for compatibility
-        source: response.name,
-        date: new Date(response.draw_datetime).toLocaleDateString('es-ES'),
-        time: new Date(response.draw_datetime).toLocaleTimeString('es-ES', {
-          hour: '2-digit',
-          minute: '2-digit'
-        })
-      };
+      const response = await DrawApi.getOne(id);
+      if (!response) return null;
+      return mapBackendDrawToFrontend(response);
     } catch (error) {
       console.error('Error fetching draw:', error);
       return null;
     }
   }
 
-  // Get bet types for a specific draw
+  /**
+   * Get bet types for a specific draw
+   * @param drawId - ID of the draw
+   * @returns Promise with array of GameType
+   */
   static async getBetTypes(drawId: string): Promise<GameType[]> {
-    const endpoint = `${settings.api.endpoints.draws()}${drawId}/bet-types/`;
     try {
-      const response = await apiClient.get<GameType[]>(endpoint);
-      console.log(`DrawService.getBetTypes: Fetched bet types for draw ${drawId}`);
-      return response;
+      return await DrawApi.getBetTypes(drawId);
     } catch (error: any) {
       console.error(`DrawService.getBetTypes: Error fetching bet types for draw ${drawId}`, error);
       throw error;
     }
   }
 
+  /**
+   * List draws with optional filters
+   * @param params - Filters for the list
+   * @returns Promise with array of ExtendedDrawType
+   */
   static async list(params: Record<string, any> = {}): Promise<ExtendedDrawType[]> {
-    const queryParams = { ...params };
-
-    // Map frontend next24h to backend next_24h
-    if (queryParams.next24h) {
-      queryParams.next_24h = queryParams.next24h;
-      delete queryParams.next24h;
-    }
-
-    // Construct query string manually as apiClient.get doesn't handle params
-    const queryString = new URLSearchParams(queryParams).toString();
-    const endpoint = queryString
-      ? `${settings.api.endpoints.draws()}?${queryString}`
-      : settings.api.endpoints.draws();
-
-    let response: BackendDraw[] = [];
-
     try {
-      // Intenta obtener del backend
-      console.log(`[DrawService] Fetching draws from: ${endpoint}`);
-      response = await apiClient.get<BackendDraw[]>(endpoint);
-      console.log(`[DrawService] Successfully fetched ${response.length} draws`);
+      const response = await DrawApi.list(params);
 
-      // Si tenemos respuesta exitosa, actualizamos el caché local
       if (response && Array.isArray(response)) {
         await OfflineStorage.saveLastDraws(response);
       }
+
+      return response.map(mapBackendDrawToFrontend);
     } catch (error: any) {
       console.warn('[DrawService] Network error or rate limit, falling back to offline cache', error);
-
-      // En caso de CUALQUIER error (no solo 429), intentamos usar el caché
       const cachedDraws = await OfflineStorage.getLastDraws();
       if (cachedDraws && Array.isArray(cachedDraws)) {
-        console.log('[DrawService] Successfully loaded offline cache');
-        response = cachedDraws;
-      } else {
-        // Si no hay caché y falló la red, lanzamos el error original
-        throw error;
+        return cachedDraws.map(mapBackendDrawToFrontend);
       }
+      throw error;
     }
-
-    // Map backend response to frontend ExtendedDrawType with all fields
-    return response.map(backendDraw => ({
-      // Backend fields
-      id: backendDraw.id.toString(),
-      name: backendDraw.name,
-      description: backendDraw.description,
-      draw_datetime: backendDraw.draw_datetime,
-      betting_start_time: backendDraw.betting_start_time,
-      betting_end_time: backendDraw.betting_end_time,
-      totalCollected: backendDraw.total_collected,
-      premiumsPaid: Number(backendDraw.premiums_paid) || 0,
-      netResult: Number(backendDraw.net_result) || 0,
-
-      status: DrawService.mapStatus(
-        backendDraw.status,
-        backendDraw.betting_start_time,
-        backendDraw.betting_end_time,
-        backendDraw.is_betting_open
-      ),
-      draw_type: backendDraw.draw_type,
-      owner_structure: backendDraw.owner_structure,
-      winning_numbers: backendDraw.winning_numbers,
-      created_at: backendDraw.created_at,
-      updated_at: backendDraw.updated_at,
-      extra_data: backendDraw.extra_data,
-
-      // Hierarchical closure fields
-      hierarchical_closure_status: backendDraw.hierarchical_closure_status,
-      closure_confirmations_count: backendDraw.closure_confirmations_count,
-      is_betting_open: backendDraw.is_betting_open,
-
-      // Computed UI fields for compatibility
-      source: backendDraw.name,
-      date: new Date(backendDraw.draw_datetime).toLocaleDateString('es-ES'),
-      time: new Date(backendDraw.draw_datetime).toLocaleTimeString('es-ES', {
-        hour: '2-digit',
-        minute: '2-digit'
-      })
-    }));
   }
 
-  // Map backend status to frontend status
-  private static mapStatus(
-    backendStatus: string,
-    bettingStart: string | null,
-    bettingEnd: string | null,
-    isBettingOpen?: boolean
-  ): 'open' | 'pending' | 'closed' | 'scheduled' {
-    if (backendStatus === 'completed' || backendStatus === 'cancelled') {
-      return 'closed';
-    }
+  /**
+   * Map backend status to frontend status (internal helper maintained for compatibility)
+   */
+  private static mapStatus = mapStatus;
 
-    // Si el backend nos dice explícitamente que está abierto, lo priorizamos
-    if (isBettingOpen === true) {
-      return 'open';
-    }
-
-    if (bettingStart && bettingEnd) {
-      const now = new Date();
-      const start = new Date(bettingStart);
-      const end = new Date(bettingEnd);
-
-      if (now >= start && now <= end) {
-        return 'open';
-      } else if (now < start) {
-        return 'scheduled';
-      } else {
-        return 'closed';
-      }
-    }
-
-    return backendStatus === 'scheduled' ? 'scheduled' : 'closed';
-  }
-
-  // Filter draws based on criteria
+  /**
+   * Filter draws based on criteria (Mock logic)
+   */
   static filter(criteria: {
     source?: string;
     time?: string;
@@ -271,40 +78,35 @@ export class DrawService {
     return new Promise((resolve) => {
       setTimeout(() => {
         let filteredDraws = [...mockDraws];
-
         if (criteria.source) {
           filteredDraws = filteredDraws.filter(draw =>
             (draw.source || draw.name).toLowerCase().includes(criteria.source!.toLowerCase())
           );
         }
-
         if (criteria.time) {
           filteredDraws = filteredDraws.filter(draw =>
             draw.time && draw.time.toLowerCase().includes(criteria.time!.toLowerCase())
           );
         }
-
         if (criteria.status) {
-          // Map 'active'/'inactive' to draw statuses
           if (criteria.status === 'active') {
             filteredDraws = filteredDraws.filter(draw =>
               draw.status === 'open' || draw.status === 'pending' || draw.status === 'scheduled'
             );
           } else {
-            filteredDraws = filteredDraws.filter(draw =>
-              draw.status === 'closed'
-            );
+            filteredDraws = filteredDraws.filter(draw => draw.status === 'closed');
           }
         }
-
         resolve(filteredDraws);
-      }, RESPONSE_DELAY);
+      }, 500);
     });
   }
 
+  /**
+   * Filter bet types by draw ID
+   */
   static async filterBetsTypeByDrawId(drawId: string): Promise<GameType[]> {
-    const response = await apiClient.get<any[]>(`${settings.api.endpoints.draws()}${drawId}/bet-types/`);
-    console.info(`[Bettype for drawId: ${drawId}]`, JSON.stringify(response));
+    const response = await DrawApi.getBetTypes(drawId);
     return response.map(t => ({
       id: t.id.toString(),
       name: t.name,
@@ -315,24 +117,10 @@ export class DrawService {
 
   /**
    * Get all rules (validation and reward) for a draw
-   * Uses JWT token to automatically get rules for the authenticated user's structure
-   * @param drawId - ID of the draw
-   * @returns Promise with validation and reward rules
    */
-  static async getRulesForDraw(drawId: string): Promise<{
-    validation_rules: any[];
-    reward_rules: any[];
-    structure_id: number;
-    draw_id: number;
-    draw_name: string;
-    structure_name: string;
-  } | null> {
+  static async getRulesForDraw(drawId: string): Promise<any> {
     try {
-      const response = await apiClient.get<any>(
-        `${settings.api.endpoints.draws()}${drawId}/rules-for-current-user/`
-      );
-      console.info(`[Rules for drawId: ${drawId}]`, JSON.stringify(response));
-      return response;
+      return await DrawApi.getRulesForDraw(drawId);
     } catch (error) {
       console.error('Error fetching rules for draw:', error);
       return null;
@@ -341,28 +129,13 @@ export class DrawService {
 
   /**
    * Add winning numbers to a draw
-   * @param drawId - ID of the draw
-   * @param data - Winning number data
-   * @returns Promise with created winning record
    */
   static async addWinningNumbers(
     drawId: string,
     data: { winning_number: string; date: string }
-  ): Promise<{
-    id: number;
-    draw_id: number;
-    draw_name: string;
-    winning_number: string;
-    date: string;
-    created_at: string;
-  } | null> {
+  ): Promise<any> {
     try {
-      const response = await apiClient.post<any>(
-        `${settings.api.endpoints.draws()}${drawId}/add-winning-numbers/`,
-        data
-      );
-      console.info(`[Winning numbers added for drawId: ${drawId}]`, JSON.stringify(response));
-      return response;
+      return await DrawApi.addWinningNumbers(drawId, data);
     } catch (error) {
       console.error('Error adding winning numbers:', error);
       return null;
@@ -371,17 +144,10 @@ export class DrawService {
 
   /**
    * Update draw status
-   * @param drawId - ID of the draw
-   * @param status - New status (status_closed)
-   * @returns Promise with updated draw
    */
   static async updateStatus(drawId: string | number, status: 'success' | 'reported'): Promise<void> {
     try {
-      await apiClient.patch(
-        `${settings.api.endpoints.draws()}${drawId}/`,
-        { status_closed: status }
-      );
-      console.info(`[Status updated for drawId: ${drawId}] to ${status}`);
+      await DrawApi.updateStatus(drawId, status);
     } catch (error) {
       console.error(`Error updating status for draw ${drawId}:`, error);
       throw error;
@@ -390,161 +156,73 @@ export class DrawService {
 
   // ===== DRAW CLOSURE CONFIRMATION METHODS =====
 
-  /**
-   * Get all closure confirmations for a specific draw
-   * @param drawId - ID of the draw
-   * @returns Promise with array of closure confirmations
-   */
   static async getClosureConfirmationsByDraw(drawId: string | number): Promise<DrawClosureConfirmation[]> {
     try {
-      const response = await apiClient.get<DrawClosureConfirmation[]>(
-        `${settings.api.baseUrl}/draw/draw-closure-confirmations/by-draw/${drawId}/`
-      );
-      console.info(`[Closure confirmations for draw ${drawId}]`, response);
-      return response;
+      return await DrawApi.getClosureConfirmationsByDraw(drawId);
     } catch (error) {
       console.error(`Error fetching closure confirmations for draw ${drawId}:`, error);
       return [];
     }
   }
 
-  /**
-   * Create closure confirmations for all relevant structures in a draw
-   * @param drawId - ID of the draw
-   * @param data - Optional initial status and notes
-   * @returns Promise with array of created confirmations
-   */
   static async createClosureConfirmationsForDraw(
     drawId: string | number,
     data?: { status?: 'pending' | 'confirmed_success' | 'reported_issue' | 'rejected'; notes?: string }
   ): Promise<DrawClosureConfirmation[]> {
     try {
-      const payload = data || {};
-      const response = await apiClient.post<DrawClosureConfirmation[]>(
-        `${settings.api.baseUrl}/draw/draw-closure-confirmations/create-for-draw/${drawId}/`,
-        payload
-      );
-      console.info(`[Created closure confirmations for draw ${drawId}]`, response);
-      return response;
+      return await DrawApi.createClosureConfirmationsForDraw(drawId, data);
     } catch (error) {
       console.error(`Error creating closure confirmations for draw ${drawId}:`, error);
       throw error;
     }
   }
 
-  /**
-   * Confirm a specific closure confirmation
-   * @param confirmationId - ID of the confirmation
-   * @param status - New status for the confirmation
-   * @param notes - Optional notes
-   * @returns Promise with updated confirmation
-   */
   static async confirmClosure(
     confirmationId: string | number,
     status: 'confirmed_success' | 'reported_issue' | 'rejected',
     notes?: string
   ): Promise<DrawClosureConfirmation> {
     try {
-      const payload: any = { status };
-      if (notes) payload.notes = notes;
-
-      const response = await apiClient.post<DrawClosureConfirmation>(
-        `${settings.api.baseUrl}/draw/draw-closure-confirmations/${confirmationId}/confirm/`,
-        payload
-      );
-      console.info(`[Confirmed closure ${confirmationId}] with status ${status}`);
-      return response;
+      return await DrawApi.confirmClosure(confirmationId, status, notes);
     } catch (error) {
       console.error(`Error confirming closure ${confirmationId}:`, error);
       throw error;
     }
   }
 
-  /**
-   * Get all pending closure confirmations for the current user
-   * @returns Promise with array of pending confirmations
-   */
   static async getPendingClosureConfirmations(): Promise<DrawClosureConfirmation[]> {
     try {
-      const response = await apiClient.get<DrawClosureConfirmation[]>(
-        `${settings.api.baseUrl}/draw/draw-closure-confirmations/pending-for-user/`
-      );
-      console.info(`[Pending closure confirmations]`, response);
-      return response;
+      return await DrawApi.getPendingClosureConfirmations();
     } catch (error) {
       console.error('Error fetching pending closure confirmations:', error);
       return [];
     }
   }
 
-  /**
-   * Get all closure confirmations (with optional filters)
-   * @param filters - Optional filters
-   * @returns Promise with array of confirmations
-   */
-  static async getClosureConfirmations(filters?: {
-    draw?: string | number;
-    structure?: string | number;
-    status?: 'pending' | 'confirmed_success' | 'reported_issue' | 'rejected';
-  }): Promise<DrawClosureConfirmation[]> {
+  static async getClosureConfirmations(filters?: any): Promise<DrawClosureConfirmation[]> {
     try {
-      let endpoint = `${settings.api.baseUrl}/draw/draw-closure-confirmations/`;
-
-      if (filters) {
-        const params = new URLSearchParams();
-
-        if (filters.draw) params.append('draw', filters.draw.toString());
-        if (filters.structure) params.append('structure', filters.structure.toString());
-        if (filters.status) params.append('status', filters.status);
-
-        if (params.toString()) {
-          endpoint += `?${params.toString()}`;
-        }
-      }
-
-      const response = await apiClient.get<DrawClosureConfirmation[]>(endpoint);
-      console.info(`[Closure confirmations with filters]`, filters, response);
-      return response;
+      return await DrawApi.getClosureConfirmations(filters);
     } catch (error) {
       console.error('Error fetching closure confirmations:', error);
       return [];
     }
   }
 
-  /**
-   * Update a closure confirmation
-   * @param confirmationId - ID of the confirmation
-   * @param data - Updated data
-   * @returns Promise with updated confirmation
-   */
   static async updateClosureConfirmation(
     confirmationId: string | number,
     data: Partial<Pick<DrawClosureConfirmation, 'status' | 'notes'>>
   ): Promise<DrawClosureConfirmation> {
     try {
-      const response = await apiClient.patch<DrawClosureConfirmation>(
-        `${settings.api.baseUrl}/draw/draw-closure-confirmations/${confirmationId}/`,
-        data
-      );
-      console.info(`[Updated closure confirmation ${confirmationId}]`, data);
-      return response;
+      return await DrawApi.updateClosureConfirmation(confirmationId, data);
     } catch (error) {
       console.error(`Error updating closure confirmation ${confirmationId}:`, error);
       throw error;
     }
   }
 
-  /**
-   * Delete a closure confirmation
-   * @param confirmationId - ID of the confirmation
-   * @returns Promise
-   */
   static async deleteClosureConfirmation(confirmationId: string | number): Promise<void> {
     try {
-      await apiClient.delete(
-        `${settings.api.baseUrl}/draw/draw-closure-confirmations/${confirmationId}/`
-      );
-      console.info(`[Deleted closure confirmation ${confirmationId}]`);
+      await DrawApi.deleteClosureConfirmation(confirmationId);
     } catch (error) {
       console.error(`Error deleting closure confirmation ${confirmationId}:`, error);
       throw error;

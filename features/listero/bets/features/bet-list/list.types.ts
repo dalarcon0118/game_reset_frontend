@@ -12,12 +12,14 @@ export interface ListState {
     remoteData: WebData<ListData>;
     aliasFilter: string;
     isRefreshing: boolean;
+    loadedDrawId: string | null;
 }
 
 export const initialListState: ListState = {
     remoteData: RemoteData.notAsked(),
     aliasFilter: '',
     isRefreshing: false,
+    loadedDrawId: null,
 };
 
 export enum ListMsgType {

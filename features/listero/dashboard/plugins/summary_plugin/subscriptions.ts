@@ -4,5 +4,5 @@ import { Msg } from './msg';
 
 export const subscriptions = (model: Model) => {
   // No subscriptions needed for now
-  return [];
+  return Sub.none();
 };

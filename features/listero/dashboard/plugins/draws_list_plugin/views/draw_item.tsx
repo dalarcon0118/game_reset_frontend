@@ -1,17 +1,18 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
+import { match } from 'ts-pattern';
 import { Label, Card, Flex, ButtonKit, Badge } from '@/shared/components';
 import { CalendarClock, Clock3, AlarmClock } from 'lucide-react-native';
-import { DrawType, DRAW_STATUS } from '@/types';
+import { DRAW_STATUS } from '@/types';
+import { Draw } from '../core/types';
 import SummaryCard from './summary_card';
 
 interface DrawItemProps {
-  draw: DrawType;
-  onRulePress: (id: string) => void;
+  draw: Draw;
+  onRulePress: (id: string | number) => void;
   onRewardsPress: (id: string, title: string) => void;
   onBetsListPress: (id: string, title: string) => void;
   onCreateBetPress: (id: string, title: string) => void;
-  index: number;
   showBalance: boolean;
 }
 
@@ -21,7 +22,6 @@ export default function DrawItem({
    onRewardsPress,
    onBetsListPress,
    onCreateBetPress,
-   index,
    showBalance
 }: DrawItemProps) {
   
@@ -38,19 +38,19 @@ export default function DrawItem({
   }
 
   const getDrawStatus = () => {
-    if (draw.is_betting_open === true) return 'open';
+    if (draw.is_betting_open === true) return DRAW_STATUS.OPEN;
     
     if (!draw.betting_end_time) return draw.status;
     const now = new Date();
     const endTime = new Date(draw.betting_end_time);
-    if (now >= endTime) return 'closed';
+    if (now >= endTime) return DRAW_STATUS.CLOSED;
     return draw.status;
   };
 
   const effectiveStatus = getDrawStatus();
 
   const getClosingTimeInfo = () => {
-    if (!draw.betting_end_time || effectiveStatus !== 'open') return null;
+    if (!draw.betting_end_time || effectiveStatus !== DRAW_STATUS.OPEN) return null;
     
     const now = new Date();
     const endTime = new Date(draw.betting_end_time);
@@ -70,41 +70,35 @@ export default function DrawItem({
   const closingInfo = getClosingTimeInfo();
 
   const getStatusBadge = () => {
-    switch (effectiveStatus) {
-      case 'open':
-        return (
-          <Badge 
-            color={closingInfo?.isCritical ? "#FF3D71" : "#00D68F"} 
-            textColor="#FFFFFF"
-            content={closingInfo?.isCritical ? `Cierra en ${closingInfo.timeLeft}` : "Abierto"}
-          />
-        );
-      case 'closed':
-        return (
-          <Badge 
-            color="#FF3D71" 
-            textColor="#FFFFFF"
-            content="Cerrado"
-          />
-        );
-      case 'scheduled':
-      case 'pending':
-        return (
-          <Badge 
-            color="#8F9BB3" 
-            textColor="#FFFFFF"
-            content="Programado"
-          />
-        );
-      default:
-        return (
-          <Badge 
-            color="#8F9BB3" 
-            textColor="#FFFFFF"
-            content={effectiveStatus === 'scheduled' ? 'Programado' : effectiveStatus}
-          />
-        );
-    }
+    return match(effectiveStatus)
+      .with(DRAW_STATUS.OPEN, () => (
+        <Badge 
+          color={closingInfo?.isCritical ? "#FF3D71" : "#00D68F"} 
+          textColor="#FFFFFF"
+          content={closingInfo?.isCritical ? `Cierra en ${closingInfo.timeLeft}` : "Abierto"}
+        />
+      ))
+      .with(DRAW_STATUS.CLOSED, () => (
+        <Badge 
+          color="#FF3D71" 
+          textColor="#FFFFFF"
+          content="Cerrado"
+        />
+      ))
+      .with(DRAW_STATUS.SCHEDULED, DRAW_STATUS.PENDING, () => (
+        <Badge 
+          color="#8F9BB3" 
+          textColor="#FFFFFF"
+          content="Programado"
+        />
+      ))
+      .otherwise(() => (
+        <Badge 
+          color="#8F9BB3" 
+          textColor="#FFFFFF"
+          content={effectiveStatus === DRAW_STATUS.SCHEDULED ? 'Programado' : effectiveStatus}
+        />
+      ));
   };
 
   const formatTime = (dateString: string | null | undefined) => {
@@ -181,16 +175,16 @@ export default function DrawItem({
           appearance="outline"
           status="primary"
           size="small"
-          disabled={effectiveStatus === 'scheduled' || effectiveStatus === 'pending'}
+          disabled={effectiveStatus === DRAW_STATUS.SCHEDULED || effectiveStatus === DRAW_STATUS.PENDING}
           style={[
             styles.actionButton,
-            (effectiveStatus === 'scheduled' || effectiveStatus === 'pending') && styles.disabledButton
+            (effectiveStatus === DRAW_STATUS.SCHEDULED || effectiveStatus === DRAW_STATUS.PENDING) && styles.disabledButton
           ]}
           onPress={handleBetsListPress}
           label="Ver Lista"
         />
 
-        {effectiveStatus === "closed" ? (
+        {effectiveStatus === DRAW_STATUS.CLOSED ? (
           <ButtonKit
             appearance="filled"
             status="primary"
@@ -204,13 +198,13 @@ export default function DrawItem({
             appearance="filled"
             status="primary"
             size="small"
-            disabled={effectiveStatus === 'scheduled' || effectiveStatus === 'pending'}
+            disabled={effectiveStatus === DRAW_STATUS.SCHEDULED || effectiveStatus === DRAW_STATUS.PENDING}
             style={[
               styles.actionButton, 
-              (effectiveStatus === 'scheduled' || effectiveStatus === 'pending') && styles.disabledButton
+              (effectiveStatus === DRAW_STATUS.SCHEDULED || effectiveStatus === DRAW_STATUS.PENDING) && styles.disabledButton
             ]}
             onPress={handleCreateBetPress}
-            label={effectiveStatus === 'scheduled' || effectiveStatus === 'pending' ? "Próximamente" : "Anotar"}
+            label={effectiveStatus === DRAW_STATUS.SCHEDULED || effectiveStatus === DRAW_STATUS.PENDING ? "Próximamente" : "Anotar"}
           />
         )}
       </Flex>

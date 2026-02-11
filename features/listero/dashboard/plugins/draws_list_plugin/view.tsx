@@ -1,13 +1,12 @@
 import React from 'react';
 import { ActivityIndicator, View, TouchableOpacity } from 'react-native';
 import { match } from 'ts-pattern';
-import { WebData, RemoteData } from '@/shared/core/remote.data';
+import { RemoteData } from '@/shared/core/remote.data';
 import { Label, Flex } from '@/shared/components';
 import { PluginContext } from '@/shared/core/plugins/plugin.types';
 import DrawItem from './views/draw_item';
 import { useDrawsListPluginStore } from './store';
-import { INIT_CONTEXT, SYNC_STATE, REFRESH_CLICKED, RULES_CLICKED, REWARDS_CLICKED, BETS_LIST_CLICKED, CREATE_BET_CLICKED } from './msg';
-import { DRAW_FILTER } from './core/types';
+import { REFRESH_CLICKED, RULES_CLICKED, REWARDS_CLICKED, BETS_LIST_CLICKED, CREATE_BET_CLICKED } from './msg';
 import { styles } from './styles';
 
 import { DrawsListPluginConfig } from './model';
@@ -18,21 +17,19 @@ interface DrawsListComponentProps {
 }
 
 export const DrawsListComponent: React.FC<DrawsListComponentProps> = ({ context, config }) => {
-  const { model, dispatch } = useDrawsListPluginStore();
-  const draws = context.state[config.drawsStateKey] as WebData<any>;
-  const filter = context.state.statusFilter || DRAW_FILTER.ALL;
+  const { model, dispatch, init } = useDrawsListPluginStore();
 
-  React.useEffect(() => {
-    if (model.context !== context || model.config !== config) {
-      dispatch(INIT_CONTEXT({ context, config }));
-    }
-  }, [context, config, dispatch, model.context, model.config]);
+  console.log('[DrawsListPlugin] Rendering. Context present:', !!model.context, 'Draws state:', model.draws.type, 'Filtered draws:', model.filteredDraws.length);
 
-  React.useEffect(() => {
-    if (model.draws !== draws || model.currentFilter !== filter) {
-      dispatch(SYNC_STATE({ draws, filter }));
-    }
-  }, [dispatch, draws, filter, model.draws, model.currentFilter]);
+  const shouldInit = () =>
+    !model.context ||
+    model.context?.hostStore !== context.hostStore ||
+    model.config !== config;
+
+  if (shouldInit()) {
+    console.log('[DrawsListPlugin] Initializing context');
+    init({ context, config });
+  }
 
   const handleRefresh = () => {
     dispatch(REFRESH_CLICKED());
@@ -60,28 +57,30 @@ export const DrawsListComponent: React.FC<DrawsListComponentProps> = ({ context,
     </View>
   );
 
-  const renderSuccess = () => (
-    <View>
-      {(model.filteredDraws || []).length > 0 ? (
-        model.filteredDraws.map((draw: any, index: number) => (
-          <DrawItem
-            key={draw.id}
-            draw={draw}
-            index={index}
-            onRulePress={(id) => dispatch(RULES_CLICKED(id))}
-            onRewardsPress={(id, title) => dispatch(REWARDS_CLICKED({ id, title }))}
-            onBetsListPress={(id, title) => dispatch(BETS_LIST_CLICKED({ id, title }))}
-            onCreateBetPress={(id, title) => dispatch(CREATE_BET_CLICKED({ id, title }))}
-            showBalance={context.state.showBalance}
-          />
-        ))
-      ) : (
-        <View style={styles.emptyContainer}>
-          <Label style={styles.emptyText}>No hay sorteos para este filtro</Label>
-        </View>
-      )}
-    </View>
-  );
+  const renderSuccess = () => {
+    const filteredDraws = model.filteredDraws || [];
+    return (
+      <View>
+        {filteredDraws.length > 0 ? (
+          filteredDraws.map((draw) => (
+            <DrawItem
+              key={draw.id}
+              draw={draw}
+              onRulePress={(id) => dispatch(RULES_CLICKED(id))}
+              onRewardsPress={(id, title) => dispatch(REWARDS_CLICKED({ id, title }))}
+              onBetsListPress={(id, title) => dispatch(BETS_LIST_CLICKED({ id, title }))}
+              onCreateBetPress={(id, title) => dispatch(CREATE_BET_CLICKED({ id, title }))}
+              showBalance={context.state.showBalance}
+            />
+          ))
+        ) : (
+          <View style={styles.emptyContainer}>
+            <Label style={styles.emptyText}>No hay sorteos para este filtro</Label>
+          </View>
+        )}
+      </View>
+    );
+  };
 
   return (
     <View style={styles.content}>

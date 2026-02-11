@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { CreateBetDTO } from './bet';
+import { CreateBetDTO } from './bet/types';
 
 const PENDING_BETS_KEY = '@pending_bets';
 const LAST_DRAWS_KEY = '@last_draws';

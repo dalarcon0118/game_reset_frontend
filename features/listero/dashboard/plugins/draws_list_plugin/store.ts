@@ -6,7 +6,7 @@ import { subscriptions } from './subscriptions';
 import { Msg } from './msg';
 
 export const useDrawsListPluginStore = createElmStore<Model, Msg>(
-  initialModel,
+  (params) => [initialModel(params), null],
   update,
   effectHandlers as any,
   subscriptions

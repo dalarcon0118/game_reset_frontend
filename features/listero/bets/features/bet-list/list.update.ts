@@ -8,9 +8,11 @@ import { RemoteData } from '@/shared/core/remote.data';
 import { BetService } from '@/shared/services/bet';
 
 const transformBetTypeToFijosCorridos = (bets: BetType[]): any[] => {
+    console.log(`[transformBetTypeToFijosCorridos] Processing ${bets.length} bets`);
     const fijosCorridosMap = new Map<string, any>();
 
     bets.forEach((bet) => {
+        console.log(`[transformBetTypeToFijosCorridos] Processing bet ID ${bet.id}, type: ${bet.type}, numbers: ${bet.numbers}`);
         try {
             let parsedNumbers: any;
             try {
@@ -74,9 +76,15 @@ const transformBetTypeToFijosCorridos = (bets: BetType[]): any[] => {
 };
 
 const transformBetTypeToParlets = (bets: BetType[]): any[] => {
+    console.log(`[transformBetTypeToParlets] Processing ${bets.length} bets`);
     return bets
-        .filter(bet => bet.type === 'Parlet')
+        .filter(bet => {
+            const isParlet = bet.type === 'Parlet';
+            if (!isParlet) console.log(`[transformBetTypeToParlets] Skipping bet ID ${bet.id} because type is ${bet.type}`);
+            return isParlet;
+        })
         .map((bet) => {
+            console.log(`[transformBetTypeToParlets] Transforming parlet ID ${bet.id}, numbers: ${bet.numbers}`);
             try {
                 let parsedNumbers: any;
                 try {
@@ -127,9 +135,16 @@ const transformBetTypeToParlets = (bets: BetType[]): any[] => {
 };
 
 const transformBetTypeToCentenas = (bets: BetType[]): any[] => {
+    console.log(`[transformBetTypeToCentenas] Processing ${bets.length} bets`);
     return bets
-        .filter(bet => (bet.type as string) === 'Centena')
+        .filter(bet => {
+            // NOTE: Check if type name is Centena or if it is part of Fijo/Corrido logic in this project
+            const isCentena = (bet.type as string) === 'Centena';
+            if (!isCentena) console.log(`[transformBetTypeToCentenas] Skipping bet ID ${bet.id} because type is ${bet.type}`);
+            return isCentena;
+        })
         .map((bet) => {
+            console.log(`[transformBetTypeToCentenas] Transforming centena ID ${bet.id}, numbers: ${bet.numbers}`);
             try {
                 let parsedNumbers: any;
                 try {
@@ -179,9 +194,15 @@ const transformBetTypeToCentenas = (bets: BetType[]): any[] => {
 };
 
 const transformBetTypeToLoteria = (bets: BetType[]): any[] => {
+    console.log(`[transformBetTypeToLoteria] Processing ${bets.length} bets`);
     return bets
-        .filter(bet => (bet.type as string) === 'Loteria' || (bet.type as string) === 'Cuaterna Semanal')
+        .filter(bet => {
+            const isLoteria = (bet.type as string) === 'Loteria' || (bet.type as string) === 'Cuaterna Semanal';
+            if (!isLoteria) console.log(`[transformBetTypeToLoteria] Skipping bet ID ${bet.id} because type is ${bet.type}`);
+            return isLoteria;
+        })
         .map((bet) => {
+            console.log(`[transformBetTypeToLoteria] Transforming loteria ID ${bet.id}, numbers: ${bet.numbers}`);
             try {
                 let parsedNumbers: any;
                 try {
@@ -234,9 +255,9 @@ export const updateList = (model: Model, msg: ListMsg): Return<Model, ListMsg> =
         .with({ type: ListMsgType.FETCH_BETS_REQUESTED }, ({ drawId }: { drawId: string }) => {
             console.log('LIST FETCH_BETS_REQUESTED called with drawId:', drawId);
 
-            // Si ya tenemos datos en éxito y no estamos forzando refresco, no hacemos nada
-            if (model.listSession.remoteData.type === 'Success' && model.currentDrawId === drawId) {
-                console.log('LIST FETCH_BETS_REQUESTED ignored (already have data)');
+            // Si ya tenemos datos exitosos para ESTE sorteo específico, ignoramos para evitar parpadeos
+            if (model.listSession.remoteData.type === 'Success' && model.listSession.loadedDrawId === drawId) {
+                console.log('LIST FETCH_BETS_REQUESTED ignored (already have data for this draw)');
                 return singleton(model);
             }
 
@@ -329,6 +350,7 @@ export const updateList = (model: Model, msg: ListMsg): Return<Model, ListMsg> =
                         loteria
                     }),
                     isRefreshing: false,
+                    loadedDrawId: model.currentDrawId, // Marcamos el sorteo actual como cargado exitosamente
                 },
             });
             console.log('LIST state updated to SUCCESS');
@@ -373,6 +395,7 @@ export const updateList = (model: Model, msg: ListMsg): Return<Model, ListMsg> =
                 listSession: {
                     ...model.listSession,
                     remoteData: RemoteData.success<any, ListData>(emptyData),
+                    loadedDrawId: null,
                 },
             });
         })

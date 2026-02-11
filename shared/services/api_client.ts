@@ -4,7 +4,6 @@ import { logger } from '../utils/logger';
 
 const TOKEN_KEY = 'auth_access_token';
 const REFRESH_TOKEN_KEY = 'auth_refresh_token';
-const LAST_USER_KEY = 'auth_last_username';
 
 // --- Types ---
 
@@ -190,6 +189,7 @@ const apiClient = {
 
         const currentToken = await this.getAuthToken();
         const fullUrl = `${settings.api.baseUrl}${endpoint}`;
+        console.log(`[ApiClient] Requesting ${fetchOptions.method || 'GET'} ${fullUrl}`);
 
         const config: RequestInit = {
           ...fetchOptions,
@@ -315,7 +315,7 @@ const apiClient = {
           logger.warn(`Request timed out (attempt ${attempt})`, 'API', { endpoint });
           lastError = error;
           if (attempt < retryCount) {
-             continue;
+            continue;
           }
         }
 

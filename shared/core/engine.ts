@@ -296,6 +296,17 @@ export const createElmStore = <TModel, TMsg>(
 
         const manageSubscriptions = (model: TModel, dispatch: (msg: TMsg) => void) => {
             const currentSub = subscriptions(model);
+            
+            // 🔍 Validación de tipos: asegurar que recibimos un SubDescriptor válido
+            if (!currentSub || typeof currentSub !== 'object' || !currentSub.type) {
+                logger.error(
+                    `Invalid subscription returned from subscriptions(). Expected SubDescriptor, got: ${typeof currentSub}`,
+                    'ENGINE',
+                    { currentSub, modelType: typeof model }
+                );
+                return;
+            }
+            
             const currentIds = getActiveIds(currentSub);
 
             // Evitar re-procesamiento si los IDs de las subscripciones no han cambiado

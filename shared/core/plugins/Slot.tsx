@@ -10,6 +10,8 @@ interface Props {
   name: string;
   /** Datos opcionales que el Host quiere pasar a los plugins */
   contextData?: any;
+  /** Store del Host para que los plugins puedan suscribirse */
+  hostStore?: any;
   /** Estilo para el contenedor del Slot */
   style?: StyleProp<ViewStyle>;
   /** Dirección del layout */
@@ -25,6 +27,7 @@ interface Props {
 export const Slot: React.FC<Props> = ({ 
   name, 
   contextData, 
+  hostStore,
   style, 
   direction = 'vertical',
   pluginProps = {}
@@ -58,6 +61,7 @@ export const Slot: React.FC<Props> = ({
                   {...pluginProps}
                   context={{
                     ...context,
+                    hostStore,
                     state: {
                       ...context.state,
                       ...contextData

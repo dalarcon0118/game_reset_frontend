@@ -40,6 +40,8 @@ export interface PluginContext {
     };
     /** Comunicación entre plugins */
     events: PluginEventBus;
+    /** Acceso al store del Host para suscripciones (opcional) */
+    hostStore?: any;
     /** Estado compartido del Host (solo lectura) */
     state: {
         user: any;

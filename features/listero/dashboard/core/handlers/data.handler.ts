@@ -57,6 +57,15 @@ export const DataHandler = {
     handleDrawsReceived: (model: Model, webData: WebData<DrawType[]>): Return<Model, Msg> => {
         console.log('update: DRAWS_RECEIVED state', webData.type);
 
+        if (webData.type === 'Success' && !Array.isArray(webData.data)) {
+            return singleton({
+                ...model,
+                draws: RemoteData.failure(new Error('Invalid draws payload')),
+                isRateLimited: false,
+                filteredDraws: []
+            });
+        }
+
         return match(webData)
             // 1. Rate Limit Case: Failure + we already had successful data
             .when(

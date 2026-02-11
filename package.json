@@ -52,6 +52,8 @@
     "expo-symbols": "^0.2.2",
     "expo-system-ui": "~4.0.9",
     "expo-web-browser": "~14.0.2",
+    "fp-ts": "^2.16.11",
+    "io-ts": "^2.2.22",
     "jscodeshift": "^17.3.0",
     "json-logic-js": "^2.0.5",
     "lucide-react-native": "^0.475.0",

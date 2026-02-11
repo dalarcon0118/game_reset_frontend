@@ -1,4 +1,5 @@
 import { singleton, Return } from '@/shared/core/return';
+import { Sub } from '@/shared/core/sub';
 import { Model } from './model';
 import { Msg } from './msg';
 import { calculateSummary } from './summary.utils';
@@ -43,6 +44,6 @@ export function init(): Return<Model, Msg> {
     return singleton(initialModel);
 }
 
-export function subscriptions(model: Model): any[] {
-    return [];
+export function subscriptions(model: Model) {
+    return Sub.none();
 }

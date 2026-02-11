@@ -31,8 +31,14 @@ export interface Model {
   config: FiltersPluginConfig;
 }
 
-export const initialModel: Model = {
-  statusFilter: defaultConfig.defaultValue,
-  context: null,
-  config: defaultConfig
+export const initialModel = (params?: { context: PluginContext; config: FiltersPluginConfig }): Model => {
+  const context = params?.context ?? null;
+  const config = params?.config ?? defaultConfig;
+  const statusFilter = context?.state?.[config.stateKey] ?? config.defaultValue;
+
+  return {
+    statusFilter,
+    context,
+    config
+  };
 };

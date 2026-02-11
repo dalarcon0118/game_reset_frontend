@@ -9,6 +9,46 @@ type DashboardDrawType = DrawType & {
     is_rewarded?: boolean;
 };
 
+/**
+ * Helper to calculate the total amount of a bet payload (single or bulk)
+ */
+const calculatePayloadAmount = (payload: any): number => {
+    let total = 0;
+
+    // 1. Single bet legacy field
+    if (payload.amount) {
+        total += Number(payload.amount) || 0;
+    }
+
+    // 2. Bulk fields
+    if (payload.fijosCorridos && Array.isArray(payload.fijosCorridos)) {
+        total += payload.fijosCorridos.reduce((acc: number, bet: any) =>
+            acc + (Number(bet.fijoAmount) || 0) + (Number(bet.corridoAmount) || 0), 0);
+    }
+
+    if (payload.parlets && Array.isArray(payload.parlets)) {
+        total += payload.parlets.reduce((acc: number, bet: any) => {
+            if (bet.bets && Array.isArray(bet.bets) && bet.bets.length > 0 && bet.amount) {
+                const numBets = bet.bets.length;
+                // Formula: n * (n-1) * amount (for parlets of n numbers)
+                const parletTotal = numBets * (numBets - 1) * (Number(bet.amount) || 0);
+                return acc + parletTotal;
+            }
+            return acc;
+        }, 0);
+    }
+
+    if (payload.centenas && Array.isArray(payload.centenas)) {
+        total += payload.centenas.reduce((acc: number, bet: any) => acc + (Number(bet.amount) || 0), 0);
+    }
+
+    if (payload.loteria && Array.isArray(payload.loteria)) {
+        total += payload.loteria.reduce((acc: number, bet: any) => acc + (Number(bet.amount) || 0), 0);
+    }
+
+    return total;
+};
+
 export const calculatePendingDelta = (pendingBets: PendingBet[], commissionRate: number): DailyTotals => {
     const now = new Date();
     // Reset to start of day (00:00:00)
@@ -19,7 +59,7 @@ export const calculatePendingDelta = (pendingBets: PendingBet[], commissionRate:
     return pendingBets.reduce((acc, bet) => {
         // Strict date filtering: 00:00 to 23:59
         if (bet.timestamp >= startOfDay && bet.timestamp < endOfDay) {
-            const amount = Number(bet.amount) || 0;
+            const amount = calculatePayloadAmount(bet);
             const commission = amount * commissionRate;
 
             return {
@@ -56,26 +96,51 @@ export const summaryToTotals = (summary: FinancialSummary, commissionRate: numbe
 };
 
 /**
- * Enriches draws with financial information from a summary.
+ * Enriches draws with financial information from a summary and adds pending bets.
  */
-export const enrichDraws = (draws: DrawType[], summary: FinancialSummary | null): DrawType[] => {
-    if (!summary || !summary.draws) return draws;
-
+export const enrichDraws = (
+    draws: DrawType[],
+    summary: FinancialSummary | null,
+    pendingBets: PendingBet[] = []
+): DrawType[] => {
+    // 1. Create a map for financial data from summary
     const financialMap = new Map(
-        summary.draws.map(d => [d.id_sorteo.toString(), d])
+        summary?.draws?.map(d => [d.id_sorteo.toString(), d]) || []
     );
 
-    return draws.map(draw => {
-        const financial = financialMap.get(draw.id.toString());
-        if (financial) {
-            return {
-                ...draw,
-                totalCollected: financial.colectado,
-                premiumsPaid: financial.pagado,
-                netResult: financial.neto,
-            };
+    // 2. Create a map for pending amounts by drawId
+    const pendingMap = new Map<string, number>();
+    pendingBets.forEach(bet => {
+        const drawId = (bet.draw || bet.drawId || '').toString();
+        if (drawId) {
+            const amount = calculatePayloadAmount(bet);
+            const current = pendingMap.get(drawId) || 0;
+            pendingMap.set(drawId, current + amount);
         }
-        return draw;
+    });
+
+    return draws.map(draw => {
+        const drawId = draw.id.toString();
+        const financial = financialMap.get(drawId);
+        const pendingAmount = pendingMap.get(drawId) || 0;
+
+        // Base values from summary or 0
+        let collected = financial?.colectado || 0;
+        let paid = financial?.pagado || 0;
+        let net = financial?.neto || (collected - paid);
+
+        // Add pending amount to collected and net
+        if (pendingAmount > 0) {
+            collected += pendingAmount;
+            net += pendingAmount;
+        }
+
+        return {
+            ...draw,
+            totalCollected: collected,
+            premiumsPaid: paid,
+            netResult: net,
+        };
     });
 };
 
@@ -172,6 +237,8 @@ export const recalculateDashboardState = (
     pendingBets: PendingBet[] = []
 ): { filteredDraws: DrawType[], dailyTotals: DailyTotals } => {
 
+    const safeDrawsData = Array.isArray(drawsData) ? drawsData : null;
+
     // Default empty result
     const result = {
         filteredDraws: [] as DrawType[],
@@ -184,14 +251,14 @@ export const recalculateDashboardState = (
         }
     };
 
-    if (!drawsData) {
+    if (!safeDrawsData) {
         // If we have summary but no draws (rare but possible), we can still calculate totals from summary
         if (summaryData) {
             result.dailyTotals = summaryToTotals(summaryData, commissionRate);
         }
     } else {
-        // 1. Enrich draws with summary data if available
-        const enrichedDraws = enrichDraws(drawsData, summaryData);
+        // 1. Enrich draws with summary data AND pending bets if available
+        const enrichedDraws = enrichDraws(safeDrawsData, summaryData, pendingBets);
 
         // 2. Filter draws
         const filtered = filterDraws(enrichedDraws, filter);

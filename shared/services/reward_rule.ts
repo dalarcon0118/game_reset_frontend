@@ -1,83 +1,48 @@
-import ApiClient from '@/shared/services/api_client';
+import { RewardRuleApi } from './reward_rule/api';
+import { BackendRewardRule, BackendStructureRewardRule } from './reward_rule/types';
 
-export interface RewardRule {
-  id: string;
-  name: string;
-  description: string;
-  json_logic: any;
-  is_active: boolean;
-  bet_types: string[];
-  created_at: string;
-  updated_at: string;
-}
-
-export interface StructureRewardRule {
-  id: string;
-  structure: string;
-  rule: RewardRule;
-  apply_to_all_children: boolean;
-  specific_children: string[];
-  priority: number;
-  is_active: boolean;
-}
+export type { BackendRewardRule as RewardRule, BackendStructureRewardRule as StructureRewardRule };
 
 export class RewardRuleService {
-  static async list(params?: { is_active?: boolean }): Promise<RewardRule[]> {
+  static async list(params?: { is_active?: boolean }): Promise<BackendRewardRule[]> {
     try {
-      let endpoint = '/draw/reward-rules/';
-      if (params?.is_active !== undefined) {
-        const queryParams = new URLSearchParams();
-        queryParams.append('is_active', params.is_active.toString());
-        endpoint += `?${queryParams.toString()}`;
-      }
-      const response = await ApiClient.get<RewardRule[]>(endpoint);
-      return response;
+      return await RewardRuleApi.list(params);
     } catch (error) {
       console.error('Error fetching reward rules:', error);
       return [];
     }
   }
 
-  static async getForCurrentUser(): Promise<RewardRule[]> {
+  static async getForCurrentUser(): Promise<BackendRewardRule[]> {
     try {
-      const response = await ApiClient.get<RewardRule[]>(
-        '/draw/reward-rules/for-current-user/'
-      );
-      return response;
+      return await RewardRuleApi.getForCurrentUser();
     } catch (error) {
       console.error('Error fetching reward rules for current user:', error);
       return [];
     }
   }
 
-  static async getByStructure(structureId: string): Promise<RewardRule[]> {
+  static async getByStructure(structureId: string): Promise<BackendRewardRule[]> {
     try {
-      const response = await ApiClient.get<RewardRule[]>(
-        `/draw/reward-rules/by-structure/${structureId}/`
-      );
-      return response;
+      return await RewardRuleApi.getByStructure(structureId);
     } catch (error) {
       console.error('Error fetching reward rules by structure:', error);
       return [];
     }
   }
 
-  static async getByBetType(betTypeId: string): Promise<RewardRule[]> {
+  static async getByBetType(betTypeId: string): Promise<BackendRewardRule[]> {
     try {
-      const response = await ApiClient.get<RewardRule[]>(
-        `/draw/reward-rules/?bet_type=${betTypeId}`
-      );
-      return response;
+      return await RewardRuleApi.getByBetType(betTypeId);
     } catch (error) {
       console.error('Error fetching reward rules by bet type:', error);
       return [];
     }
   }
 
-  static async get(id: string): Promise<RewardRule | null> {
+  static async get(id: string): Promise<BackendRewardRule | null> {
     try {
-      const response = await ApiClient.get<RewardRule>(`/draw/reward-rules/${id}/`);
-      return response;
+      return await RewardRuleApi.get(id);
     } catch (error) {
       console.error('Error fetching reward rule:', error);
       return null;

@@ -1,30 +1,11 @@
 import { FinancialSummary } from '@/types';
-import apiClient from '@/shared/services/api_client';
-import settings from '@/config/settings';
 import { to, AsyncResult } from '../utils/generators';
 import { DashboardStats } from '@/features/colector/dashboard/core/model';
 import { OfflineStorage } from './offline_storage';
+import { FinancialSummaryApi } from './financial_summary/api';
+import { NodeFinancialSummary } from './financial_summary/types';
 
-export interface NodeFinancialSummary {
-  structure_id: number;
-  date: string;
-  total_collected: number;
-  total_paid: number;
-  total_net: number;
-  commissions: number;
-  draw_summary: string;
-}
-
-// Backend response interface
-interface BackendFinancialSummary {
-  id_estructura: number;
-  nombre_estructura: string;
-  padre_id: number | null;
-  colectado_total: number;
-  pagado_total: number;
-  neto_total: number;
-  sorteos: any[]; // Detailed draw information
-}
+export type { NodeFinancialSummary };
 
 export class FinancialSummaryService {
   /**
@@ -35,70 +16,35 @@ export class FinancialSummaryService {
    */
   static async get(structureId: string | number, date?: string): Promise<AsyncResult<FinancialSummary>> {
     const promise = (async () => {
-      // Default to today if not provided
       const targetDate = date || new Date().toISOString().split('T')[0];
 
-      // Endpoint: /api/financial-statement/summary/?structure_id=...&date=...
-      const endpoint = `${settings.api.endpoints.financialStatement()}?structure_id=${structureId}&date=${targetDate}`;
-
-      let response: any;
       try {
-        response = await apiClient.get<any>(endpoint);
+        const summary = await FinancialSummaryApi.getSummary(structureId, targetDate);
         // Save to cache on success
-        if (response) {
-          OfflineStorage.saveLastSummary(response);
-        }
+        OfflineStorage.saveLastSummary(summary);
+
+        return {
+          totalCollected: summary.colectado_total || 0,
+          premiumsPaid: summary.pagado_total || 0,
+          netResult: summary.neto_total || 0,
+          draws: summary.sorteos || [],
+        };
       } catch (error: any) {
         console.warn('FinancialSummaryService.get: Network error or rate limit, falling back to offline cache', error);
         
-        // Attempt to load from offline storage for ANY error
         const cached = await OfflineStorage.getLastSummary();
         if (cached) {
           console.log('FinancialSummaryService.get: Successfully loaded summary from offline storage');
-          response = cached;
+          return {
+            totalCollected: cached.colectado_total || 0,
+            premiumsPaid: cached.pagado_total || 0,
+            netResult: cached.neto_total || 0,
+            draws: cached.sorteos || [],
+          };
         } else {
-          // If no cache and network failed, rethrow
           throw error;
         }
       }
-
-      // Defensive parsing: handle both array and object responses
-      let summary: BackendFinancialSummary;
-
-      if (Array.isArray(response)) {
-        // Backend returns array - take first element or default
-        summary = response.length > 0 ? response[0] : {
-          id_estructura: 0,
-          nombre_estructura: '',
-          padre_id: null,
-          colectado_total: 0,
-          pagado_total: 0,
-          neto_total: 0,
-          sorteos: []
-        };
-      } else if (response && typeof response === 'object') {
-        // Backend returns object directly
-        summary = response as BackendFinancialSummary;
-      } else {
-        // Fallback for unexpected response format
-        summary = {
-          id_estructura: 0,
-          nombre_estructura: '',
-          padre_id: null,
-          colectado_total: 0,
-          pagado_total: 0,
-          neto_total: 0,
-          sorteos: []
-        };
-      }
-
-      // Map backend response to frontend FinancialSummary format with safe defaults
-      return {
-        totalCollected: summary.colectado_total || 0,
-        premiumsPaid: summary.pagado_total || 0,
-        netResult: summary.neto_total || 0,
-        draws: summary.sorteos || [],
-      };
     })();
 
     return to(promise);
@@ -111,8 +57,8 @@ export class FinancialSummaryService {
    */
   static async getDashboardStats(structureId: string | number): Promise<AsyncResult<{ date: string; stats: DashboardStats }>> {
     const promise = (async () => {
-      const endpoint = `${settings.api.endpoints.dashboardStats()}?structure_id=${structureId}`;
-      return await apiClient.get<{ date: string; stats: DashboardStats }>(endpoint);
+      const response = await FinancialSummaryApi.getDashboardStats(structureId);
+      return response as { date: string; stats: DashboardStats };
     })();
 
     return to(promise);
@@ -126,15 +72,7 @@ export class FinancialSummaryService {
    */
   static async getNodeFinancialSummary(id: number, date?: string): Promise<NodeFinancialSummary> {
     try {
-      const params = new URLSearchParams();
-      params.append('structure_id', id.toString());
-      if (date) params.append('date', date);
-
-      const endpoint = `${settings.api.endpoints.financialStatements()}node-summary/?${params.toString()}`;
-      return await apiClient.get<NodeFinancialSummary>(endpoint, {
-        cacheTTL: 0, // Disable cache for financial data to ensure freshness
-        retryCount: settings.api.defaults.retryCount
-      });
+      return await FinancialSummaryApi.getNodeSummary(id, date);
     } catch (error) {
       console.error(`Error fetching node financial summary for ID ${id}:`, error);
       throw error;
@@ -155,19 +93,7 @@ export class FinancialSummaryService {
     to?: string;
   }): Promise<FinancialSummary[]> {
     try {
-      const params = new URLSearchParams();
-      if (filters.draw_id) params.append('draw_id', filters.draw_id.toString());
-      if (filters.structure_id) params.append('structure_id', filters.structure_id.toString());
-      if (filters.level) params.append('level', filters.level);
-      if (filters.date) params.append('date', filters.date);
-      if (filters.from) params.append('from', filters.from);
-      if (filters.to) params.append('to', filters.to);
-
-      const endpoint = `${settings.api.endpoints.financialStatements()}v2/statements/?${params.toString()}`;
-      const response = await apiClient.get<any[]>(endpoint, {
-        cacheTTL: 0, // Disable cache for financial data to ensure freshness
-        retryCount: settings.api.defaults.retryCount
-      });
+      const response = await FinancialSummaryApi.listStatements(filters);
 
       // Map RESTful response to frontend FinancialSummary format
       return response.map(item => ({
@@ -177,7 +103,7 @@ export class FinancialSummaryService {
         draw: item.draw,
         owner_structure: item.owner_structure,
         date: item.date,
-        level: item.level
+        level: item.level as any
       }));
     } catch (error) {
       console.error('Error fetching RESTful financial statements:', error);

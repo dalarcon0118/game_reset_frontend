@@ -3,7 +3,7 @@ import { ScrollView, TouchableOpacity, View } from 'react-native';
 import { Label } from '@/shared/components';
 import { PluginContext } from '@/shared/core/plugins/plugin.types';
 import { useFiltersPluginStore } from './store';
-import { INIT_CONTEXT, SELECT_FILTER, SYNC_STATUS_FILTER } from './msg';
+import { SELECT_FILTER } from './msg';
 import { styles } from './styles';
 import { FiltersPluginConfig } from './model';
 
@@ -13,20 +13,11 @@ interface FiltersComponentProps {
 }
 
 export const FiltersComponent: React.FC<FiltersComponentProps> = ({ context, config }) => {
-  const { model, dispatch } = useFiltersPluginStore();
-  const hostStatusFilter = context.state?.[config.stateKey] ?? config.defaultValue;
+  const { model, dispatch, init } = useFiltersPluginStore();
 
-  React.useEffect(() => {
-    if (!model.context || model.config !== config) {
-      dispatch(INIT_CONTEXT({ context, config }));
-    }
-  }, [context, dispatch, model.config, model.context, config]);
-
-  React.useEffect(() => {
-    if (model.statusFilter !== hostStatusFilter) {
-      dispatch(SYNC_STATUS_FILTER(hostStatusFilter));
-    }
-  }, [dispatch, hostStatusFilter, model.statusFilter]);
+  if (!model.context || model.context?.hostStore !== context.hostStore || model.config !== config) {
+    init({ context, config });
+  }
 
   const handleFilterPress = (value: string) => {
     dispatch(SELECT_FILTER(value));

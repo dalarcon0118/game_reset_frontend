@@ -1,8 +1,7 @@
-import apiClient from './api_client';
-import settings from '@/config/settings';
-import { WinningRecord } from '@/types';
+import { WinningApi } from './winning/api';
+import { BackendWinningRecord } from './winning/types';
 
-
+export type { BackendWinningRecord as WinningRecord };
 
 export class WinningService {
     /**
@@ -10,18 +9,7 @@ export class WinningService {
      * @param drawId - ID of the draw
      * @returns Promise with WinningRecord or null
      */
-    static async getWinningNumber(drawId: string): Promise<WinningRecord | null> {
-        try {
-            return await apiClient.get<WinningRecord>(
-                `${settings.api.endpoints.draws()}${drawId}/get-winning-numbers/`,
-                { silentErrors: true } // Don't log expected 404s
-            );
-        } catch (error) {
-            // Only log if it's NOT a 404, as 404 is a valid business state
-            if ((error as any)?.status !== 404) {
-                console.error(`[WinningService] Unexpected error for drawId: ${drawId}`, error);
-            }
-            throw error;
-        }
+    static async getWinningNumber(drawId: string): Promise<BackendWinningRecord | null> {
+        return await WinningApi.getWinningNumber(drawId);
     }
 }

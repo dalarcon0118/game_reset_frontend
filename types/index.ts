@@ -60,7 +60,7 @@ export interface DrawType {
 
 export interface BetType {
   id: string;
-  type: 'Fijo' | 'Parlet' | 'Corrido';
+  type: 'Fijo' | 'Parlet' | 'Corrido' | 'Centena' | 'Loteria' | 'Cuaterna Semanal';
   numbers: string;
   amount: number;
   draw: string;

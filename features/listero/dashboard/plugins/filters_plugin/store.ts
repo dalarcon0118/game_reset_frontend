@@ -7,7 +7,7 @@ import { Model } from './model';
 import { Msg } from './msg';
 
 export const useFiltersPluginStore = createElmStore<Model, Msg>(
-  initialModel,
+  (params) => [initialModel(params), null],
   update,
   effectHandlers as any,
   subscriptions

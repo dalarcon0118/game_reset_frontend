@@ -3,15 +3,16 @@ import { PluginContext } from '@/shared/core/plugins/plugin.types';
 import { WebData } from '@/shared/core/remote.data';
 
 import { DrawsListPluginConfig } from './model';
+import { Draw } from './core/types';
 
 export const INIT_CONTEXT = createMsg<'INIT_CONTEXT', { context: PluginContext; config: DrawsListPluginConfig }>('INIT_CONTEXT');
-export const SYNC_STATE = createMsg<'SYNC_STATE', { draws: WebData<any>; filter: string }>('SYNC_STATE');
+export const SYNC_STATE = createMsg<'SYNC_STATE', { draws: WebData<Draw[]>; filter: string }>('SYNC_STATE');
 export const FILTER_DRAWS = createMsg<'FILTER_DRAWS', void>('FILTER_DRAWS');
 export const REFRESH_CLICKED = createMsg<'REFRESH_CLICKED', void>('REFRESH_CLICKED');
-export const RULES_CLICKED = createMsg<'RULES_CLICKED', string>('RULES_CLICKED');
-export const REWARDS_CLICKED = createMsg<'REWARDS_CLICKED', { id: string; title: string }>('REWARDS_CLICKED');
-export const BETS_LIST_CLICKED = createMsg<'BETS_LIST_CLICKED', { id: string; title: string }>('BETS_LIST_CLICKED');
-export const CREATE_BET_CLICKED = createMsg<'CREATE_BET_CLICKED', { id: string; title: string }>('CREATE_BET_CLICKED');
+export const RULES_CLICKED = createMsg<'RULES_CLICKED', string | number>('RULES_CLICKED');
+export const REWARDS_CLICKED = createMsg<'REWARDS_CLICKED', { id: string | number; title: string }>('REWARDS_CLICKED');
+export const BETS_LIST_CLICKED = createMsg<'BETS_LIST_CLICKED', { id: string | number; title: string }>('BETS_LIST_CLICKED');
+export const CREATE_BET_CLICKED = createMsg<'CREATE_BET_CLICKED', { id: string | number; title: string }>('CREATE_BET_CLICKED');
 export const NOOP = createMsg<'NOOP', void>('NOOP');
 
 export type Msg =
