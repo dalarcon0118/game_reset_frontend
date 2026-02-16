@@ -8,6 +8,7 @@ export interface Model {
     filteredDraws: DrawType[];
     summary: WebData<FinancialSummary>;
     pendingBets: PendingBet[];
+    syncedBets: PendingBet[]; // Todas las apuestas sincronizadas del día
     dailyTotals: DailyTotals;
     userStructureId: string | null;
     statusFilter: StatusFilter;

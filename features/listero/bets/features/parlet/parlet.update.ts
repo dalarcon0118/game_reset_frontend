@@ -1,10 +1,15 @@
-import { singleton, ret, Return } from '@/shared/core/return';
+import { singleton, Return } from '@/shared/core/return';
 import { Cmd } from '@/shared/core/cmd';
 import { Model } from '../../core/model';
-import { ParletMsg, ParletMsgType, PARLET_EDITING_TYPE } from './parlet.types';
+import * as Msg from './parlet.types';
+import { PARLET_EDITING_TYPE, ParletMsg } from './parlet.types';
 import { match } from 'ts-pattern';
 import { ParletDomain } from './parlet.domain';
 import { ParletState } from './parlet.state';
+import { logger } from '@/shared/utils/logger';
+import { FijosCorridosBet } from '@/types';
+
+const log = logger.withTag('PARLET_UPDATE');
 
 const getCombinationKey = (numbers: number[]): string => {
     return [...numbers].sort((a, b) => a - b).join('-');
@@ -12,14 +17,22 @@ const getCombinationKey = (numbers: number[]): string => {
 
 export function updateParlet(model: Model, msg: ParletMsg): Return<Model, ParletMsg> {
     return match<ParletMsg, Return<Model, ParletMsg>>(msg)
-        .with({ type: ParletMsgType.CONFIRM_PARLET_BET }, () => {
+        .with(Msg.CONFIRM_PARLET_BET.type(), () => {
             if (!model.parletSession.fromFijosyCorridoBet || model.parletSession.potentialParletNumbers.length < 2) {
+                log.debug('Skipping CONFIRM_PARLET_BET: invalid potential numbers or not from flow');
                 return singleton(model);
             }
 
-            // Create a new parlet bet from the potential numbers
-            const newParlet = ParletDomain.create(model.parletSession.potentialParletNumbers);
-            const updatedModel = ParletDomain.addToState(model, newParlet);
+            // Expand potential numbers into all possible pairs
+            const combinations = ParletDomain.generateCombinations(model.parletSession.potentialParletNumbers);
+            log.debug('Expanding potential numbers into combinations', {
+                original: model.parletSession.potentialParletNumbers,
+                combinations
+            });
+
+            // Create new parlet bets from all combinations
+            const newParlets = combinations.map(nums => ParletDomain.create(nums));
+            const updatedModel = ParletDomain.addManyToState(model, newParlets);
 
             // Mark this combination as used
             const combinationKey = getCombinationKey(model.parletSession.potentialParletNumbers);
@@ -31,13 +44,17 @@ export function updateParlet(model: Model, msg: ParletMsg): Return<Model, Parlet
                 }
             };
 
+            const firstBetId = newParlets[0].id;
+            const allIds = newParlets.map(p => p.id);
+
             return Return.val(
-                ParletState.toAmountInput(nextModel, newParlet.id),
+                ParletState.toAmountInput(nextModel, firstBetId, '', allIds),
                 Cmd.none
             );
         })
 
-        .with({ type: ParletMsgType.DELETE_PARLET_BET }, ({ betId }) => {
+        .with(Msg.DELETE_PARLET_BET.type(), ({ betId }) => {
+            log.debug('Deleting parlet bet', { betId });
             const updatedModel = ParletDomain.deleteFromState(model, betId);
 
             return Return.val(
@@ -52,7 +69,8 @@ export function updateParlet(model: Model, msg: ParletMsg): Return<Model, Parlet
             );
         })
 
-        .with({ type: ParletMsgType.UPDATE_PARLET_BET }, ({ betId, changes }) => {
+        .with(Msg.UPDATE_PARLET_BET.type(), ({ betId, changes }) => {
+            log.debug('Updating parlet bet', { betId, changes });
             const updatedModel = ParletDomain.updateInState(model, betId, changes);
 
             return Return.val(
@@ -61,14 +79,14 @@ export function updateParlet(model: Model, msg: ParletMsg): Return<Model, Parlet
             );
         })
 
-        .with({ type: ParletMsgType.EDIT_PARLET_BET }, ({ betId }) => {
+        .with(Msg.EDIT_PARLET_BET.type(), ({ betId }) => {
             return Return.val(
                 ParletState.setActiveBet(model, betId),
                 Cmd.none
             );
         })
 
-        .with({ type: ParletMsgType.OPEN_PARLET_AMOUNT_KEYBOARD }, ({ betId }) => {
+        .with(Msg.OPEN_PARLET_AMOUNT_KEYBOARD.type(), ({ betId }) => {
             const parlet = ParletDomain.findInState(model, betId);
 
             if (!parlet) {
@@ -81,21 +99,21 @@ export function updateParlet(model: Model, msg: ParletMsg): Return<Model, Parlet
             );
         })
 
-        .with({ type: ParletMsgType.CLOSE_AMOUNT_KEYBOARD }, () => {
+        .with(Msg.CLOSE_AMOUNT_KEYBOARD.type(), () => {
             return Return.val(
                 ParletState.closeKeyboards(model),
                 Cmd.none
             );
         })
 
-        .with({ type: ParletMsgType.CLOSE_BET_KEYBOARD }, () => {
+        .with(Msg.CLOSE_BET_KEYBOARD.type(), () => {
             return Return.val(
                 ParletState.closeKeyboards(model),
                 Cmd.none
             );
         })
 
-        .with({ type: ParletMsgType.KEY_PRESSED }, ({ key }) => {
+        .with(Msg.KEY_PRESSED.type(), ({ key }) => {
             const currentInput = model.editSession.currentInput;
             const newInput = key === 'backspace'
                 ? currentInput.slice(0, -1)
@@ -107,60 +125,74 @@ export function updateParlet(model: Model, msg: ParletMsg): Return<Model, Parlet
             );
         })
 
-        .with({ type: ParletMsgType.SUBMIT_AMOUNT_INPUT }, ({ amountString }) => {
+        .with(Msg.SUBMIT_AMOUNT_INPUT.type(), ({ amountString }) => {
             const amount = parseFloat(amountString || model.editSession.currentInput) || 0;
             const betId = model.editSession.editingBetId;
+            const bulkIds = model.parletSession.bulkEditingBetIds;
 
             if (!betId || model.editSession.editingAmountType !== PARLET_EDITING_TYPE) {
                 return singleton(model);
             }
 
-            // Usar UPDATE_PARLET_BET para actualizar el monto
+            // If we have bulk IDs, update all of them
+            if (bulkIds && bulkIds.length > 0) {
+                log.debug('Updating bulk parlet bets amount', { bulkIds, amount });
+                const updatedModel = ParletDomain.updateManyInState(
+                    ParletState.closeKeyboards(model),
+                    bulkIds,
+                    { amount }
+                );
+                return singleton(updatedModel);
+            }
+
+            // Usar UPDATE_PARLET_BET para actualizar el monto de una sola apuesta
             return updateParlet(
                 ParletState.closeKeyboards(model),
-                { type: ParletMsgType.UPDATE_PARLET_BET, betId, changes: { amount } }
+                Msg.UPDATE_PARLET_BET({ betId, changes: { amount } })
             );
         })
 
-        .with({ type: ParletMsgType.CONFIRM_INPUT }, () => {
+        .with(Msg.CONFIRM_INPUT.type(), () => {
             if (model.editSession.showBetKeyboard) {
                 return updateParlet(
                     model,
-                    { type: ParletMsgType.PROCESS_BET_INPUT, inputString: model.editSession.currentInput }
+                    Msg.PROCESS_BET_INPUT({ inputString: model.editSession.currentInput })
                 );
             }
             return updateParlet(
                 model,
-                { type: ParletMsgType.SUBMIT_AMOUNT_INPUT, amountString: model.editSession.currentInput }
+                Msg.SUBMIT_AMOUNT_INPUT({ amountString: model.editSession.currentInput })
             );
         })
 
-        .with({ type: ParletMsgType.SHOW_PARLET_DRAWER }, ({ visible }) => {
+        .with(Msg.SHOW_PARLET_DRAWER.type(), ({ visible }) => {
             return Return.val(
                 ParletState.setDrawerVisible(model, visible),
                 Cmd.none
             );
         })
 
-        .with({ type: ParletMsgType.SHOW_PARLET_MODAL }, ({ visible }) => {
+        .with(Msg.SHOW_PARLET_MODAL.type(), ({ visible }) => {
             return Return.val(
                 ParletState.setModalVisible(model, visible),
                 Cmd.none
             );
         })
 
-        .with({ type: ParletMsgType.SHOW_PARLET_ALERT }, ({ visible }) => {
+        .with(Msg.SHOW_PARLET_ALERT.type(), ({ visible }) => {
             return Return.val(
                 ParletState.setAlertVisible(model, visible),
                 Cmd.none
             );
         })
 
-        .with({ type: ParletMsgType.PROCESS_BET_INPUT }, ({ inputString }) => {
+        .with(Msg.PROCESS_BET_INPUT.type(), ({ inputString }) => {
+            log.debug('Processing parlet bet input', { inputString });
             // Parse input string into pairs of numbers
             const numbers = ParletDomain.parseInput(inputString);
 
             if (!ParletDomain.isValid(numbers)) {
+                log.debug('Invalid parlet numbers', { numbers });
                 return Return.val(
                     model,
                     Cmd.alert({
@@ -175,26 +207,43 @@ export function updateParlet(model: Model, msg: ParletMsg): Return<Model, Parlet
             const editingBetId = model.editSession.editingBetId;
 
             if (editingBetId) {
-                // Update existing parlet
-                // We first clear the edit session (close keyboards), then update the bet
+                log.debug('Updating existing parlet from input', { editingBetId, numbers });
+                // Update existing parlet (only if it's a single update, not expansion during edit)
                 const clearedModel = ParletState.closeKeyboards(model);
                 const updatedModel = ParletDomain.updateInState(clearedModel, editingBetId, { bets: numbers });
                 return Return.val(updatedModel, Cmd.none);
             } else {
-                // Create new parlet
-                const newParlet = ParletDomain.create(numbers);
-                const updatedModel = ParletDomain.addToState(model, newParlet);
+                // Create new parlets (expand if more than 2 numbers)
+                const combinations = ParletDomain.generateCombinations(numbers);
 
-                // Transition to amount keyboard for the new parlet
-                return Return.val(
-                    ParletState.toAmountInput(updatedModel, newParlet.id),
-                    Cmd.none
-                );
+                if (combinations.length > 1) {
+                    log.debug('Expanding manual input into combinations', { numbers, combinations });
+                    const newParlets = combinations.map(nums => ParletDomain.create(nums));
+                    const updatedModel = ParletDomain.addManyToState(model, newParlets);
+
+                    const firstBetId = newParlets[0].id;
+                    const allIds = newParlets.map(p => p.id);
+
+                    return Return.val(
+                        ParletState.toAmountInput(updatedModel, firstBetId, '', allIds),
+                        Cmd.none
+                    );
+                } else {
+                    // Just one parlet
+                    const newParlet = ParletDomain.create(numbers);
+                    log.debug('Creating single new parlet from input', { numbers, parletId: newParlet.id });
+                    const updatedModel = ParletDomain.addToState(model, newParlet);
+
+                    return Return.val(
+                        ParletState.toAmountInput(updatedModel, newParlet.id),
+                        Cmd.none
+                    );
+                }
             }
         })
 
-        .with({ type: ParletMsgType.PRESS_ADD_PARLET }, ({ fijosCorridosList }) => {
-            const numbers = fijosCorridosList.map(bet => bet.bet);
+        .with(Msg.PRESS_ADD_PARLET.type(), ({ fijosCorridosList }) => {
+            const numbers = fijosCorridosList.map((bet: FijosCorridosBet) => bet.bet);
 
             if (numbers.length < 2) {
                 return Return.val(
@@ -220,18 +269,18 @@ export function updateParlet(model: Model, msg: ParletMsg): Return<Model, Parlet
                         {
                             text: 'Cancelar',
                             style: 'cancel',
-                            onPressMsg: { type: ParletMsgType.CANCEL_PARLET_BET } as ParletMsg
+                            onPressMsg: Msg.CANCEL_PARLET_BET()
                         },
                         {
                             text: 'Crear',
-                            onPressMsg: { type: ParletMsgType.CONFIRM_PARLET_BET } as ParletMsg
+                            onPressMsg: Msg.CONFIRM_PARLET_BET()
                         }
                     ]
                 })
             );
         })
 
-        .with({ type: ParletMsgType.CANCEL_PARLET_BET }, () => {
+        .with(Msg.CANCEL_PARLET_BET.type(), () => {
             return Return.val(
                 ParletState.cancelFijosFlow(model),
                 Cmd.none
@@ -239,7 +288,7 @@ export function updateParlet(model: Model, msg: ParletMsg): Return<Model, Parlet
         })
 
         .otherwise(() => {
-            console.warn('Unhandled parlet message type:', msg);
+            log.warn('Unhandled parlet message type:', msg);
             return singleton(model);
         });
 }

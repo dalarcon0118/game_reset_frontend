@@ -3,19 +3,17 @@ import { PendingBet } from '@/shared/services/offline_storage';
 import { DailyTotals, isExpired, isClosingSoon, StatusFilter, DRAW_FILTER } from './core.types';
 import { Model } from './model';
 import { RemoteData, WebData } from '@/shared/core/remote.data';
+import { logger } from '@/shared/utils/logger';
 
-// Extended type to handle properties that might be coming from backend but missing in global type
-type DashboardDrawType = DrawType & {
-    is_rewarded?: boolean;
-};
+const log = logger.withTag('DASHBOARD_LOGIC');
 
 /**
  * Helper to calculate the total amount of a bet payload (single or bulk)
  */
-const calculatePayloadAmount = (payload: any): number => {
+export const calculatePayloadAmount = (payload: any): number => {
     let total = 0;
 
-    // 1. Single bet legacy field
+    // 1. Single bet legacy field or explicit amount
     if (payload.amount) {
         total += Number(payload.amount) || 0;
     }
@@ -28,10 +26,11 @@ const calculatePayloadAmount = (payload: any): number => {
 
     if (payload.parlets && Array.isArray(payload.parlets)) {
         total += payload.parlets.reduce((acc: number, bet: any) => {
-            if (bet.bets && Array.isArray(bet.bets) && bet.bets.length > 0 && bet.amount) {
-                const numBets = bet.bets.length;
-                // Formula: n * (n-1) * amount (for parlets of n numbers)
-                const parletTotal = numBets * (numBets - 1) * (Number(bet.amount) || 0);
+            if (bet.bets && Array.isArray(bet.bets) && bet.bets.length >= 2 && bet.amount) {
+                const n = bet.bets.length;
+                // Combinatorial formula: n * (n - 1) / 2
+                const numCombinations = (n * (n - 1)) / 2;
+                const parletTotal = numCombinations * (Number(bet.amount) || 0);
                 return acc + parletTotal;
             }
             return acc;
@@ -101,38 +100,76 @@ export const summaryToTotals = (summary: FinancialSummary, commissionRate: numbe
 export const enrichDraws = (
     draws: DrawType[],
     summary: FinancialSummary | null,
-    pendingBets: PendingBet[] = []
+    pendingBets: PendingBet[] = [],
+    syncedBets: PendingBet[] = [] // New parameter to include already synced bets in reconciliation
 ): DrawType[] => {
     // 1. Create a map for financial data from summary
     const financialMap = new Map(
         summary?.draws?.map(d => [d.id_sorteo.toString(), d]) || []
     );
 
-    // 2. Create a map for pending amounts by drawId
-    const pendingMap = new Map<string, number>();
+    // 2. Create a map for local totals by drawId (Pending + Synced)
+    const localMap = new Map<string, number>();
+    const pendingCountMap = new Map<string, number>();
+    const processedBetIds = new Set<string>(); // To avoid double counting synced bets if they appear in summary
+
+    // Process pending bets (always include these)
     pendingBets.forEach(bet => {
         const drawId = (bet.draw || bet.drawId || '').toString();
         if (drawId) {
             const amount = calculatePayloadAmount(bet);
-            const current = pendingMap.get(drawId) || 0;
-            pendingMap.set(drawId, current + amount);
+            const current = localMap.get(drawId) || 0;
+            localMap.set(drawId, current + amount);
+            pendingCountMap.set(drawId, (pendingCountMap.get(drawId) || 0) + 1);
+        }
+    });
+
+    // Process synced bets (the local "truth" for recently synced items)
+    syncedBets.forEach(bet => {
+        const drawId = (bet.draw || bet.drawId || '').toString();
+        const betId = bet.offlineId;
+        if (drawId && betId) {
+            const amount = calculatePayloadAmount(bet);
+            const current = localMap.get(drawId) || 0;
+            localMap.set(drawId, current + amount);
+            processedBetIds.add(betId.toString());
         }
     });
 
     return draws.map(draw => {
         const drawId = draw.id.toString();
         const financial = financialMap.get(drawId);
-        const pendingAmount = pendingMap.get(drawId) || 0;
+
+        // IMPORTANT: If we have synced bets that are already in the backend summary,
+        // we might be double counting if we just add localMap to backendCollected.
+        // However, the current logic uses Math.max(backendCollected, localAmount).
+        // This is safer but might still hide missing bets if backend > local.
+
+        const localAmount = localMap.get(drawId) || 0;
+        const pendingCount = pendingCountMap.get(drawId) || 0;
 
         // Base values from summary or 0
-        let collected = financial?.colectado || 0;
-        let paid = financial?.pagado || 0;
-        let net = financial?.neto || (collected - paid);
+        const backendCollected = financial?.colectado || 0;
+        const paid = financial?.pagado || 0;
 
-        // Add pending amount to collected and net
-        if (pendingAmount > 0) {
-            collected += pendingAmount;
-            net += pendingAmount;
+        // RECONCILIATION LOGIC: 
+        // We prioritize localAmount if it's higher than backendCollected (e.g. backend hasn't updated yet)
+        // or if they are different and we trust local more.
+        const collected = Math.max(backendCollected, localAmount);
+        const net = collected - paid;
+
+        const hasDiscrepancy = Math.abs(backendCollected - localAmount) > 0.01;
+
+        if (hasDiscrepancy) {
+            log.info(`Financial discrepancy detected for draw ${drawId} (${draw.source})`, {
+                backendCollected,
+                localAmount,
+                diff: localAmount - backendCollected,
+                pendingCount,
+                syncedCount: syncedBets.filter(b => (b.draw || b.drawId || '').toString() === drawId).length,
+                // Log if we suspect some bets are missing from local storage but present in backend
+                backendHigher: backendCollected > localAmount
+            });
         }
 
         return {
@@ -140,7 +177,13 @@ export const enrichDraws = (
             totalCollected: collected,
             premiumsPaid: paid,
             netResult: net,
-        };
+            _offline: {
+                pendingCount,
+                localAmount: localAmount,
+                backendAmount: backendCollected,
+                hasDiscrepancy
+            }
+        } as DrawType;
     });
 };
 
@@ -172,7 +215,7 @@ export const calculateTotals = (draws: DrawType[], commissionRate: number): Dail
 
 export const filterDraws = (draws: DrawType[], filter: StatusFilter): DrawType[] => {
 
-    const filtered = draws.filter((draw: DashboardDrawType) => {
+    const filtered = draws.filter((draw: DrawType) => {
         const expired = isExpired(draw);
         let passes = false;
 
@@ -234,7 +277,8 @@ export const recalculateDashboardState = (
     summaryData: FinancialSummary | null,
     filter: StatusFilter,
     commissionRate: number,
-    pendingBets: PendingBet[] = []
+    pendingBets: PendingBet[] = [],
+    syncedBets: PendingBet[] = []
 ): { filteredDraws: DrawType[], dailyTotals: DailyTotals } => {
 
     const safeDrawsData = Array.isArray(drawsData) ? drawsData : null;
@@ -257,12 +301,12 @@ export const recalculateDashboardState = (
             result.dailyTotals = summaryToTotals(summaryData, commissionRate);
         }
     } else {
-        // 1. Enrich draws with summary data AND pending bets if available
-        const enrichedDraws = enrichDraws(safeDrawsData, summaryData, pendingBets);
+        // 1. Enrich draws with summary data AND pending bets AND synced bets if available
+        const enrichedDraws = enrichDraws(safeDrawsData, summaryData, pendingBets, syncedBets);
 
         // 2. Filter draws
         const filtered = filterDraws(enrichedDraws, filter);
-        result.filteredDraws = filtered;
+        result.filteredDraws = filtered as DrawType[];
 
         // 3. Calculate totals
         // Prioritize summary data for daily totals if available
@@ -333,11 +377,20 @@ export const checkRateLimit = (webData: WebData<any>): boolean => {
  * Determines if structure changed, commission changed, or if initial fetch is needed.
  */
 export const handleAuthUserSynced = (model: Model, user: any): AuthSyncResult => {
+    log.info('handleAuthUserSynced called', {
+        userId: user?.id,
+        structureId: user?.structure?.id,
+        currentStructureId: model.userStructureId,
+        drawsState: model.draws.type,
+        summaryState: model.summary.type
+    });
+
     const currentUserId = model.currentUser?.id || model.currentUser?.pk;
     const nextUserId = user?.id || user?.pk;
 
     // Case 1: User logged out
     if (!user) {
+        log.info('User logged out, resetting dashboard');
         return {
             nextModel: {
                 ...model,
@@ -354,9 +407,19 @@ export const handleAuthUserSynced = (model: Model, user: any): AuthSyncResult =>
     const structure = user?.structure;
     const structureId = (structure?.id && structure.id !== 0) ? structure.id.toString() : null;
 
+    if (!structureId) {
+        log.warn('User synced but no structure ID found', { structure });
+    }
+
     const hasDataOrLoading =
         (model.draws.type === 'Success' || model.draws.type === 'Loading') &&
         (model.summary.type === 'Success' || model.summary.type === 'Loading');
+
+    log.debug('Sync check', {
+        structureId,
+        currentStructureId: model.userStructureId,
+        hasDataOrLoading
+    });
 
     // Case 2: No significant change
     if (currentUserId === nextUserId &&
@@ -364,6 +427,7 @@ export const handleAuthUserSynced = (model: Model, user: any): AuthSyncResult =>
         model.userStructureId === structureId &&
         hasDataOrLoading) {
 
+        log.debug('No significant change detected, skipping fetch');
         // Check for commission rate changes even if user/structure is same
         // Fall through to logic below
     }
@@ -378,6 +442,7 @@ export const handleAuthUserSynced = (model: Model, user: any): AuthSyncResult =>
 
     // Detect Structure Change or Initial Load
     if (structureId && structureId !== model.userStructureId) {
+        log.info('Structure changed, triggering fetch', { from: model.userStructureId, to: structureId });
         // New structure
         nextModel.userStructureId = structureId;
         nextModel.draws = RemoteData.loading();
@@ -385,11 +450,14 @@ export const handleAuthUserSynced = (model: Model, user: any): AuthSyncResult =>
         shouldFetch = true;
         fetchId = structureId;
     } else if (structureId && !hasDataOrLoading) {
+        log.info('Same structure but no data (initial load or retry), triggering fetch', { structureId });
         // Same structure but no data
         nextModel.draws = RemoteData.loading();
         nextModel.summary = RemoteData.loading();
         shouldFetch = true;
         fetchId = structureId;
+    } else {
+        log.debug('No fetch triggered', { structureId, hasDataOrLoading });
     }
 
     // Detect Commission Rate Change
@@ -405,7 +473,8 @@ export const handleAuthUserSynced = (model: Model, user: any): AuthSyncResult =>
             summaryData,
             nextModel.appliedFilter,
             nextCommissionRate,
-            nextModel.pendingBets
+            nextModel.pendingBets,
+            nextModel.syncedBets
         );
 
         nextModel.filteredDraws = filteredDraws;

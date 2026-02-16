@@ -1,6 +1,8 @@
-import settings from '@/config/settings';
+import settings from '../../config/settings';
 import * as SecureStore from 'expo-secure-store';
 import { logger } from '../utils/logger';
+
+const log = logger.withTag('API_CLIENT');
 
 const TOKEN_KEY = 'auth_access_token';
 const REFRESH_TOKEN_KEY = 'auth_refresh_token';
@@ -31,13 +33,14 @@ export class ApiClientError extends Error {
   }
 }
 
-interface RequestOptions extends RequestInit {
+export interface RequestOptions extends RequestInit {
   skipAuthHandler?: boolean;
   silentErrors?: boolean; // New flag to suppress error logging for expected failures
   cacheTTL?: number; // In milliseconds
   retryCount?: number;
   abortSignal?: AbortSignal;
   timeoutProfile?: 'FAST' | 'NORMAL' | 'SLOW';
+  queryParams?: Record<string, any>; // Optional query parameters
 }
 
 interface CacheEntry {
@@ -75,6 +78,22 @@ let errorHandler: ErrorHandler | null = null;
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+// --- Helpers ---
+
+const buildQueryString = (params: Record<string, any>): string => {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null) return;
+    if (Array.isArray(value)) {
+      value.forEach(v => query.append(key, String(v)));
+    } else {
+      query.append(key, String(value));
+    }
+  });
+  const str = query.toString();
+  return str ? `?${str}` : '';
+};
+
 // --- API Client ---
 
 const apiClient = {
@@ -85,12 +104,12 @@ const apiClient = {
   setupAuthErrorHandler(logoutCallback: () => Promise<void>) {
     this.setErrorHandler(async (error: ApiClientError, endpoint: string, options: RequestInit) => {
       if (error.status === 401 || error.status === 403) {
-        logger.info('Authentication failed, logging out user', 'API', { status: error.status, endpoint });
+        log.info('Authentication failed, logging out user', { status: error.status, endpoint });
         try {
           await logoutCallback();
           return { retry: false };
         } catch (logoutError) {
-          logger.error('Logout callback failed', 'API', logoutError);
+          log.error('Logout callback failed', logoutError);
           return { retry: false };
         }
       }
@@ -148,6 +167,8 @@ const apiClient = {
       retryCount = 0,
       abortSignal,
       timeoutProfile,
+      skipAuthHandler,
+      silentErrors,
       ...fetchOptions
     } = options;
 
@@ -161,7 +182,7 @@ const apiClient = {
     if (fetchOptions.method === 'GET' || !fetchOptions.method) {
       const cached = apiCache.get(cacheKey);
       if (cached && (Date.now() - cached.timestamp) < cached.ttl) {
-        logger.debug('Returning cached data', 'API', { endpoint });
+        log.debug('Returning cached data', { endpoint });
         return cached.data as T;
       }
     }
@@ -170,7 +191,7 @@ const apiClient = {
     if (!endpoint.includes(settings.api.endpoints.refresh())) {
       const token = await this.getAuthToken();
       if (token && this.isTokenExpired(token)) {
-        logger.debug('Token expired, refreshing...', 'API');
+        log.debug('Token expired, refreshing...');
         await this.refreshAccessToken();
       }
     }
@@ -183,13 +204,43 @@ const apiClient = {
       try {
         if (attempt > 0) {
           const delay = Math.pow(2, attempt) * 1000;
-          logger.debug(`Retrying request (attempt ${attempt}) after ${delay}ms`, 'API', { endpoint });
+          log.debug(`Retrying request (attempt ${attempt}) after ${delay}ms`, { endpoint });
           await sleep(delay);
         }
 
         const currentToken = await this.getAuthToken();
-        const fullUrl = `${settings.api.baseUrl}${endpoint}`;
-        console.log(`[ApiClient] Requesting ${fetchOptions.method || 'GET'} ${fullUrl}`);
+
+        let fullUrl = `${settings.api.baseUrl}${endpoint}`;
+        if (fetchOptions.queryParams) {
+          const queryString = buildQueryString(fetchOptions.queryParams);
+          if (queryString) {
+            // Handle existing query params in endpoint
+            fullUrl += fullUrl.includes('?') ? queryString.replace('?', '&') : queryString;
+          }
+        }
+
+        // Log outgoing request
+        let parsedBody = null;
+        try {
+          parsedBody = fetchOptions.body ? JSON.parse(fetchOptions.body as string) : null;
+          // Mask sensitive fields in logs
+          if (parsedBody && typeof parsedBody === 'object') {
+            const sensitiveKeys = ['password', 'pin', 'token', 'access', 'refresh'];
+            parsedBody = { ...parsedBody }; // Clone to avoid mutating original request
+            Object.keys(parsedBody).forEach(key => {
+              if (sensitiveKeys.some(k => key.toLowerCase().includes(k))) {
+                parsedBody[key] = '********';
+              }
+            });
+          }
+        } catch (e) {
+          parsedBody = fetchOptions.body; // Fallback to raw body if not JSON
+        }
+
+        log.debug(`>>> API REQUEST: ${fetchOptions.method || 'GET'} ${fullUrl}`, {
+          payload: parsedBody,
+          headers: fetchOptions.headers
+        });
 
         const config: RequestInit = {
           ...fetchOptions,
@@ -227,8 +278,18 @@ const apiClient = {
           let errorData: ApiClientErrorData = {};
           try {
             errorData = await response.json();
+            // Log error response body
+            log.error(`<<< API ERROR RESPONSE: ${response.status}`, {
+              endpoint,
+              status: response.status,
+              data: errorData
+            });
           } catch {
             errorData = { message: response.statusText || `Error ${response.status}` };
+            log.error(`<<< API ERROR (Could not parse body): ${response.status}`, {
+              endpoint,
+              status: response.status
+            });
           }
 
           const error = new ApiClientError(
@@ -242,7 +303,7 @@ const apiClient = {
             const handlerRes = await errorHandler(error, endpoint, config);
             if (handlerRes?.retry) {
               // Recursive call for retry with new token
-              return this.request<T>(endpoint, { ...options, skipAuthHandler: true });
+              return this.request(endpoint, { ...options, skipAuthHandler: true }) as Promise<T>;
             }
           }
 
@@ -266,10 +327,16 @@ const apiClient = {
 
         if (response.status === 204) {
           consecutiveFailures = 0;
+          log.debug(`<<< API SUCCESS RESPONSE: 204 (No Content) ${endpoint}`);
           return undefined as T;
         }
         let responseData = await response.json();
         consecutiveFailures = 0;
+
+        // Log successful response
+        log.debug(`<<< API SUCCESS RESPONSE: ${response.status} ${endpoint}`, {
+          data: responseData
+        });
 
         // Auto-extract results from paginated response
         if (responseData && typeof responseData === 'object' && 'results' in responseData && Array.isArray(responseData.results)) {
@@ -333,23 +400,23 @@ const apiClient = {
   },
 
   get<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
-    return this.request<T>(endpoint, { ...options, method: 'GET' });
+    return this.request(endpoint, { ...options, method: 'GET' }) as Promise<T>;
   },
 
   post<T>(endpoint: string, body: any, options: RequestOptions = {}): Promise<T> {
-    return this.request<T>(endpoint, { ...options, method: 'POST', body: JSON.stringify(body) });
+    return this.request(endpoint, { ...options, method: 'POST', body: JSON.stringify(body) }) as Promise<T>;
   },
 
   put<T>(endpoint: string, body: any, options: RequestOptions = {}): Promise<T> {
-    return this.request<T>(endpoint, { ...options, method: 'PUT', body: JSON.stringify(body) });
+    return this.request(endpoint, { ...options, method: 'PUT', body: JSON.stringify(body) }) as Promise<T>;
   },
 
   delete<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
-    return this.request<T>(endpoint, { ...options, method: 'DELETE' });
+    return this.request(endpoint, { ...options, method: 'DELETE' }) as Promise<T>;
   },
 
   patch<T>(endpoint: string, body: any, options: RequestOptions = {}): Promise<T> {
-    return this.request<T>(endpoint, { ...options, method: 'PATCH', body: JSON.stringify(body) });
+    return this.request(endpoint, { ...options, method: 'PATCH', body: JSON.stringify(body) }) as Promise<T>;
   },
 
   async getAuthToken(): Promise<string | null> {

@@ -5,6 +5,8 @@ export const initialState: Model = {
     draws: RemoteData.notAsked(),
     filteredDraws: [],
     summary: RemoteData.notAsked(),
+    pendingBets: [],
+    syncedBets: [],
     dailyTotals: {
         totalCollected: 0,
         premiumsPaid: 0,

@@ -2,6 +2,9 @@ import { useCallback, useMemo } from 'react';
 import { useBetsStore, selectBetsModel, selectDispatch } from '@/features/listero/bets/core/store';
 import { LoteriaMsgType } from './loteria.types';
 import { getFixedAmountFromRules, filterRulesByBetType } from '@/shared/utils/validation';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('USE_LOTERIA_HOOK');
 
 export const useLoteria = () => {
     const model = useBetsStore(selectBetsModel);
@@ -13,7 +16,7 @@ export const useLoteria = () => {
         ? managementSession.drawDetails.data
         : null;
 
-    const loteriaList = isEditing 
+    const loteriaList = isEditing
         ? entrySession.loteria
         : (listSession.remoteData.type === 'Success'
             ? listSession.remoteData.data.loteria
@@ -23,7 +26,7 @@ export const useLoteria = () => {
         const loteriaBetTypeId = managementSession.betTypes.loteria;
         const validationRules = rules.data?.validation_rules || [];
 
-        console.log('[useLoteria] DEBUG Session:', {
+        log.debug('Session details', {
             allBetTypes: managementSession.betTypes,
             loteriaBetTypeId,
             rulesCount: validationRules.length,
@@ -39,11 +42,13 @@ export const useLoteria = () => {
                     name.includes('CUATERNA');
             });
 
-        console.log('[useLoteria] Filtered Rules for Loteria:', betTypeRules.length,
-            loteriaBetTypeId ? '(by ID)' : '(by Name fallback)');
+        log.debug('Filtered Rules for Loteria', {
+            count: betTypeRules.length,
+            filteredBy: loteriaBetTypeId ? 'ID' : 'Name fallback'
+        });
 
         const amount = getFixedAmountFromRules(betTypeRules);
-        console.log('[useLoteria] Final Fixed Amount:', amount);
+        log.debug('Final Fixed Amount', { amount });
 
         return amount;
     }, [managementSession.betTypes.loteria, rules.data?.validation_rules]);

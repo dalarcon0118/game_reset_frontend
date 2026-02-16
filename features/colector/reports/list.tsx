@@ -1,16 +1,19 @@
-import React from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { StyleSheet, ScrollView, TouchableOpacity, RefreshControl, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Select, SelectItem, IndexPath, Datepicker } from '@ui-kitten/components';
 import { Flex, Label, Card } from '@/shared/components';
-import { Search, Filter, X } from 'lucide-react-native';
+import { Search, Filter } from 'lucide-react-native';
 import { useTheme } from '@/shared/hooks/use_theme';
 import { useAuth } from '../../auth';
 import { IncidentService, Incident } from '@/shared/services/incident';
 import { useDataFetch } from '@/shared/hooks/use_data_fetch';
 import { useIsFocused } from '@react-navigation/native';
 import { ReportItem } from './components/report_item';
-import { mapIncidentToReport } from './utils';
+import { mapIncidentToReport, Report } from './utils';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('COLECTOR_REPORTS_LIST');
 
 export default function ReportsListScreen() {
     const { colors, spacing } = useTheme();
@@ -21,14 +24,14 @@ export default function ReportsListScreen() {
     const [selectedDate, setSelectedDate] = React.useState<Date | null>(null);
     const [showFilters, setShowFilters] = React.useState(false);
 
-    const [fetchIncidents, incidents, loading, error] = useDataFetch<Incident[], [any]>(IncidentService.list);
+    const [fetchIncidents, incidents, loading] = useDataFetch<Incident[], [any]>(IncidentService.list);
 
-    const statusOptions = [
+    const statusOptions = useMemo(() => [
         { label: 'Abierto', value: 'pending' },
         { label: 'En proceso', value: 'in_review' },
         { label: 'Resuelta', value: 'resolved' },
         { label: 'Cancelada', value: 'cancelled' }
-    ];
+    ], []);
 
     const handleUpdateStatus = async (id: string, status: string, notes: string) => {
         // Map UI status back to backend status
@@ -46,12 +49,12 @@ export default function ReportsListScreen() {
             // Refresh with current filters
             loadData();
         } catch (error) {
-            console.error('Error updating status in screen:', error);
+            log.error('Error updating status in screen', { error, incidentId: id, status: backendStatus });
             throw error;
         }
     };
 
-    const loadData = React.useCallback(async () => {
+    const loadData = useCallback(async () => {
         if (isFocused && isAuthenticated) {
             const params: any = {
                 ordering: '-updated_at' // Default ordering by modification date
@@ -64,7 +67,7 @@ export default function ReportsListScreen() {
             }
             await fetchIncidents(params);
         }
-    }, [isFocused, isAuthenticated, selectedStatusIndex, selectedDate]);
+    }, [isFocused, isAuthenticated, selectedStatusIndex, selectedDate, fetchIncidents, statusOptions]);
 
     React.useEffect(() => {
         loadData();
@@ -75,7 +78,7 @@ export default function ReportsListScreen() {
         setSelectedDate(null);
     };
 
-    const reports = incidents ? incidents.map(mapIncidentToReport) : [];
+    const reports: Report[] = incidents ? incidents.map(mapIncidentToReport) : [];
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -117,7 +120,7 @@ export default function ReportsListScreen() {
                                         value={selectedStatusIndex ? statusOptions[selectedStatusIndex.row].label : 'Todos'}
                                         onSelect={(index) => setSelectedStatusIndex(index as IndexPath)}
                                     >
-                                        {statusOptions.map((opt) => (
+                                        {statusOptions.map((opt: { label: string, value: string }) => (
                                             <SelectItem key={opt.value} title={opt.label} />
                                         ))}
                                     </Select>
@@ -156,8 +159,7 @@ export default function ReportsListScreen() {
                                 onUpdateStatus={handleUpdateStatus}
                                 {...report}
                                 onPress={() => {
-                                    // TODO: Navigate to report detail
-                                    console.log('Report pressed:', report.id);
+                                    log.debug('Report pressed', { reportId: report.id });
                                 }}
                             />
                         ))}

@@ -8,6 +8,9 @@ import { fetchDrawsCmd, fetchSummaryCmd, loadPendingBetsCmd } from '../commands'
 import { match, P } from 'ts-pattern';
 import { DrawType, FinancialSummary } from '@/types';
 import { PendingBet } from '@/shared/services/offline_storage';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('DASHBOARD_DATA_HANDLER');
 
 export const DataHandler = {
     handleFetchDataRequested: (model: Model, structureId?: string): Return<Model, Msg> => {
@@ -19,7 +22,7 @@ export const DataHandler = {
         }
 
         const validId = id!;
-        console.log('update: FETCH_DATA_REQUESTED starting load for', validId);
+        log.debug('Starting load', { structureId: validId });
 
         return ret(
             {
@@ -32,8 +35,11 @@ export const DataHandler = {
         );
     },
 
-    handlePendingBetsLoaded: (model: Model, bets: PendingBet[]): Return<Model, Msg> => {
-        console.log('update: PENDING_BETS_LOADED', bets.length);
+    handlePendingBetsLoaded: (model: Model, bets: PendingBet[], syncedBets?: PendingBet[]): Return<Model, Msg> => {
+        const safeBets = Array.isArray(bets) ? bets : [];
+        const allSynced = Array.isArray(syncedBets) ? syncedBets : (Array.isArray(model.syncedBets) ? model.syncedBets : []);
+
+        log.debug('Bets loaded', { pending: safeBets.length, synced: allSynced.length });
 
         const summary = model.summary.type === 'Success' ? model.summary.data : null;
         const drawsData = model.draws.type === 'Success' ? model.draws.data : null;
@@ -43,19 +49,25 @@ export const DataHandler = {
             summary,
             model.appliedFilter,
             model.commissionRate,
-            bets
+            safeBets,
+            allSynced
         );
 
         return singleton({
             ...model,
-            pendingBets: bets,
+            pendingBets: safeBets,
+            syncedBets: allSynced,
             filteredDraws,
             dailyTotals
         });
     },
 
     handleDrawsReceived: (model: Model, webData: WebData<DrawType[]>): Return<Model, Msg> => {
-        console.log('update: DRAWS_RECEIVED state', webData.type);
+        log.debug('Draws received', {
+            state: webData.type,
+            count: webData.type === 'Success' ? webData.data.length : 0,
+            firstDraw: webData.type === 'Success' && webData.data.length > 0 ? webData.data[0] : null
+        });
 
         if (webData.type === 'Success' && !Array.isArray(webData.data)) {
             return singleton({
@@ -71,7 +83,7 @@ export const DataHandler = {
             .when(
                 (data) => checkRateLimit(data) && model.draws.type === 'Success',
                 () => {
-                    console.log('update: Rate limited, keeping previous draws data');
+                    log.warn('Rate limited, keeping previous draws data');
                     return singleton({ ...model, isRateLimited: true });
                 }
             )
@@ -83,8 +95,16 @@ export const DataHandler = {
                     summary,
                     model.appliedFilter,
                     model.commissionRate,
-                    model.pendingBets
+                    model.pendingBets,
+                    model.syncedBets
                 );
+
+                log.debug('Recalculated dashboard state', {
+                    totalDraws: data.length,
+                    filteredCount: filteredDraws.length,
+                    filter: model.appliedFilter,
+                    totals: dailyTotals
+                });
 
                 return singleton({
                     ...model,
@@ -106,20 +126,20 @@ export const DataHandler = {
     },
 
     handleSummaryReceived: (model: Model, webData: WebData<FinancialSummary>): Return<Model, Msg> => {
-        console.log('update: SUMMARY_RECEIVED state', webData.type);
+        log.debug('Summary received', { state: webData.type });
 
         return match(webData)
             // 1. Rate Limit Case: Failure + we already had successful data
             .when(
                 (data) => checkRateLimit(data) && model.summary.type === 'Success',
                 () => {
-                    console.log('update: Rate limited, keeping previous summary data');
+                    log.warn('Rate limited, keeping previous summary data');
                     return singleton({ ...model, isRateLimited: true });
                 }
             )
             // 2. Success Case: Recalculate derived state
             .with({ type: 'Success', data: P.select() }, (data) => {
-                console.log('update: Updating dailyTotals from real-time summary', data);
+                log.debug('Updating dailyTotals from real-time summary', { data });
 
                 const drawsData = model.draws.type === 'Success' ? model.draws.data : null;
                 const { filteredDraws, dailyTotals } = recalculateDashboardState(
@@ -127,7 +147,8 @@ export const DataHandler = {
                     data,
                     model.appliedFilter,
                     model.commissionRate,
-                    model.pendingBets
+                    model.pendingBets,
+                    model.syncedBets
                 );
 
                 return singleton({
@@ -154,7 +175,7 @@ export const DataHandler = {
 
     handleTick: (model: Model): Return<Model, Msg> => {
         if (model.userStructureId && !model.isRateLimited) {
-            console.log('update: TICK triggered fetch');
+            log.debug('Tick triggered fetch');
             return ret(model, [
                 fetchDrawsCmd(model.userStructureId),
                 fetchSummaryCmd(model.userStructureId),
@@ -165,7 +186,7 @@ export const DataHandler = {
     },
 
     handleFinancialUpdateReceived: (model: Model, update: FinancialUpdate): Return<Model, Msg> => {
-        console.log('update: FINANCIAL_UPDATE_RECEIVED', update);
+        log.debug('Financial update received', { update });
 
         const { shouldFetch } = handleSseUpdate(model, update);
 
@@ -183,12 +204,12 @@ export const DataHandler = {
     },
 
     handleSseConnected: (model: Model): Return<Model, Msg> => {
-        console.log('update: SSE_CONNECTED');
+        log.info('SSE Connected');
         return singleton(model);
     },
 
     handleSseError: (model: Model, error: string): Return<Model, Msg> => {
-        console.error('update: SSE_ERROR', error);
+        log.error('SSE Error', error);
         return singleton(model);
     }
 };

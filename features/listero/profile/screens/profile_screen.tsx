@@ -23,8 +23,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ showHeader = true 
     const router = useRouter();
 
     useEffect(() => {
-        init();
-    }, [init]);
+        // Cargar datos explícitamente cuando la pantalla se monta
+        // NOTA: No llamamos a init() para mantener los datos en caché (Stale-While-Revalidate)
+        dispatch({ type: ProfileMsgType.FETCH_PROFILE_REQUESTED });
+        dispatch({ type: ProfileMsgType.FETCH_INCIDENTS_REQUESTED });
+    }, [dispatch]);
 
     const { user, isLoggingOut } = model;
 

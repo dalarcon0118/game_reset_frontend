@@ -1,13 +1,16 @@
 import { Link, Stack, usePathname } from 'expo-router';
 import { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('NOT_FOUND');
 
 export default function NotFoundScreen() {
   const pathname = usePathname(); // Get the current route path
 
   // Log the route path whenever it changes
   useEffect(() => {
-    console.log('Current Route:', pathname);
+    log.debug('Current Route (Not Found)', { pathname });
   }, [pathname]);
   return (
     <>

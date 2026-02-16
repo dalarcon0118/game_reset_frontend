@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { ValidationRuleService, ValidationRule, StructureSpecificRule } from '../../../../shared/services/validation_rule';
 import { useAuth } from '../../../auth';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('COLECTOR_RULE_UPDATE');
 
 interface RuleUpdateFormData {
   name: string;
@@ -82,7 +85,7 @@ export const useRuleUpdate = (ruleId?: string): UseRuleUpdateReturn => {
         Alert.alert('Error', 'Regla no encontrada');
       }
     } catch (error) {
-      console.error('Error loading rule:', error);
+      log.error('Error loading rule', { error, ruleId: id });
       Alert.alert('Error', 'No se pudo cargar la regla');
     } finally {
       setLoading(false);
@@ -134,7 +137,7 @@ export const useRuleUpdate = (ruleId?: string): UseRuleUpdateReturn => {
       // The navigation back is handled in the component
 
     } catch (error) {
-      console.error('Error saving rule:', error);
+      log.error('Error saving rule', { error, ruleId });
       Alert.alert('Error', 'No se pudo guardar la regla');
     } finally {
       setSaving(false);

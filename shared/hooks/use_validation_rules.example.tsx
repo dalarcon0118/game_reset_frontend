@@ -4,6 +4,9 @@ import React, { useState } from 'react';
 import { View, Text, Alert } from 'react-native';
 import { useValidationRules } from '@/shared/hooks/use_validation_rules';
 import { getValidationErrors } from '@/shared/utils/validation';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('VALIDATION_EXAMPLE');
 
 interface ExampleBetComponentProps {
     structureId: string; // User's listeria/bank ID
@@ -45,7 +48,7 @@ export function ExampleBetComponent({ structureId, betTypeId }: ExampleBetCompon
         }
 
         // Bet is valid, proceed with submission
-        console.log('Bet is valid, submitting...');
+        log.info('Bet is valid, submitting...');
         // ... submit bet logic
     };
 
@@ -113,7 +116,7 @@ export function RealTimeValidationExample({ structureId, betTypeId }: ExampleBet
 export function BatchValidationExample({ structureId }: { structureId: string }) {
     const { validateMultipleBets } = useValidationRules({ structureId });
 
-    const handleSaveAllBets = (bets: Array<{ bet_number: string; amount: number; bet_type: string }>) => {
+    const handleSaveAllBets = (bets: { bet_number: string; amount: number; bet_type: string }[]) => {
         // Validate all bets at once
         const results = validateMultipleBets(bets);
 
@@ -134,7 +137,7 @@ export function BatchValidationExample({ structureId }: { structureId: string })
         }
 
         // All bets are valid
-        console.log('All bets valid, submitting...');
+        log.info('All bets valid, submitting...');
     };
 
     return <View>{/* Your UI */}</View>;

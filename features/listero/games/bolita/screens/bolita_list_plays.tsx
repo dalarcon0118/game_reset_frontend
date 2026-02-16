@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { match, P } from 'ts-pattern';
 import { useBolitaListViewModel } from '../hooks/useBolitaListViewModel';
 import { NotAskedView, LoadingView, FailureView } from '../components/BolitaListStates';
 import { SuccessView } from '../components/BolitaListSuccessView';
+import logger from '@/shared/utils/logger';
 
 interface BolitaListPlaysProps {
     drawId?: string;
 }
+const log = logger.withTag('BolitaListPlays');
 
 export const BolitaListPlays: React.FC<BolitaListPlaysProps> = ({ drawId }) => {
     const { 

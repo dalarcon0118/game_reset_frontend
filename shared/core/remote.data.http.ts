@@ -1,5 +1,8 @@
 import { RemoteData, WebData } from './remote.data';
 import { Cmd } from './cmd';
+import { logger } from '../utils/logger';
+
+const log = logger.withTag('REMOTE_DATA_HTTP');
 
 /**
  * Configuration for the HTTP request.
@@ -104,15 +107,20 @@ export const RemoteDataHttp = {
    */
   fetch: <T, Msg>(
     task: () => Promise<T | [any, T]>,
-    msgCreator: (data: WebData<T>) => Msg
+    msgCreator: (data: WebData<T>) => Msg,
+    label?: string
   ): Cmd => {
     // Validate that task is actually a function
     if (typeof task !== 'function') {
-      console.error('[RemoteDataHttp.fetch] Invalid task parameter - expected function, got:', typeof task, task);
+      log.error('Invalid task parameter - expected function', {
+        type: typeof task,
+        task
+      });
       return Cmd.task({
         task: async () => { throw new Error('Invalid task function provided to RemoteDataHttp.fetch'); },
         onSuccess: (data: T) => msgCreator(RemoteData.success(data)),
         onFailure: (error: any) => msgCreator(RemoteData.failure(error)),
+        label: label ? `${label}_ERROR` : 'UNKNOWN_ERROR'
       });
     }
 
@@ -122,10 +130,10 @@ export const RemoteDataHttp = {
         // If it's the [error, data] tuple from our to() helper
         if (Array.isArray(result) && result.length === 2) {
           const [error, data] = result;
-          
+
           // Pattern [Error, null] or [null, Data]
           const isResultPattern = (error === null) || (error instanceof Error);
-          
+
           if (isResultPattern) {
             if (error) throw error;
             return data;
@@ -135,6 +143,7 @@ export const RemoteDataHttp = {
       },
       onSuccess: (data: T) => msgCreator(RemoteData.success(data)),
       onFailure: (error: any) => msgCreator(RemoteData.failure(error)),
+      label: label || 'REMOTE_DATA_HTTP_FETCH'
     });
   }
 };

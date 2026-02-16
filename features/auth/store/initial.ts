@@ -7,6 +7,7 @@ export const initialAuthModel: AuthModel = {
     isAuthenticated: false,
     isLoading: false,
     isLoggingOut: false,
+    isOffline: false,
     error: null,
 
     // Login session

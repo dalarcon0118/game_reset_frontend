@@ -6,6 +6,9 @@ import { match } from 'ts-pattern';
 import { RemoteData } from '@/shared/core/remote.data';
 import { generateRandomId } from '@/shared/utils/random';
 import { FijosCorridosBet } from '@/types';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('FIJOS_UPDATE');
 
 export function updateFijos(model: Model, msg: FijosMsg): Return<Model, FijosMsg> {
     return match<FijosMsg, Return<Model, FijosMsg>>(msg)
@@ -361,8 +364,7 @@ export function updateFijos(model: Model, msg: FijosMsg): Return<Model, FijosMsg
 
         .with({ type: FijosMsgType.CONFIRM_APPLY_AMOUNT_ALL }, () => {
             const details = model.editSession.amountConfirmationDetails;
-            console.log('Confirm Apply Amount All Details:');
-            console.log(details)
+            log.debug('Confirm Apply Amount All Details', details);
             if (!details) return singleton(model);
 
             const { amountValue, intendedAmountType } = details;
@@ -440,7 +442,7 @@ export function updateFijos(model: Model, msg: FijosMsg): Return<Model, FijosMsg
         })
 
         .otherwise(() => {
-            console.warn('Unhandled fijos message type:', msg);
+            log.warn('Unhandled fijos message type:', msg);
             return singleton(model);
         });
 }

@@ -1,7 +1,7 @@
 import { match } from 'ts-pattern';
 import { Model as GlobalModel } from '@/features/listero/bets/core/model';
 import { ManagementMsgType, ManagementMsg } from '@/features/listero/bets/features/management/management.types';
-import { identifyBetTypes, selectListData, ListActions, generateReceiptCode } from '@/features/listero/bets/features/management/management.utils';
+import { ListActions, generateReceiptCode } from '@/features/listero/bets/features/management/management.utils';
 import { Cmd } from '@/shared/core/cmd';
 import { Return, ret, singleton } from '@/shared/core/return';
 import { RemoteData, WebData } from '@/shared/core/remote.data';
@@ -10,6 +10,11 @@ import { BetService } from '@/shared/services/bet';
 import { DrawService } from '@/shared/services/draw';
 import { GameType, BetType } from '@/types';
 import { buildCommandsForMode, validateViewMode, ViewMode } from '@/features/listero/bets/features/management/data-fetching.strategies';
+import { BetRegistry } from '@/features/listero/bets/core/bet-registry';
+import { initializeBetFeatures } from '@/features/listero/bets/core/bootstrap';
+
+// Ensure features are registered
+initializeBetFeatures();
 
 // --- Sub-handlers for better modularity ---
 
@@ -60,6 +65,9 @@ const handleSaveResponse = (model: GlobalModel, response: WebData<any>): Return<
             success: (data) => ret(
                 {
                     ...model,
+                    entrySession: {
+                        ...BetRegistry.getEmptyState()
+                    },
                     managementSession: {
                         ...model.managementSession,
                         saveStatus: RemoteData.success(data),
@@ -67,7 +75,7 @@ const handleSaveResponse = (model: GlobalModel, response: WebData<any>): Return<
                     }
                 },
                 Cmd.batch([
-                    ListActions.refreshBets(model.currentDrawId || ''),
+                    ListActions.resetBets(), // Clear the list after saving
                     Cmd.navigate({
                         pathname: '/lister/bet_success',
                         params: { drawId: model.currentDrawId || '' }
@@ -99,7 +107,7 @@ export const updateManagement = (model: GlobalModel, msg: ManagementMsg): Return
             match(response)
                 .with({ type: 'Success' }, ({ data }) => singleton({
                     ...model,
-                    managementSession: { ...model.managementSession, betTypes: identifyBetTypes(data) },
+                    managementSession: { ...model.managementSession, betTypes: BetRegistry.identifyAllBetTypes(data) },
                 }))
                 .with({ type: 'Failure' }, ({ error }) => singleton({
                     ...model,
@@ -138,7 +146,7 @@ export const updateManagement = (model: GlobalModel, msg: ManagementMsg): Return
                 RemoteDataHttp.fetch(
                     async () => {
                         const receiptCode = generateReceiptCode();
-                        const result = await BetService.create({ drawId, ...selectListData(model), receiptCode });
+                        const result = await BetService.create({ drawId, ...BetRegistry.prepareAllForSave(model), receiptCode });
                         return result as any;
                     },
                     (response: WebData<any>) => ({ type: ManagementMsgType.SAVE_BETS_RESPONSE, response })
@@ -159,14 +167,13 @@ export const updateManagement = (model: GlobalModel, msg: ManagementMsg): Return
                 ]
             })))
 
-        .with({ type: ManagementMsgType.RESET_BETS }, () => singleton({
-            ...model,
-            managementSession: { ...model.managementSession, saveSuccess: false, saveStatus: RemoteData.notAsked() },
-            listSession: {
-                ...model.listSession,
-                remoteData: RemoteData.success({ fijosCorridos: [], parlets: [], centenas: [], loteria: [] })
-            }
-        }))
+        .with({ type: ManagementMsgType.RESET_BETS }, () => ret(
+            {
+                ...model,
+                managementSession: { ...model.managementSession, saveSuccess: false, saveStatus: RemoteData.notAsked() },
+            },
+            ListActions.resetBets() // Send semantic reset command to List
+        ))
 
         .with({ type: ManagementMsgType.CLEAR_MANAGEMENT_ERROR }, () => singleton({
             ...model,
@@ -193,6 +200,5 @@ export const updateManagement = (model: GlobalModel, msg: ManagementMsg): Return
         .with({ type: ManagementMsgType.SHARE_FAILED }, ({ error }) =>
             ret(model, Cmd.alert({ title: 'Error', message: error })))
 
-        .with({ type: ManagementMsgType.NONE }, () => singleton(model))
-        .exhaustive();
+        .otherwise(() => singleton(model));
 };

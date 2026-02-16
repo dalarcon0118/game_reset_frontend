@@ -22,13 +22,19 @@ export const getAuthSub = () => {
     return Sub.watchStore(
         useAuthStore,
         (state: any) => state?.model?.user ?? state?.user,
-        (user) => AUTH_USER_SYNCED(user),
+        (user) => {
+            // Always sync user state - let the update logic decide if action is needed
+            // The AuthHandler already has logic to prevent duplicate fetches
+            return AUTH_USER_SYNCED(user);
+        },
         'dashboard-auth-sync'
     );
 };
 
 export const getFinancialUpdatesSub = (authToken: string) => {
-    const sseUrl = `${settings.api.baseUrl}/financial-statement/stream/`;
+    // Pass token as query parameter for React Native Android compatibility
+    // EventSource polyfill has issues sending headers in RN Android
+    const sseUrl = `${settings.api.baseUrl}/financial-statement/stream/?token=${encodeURIComponent(authToken)}`;
     return Sub.sse(
         sseUrl,
         (payload) => {
@@ -42,8 +48,8 @@ export const getFinancialUpdatesSub = (authToken: string) => {
 
             return NONE();
         },
-        `dashboard-sse-${authToken}`,
-        { 'Authorization': `Bearer ${authToken}` }
+        `dashboard-sse-${authToken}`
+        // Note: Headers removed - token is now in URL for RN Android compatibility
     );
 };
 
@@ -82,7 +88,7 @@ export const getDashboardPluginEventsSub = () => {
  */
 export const getHostStateSyncSub = () => {
     return Sub.watchStore(
-        { getState: () => ({ model: {} }), subscribe: () => () => {} }, // Placeholder, se inyectará el store real
+        { getState: () => ({ model: {} }), subscribe: () => () => { } }, // Placeholder, se inyectará el store real
         (state: any) => state.model,
         (model) => {
             pluginEventBus.publish('host:dashboard:updated', model);

@@ -1,8 +1,11 @@
-import { useCallback, useMemo } from 'react';
-import { useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo } from 'react';
+import { router } from 'expo-router';
 import { useBetsStore, selectBetsModel, selectDispatch } from '@/features/listero/bets/core/store';
 import { ListMsgType } from '@/features/listero/bets/features/bet-list/list.types';
 import { groupBetsByReceipt, GroupedBets } from '../utils/list_grouping';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('useBolitaListViewModel');
 
 interface BolitaListViewModelResult {
     remoteData: any;
@@ -19,14 +22,15 @@ interface BolitaListViewModelResult {
 }
 
 export const useBolitaListViewModel = (drawId?: string): BolitaListViewModelResult => {
-    const router = useRouter();
     const model = useBetsStore(selectBetsModel);
     const dispatch = useBetsStore(selectDispatch);
 
     const { fijosCorridosTotal, parletsTotal, centenasTotal, grandTotal } = model.summary;
     const { isRefreshing } = model.listSession;
     const remoteData = model.listSession.remoteData as any;
-
+    useEffect(() => {
+        log.debug('useBolitaListViewModel - totals', { fijosCorridosTotal, parletsTotal, centenasTotal, grandTotal });
+    }, [fijosCorridosTotal, parletsTotal, centenasTotal, grandTotal])
     const handleRefresh = useCallback(() => {
         if (drawId) {
             dispatch({
@@ -40,9 +44,9 @@ export const useBolitaListViewModel = (drawId?: string): BolitaListViewModelResu
     }, [drawId, dispatch]);
 
     // Data transformation logic
-    const fijosCorridos = remoteData.type === 'Success' ? remoteData.data.fijosCorridos : [];
-    const parlets = remoteData.type === 'Success' ? remoteData.data.parlets : [];
-    const centenas = remoteData.type === 'Success' ? remoteData.data.centenas : [];
+    const fijosCorridos = remoteData.type === 'Success' ? (remoteData.data.fijosCorridos || []) : [];
+    const parlets = remoteData.type === 'Success' ? (remoteData.data.parlets || []) : [];
+    const centenas = remoteData.type === 'Success' ? (remoteData.data.centenas || []) : [];
 
     const groupedBets = useMemo(() => {
         if (remoteData.type !== 'Success') return {};
@@ -53,9 +57,9 @@ export const useBolitaListViewModel = (drawId?: string): BolitaListViewModelResu
         const params: any = {};
         if (drawId) params.drawId = drawId;
         if (receiptCode && receiptCode !== '-----') params.receiptCode = receiptCode;
-        
+
         router.push({ pathname: '/lister/bet_success', params });
-    }, [drawId, router]);
+    }, [drawId]);
 
     return {
         remoteData,

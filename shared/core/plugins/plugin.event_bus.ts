@@ -1,3 +1,7 @@
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('EVENT_BUS');
+
 /**
  * Bus de eventos desacoplado para la comunicación entre plugins.
  * Implementa el patrón Publish/Subscribe.
@@ -15,7 +19,7 @@ class PluginEventBus {
         if (!this.subscribers.has(event)) {
             this.subscribers.set(event, new Set());
         }
-        
+
         const handlers = this.subscribers.get(event)!;
         handlers.add(handler);
 
@@ -37,7 +41,7 @@ class PluginEventBus {
                 try {
                     handler(data);
                 } catch (error) {
-                    console.error(`[PluginEventBus] Error en manejador de evento "${event}":`, error);
+                    log.error(`Error en manejador de evento "${event}"`, error);
                 }
             });
         }

@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { pluginManager } from './plugin.registry';
+import { pluginEventBus } from './plugin.event_bus';
 import { ErrorBoundary } from '../../components/error_boundary';
 import { Flex } from '../../components/flex';
 import { SlotProps } from './plugin.types';
@@ -23,6 +24,7 @@ interface Props {
 /**
  * Componente Slot: El punto de inyección de UI para plugins.
  * Implementa resiliencia mediante ErrorBoundaries individuales.
+ * Ahora es REACTIVO a la carga dinámica de plugins.
  */
 export const Slot: React.FC<Props> = ({ 
   name, 
@@ -32,9 +34,25 @@ export const Slot: React.FC<Props> = ({
   direction = 'vertical',
   pluginProps = {}
 }) => {
-  // Obtenemos las extensiones registradas para este slot
-  const extensions = useMemo(() => {
-    return pluginManager.getExtensionsForSlot(name);
+  // Estado local para almacenar las extensiones
+  const [extensions, setExtensions] = useState(() => pluginManager.getExtensionsForSlot(name));
+
+  // Efecto para suscribirse a cambios en el registro de plugins
+  useEffect(() => {
+    // Función para actualizar extensiones
+    const updateExtensions = () => {
+      setExtensions(pluginManager.getExtensionsForSlot(name));
+    };
+
+    // Suscribirse al evento de registro
+    const unsubscribe = pluginEventBus.subscribe('sys:plugin_registered', updateExtensions);
+
+    // Actualizar inmediatamente por si hubo cambios durante el montaje
+    updateExtensions();
+
+    return () => {
+      unsubscribe();
+    };
   }, [name]);
 
   if (extensions.length === 0) {

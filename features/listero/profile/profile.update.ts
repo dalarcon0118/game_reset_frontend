@@ -11,7 +11,7 @@ import { hashString } from '@/shared/utils/crypto';
 
 // Fetch real profile data from me endpoint using RemoteDataHttp
 const fetchProfileCmd = () => {
-    return RemoteDataHttp.fetch(
+    return RemoteDataHttp.fetch<User, ProfileMsg>(
         () => apiClient.get<User>(settings.api.endpoints.me()),
         (webData) => ({
             type: ProfileMsgType.FETCH_PROFILE_RESPONSE,
@@ -27,7 +27,7 @@ const fetchProfileCmd = () => {
 };
 
 const fetchIncidentsCmd = () => {
-    return RemoteDataHttp.fetch(
+    return RemoteDataHttp.fetch<Incident[], ProfileMsg>(
         () => apiClient.get<Incident[]>(settings.api.endpoints.incidents()),
         (webData) => ({
             type: ProfileMsgType.FETCH_INCIDENTS_RESPONSE,
@@ -51,11 +51,11 @@ export const init = (params?: any): [ProfileModel, Cmd] => {
     const result = ret(
         {
             ...initialProfileModel,
-            user: RemoteData.loading<any, UserProfile>(),
+            user: RemoteData.notAsked<any, UserProfile>(),
             userData: DEFAULT_USER_PROFILE,
-            incidents: RemoteData.loading<any, Incident[]>()
+            incidents: RemoteData.notAsked<any, Incident[]>()
         },
-        [fetchProfileCmd() as any, fetchIncidentsCmd() as any]
+        []
     );
     return [result.model, result.cmd as any];
 };
@@ -66,12 +66,23 @@ export const updateProfile = (model: ProfileModel, msg: ProfileMsg): [ProfileMod
             return ret(
                 {
                     ...model,
-                    user: RemoteData.loading<any, UserProfile>(),
+                    user: RemoteData.notAsked<any, UserProfile>(),
                     userData: DEFAULT_USER_PROFILE,
-                    incidents: RemoteData.loading<any, Incident[]>(),
+                    incidents: RemoteData.notAsked<any, Incident[]>(),
                     isLoggingOut: false
                 },
-                [fetchProfileCmd() as any, fetchIncidentsCmd() as any]
+                []
+            );
+        })
+        .with({ type: ProfileMsgType.FETCH_PROFILE_REQUESTED }, () => {
+            // Stale-While-Revalidate: Si ya tenemos datos, no mostramos loading
+            const userState = RemoteData.isSuccess(model.user)
+                ? model.user
+                : RemoteData.loading<any, UserProfile>();
+
+            return ret(
+                { ...model, user: userState },
+                [fetchProfileCmd() as any]
             );
         })
         .with({ type: ProfileMsgType.FETCH_PROFILE_RESPONSE }, ({ webData }) => {
@@ -85,8 +96,13 @@ export const updateProfile = (model: ProfileModel, msg: ProfileMsg): [ProfileMod
             return ret({ ...model, incidents: webData }, []);
         })
         .with({ type: ProfileMsgType.FETCH_INCIDENTS_REQUESTED }, () => {
+            // Stale-While-Revalidate: Si ya tenemos datos, no mostramos loading
+            const incidentsState = RemoteData.isSuccess(model.incidents)
+                ? model.incidents
+                : RemoteData.loading<any, Incident[]>();
+
             return ret(
-                { ...model, incidents: RemoteData.loading<any, Incident[]>() },
+                { ...model, incidents: incidentsState },
                 [fetchIncidentsCmd() as any]
             );
         })
@@ -110,7 +126,12 @@ export const updateProfile = (model: ProfileModel, msg: ProfileMsg): [ProfileMod
             ]);
         })
         .with({ type: ProfileMsgType.SUBMIT_LOGOUT }, () => {
-            return ret({ ...model, isLoggingOut: true }, []);
+            return ret({
+                ...model,
+                isLoggingOut: true,
+                user: RemoteData.notAsked<any, UserProfile>(),
+                incidents: RemoteData.notAsked<any, Incident[]>()
+            }, []);
         })
         .with({ type: ProfileMsgType.CHANGE_PASSWORD_REQUESTED }, () => {
             return ret(model, [

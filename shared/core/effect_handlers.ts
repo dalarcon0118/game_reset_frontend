@@ -3,6 +3,10 @@ import { Alert } from 'react-native';
 import { Cmd } from './cmd';
 import apiClient from '../services/api_client';
 import { logger } from '../utils/logger';
+import { navigationRef } from '../navigation/navigation_service';
+
+const log = logger.withTag('EFFECTS');
+
 export interface TaskPayload {
     task: (...args: any[]) => Promise<any>,
     args?: any[],
@@ -41,7 +45,7 @@ export const effectHandlers = {
     },
     'HTTP': async (payload: HttpPayload) => {
         if (!payload) {
-            logger.error(`HTTP Request failed - missing payload`, 'HTTP');
+            log.error('HTTP Request failed - missing payload');
             throw new Error('HTTP effect requires a payload');
         }
         const { url, method, body, headers, cacheTTL, retryCount, abortSignal } = payload;
@@ -57,13 +61,13 @@ export const effectHandlers = {
             });
             return response;
         } catch (error) {
-            logger.error(`HTTP Request failed`, 'HTTP', error, { method, url });
+            log.error('HTTP Request failed', error, { method, url });
             throw error;
         }
     },
     'TASK': async (payload: TaskPayload, dispatch: (cmd: Cmd) => void) => {
         if (!payload) {
-            logger.error(`Task execution failed - missing payload`, 'TASK');
+            log.error('Task execution failed - missing payload');
             return;
         }
         const { task, args, onSuccess, onFailure } = payload;
@@ -71,7 +75,7 @@ export const effectHandlers = {
         // Validate that task is a function before calling it
         if (typeof task !== 'function') {
             const error = new Error(`Task execution failed: Expected function, got ${typeof task}`);
-            logger.error(`Task execution failed - invalid task function`, 'TASK', error, { task, args });
+            log.error('Task execution failed - invalid task function', error, { task, args });
             dispatch(onFailure(error));
             return;
         }
@@ -83,49 +87,62 @@ export const effectHandlers = {
             // Only log if it's NOT a business-expected error (like 404 in some contexts)
             const isExpectedError = (error as any)?.status === 404;
             if (!isExpectedError) {
-                logger.error(`Task execution failed`, 'TASK', error, { args });
+                log.error('Task execution failed', error, { args });
             }
             dispatch(onFailure(error));
         }
     },
     'ATTEMPT': async (payload: AttemptPayload, dispatch: (cmd: Cmd) => void) => {
         if (!payload) {
-            logger.error(`Attempt failed - missing payload`, 'ATTEMPT');
+            log.error('Attempt failed - missing payload');
             return;
         }
         const { task, args, onSuccess, onFailure } = payload;
 
         try {
             const [error, data] = await task(...(args || []));
-
             if (error) {
-                logger.warn(`Attempt failed with error`, 'ATTEMPT', error);
+                log.error('Attempt task returned error', error, { args });
                 dispatch(onFailure(error));
             } else {
                 dispatch(onSuccess(data));
             }
         } catch (error) {
-            logger.error(`Attempt crashed unexpectedly`, 'ATTEMPT', error, { args });
+            log.error('Attempt execution crashed', error, { args });
             dispatch(onFailure(error));
         }
     },
     'NAVIGATE': async (payload: { pathname: string, params?: Record<string, any>, method?: 'push' | 'replace' | 'back' }) => {
-        console.log('[NAVIGATE] Handler called with payload:', JSON.stringify(payload, null, 2));
+        log.debug('Handler called with payload', { payload });
 
         if (!payload) {
-            logger.error(`Navigation failed - missing payload`, 'NAVIGATE');
+            log.error('Navigation failed - missing payload');
             return;
         }
         const { pathname, params, method = 'push' } = payload;
 
+        // --- Navigation Readiness Guard ---
+        // Intentamos esperar a que el sistema esté listo, pero no bloqueamos si navigationRef no está vinculado.
+        // El bucle interno manejará la condición de carrera real de Expo Router.
+        let attempts = 0;
+        const MAX_ATTEMPTS = 5;
+        const RETRY_DELAY_MS = 100;
+
+        while (!navigationRef.isReady() && attempts < MAX_ATTEMPTS) {
+            log.warn(`Navigation system not ready (navigationRef), retrying in ${RETRY_DELAY_MS}ms... (Attempt ${attempts + 1}/${MAX_ATTEMPTS})`);
+            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+            attempts++;
+        }
+        // ----------------------------------
+
         if (method === 'back') {
-            console.log('[NAVIGATE] Going back');
+            log.debug('Going back');
             router.back();
             return;
         }
 
         if (!pathname) {
-            logger.error(`Navigation failed - missing pathname for method ${method}`, 'NAVIGATE', { payload });
+            log.error(`Navigation failed - missing pathname for method ${method}`, { payload });
             return;
         }
 
@@ -138,11 +155,7 @@ export const effectHandlers = {
             currentParamsStr === lastNavigation.params &&
             (now - lastNavigation.timestamp) < NAVIGATION_THRESHOLD_MS
         ) {
-            logger.warn(
-                `Navigation blocked: Infinite loop or rapid redundant click detected to ${pathname}`,
-                'NAVIGATE_GUARD',
-                { pathname, params, elapsed: now - lastNavigation.timestamp }
-            );
+            log.warn('Navigation blocked: Infinite loop or rapid redundant click detected', { pathname, params, elapsed: now - lastNavigation.timestamp });
             return;
         }
 
@@ -155,26 +168,44 @@ export const effectHandlers = {
         // ----------------------------------------
 
         if (!router) {
-            logger.error(`Navigation failed - expo-router 'router' is undefined`, 'NAVIGATE');
+            log.error("Navigation failed - expo-router 'router' is undefined");
             return;
         }
 
         try {
-            console.log('[NAVIGATE] Calling router.' + method + ' with:', { pathname, params });
-            if (method === 'replace') {
-                router.replace({ pathname: pathname as any, params });
-            } else {
-                router.push({ pathname: pathname as any, params });
+            log.debug('Calling router.' + method, { pathname, params });
+
+            // Inner retry loop specifically for Expo Router's Root Layout race condition
+            let innerAttempts = 0;
+            const MAX_INNER_ATTEMPTS = 5;
+
+            while (innerAttempts < MAX_INNER_ATTEMPTS) {
+                try {
+                    if (method === 'replace') {
+                        router.replace({ pathname: pathname as any, params });
+                    } else {
+                        router.push({ pathname: pathname as any, params });
+                    }
+                    log.debug('Router call completed successfully');
+                    return; // Success!
+                } catch (e: any) {
+                    const isMountError = e?.message?.includes('mounting the Root Layout');
+                    if (isMountError && innerAttempts < MAX_INNER_ATTEMPTS - 1) {
+                        innerAttempts++;
+                        log.warn(`Expo Router mount race condition detected, retrying inner... (${innerAttempts}/${MAX_INNER_ATTEMPTS})`);
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                        continue;
+                    }
+                    throw e; // Rethrow if it's not a mount error or we're out of retries
+                }
             }
-            console.log('[NAVIGATE] Router call completed successfully');
         } catch (error) {
-            console.error('[NAVIGATE] Router call failed:', error);
-            logger.error(`Navigation failed - router error`, 'NAVIGATE', error, { pathname, method });
+            log.error('Navigation failed - router error', error, { pathname, method });
         }
     },
     'SLEEP': async (payload: { ms: number, msg: any }, dispatch: (msg: any) => void) => {
         if (!payload) {
-            logger.error(`Sleep failed - missing payload`, 'SLEEP');
+            log.error('Sleep failed - missing payload');
             return;
         }
         const { ms, msg } = payload;
@@ -187,7 +218,7 @@ export const effectHandlers = {
         buttons?: { text: string, onPressMsg?: any, style?: 'default' | 'cancel' | 'destructive' }[]
     }, dispatch: (msg: any) => void) => {
         if (!payload) {
-            logger.error(`Alert failed - missing payload`, 'ALERT');
+            log.error('Alert failed - missing payload');
             return;
         }
         const { title, message, buttons } = payload;
@@ -202,6 +233,7 @@ export const effectHandlers = {
             }
         }));
 
+        log.info(`Showing Alert: ${title}`, { message });
         Alert.alert(title, message, rnButtons);
     }
 };

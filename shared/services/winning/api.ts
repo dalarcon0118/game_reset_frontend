@@ -2,6 +2,9 @@ import apiClient from '../api_client';
 import settings from '@/config/settings';
 import { BackendWinningRecord } from './types';
 import { BackendWinningRecordCodec, decodeOrFallback } from './codecs';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('WINNING_API');
 
 export const WinningApi = {
     getWinningNumber: async (drawId: string): Promise<BackendWinningRecord | null> => {
@@ -14,7 +17,7 @@ export const WinningApi = {
             return decodeOrFallback(BackendWinningRecordCodec, response, `getWinningNumber(${drawId})`);
         } catch (error) {
             if ((error as any)?.status !== 404) {
-                console.error(`[WinningApi] Unexpected error for drawId: ${drawId}`, error);
+                log.error(`Unexpected error for drawId: ${drawId}`, error);
             }
             throw error;
         }

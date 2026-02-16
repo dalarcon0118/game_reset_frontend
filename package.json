@@ -7,7 +7,7 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "start": "node start-dev.js",
+    "start": "mkdir -p logs && script -F -a logs/frontend.log node scripts/start-with-logs.js",
     "start:dev": "node start-dev.js",
     "start:render": "EXPO_PUBLIC_APP_ENV=production node start-dev.js",
     "dev": "npm run start:dev",
@@ -32,6 +32,7 @@
     "@react-native-community/netinfo": "^11.4.1",
     "@react-navigation/bottom-tabs": "^7.2.0",
     "@react-navigation/native": "^7.0.14",
+    "@types/uuid": "^11.0.0",
     "@ui-kitten/components": "^5.3.1",
     "@ui-kitten/eva-icons": "^5.3.1",
     "event-source-polyfill": "^1.0.31",
@@ -72,6 +73,7 @@
     "react-native-web": "^0.19.13",
     "react-native-webview": "13.12.5",
     "ts-pattern": "^5.9.0",
+    "uuid": "^13.0.0",
     "web-streams-polyfill": "^4.2.0",
     "zustand": "^5.0.5"
   },
@@ -103,6 +105,6 @@
     "jest-fetch-mock": "^3.0.3",
     "react-test-renderer": "18.3.1",
     "ts-jest": "^29.4.6",
-    "typescript": "^5.3.3"
+    "typescript": "^5.9.3"
   }
 }

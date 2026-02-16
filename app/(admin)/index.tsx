@@ -36,13 +36,16 @@ import Colors from '@/constants/colors'; // Import Colors
 import Layout from '@/constants/layout'; // Import Layout
 import StyledText from '@/components/typography/styled_text'; // Assuming you have this
 import { useEffect } from "react";
+import { logger } from "@/shared/utils/logger";
+
+const log = logger.withTag('ADMIN_DASHBOARD');
 
 export default function AdminIndexView() { // Renamed component for clarity
   const { user, logout } = useAuth(); // Get user and logout function
   const colorScheme = useColorScheme() ?? 'light';
   const iconColor = Colors[colorScheme].text; // Define icon color based on theme
   useEffect(() => {
-    console.log('User:', user);
+    log.debug('User data loaded', { user });
   }, [user]);
 
   return (

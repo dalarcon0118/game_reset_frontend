@@ -70,6 +70,6 @@ export type CreateMsg =
     | { type: CreateMsgType.SUBMIT_CREATE_SESSION }
     | { type: CreateMsgType.REQUEST_CLEAR_BETS }
     | { type: CreateMsgType.CONFIRM_CLEAR_BETS }
-    | { type: CreateMsgType.SUBMISSION_RESULT; result: any };
+    | { type: CreateMsgType.SUBMISSION_RESULT; result: WebData<any> };
 
 export type CreateFeatMsg = { type: 'CREATE'; payload: CreateMsg };

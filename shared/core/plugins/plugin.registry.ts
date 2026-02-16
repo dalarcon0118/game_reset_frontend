@@ -1,9 +1,11 @@
 import { Plugin, PluginContext, SlotComponentMetadata } from './plugin.types';
 import { pluginEventBus } from './plugin.event_bus';
 import apiClient from '../../services/api_client';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { storageClient } from '../../services/storage_client';
 import { FinancialSummaryService } from '../../services/financial_summary';
-import { logger } from '../../utils/logger';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('PLUGIN_MANAGER');
 
 /**
  * PluginManager (Inspirado en el Bundle Manager de Eclipse).
@@ -17,17 +19,17 @@ class PluginManager {
      */
     register(plugin: Plugin, hostState?: Partial<PluginContext['state']>): void {
         if (!plugin) {
-            logger.error('[PluginManager] Se intentó registrar un plugin undefined o null', 'PLUGINS');
+            log.error('Se intentó registrar un plugin undefined o null');
             return;
         }
 
         if (!plugin.id) {
-            logger.error(`[PluginManager] El plugin "${plugin.name || 'Sin Nombre'}" no tiene un ID válido`, 'PLUGINS');
+            log.error(`El plugin "${plugin.name || 'Sin Nombre'}" no tiene un ID válido`);
             return;
         }
 
         if (this.plugins.has(plugin.id)) {
-            logger.warn(`[PluginManager] Plugin "${plugin.id}" ya está registrado. Reiniciando...`, 'PLUGINS');
+            log.warn(`Plugin "${plugin.id}" ya está registrado. Reiniciando...`);
             this.unregister(plugin.id);
         }
 
@@ -38,9 +40,10 @@ class PluginManager {
                 plugin.init(context);
             }
             this.plugins.set(plugin.id, { plugin, context });
-            logger.info(`[PluginManager] Plugin inicializado: ${plugin.name} (${plugin.id})`, 'PLUGINS');
+            pluginEventBus.publish('sys:plugin_registered', plugin.id);
+            log.info(`Plugin inicializado: ${plugin.name} (${plugin.id})`);
         } catch (error) {
-            logger.error(`[PluginManager] Error inicializando plugin "${plugin.id}":`, 'PLUGINS', error);
+            log.error(`Error inicializando plugin "${plugin.id}"`, error);
         }
     }
 
@@ -58,11 +61,10 @@ class PluginManager {
             },
             storage: {
                 getItem: async (key) => {
-                    const val = await AsyncStorage.getItem(`plugin:${pluginId}:${key}`);
-                    return val ? JSON.parse(val) : null;
+                    return storageClient.get(`plugin:${pluginId}:${key}`);
                 },
                 setItem: async (key, value) => {
-                    await AsyncStorage.setItem(`plugin:${pluginId}:${key}`, JSON.stringify(value));
+                    await storageClient.set(`plugin:${pluginId}:${key}`, value);
                 }
             },
             events: pluginEventBus,
@@ -110,7 +112,7 @@ class PluginManager {
             try {
                 entry.plugin.destroy();
             } catch (error) {
-                console.error(`[PluginManager] Error destruyendo plugin "${pluginId}":`, error);
+                log.error(`Error destruyendo plugin "${pluginId}"`, error);
             }
         }
         this.plugins.delete(pluginId);

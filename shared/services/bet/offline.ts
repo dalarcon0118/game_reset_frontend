@@ -121,6 +121,9 @@ export const BetOffline = {
     savePendingBet: OfflineStorage.savePendingBet.bind(OfflineStorage),
     removePendingBet: OfflineStorage.removePendingBet.bind(OfflineStorage),
     getPendingBets: OfflineStorage.getPendingBets.bind(OfflineStorage),
+    markAsSynced: OfflineStorage.markAsSynced.bind(OfflineStorage),
+    markAsError: OfflineStorage.markAsError.bind(OfflineStorage),
+    cleanupSyncedBets: OfflineStorage.cleanupSyncedBets.bind(OfflineStorage),
     buildPendingBet,
     flattenPendingBets
 };

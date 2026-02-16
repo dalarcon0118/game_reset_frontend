@@ -29,13 +29,16 @@ export enum AuthMsgType {
     LOAD_SAVED_USERNAME_REQUESTED = 'LOAD_SAVED_USERNAME_REQUESTED',
     SAVED_USERNAME_LOADED = 'SAVED_USERNAME_LOADED',
     FORGOT_PIN_REQUESTED = 'FORGOT_PIN_REQUESTED',
+
+    // Connectivity and Sync
+    CONNECTION_STATUS_CHANGED = 'CONNECTION_STATUS_CHANGED',
 }
 
 export type AuthMsg =
     | { type: AuthMsgType.LOGIN_REQUESTED; username: string; pin: string }
     | { type: AuthMsgType.LOGIN_PIN_UPDATED; pin: string }
     | { type: AuthMsgType.LOGIN_USERNAME_UPDATED; username: string }
-    | { type: AuthMsgType.LOGIN_RESPONSE_RECEIVED; webData: WebData<User | null> }
+    | { type: AuthMsgType.LOGIN_RESPONSE_RECEIVED; webData: WebData<User | null>; isOffline?: boolean; hashedPin?: string }
     | { type: AuthMsgType.LOGIN_SUCCEEDED; user: User }
     | { type: AuthMsgType.LOGIN_FAILED; error: string }
     | { type: AuthMsgType.LOGOUT_REQUESTED }
@@ -48,4 +51,5 @@ export type AuthMsg =
     | { type: AuthMsgType.ROLE_CHECK_REQUESTED; role: string }
     | { type: AuthMsgType.LOAD_SAVED_USERNAME_REQUESTED }
     | { type: AuthMsgType.SAVED_USERNAME_LOADED; username: string | null }
-    | { type: AuthMsgType.FORGOT_PIN_REQUESTED };
+    | { type: AuthMsgType.FORGOT_PIN_REQUESTED }
+    | { type: AuthMsgType.CONNECTION_STATUS_CHANGED; isOnline: boolean };

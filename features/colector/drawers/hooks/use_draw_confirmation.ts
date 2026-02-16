@@ -3,6 +3,9 @@ import { DrawService, DrawClosureConfirmation } from '@/shared/services/draw';
 import { ListeroDetails } from '@/shared/services/structure';
 import { useConfirmation } from '@/shared/hooks/use_confirmation';
 import { useAuth } from '../../../auth';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('USE_DRAW_CONFIRMATION');
 
 interface UseDrawConfirmationProps {
     onSuccess: () => void;
@@ -47,7 +50,7 @@ export const useDrawConfirmation = ({ onSuccess, details }: UseDrawConfirmationP
             onSuccess();
 
         } catch (error) {
-            console.error('Error confirming draw closure:', error);
+            log.error('Error confirming draw closure', { error, drawId });
             throw error; // Re-throw to be handled by confirmation dialog
         }
     }, [onSuccess, details, user]);
@@ -95,7 +98,7 @@ export const useDrawConfirmation = ({ onSuccess, details }: UseDrawConfirmationP
             onSuccess();
 
         } catch (error) {
-            console.error('Error reporting draw issue:', error);
+            log.error('Error reporting draw issue', { error, drawId });
             throw error;
         }
     }, [onSuccess, user]);

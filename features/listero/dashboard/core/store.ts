@@ -4,12 +4,14 @@ import { initialState } from './initial.types';
 import { update, subscriptions } from './update';
 import { Model } from './model';
 import { Msg } from './msg';
+import { createLoggerMiddleware } from '@/shared/core/middlewares/logger.middleware';
 
 export const useDashboardStore = createElmStore<Model, Msg>(
     initialState,
     update,
     effectHandlers as any,
-    subscriptions
+    subscriptions,
+    [createLoggerMiddleware()]
 );
 
 export const dispatch = (msg: Msg) => useDashboardStore.getState().dispatch(msg);

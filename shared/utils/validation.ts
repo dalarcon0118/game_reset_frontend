@@ -1,5 +1,8 @@
 import jsonLogic from 'json-logic-js';
 import { ValidationRule } from '@/shared/services/validation_rule';
+import { logger } from './logger';
+
+const log = logger.withTag('VALIDATION_UTILS');
 
 export interface BetData {
     bet_number: string;
@@ -40,7 +43,7 @@ export function validateBet(
                 });
             }
         } catch (error) {
-            console.error(`Error evaluating rule "${rule.name}":`, error);
+            log.error(`Error evaluating rule "${rule.name}"`, { error, ruleId: rule.id });
             // Optionally fail the validation if rule evaluation errors
             failedRules.push({
                 rule,
@@ -113,7 +116,7 @@ export function getFixedAmountFromRules(rules: ValidationRule[]): number | null 
                 if (varOp && varOp["var"] === "amount" && typeof value === "number") {
                     return value;
                 }
-                
+
                 // Also check reverse order: { "==": [150, { "var": "amount" }] }
                 const varOpRev = ops[1];
                 const valueRev = ops[0];

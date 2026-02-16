@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ValidationRuleService, ValidationRule } from '@shared/services/validation_rule';
+import { logger } from '@/shared/utils/logger';
+import { useAuth } from '@/shared/context/auth_context';
+
+const log = logger.withTag('COLECTOR_RULES_HOOK');
 
 export interface Rule {
   id: string;
@@ -9,11 +13,17 @@ export interface Rule {
 }
 
 export function useRules() {
+  const { isAuthenticated, isLoading } = useAuth();
   const [rules, setRules] = useState<Rule[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
   const fetchRules = useCallback(async () => {
+    if (!isAuthenticated || isLoading) {
+      log.debug('Skipping rules fetch: Not authenticated or loading auth');
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -28,7 +38,7 @@ export function useRules() {
       setRules(mappedRules);
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Failed to fetch rules'));
-      console.error('Error fetching rules:', err);
+      log.error('Error fetching rules', { error: err });
     } finally {
       setLoading(false);
     }

@@ -2,13 +2,23 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { match } from 'ts-pattern';
 import { Label, Card, Flex, ButtonKit, Badge } from '@/shared/components';
-import { CalendarClock, Clock3, AlarmClock } from 'lucide-react-native';
+import { CalendarClock, Clock3, AlarmClock, CloudOff } from 'lucide-react-native';
 import { DRAW_STATUS } from '@/types';
 import { Draw } from '../core/types';
 import SummaryCard from './summary_card';
 
+// Extended Draw type with offline metadata
+interface DrawWithOffline extends Draw {
+  _offline?: {
+    pendingCount: number;
+    localAmount: number;
+    backendAmount: number;
+    hasDiscrepancy: boolean;
+  };
+}
+
 interface DrawItemProps {
-  draw: Draw;
+  draw: DrawWithOffline;
   onRulePress: (id: string | number) => void;
   onRewardsPress: (id: string, title: string) => void;
   onBetsListPress: (id: string, title: string) => void;
@@ -113,12 +123,39 @@ export default function DrawItem({
     }
   };
 
+  // DEBUG: Log financial values being rendered
+  const debugFinancials = React.useCallback(() => {
+    console.log('[DRAW_ITEM_DEBUG] Financial values:', {
+      id: draw.id,
+      source: draw.source,
+      totalCollected: draw.totalCollected,
+      premiumsPaid: draw.premiumsPaid,
+      netResult: draw.netResult,
+      _offline: draw._offline,
+    });
+  }, [draw]);
+  
+  React.useEffect(() => {
+    debugFinancials();
+  }, [debugFinancials]);
+  const hasOfflineBets = draw._offline && draw._offline.pendingCount > 0;
+  const offlineCount = draw._offline?.pendingCount ?? 0;
+
   return (
     <Card style={[styles.container, closingInfo?.isCritical && styles.criticalContainer]}>
       {/* Header with Title and Status */}
       <Flex justify="between" align="start" style={styles.header}>
         <View style={styles.titleContainer}>
-          <Label style={styles.drawTitle}>{draw.source}</Label>
+          <Flex align="center" gap={8}>
+            <Label style={styles.drawTitle}>{draw.source}</Label>
+            {/* Fase 4: Indicador de apuestas offline pendientes */}
+            {hasOfflineBets && (
+              <View style={styles.offlineBadge}>
+                <CloudOff size={10} color="#fff" />
+                <Label style={styles.offlineBadgeText}>{offlineCount}</Label>
+              </View>
+            )}
+          </Flex>
           <Flex align="center" gap={4}>
             <CalendarClock size={12} color="#8F9BB3" />
             <Label type="detail" style={styles.dateText}>{draw.date}</Label>
@@ -143,6 +180,7 @@ export default function DrawItem({
           amount={draw.totalCollected ?? 0}
           type="collected"
           showBalance={showBalance}
+          hasDiscrepancy={draw._offline?.hasDiscrepancy}
         />
         <View style={styles.verticalDivider} />
         <SummaryCard
@@ -198,13 +236,19 @@ export default function DrawItem({
             appearance="filled"
             status="primary"
             size="small"
-            disabled={effectiveStatus === DRAW_STATUS.SCHEDULED || effectiveStatus === DRAW_STATUS.PENDING}
+            disabled={effectiveStatus === DRAW_STATUS.SCHEDULED || effectiveStatus === DRAW_STATUS.PENDING || effectiveStatus === DRAW_STATUS.CLOSED}
             style={[
               styles.actionButton, 
-              (effectiveStatus === DRAW_STATUS.SCHEDULED || effectiveStatus === DRAW_STATUS.PENDING) && styles.disabledButton
+              (effectiveStatus === DRAW_STATUS.SCHEDULED || effectiveStatus === DRAW_STATUS.PENDING || effectiveStatus === DRAW_STATUS.CLOSED) && styles.disabledButton
             ]}
             onPress={handleCreateBetPress}
-            label={effectiveStatus === DRAW_STATUS.SCHEDULED || effectiveStatus === DRAW_STATUS.PENDING ? "Próximamente" : "Anotar"}
+            label={
+              effectiveStatus === DRAW_STATUS.SCHEDULED || effectiveStatus === DRAW_STATUS.PENDING 
+                ? "Próximamente" 
+                : effectiveStatus === DRAW_STATUS.CLOSED 
+                  ? "Cerrado"
+                  : "Anotar"
+            }
           />
         )}
       </Flex>
@@ -274,5 +318,20 @@ const styles = StyleSheet.create({
   },
   reglamentoButton: {
     flex: 0.7,
-  }
+  },
+  // Fase 4: Estilos para indicador offline
+  offlineBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FF9800',
+    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    gap: 2,
+  },
+  offlineBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
 });

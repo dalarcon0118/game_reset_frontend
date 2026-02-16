@@ -25,11 +25,11 @@ export const groupBetsByReceipt = (
     if (Array.isArray(fijosCorridos)) {
         fijosCorridos.forEach((item: any) => addToGroup(item.receiptCode, 'fijosCorridos', item));
     }
-    
+
     if (Array.isArray(parlets)) {
         parlets.forEach((item: any) => addToGroup(item.receiptCode, 'parlets', item));
     }
-    
+
     if (Array.isArray(centenas)) {
         centenas.forEach((item: any) => addToGroup(item.receiptCode, 'centenas', item));
     }

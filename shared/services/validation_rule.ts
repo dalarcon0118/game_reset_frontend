@@ -2,12 +2,15 @@ import { ApiClientError } from './api_client';
 import { createStream } from '../utils/generators';
 import { transformTemplatesWithStatus, generatorToArray } from '../utils/generators';
 import { ValidationRuleApi } from './validation_rule/api';
-import { 
-    BackendValidationRule as ValidationRule, 
+import {
+    BackendValidationRule as ValidationRule,
     BackendStructureValidationRule as StructureValidationRule,
     BackendRuleRepository as RuleRepository,
     BackendStructureSpecificRule as StructureSpecificRule
 } from './validation_rule/types';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('VALIDATION_RULE_SERVICE');
 
 export type { ValidationRule, StructureValidationRule, RuleRepository, StructureSpecificRule };
 
@@ -19,7 +22,7 @@ export class ValidationRuleService {
         try {
             return await ValidationRuleApi.list(params);
         } catch (error) {
-            console.error('Error fetching validation rules:', error);
+            log.error('Error fetching validation rules', error);
             return [];
         }
     }
@@ -31,7 +34,7 @@ export class ValidationRuleService {
         try {
             return await ValidationRuleApi.getForCurrentUser(includeHierarchy);
         } catch (error) {
-            console.error('Error fetching validation rules for current user:', error);
+            log.error('Error fetching validation rules for current user', error);
             if (error instanceof ApiClientError && (error.status === 401 || error.status === 403)) {
                 throw error;
             }
@@ -46,7 +49,7 @@ export class ValidationRuleService {
         try {
             return await ValidationRuleApi.getByStructure(structureId);
         } catch (error) {
-            console.error('Error fetching validation rules by structure:', error);
+            log.error('Error fetching validation rules by structure', error);
             return [];
         }
     }
@@ -58,7 +61,7 @@ export class ValidationRuleService {
         try {
             return await ValidationRuleApi.getAvailableTemplates();
         } catch (error) {
-            console.error('Error fetching rule templates:', error);
+            log.error('Error fetching rule templates', error);
             return [];
         }
     }
@@ -87,7 +90,7 @@ export class ValidationRuleService {
         try {
             return await ValidationRuleApi.copyTemplateToStructure(templateId, structureId, options);
         } catch (error) {
-            console.error('Error copying rule template to structure:', error);
+            log.error('Error copying rule template to structure', error);
             throw error;
         }
     }
@@ -102,7 +105,7 @@ export class ValidationRuleService {
         try {
             return await ValidationRuleApi.updateStructureRule(ruleId, updates);
         } catch (error) {
-            console.error('Error updating structure rule:', error);
+            log.error('Error updating structure rule', { ruleId, error });
             throw error;
         }
     }
@@ -114,7 +117,7 @@ export class ValidationRuleService {
         try {
             await ValidationRuleApi.deleteStructureRule(ruleId);
         } catch (error) {
-            console.error('Error deleting structure rule:', error);
+            log.error('Error deleting structure rule', { ruleId, error });
             throw error;
         }
     }

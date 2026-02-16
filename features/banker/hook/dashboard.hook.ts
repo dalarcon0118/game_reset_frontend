@@ -1,9 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
-import { useRouter } from 'expo-router';
+import { router } from 'expo-router';
 import { BankerDashboardService, DashboardSummary } from '../services/banker_dashboard_service';
 import { ChildStructure, StructureService } from '@/shared/services/structure';
 import { useAuth } from '../../auth';
 import * as config from '@/config';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('BANKER_DASHBOARD_HOOK');
 
 interface UseBankerDashboardResult {
     isLoading: boolean;
@@ -16,20 +19,19 @@ interface UseBankerDashboardResult {
 }
 
 export const useBankerDashboard = (): UseBankerDashboardResult => {
-    const router = useRouter();
     const { user } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
     const [agencies, setAgencies] = useState<ChildStructure[] | null>(null);
     const [summary, setSummary] = useState<DashboardSummary | null>(null);
 
     const onSelected = (id: number) => {
-        router.push({ pathname: config.routes.routes.banker.drawer.screen, params: { id } });
+        router.push({ pathname: config.routes.banker.drawer.screen, params: { id } });
     };
     const onRulesPress = (id: number) => {
-        router.push({ pathname: config.routes.routes.banker.rules.screen, params: { id_structure: id } });
+        router.push({ pathname: config.routes.banker.rules.screen, params: { id_structure: id } });
     }
     const onListPress = (id: number) => {
-        router.push({ pathname: config.routes.routes.banker.listerias.screen, params: { id } });
+        router.push({ pathname: config.routes.banker.listerias.screen, params: { id } });
     }
 
     const fetchData = useCallback(async () => {
@@ -41,7 +43,7 @@ export const useBankerDashboard = (): UseBankerDashboardResult => {
             setAgencies(data.children);
             setSummary(data.summary);
         } catch (error) {
-            console.error('Error fetching banker dashboard data:', error);
+            log.error('Error fetching banker dashboard data', { error });
         } finally {
             setIsLoading(false);
         }

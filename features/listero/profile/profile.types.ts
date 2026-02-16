@@ -40,6 +40,7 @@ export interface ProfileModel {
 
 export enum ProfileMsgType {
     INIT = 'INIT',
+    FETCH_PROFILE_REQUESTED = 'FETCH_PROFILE_REQUESTED',
     FETCH_PROFILE_RESPONSE = 'FETCH_PROFILE_RESPONSE',
     FETCH_INCIDENTS_REQUESTED = 'FETCH_INCIDENTS_REQUESTED',
     FETCH_INCIDENTS_RESPONSE = 'FETCH_INCIDENTS_RESPONSE',
@@ -57,6 +58,7 @@ export enum ProfileMsgType {
 
 export type ProfileMsg =
     | { type: ProfileMsgType.INIT }
+    | { type: ProfileMsgType.FETCH_PROFILE_REQUESTED }
     | { type: ProfileMsgType.FETCH_PROFILE_RESPONSE; webData: WebData<UserProfile> }
     | { type: ProfileMsgType.FETCH_INCIDENTS_REQUESTED }
     | { type: ProfileMsgType.FETCH_INCIDENTS_RESPONSE; webData: WebData<Incident[]> }

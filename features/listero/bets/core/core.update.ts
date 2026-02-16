@@ -7,6 +7,7 @@ import { RemoteData } from '@/shared/core/remote.data';
 import { RemoteDataHttp } from '@/shared/core/remote.data.http';
 import { DrawService } from '@/shared/services/draw';
 import { ListMsgType } from '../features/bet-list/list.types';
+import { initialModel } from './initial.types';
 
 export function updateCore(model: Model, msg: CoreMsg): Return<Model, Msg> {
     return match<CoreMsg, Return<Model, Msg>>(msg)
@@ -44,12 +45,23 @@ export function updateCore(model: Model, msg: CoreMsg): Return<Model, Msg> {
             // Si ya tenemos el tipo de sorteo para este ID, no lo ponemos en Loading para evitar parpadeos/bloqueos
             const alreadyHasDrawInfo = model.drawTypeCode.type === 'Success' && model.currentDrawId === drawId;
 
-            const nextModel: Model = {
+            let nextModel: Model = {
                 ...model,
                 currentDrawId: drawId,
                 isEditing,
                 drawTypeCode: alreadyHasDrawInfo ? model.drawTypeCode : RemoteData.loading<any, string>()
             };
+
+            // Reset entry sessions when focusing on entry screen (isEditing = true)
+            if (isEditing) {
+                nextModel = {
+                    ...nextModel,
+                    entrySession: initialModel.entrySession,
+                    parletSession: initialModel.parletSession,
+                    centenaSession: initialModel.centenaSession,
+                    loteriaSession: initialModel.loteriaSession,
+                };
+            }
 
             return ret(
                 nextModel,

@@ -1,3 +1,6 @@
+import { logger } from '../utils/logger';
+
+const log = logger.withTag('CMD_CORE');
 
 export interface CommandDescriptor {
     type: string;
@@ -9,7 +12,8 @@ export interface TaskConfig {
     task: (...args: any[]) => Promise<any>,
     args?: any[],
     onSuccess: (data: any) => any,
-    onFailure: (error: any) => any
+    onFailure: (error: any) => any,
+    label?: string // For debugging/testing
 }
 
 export interface AttemptConfig {
@@ -37,7 +41,10 @@ export const Cmd = {
     task: (config: TaskConfig): CommandDescriptor => {
         // Validate that the task is actually a function
         if (typeof config.task !== 'function') {
-            console.error('[Cmd.task] Invalid task function - expected function, got:', typeof config.task, config.task);
+            log.error('Invalid task function - expected function', {
+                got: typeof config.task,
+                task: config.task
+            });
             // Replace with a safe error-throwing function
             config.task = async () => { throw new Error('Invalid task function provided to Cmd.task'); };
         }

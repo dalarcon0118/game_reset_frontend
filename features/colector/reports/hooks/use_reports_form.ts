@@ -1,12 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 import { Alert } from 'react-native';
 import { IndexPath } from '@ui-kitten/components';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../../auth';
 import { useDataFetch } from '@/shared/hooks/use_data_fetch';
 import { StructureService, ChildStructure, ListeroDetails } from '@/shared/services/structure';
 import { IncidentService } from '@/shared/services/incident';
 import { DrawService } from '@/shared/services/draw';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('USE_REPORTS_FORM');
 
 const INCIDENT_TYPES = [
   { title: 'Diferencia de Monto' },
@@ -50,7 +53,6 @@ export interface ReportsFormActions {
 }
 
 export function useReportsForm(): ReportsFormState & ReportsFormActions {
-  const router = useRouter();
   const { user } = useAuth();
   const { drawId, id: listeroId } = useLocalSearchParams();
 
@@ -75,7 +77,7 @@ export function useReportsForm(): ReportsFormState & ReportsFormActions {
   // Initial load: Fetch Listeros
   useEffect(() => {
     if (user?.structure?.id) {
-      fetchListeros(user.structure.id);
+      fetchListeros(Number(user.structure.id));
     }
   }, [user?.structure?.id, fetchListeros]);
 
@@ -158,7 +160,7 @@ export function useReportsForm(): ReportsFormState & ReportsFormActions {
 
       setIsSubmitted(true);
     } catch (error) {
-      console.error('Error submitting incident:', error);
+      log.error('Error submitting incident', { error, listeroId: selectedListero.id, drawId: selectedDraw?.draw_id });
       Alert.alert('Error', 'No se pudo enviar el reporte. Por favor, intenta de nuevo.');
     } finally {
       setIsSubmitting(false);

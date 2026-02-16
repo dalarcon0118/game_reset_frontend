@@ -1,6 +1,9 @@
 import * as t from 'io-ts';
 import { isRight } from 'fp-ts/Either';
 import { PathReporter } from 'io-ts/PathReporter';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('DRAW_CODECS');
 
 const DrawTypeDetailsCodec = t.type({
   id: t.number,
@@ -17,14 +20,17 @@ const ClosureConfirmationsCountCodec = t.type({
   rejected: t.number,
 });
 
+// Helper codec for decimal fields that can come as string or number from backend
+const DecimalCodec = t.union([t.number, t.string]);
+
 export const BackendDrawCodec = t.intersection([
   t.type({
     id: t.number,
     draw_type: t.number,
     draw_type_details: DrawTypeDetailsCodec,
-    total_collected: t.number,
-    premiums_paid: t.number,
-    net_result: t.number,
+    total_collected: DecimalCodec,
+    premiums_paid: DecimalCodec,
+    net_result: DecimalCodec,
     name: t.string,
     draw_datetime: t.string,
     status: t.string,
@@ -74,6 +80,8 @@ export const DrawClosureConfirmationArrayCodec = t.array(DrawClosureConfirmation
 export const decodeOrFallback = <T>(codec: t.Type<T>, value: unknown, label: string): T => {
   const result = codec.decode(value);
   if (isRight(result)) return result.right;
-  console.warn(`[DrawApi] ${label} decode failed:`, PathReporter.report(result).join('; '));
+  log.warn(`${label} decode failed`, {
+    errors: PathReporter.report(result).join('; ')
+  });
   return value as T;
 };

@@ -3,6 +3,9 @@ import { useColorScheme } from 'react-native';
 import Colors from '@/constants/colors';
 import { Home, LayoutPanelLeft, List, FileText, User } from 'lucide-react-native'; // Import List and FileText
 import { useEffect } from 'react';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('LISTER_TABS');
 
 export default function ListerTabLayout() {
   const colorScheme = useColorScheme() ?? 'light';
@@ -10,7 +13,7 @@ export default function ListerTabLayout() {
 
   // Log the route path whenever it changes
   useEffect(() => {
-    console.log('Current Route inside lister:', pathname);
+    log.debug('Current Route inside lister', { pathname });
   }, [pathname]);
 
   return (

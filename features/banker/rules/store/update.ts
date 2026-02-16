@@ -1,11 +1,14 @@
 import { match } from 'ts-pattern';
 import { Model, Msg, RuleUpdateFormData } from './types';
-import { UpdateResult } from '../../../../shared/core/engine';
-import { Cmd } from '../../../../shared/core/cmd';
-import { ValidationRuleService } from '../../../../shared/services/validation_rule';
-import { singleton, ret, Return } from '../../../../shared/core/return';
-import { Sub, SubDescriptor } from '../../../../shared/core/sub';
-import { useAuthStore } from '../../../../features/auth/store/store';
+import { UpdateResult } from '@/shared/core/engine';
+import { Cmd } from '@/shared/core/cmd';
+import { ValidationRuleService } from '@/shared/services/validation_rule';
+import { singleton, ret, Return } from '@/shared/core/return';
+import { Sub, SubDescriptor } from '@/shared/core/sub';
+import { useAuthStore } from '@/features/auth/store/store';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('BANKER_RULES_UPDATE');
 
 export const DEFAULT_FORM_DATA: RuleUpdateFormData = {
     name: '',
@@ -34,28 +37,7 @@ export const initialState: Model = {
 };
 
 export const init = (): UpdateResult<Model, Msg> => {
-    return [
-        initialState,
-        Cmd.batch([
-            Cmd.task({
-                task: async () => {
-                    const validationRules = await ValidationRuleService.getForCurrentUser(true);
-                    return validationRules.map(rule => ({
-                        id: rule.id,
-                        name: rule.name,
-                        description: rule.description,
-                        isActive: rule.is_active,
-                        category: rule.name.toLowerCase().includes('payment') ? 'payment_validation' :
-                            rule.name.toLowerCase().includes('draw') ? 'draw_validation' : 'custom',
-                        status: rule.is_active ? 'active' : 'inactive',
-                        ruleType: 'validation' as const
-                    }));
-                },
-                onSuccess: (rules: any) => ({ type: 'FETCH_RULES_SUCCEEDED', rules }),
-                onFailure: (err: any) => ({ type: 'FETCH_RULES_FAILED', error: err.message }),
-            })
-        ])
-    ];
+    return [initialState, Cmd.none];
 };
 
 export const subscriptions = (_model: Model): SubDescriptor<Msg> => {
@@ -73,6 +55,13 @@ export const subscriptions = (_model: Model): SubDescriptor<Msg> => {
 export const update = (model: Model, msg: Msg): UpdateResult<Model, Msg> => {
     const result = match<Msg, Return<Model, Msg>>(msg)
         .with({ type: 'AUTH_USER_SYNCED' }, ({ user }) => {
+            // Si el usuario cambia (de null a algo), cargamos las reglas
+            if (user && !model.currentUser) {
+                return ret(
+                    { ...model, currentUser: user },
+                    Cmd.ofMsg({ type: 'FETCH_RULES_REQUESTED' })
+                ); ß
+            }
             return singleton({ ...model, currentUser: user });
         })
         .with({ type: 'FETCH_RULES_REQUESTED' }, () => {
@@ -219,7 +208,7 @@ export const update = (model: Model, msg: Msg): UpdateResult<Model, Msg> => {
                 { ...model, saving: true },
                 Cmd.task({
                     task: async () => {
-                        console.log('Saving rule...', model.formData);
+                        log.debug('Saving rule', { formData: model.formData });
                         return true;
                     },
                     onSuccess: () => ({ type: 'SAVE_RULE_SUCCEEDED' }),

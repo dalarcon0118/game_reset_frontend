@@ -15,6 +15,8 @@ import { TimeRangeService } from './domain/services/time-range.service';
 
 import { SummaryPluginContext } from './domain/services';
 
+import { FinancialSummaryExternalCodec, decodeOrFallback } from './domain/codecs';
+
 // Instanciar servicios de dominio (sin dependencias externas)
 const financialCalculator = new FinancialCalculatorService();
 const timeRangeService = new TimeRangeService();
@@ -66,10 +68,7 @@ export const update = (model: Model, msg: Msg.Msg): Return<Model, Msg.Msg> => {
 function handleInitContext(model: Model, context: SummaryPluginContext): Return<Model, Msg.Msg> {
   return ret(
     { ...model, context },
-    Cmd.batch([
-      Cmd.ofMsg(Msg.LOAD_PREFERENCES()),
-      Cmd.ofMsg(Msg.FETCH_FINANCIAL_SUMMARY())
-    ])
+    Cmd.ofMsg(Msg.LOAD_PREFERENCES())
   );
 }
 
@@ -95,8 +94,10 @@ function handlePreferencesLoaded(model: Model, payload: LoadPreferencesResult): 
     showBalance: payload.userPreferences.showBalance,
     commissionRate: payload.userProfile.commissionRate,
     structureId: payload.userProfile.structureId
-  }, Cmd.none);
+  }, Cmd.ofMsg(Msg.FETCH_FINANCIAL_SUMMARY()));
 }
+
+// ... (en la función handleFetchFinancialSummary)
 
 function handleFetchFinancialSummary(model: Model): Return<Model, Msg.Msg> {
   if (!model.context || !model.structureId) return ret(model, Cmd.none);
@@ -105,10 +106,18 @@ function handleFetchFinancialSummary(model: Model): Return<Model, Msg.Msg> {
     { ...model, financialSummary: RemoteData.loading() },
     RemoteDataHttp.fetch<DomainFinancialSummary, Msg.Msg>(
       async () => {
-        const [error, data] = await (model.context as SummaryPluginContext).api.FinancialSummaryService.get(model.structureId!);
+        const [error, dataRaw] = await (model.context as SummaryPluginContext).api.FinancialSummaryService.get(model.structureId!);
 
         if (error) throw error;
-        if (!data) throw new Error('No financial summary data found');
+        if (!dataRaw) throw new Error('No financial summary data found');
+
+        // Validar y decodificar datos financieros con io-ts
+        const data = decodeOrFallback(
+          FinancialSummaryExternalCodec,
+          dataRaw,
+          'FinancialSummary',
+          { totalCollected: 0, premiumsPaid: 0 }
+        );
 
         return {
           totalCollected: data.totalCollected,

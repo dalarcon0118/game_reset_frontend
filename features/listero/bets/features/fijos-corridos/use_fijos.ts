@@ -3,6 +3,9 @@ import { FijosCorridosBet } from '@/types';
 import { GameTypes } from '@/constants/bet';
 import { useBetsStore, selectBetsModel, selectDispatch } from '../../core/store';
 import { FijosCmd, FijosMsgType } from './fijos.types';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('USE_FIJOS');
 
 /**
  * ViewModel hook para gestionar Fijos/Corridos usando el submódulo bet-fijos.
@@ -26,7 +29,7 @@ export const useFijos = ({ onSelectPlay }: { onSelectPlay?: (bets: FijosCorridos
     editingAmountType,
   } = editSession;
 
-  console.log('useFijos state:', { showBetKeyboard, showAmountKeyboard, currentInput, editingAmountType });
+  log.debug('state:', { showBetKeyboard, showAmountKeyboard, currentInput, editingAmountType });
 
   const fijosCorridos = isEditing
     ? entrySession.fijosCorridos

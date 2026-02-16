@@ -1,4 +1,4 @@
-import { Model, BetSummary } from './model';
+import { BetSummary, ListData } from './model';
 
 /**
  * Initial state for BetSummary
@@ -17,72 +17,64 @@ export const initialSummary: BetSummary = {
 /**
  * Validation helpers
  */
-const isValidFijoCorrido = (bet: any) => {
+export const isValidFijoCorrido = (bet: any) => {
     return bet.bet !== undefined && bet.bet !== null &&
-           ((bet.fijoAmount || 0) > 0 || (bet.corridoAmount || 0) > 0);
+        ((bet.fijoAmount || 0) > 0 || (bet.corridoAmount || 0) > 0);
 };
 
-const isValidParlet = (bet: any) => {
+export const isValidParlet = (bet: any) => {
     return bet.bets && bet.bets.length > 0 && (bet.amount || 0) > 0;
 };
 
-const isValidCentena = (bet: any) => {
+export const isValidCentena = (bet: any) => {
     return bet.bet !== undefined && bet.bet !== null && (bet.amount || 0) > 0;
 };
 
-const isValidLoteria = (bet: any) => {
+export const isValidLoteria = (bet: any) => {
     return bet.bet && (bet.amount || 0) > 0;
 };
 
 /**
- * Helper to calculate the summary of bets.
- * Uses entrySession when isEditing is true, otherwise uses listSession.remoteData
+ * Individual calculation helpers
  */
-export const calculateSummary = (model: Model): BetSummary => {
-    const isSaving = model.managementSession.saveStatus.type === 'Loading';
+const calculateLoteriaTotal = (loteria: any[]) =>
+    loteria.reduce((total, bet) => total + (bet.amount || 0), 0);
 
-    // Usar entrySession cuando estamos en modo edición, de lo contrario usar listSession
-    const dataSource = model.isEditing ? model.entrySession :
-        (model.listSession.remoteData.type === 'Success' ? model.listSession.remoteData.data : null);
-
-    if (!dataSource) {
-        return {
-            ...initialSummary,
-            isSaving
-        };
-    }
-
-    const { fijosCorridos, parlets, centenas, loteria } = dataSource;
-
-    const loteriaTotal = loteria.reduce((total, bet) => total + (bet.amount || 0), 0);
-
-    const fijosCorridosTotal = fijosCorridos.reduce((total, bet) => {
+const calculateFijosCorridosTotal = (fijosCorridos: any[]) =>
+    fijosCorridos.reduce((total, bet) => {
         const fijoAmount = bet.fijoAmount || 0;
         const corridoAmount = bet.corridoAmount || 0;
         return total + fijoAmount + corridoAmount;
     }, 0);
 
-    const parletsTotal = parlets.reduce((total, parlet) => {
-        if (parlet.bets && parlet.bets.length > 0 && parlet.amount) {
-            const numBets = parlet.bets.length;
-            const parletTotal = numBets * (numBets - 1) * parlet.amount;
-            return total + parletTotal;
-        }
-        return total;
-    }, 0);
+const calculateParletsTotal = (parlets: any[]) =>
+    parlets.reduce((total, parlet) => total + (parlet.amount || 0), 0);
 
-    const centenasTotal = centenas.reduce((total, centena) => total + (centena.amount || 0), 0);
+const calculateCentenasTotal = (centenas: any[]) =>
+    centenas.reduce((total, centena) => total + (centena.amount || 0), 0);
+
+/**
+ * Pure function to calculate the summary of bets.
+ * Does not depend on the global Model, only on the necessary data.
+ */
+export const calculateSummaryFromData = (
+    data: ListData,
+    isSaving: boolean = false
+): BetSummary => {
+    const { fijosCorridos, parlets, centenas, loteria } = data;
+
+    const loteriaTotal = calculateLoteriaTotal(loteria);
+    const fijosCorridosTotal = calculateFijosCorridosTotal(fijosCorridos);
+    const parletsTotal = calculateParletsTotal(parlets);
+    const centenasTotal = calculateCentenasTotal(centenas);
 
     const grandTotal = loteriaTotal + fijosCorridosTotal + parletsTotal + centenasTotal;
     const count = loteria.length + fijosCorridos.length + parlets.length + centenas.length;
 
-    // Strict validation: check if there is at least one valid bet
-    const hasValidFijosCorridos = fijosCorridos.some(isValidFijoCorrido);
-    const hasValidParlets = parlets.some(isValidParlet);
-    const hasValidCentenas = centenas.some(isValidCentena);
-    const hasValidLoteria = loteria.some(isValidLoteria);
-
-    const hasBets = hasValidFijosCorridos || hasValidParlets || hasValidCentenas || hasValidLoteria;
+    const hasBets = fijosCorridos.some(isValidFijoCorrido) ||
+        parlets.some(isValidParlet) ||
+        centenas.some(isValidCentena) ||
+        loteria.some(isValidLoteria);
 
     return {
         loteriaTotal,

@@ -4,6 +4,9 @@ import { Select, SelectItem, IndexPath } from '@ui-kitten/components';
 import { Flex, Label, Card, Badge, ButtonKit } from '@/shared/components';
 import { useTheme } from '@/shared/hooks/use_theme';
 import { CheckCircle2, AlertCircle, Clock, ChevronRight, Edit3 } from 'lucide-react-native';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('COLECTOR_REPORT_ITEM');
 
 export interface ReportItemProps {
     id: string;
@@ -102,7 +105,7 @@ export const ReportItem: React.FC<ReportItemProps> = ({
             // Recarga la lista de forma segura
             await fetchIncidents?.();
         } catch (error) {
-            console.error('Error updating status:', error);
+            log.error('Error updating status', { error, reportId: id });
         } finally {
             setIsSaving(false);
         }

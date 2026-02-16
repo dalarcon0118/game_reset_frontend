@@ -1,6 +1,9 @@
 import * as t from 'io-ts';
 import { isRight } from 'fp-ts/Either';
 import { PathReporter } from 'io-ts/PathReporter';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('STRUCTURE_CODECS');
 
 export const ChildStructureCodec = t.type({
     id: t.number,
@@ -43,6 +46,8 @@ export const ListeroDetailsCodec = t.type({
 export const decodeOrFallback = <T>(codec: t.Type<T>, value: unknown, label: string): T => {
     const result = codec.decode(value);
     if (isRight(result)) return result.right;
-    console.warn(`[StructureApi] ${label} decode failed:`, PathReporter.report(result).join('; '));
+    log.warn(`${label} decode failed`, {
+        errors: PathReporter.report(result).join('; ')
+    });
     return value as T;
 };

@@ -10,6 +10,9 @@
 
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+import { logger } from '../shared/utils/logger';
+
+const log = logger.withTag('SETTINGS');
 
 // API Configuration
 // En emuladores de Android, localhost es el propio emulador. 
@@ -17,13 +20,13 @@ import Constants from 'expo-constants';
 const getDevelopmentBaseUrl = () => {
   // En emuladores de Android, localhost es el propio emulador. 
   // Para acceder al host (tu máquina), usa 10.0.2.2 o la IP detectada por Expo
-  
+
   // Intentamos obtener la IP del host desde Expo Constants
   const debuggerHost = Constants.expoConfig?.hostUri;
   const host = debuggerHost?.split(':').shift();
-  
+
   if (host) {
-    console.log('Detected Host IP from Expo:', host);
+    log.debug('Detected Host IP from Expo', { host });
     return `http://${host}:8000/api`;
   }
 
@@ -45,13 +48,16 @@ const APP_ENV =
   Constants.expoConfig?.extra?.APP_ENV ||
   (process.env.NODE_ENV === 'production' ? 'production' : 'development');
 
-console.log('Detected APP_ENV:', APP_ENV);
+log.info('Environment detection', {
+  APP_ENV,
+  IS_DEVELOPMENT: APP_ENV === 'production' ? false : (APP_ENV === 'development' || __DEV__),
+  API_URL: (APP_ENV === 'production' ? false : (APP_ENV === 'development' || __DEV__))
+    ? API_BASE_URL_DEVELOPMENT
+    : API_BASE_URL_PRODUCTION
+});
 
 // Si APP_ENV es production, forzamos IS_DEVELOPMENT a false independientemente de __DEV__
 const IS_DEVELOPMENT = APP_ENV === 'production' ? false : (APP_ENV === 'development' || __DEV__);
-
-console.log('IS_DEVELOPMENT mode:', IS_DEVELOPMENT);
-console.log('Using API URL:', IS_DEVELOPMENT ? API_BASE_URL_DEVELOPMENT : API_BASE_URL_PRODUCTION);
 
 export const settings = {
   api: {
@@ -78,6 +84,7 @@ export const settings = {
       bets: () => '/bets/',
       draws: () => '/draw/draws/',
       incidents: () => '/incidents/',
+      closureConfirmations: () => '/draw/draw-closure-confirmations/',
       changePin: () => '/auth/change-pin/',
       financialStatement: () => '/financial-statement/summary/',
       financialStatements: () => '/financial-statement/',

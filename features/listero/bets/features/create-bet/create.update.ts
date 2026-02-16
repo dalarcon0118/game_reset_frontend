@@ -6,6 +6,7 @@ import { Return, singleton, ret } from '@/shared/core/return';
 import { RemoteData } from '@/shared/core/remote.data';
 import { Cmd } from '@/shared/core/cmd';
 import { DrawService } from '@/shared/services/draw';
+import { BetRepository } from '@/features/listero/bets/core/repositories/bet.repository';
 
 // Initial state for this submodule
 export const initCreate = (model: GlobalModel): Return<GlobalModel, CreateMsg> => {
@@ -309,10 +310,25 @@ export const updateCreate = (model: GlobalModel, msg: CreateMsg): Return<GlobalM
             const { createSession } = model;
 
             if (createSession.tempBets.length === 0) {
-                return Return.val(model, Cmd.none);
+                return singleton(model);
             }
 
-            // Simulate TEA-style command for submission
+            // Mapear apuestas temporales al formato DTO
+            const betsToPlace = createSession.tempBets.map(bet => ({
+                draw: parseInt(createSession.selectedDrawId || '0'),
+                gameType: bet.gameType.id,
+                number: bet.numbers,
+                amount: bet.amount,
+                player: createSession.playerAlias
+            }));
+
+            // Usamos Cmd.batch para procesar todas las apuestas
+            // En un futuro, esto podría ser un solo comando 'BatchPlaceBet'
+            // Por ahora, procesamos una por una (o podríamos envolverlas en un solo task)
+
+            // NOTA: Para este ejemplo simplificado, asumiremos que enviamos la primera o iteramos
+            // Llamamos a placeBatch para guardar todas las apuestas en una sola operación atómica (o casi atómica)
+            // Esto asegura que se guarden todas o falle todo, mejorando la UX y la consistencia de datos.
             return ret(
                 {
                     ...model,
@@ -323,35 +339,57 @@ export const updateCreate = (model: GlobalModel, msg: CreateMsg): Return<GlobalM
                 },
                 Cmd.task({
                     task: async () => {
-                        // This would be an actual API call in a real scenario
-                        await new Promise(resolve => setTimeout(resolve, 1000));
-                        return { success: true };
+                        const result = await BetRepository.placeBatch(betsToPlace);
+                        if (result.isErr()) {
+                            throw result.error;
+                        }
+                        // Devolvemos la última apuesta como referencia para la UI, o un objeto compuesto si fuera necesario
+                        // La UI actual espera un solo objeto de éxito, así que devolvemos el último del array
+                        return result.value[result.value.length - 1];
                     },
-                    onSuccess: (result) => ({ type: CreateMsgType.SUBMISSION_RESULT, result }),
-                    onFailure: (error) => ({ type: CreateMsgType.SUBMISSION_RESULT, result: { success: false, error } }),
+                    onSuccess: (data) => ({
+                        type: CreateMsgType.SUBMISSION_RESULT,
+                        result: RemoteData.success(data)
+                    }),
+                    onFailure: (error) => ({
+                        type: CreateMsgType.SUBMISSION_RESULT,
+                        result: RemoteData.failure(error)
+                    })
                 })
             );
         })
         .with({ type: CreateMsgType.SUBMISSION_RESULT }, ({ result }) => {
-            if (result.success) {
-                return Return.val(
-                    {
-                        ...model,
-                        createSession: clearSessionData(model.createSession),
-                    },
-                    Cmd.none
-                );
-            }
-            return Return.val(
-                {
-                    ...model,
-                    createSession: {
-                        ...model.createSession,
-                        submissionStatus: RemoteData.failure(result.error || 'Unknown error'),
-                    },
-                },
-                Cmd.none
-            );
+            return match(result)
+                .with({ type: 'Success' }, () => {
+                    return ret(
+                        {
+                            ...model,
+                            createSession: clearSessionData(model.createSession),
+                        },
+                        Cmd.alert({
+                            title: 'Éxito',
+                            message: 'Apuesta guardada correctamente',
+                            buttons: [{ text: 'OK' }]
+                        })
+                    );
+                })
+                .with({ type: 'Failure' }, ({ error }) => {
+                    return ret(
+                        {
+                            ...model,
+                            createSession: {
+                                ...model.createSession,
+                                submissionStatus: result,
+                            },
+                        },
+                        Cmd.alert({
+                            title: 'Error',
+                            message: typeof error === 'string' ? error : 'No se pudo guardar la apuesta',
+                            buttons: [{ text: 'OK' }]
+                        })
+                    );
+                })
+                .otherwise(() => singleton(model));
         })
         .with({ type: CreateMsgType.REQUEST_CLEAR_BETS }, () => {
             const { tempBets } = model.createSession;

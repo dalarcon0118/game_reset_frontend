@@ -6,6 +6,9 @@ import { WinningService } from '@/shared/services/winning';
 import { RulesService } from '@/shared/services/rules';
 import { Return, ret, singleton } from '@/shared/core/return';
 import { RemoteData } from '@/shared/core/remote.data';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('REWARDS_RULES_UPDATE');
 
 export const updateRewardsRules = (model: GlobalModel, msg: RewardsRulesMsg): Return<GlobalModel, RewardsRulesMsg> => {
     return match<RewardsRulesMsg, Return<GlobalModel, RewardsRulesMsg>>(msg)
@@ -31,7 +34,7 @@ export const updateRewardsRules = (model: GlobalModel, msg: RewardsRulesMsg): Re
         .with({ type: RewardsRulesMsgType.FETCH_REWARDS_FAILED }, ({ error }) => {
             const status = (error as any)?.status;
             const is404 = status === 404;
-            console.log(`[RewardsRules] Fetch failed. Status: ${status}, is404: ${is404}`);
+            log.debug('Fetch failed', { status, is404 });
             
             // We avoid spreading the error object directly because Error properties (message, stack, status) 
             // are often not enumerable and would be lost.
@@ -45,7 +48,7 @@ export const updateRewardsRules = (model: GlobalModel, msg: RewardsRulesMsg): Re
             });
         })
         .with({ type: RewardsRulesMsgType.FETCH_RULES_REQUESTED }, ({ drawId }) => {
-            console.log('RewardsRules update: FETCH_RULES_REQUESTED for drawId:', drawId);
+            log.debug('FETCH_RULES_REQUESTED', { drawId });
             return ret(
                 {
                     ...model,
@@ -54,11 +57,11 @@ export const updateRewardsRules = (model: GlobalModel, msg: RewardsRulesMsg): Re
                 Cmd.task({
                     task: () => RulesService.getAllRulesForDraw(drawId),
                     onSuccess: (rules) => {
-                        console.log('RewardsRules update: FETCH_RULES_SUCCEEDED with rules:', rules);
+                        log.debug('FETCH_RULES_SUCCEEDED', { rulesCount: rules?.length });
                         return { type: RewardsRulesMsgType.FETCH_RULES_SUCCEEDED, rules };
                     },
                     onFailure: (err) => {
-                        console.error('RewardsRules update: FETCH_RULES_FAILED with error:', err);
+                        log.error('FETCH_RULES_FAILED', err);
                         return { type: RewardsRulesMsgType.FETCH_RULES_FAILED, error: err };
                     }
                 })

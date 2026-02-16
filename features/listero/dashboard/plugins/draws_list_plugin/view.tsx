@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ActivityIndicator, View, TouchableOpacity } from 'react-native';
 import { match } from 'ts-pattern';
 import { RemoteData } from '@/shared/core/remote.data';
@@ -8,8 +8,12 @@ import DrawItem from './views/draw_item';
 import { useDrawsListPluginStore } from './store';
 import { REFRESH_CLICKED, RULES_CLICKED, REWARDS_CLICKED, BETS_LIST_CLICKED, CREATE_BET_CLICKED } from './msg';
 import { styles } from './styles';
+import { enrichDrawWithOfflineData } from './update';
+import { logger } from '@/shared/utils/logger';
 
 import { DrawsListPluginConfig } from './model';
+
+const log = logger.withTag('DRAWS_LIST_PLUGIN_VIEW');
 
 interface DrawsListComponentProps {
   context: PluginContext;
@@ -19,17 +23,22 @@ interface DrawsListComponentProps {
 export const DrawsListComponent: React.FC<DrawsListComponentProps> = ({ context, config }) => {
   const { model, dispatch, init } = useDrawsListPluginStore();
 
-  console.log('[DrawsListPlugin] Rendering. Context present:', !!model.context, 'Draws state:', model.draws.type, 'Filtered draws:', model.filteredDraws.length);
+  log.debug('Rendering', { 
+    hasContext: !!model.context, 
+    drawsType: model.draws.type, 
+    filteredCount: model.filteredDraws.length 
+  });
 
-  const shouldInit = () =>
-    !model.context ||
-    model.context?.hostStore !== context.hostStore ||
-    model.config !== config;
+  useEffect(() => {
+    const shouldInit = !model.context ||
+      model.context?.hostStore !== context.hostStore ||
+      model.config !== config;
 
-  if (shouldInit()) {
-    console.log('[DrawsListPlugin] Initializing context');
-    init({ context, config });
-  }
+    if (shouldInit) {
+      log.debug('Initializing context');
+      init({ context, config });
+    }
+  }, [context, config, model.context, model.config, init]);
 
   const handleRefresh = () => {
     dispatch(REFRESH_CLICKED());
@@ -62,17 +71,21 @@ export const DrawsListComponent: React.FC<DrawsListComponentProps> = ({ context,
     return (
       <View>
         {filteredDraws.length > 0 ? (
-          filteredDraws.map((draw) => (
-            <DrawItem
-              key={draw.id}
-              draw={draw}
-              onRulePress={(id) => dispatch(RULES_CLICKED(id))}
-              onRewardsPress={(id, title) => dispatch(REWARDS_CLICKED({ id, title }))}
-              onBetsListPress={(id, title) => dispatch(BETS_LIST_CLICKED({ id, title }))}
-              onCreateBetPress={(id, title) => dispatch(CREATE_BET_CLICKED({ id, title }))}
-              showBalance={context.state.showBalance}
-            />
-          ))
+          filteredDraws.map((draw) => {
+            // Fase 4: Enriquecer draw con datos offline
+            const enrichedDraw = enrichDrawWithOfflineData(draw, model.offlineStates);
+            return (
+              <DrawItem
+                key={draw.id}
+                draw={enrichedDraw}
+                onRulePress={(id) => dispatch(RULES_CLICKED(id))}
+                onRewardsPress={(id, title) => dispatch(REWARDS_CLICKED({ id, title }))}
+                onBetsListPress={(id, title) => dispatch(BETS_LIST_CLICKED({ id, title }))}
+                onCreateBetPress={(id, title) => dispatch(CREATE_BET_CLICKED({ id, title }))}
+                showBalance={context.state.showBalance}
+              />
+            );
+          })
         ) : (
           <View style={styles.emptyContainer}>
             <Label style={styles.emptyText}>No hay sorteos para este filtro</Label>

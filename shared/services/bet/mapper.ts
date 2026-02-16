@@ -1,9 +1,12 @@
 import { BetType } from '@/types';
 import { BackendBet } from './types';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('BET_MAPPER');
 
 export const mapBackendBetToFrontend = (backendBet: BackendBet): BetType => {
     try {
-        console.log('Mapping backend bet:', JSON.stringify(backendBet, null, 2));
+        log.debug('Mapping backend bet', { backendBet });
 
         // Determinar el tipo de apuesta
         const gameTypeName = backendBet.game_type_details?.name;
@@ -38,12 +41,54 @@ export const mapBackendBetToFrontend = (backendBet: BackendBet): BetType => {
             else mappedType = 'Fijo'; // Default a Fijo si no podemos determinar
         }
 
-        console.log(`Mapping bet ID ${String(backendBet.id)}: game_type=${gameTypeName}, bet_type=${betTypeName}, rawType=${rawType}, mappedType=${mappedType}`);
+        log.debug(`Mapping bet result`, {
+            id: backendBet.id,
+            game_type: gameTypeName,
+            bet_type: betTypeName,
+            rawType,
+            mappedType
+        });
+
+        // Extraer números de forma limpia (evitar JSON string si es posible)
+        let cleanNumbers: string;
+        const rawNumbers = backendBet.numbers_played;
+
+        if (typeof rawNumbers === 'string') {
+            try {
+                const parsed = JSON.parse(rawNumbers);
+                if (typeof parsed === 'object' && parsed !== null) {
+                    cleanNumbers = parsed.number || parsed.bet || JSON.stringify(parsed);
+                } else {
+                    cleanNumbers = String(parsed);
+                }
+            } catch {
+                cleanNumbers = rawNumbers;
+            }
+        } else if (typeof rawNumbers === 'object' && rawNumbers !== null) {
+            // Manejar formato {"number": "054"} o {"bet": 54} o {"numbers": [12, 34]}
+            const val = (rawNumbers as any).number || (rawNumbers as any).bet || (rawNumbers as any).numbers;
+            if (val !== undefined) {
+                cleanNumbers = Array.isArray(val) ? val.join('-') : String(val);
+            } else {
+                cleanNumbers = JSON.stringify(rawNumbers);
+            }
+        } else {
+            cleanNumbers = String(rawNumbers);
+        }
+
+        // Eliminar ceros a la izquierda solo para tipos que no son Centena o Loteria
+        if (mappedType === 'Fijo' || mappedType === 'Corrido' || mappedType === 'Parlet') {
+            if (cleanNumbers.includes('-')) {
+                cleanNumbers = cleanNumbers.split('-').map(n => parseInt(n, 10).toString()).join('-');
+            } else if (!isNaN(parseInt(cleanNumbers, 10))) {
+                cleanNumbers = parseInt(cleanNumbers, 10).toString();
+            }
+        }
 
         return {
             id: (backendBet.id || backendBet.receipt_code || Math.random().toString(36).substring(7)).toString(),
             type: mappedType,
-            numbers: JSON.stringify(backendBet.numbers_played),
+            numbers: cleanNumbers,
             amount: backendBet.amount ? parseFloat(backendBet.amount.toString()) : 0,
             draw: backendBet.draw?.toString() || '',
             createdAt: backendBet.created_at ? new Date(backendBet.created_at).toLocaleTimeString('es-ES', {
@@ -53,7 +98,7 @@ export const mapBackendBetToFrontend = (backendBet: BackendBet): BetType => {
             receiptCode: backendBet.receipt_code || '-----'
         };
     } catch (error) {
-        console.error('Error mapping bet:', error, backendBet);
+        log.error('Error mapping bet', error, { backendBet });
         throw error;
     }
 };

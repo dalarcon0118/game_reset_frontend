@@ -3,6 +3,9 @@ import { View, StyleSheet } from 'react-native';
 import { Text, Card } from '@ui-kitten/components';
 import { Bug } from 'lucide-react-native';
 import { Plugin, SlotProps } from './plugin.types';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('DEBUG_PLUGIN');
 
 /**
  * DebugPlugin: Un plugin de ejemplo para validar la arquitectura.
@@ -15,7 +18,7 @@ const DebugInfoComponent: React.FC<SlotProps> = ({ context }) => {
     // Probar suscripción al EventBus
     const unsubscribe = context.events.subscribe('debug:ping', (data) => {
       setLastEvent(JSON.stringify(data));
-      console.log('[DebugPlugin] Ping recibido!', data);
+      log.debug('Ping recibido!', { data });
     });
 
     return () => unsubscribe();
@@ -46,7 +49,7 @@ export const DebugPlugin: Plugin = {
   id: 'com.game-reset.debug',
   name: 'Debug Tool',
   init: (context) => {
-    console.log('[DebugPlugin] Inicializado con contexto:', context);
+    log.debug('Inicializado con contexto', { context });
     
     // Probar persistencia
     context.storage.setItem('last_init', new Date().toISOString());

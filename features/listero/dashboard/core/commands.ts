@@ -7,6 +7,8 @@ import { FinancialSummaryService } from '@/shared/services/financial_summary';
 import { OfflineStorage, PendingBet } from '@/shared/services/offline_storage';
 import apiClient from '@/shared/services/api_client';
 import { FinancialSummary, DrawType } from '@/types';
+import { logger } from '@/shared/utils/logger';
+
 import {
     PENDING_BETS_LOADED,
     DRAWS_RECEIVED,
@@ -15,9 +17,11 @@ import {
     NONE
 } from './msg';
 
+const log = logger.withTag('DASHBOARD_COMMANDS');
+
 export const fetchDrawsCmd = (structureId: string | null): Cmd => {
     if (!structureId || structureId === '0') return Cmd.none;
-    console.log('fetchDrawsCmd: Requesting draws for structure', structureId);
+    log.debug('Requesting draws for structure', { structureId });
     return RemoteDataHttp.fetch<DrawType[], any>(
         async () => {
             try {
@@ -27,40 +31,64 @@ export const fetchDrawsCmd = (structureId: string | null): Cmd => {
                 const draws = await DrawService.list({ owner_structure: structureId, next24h: true });
 
                 if (!draws) {
-                    console.warn('fetchDrawsCmd: Received null/undefined draws, returning empty array');
+                    log.warn('Received null/undefined draws, returning empty array');
                     return [];
                 }
 
                 return draws;
             } catch (error) {
-                console.error('fetchDrawsCmd: Error fetching draws', error);
+                log.error('Error fetching draws', error);
                 throw error;
             }
         },
         (webData) => {
-            console.log('fetchDrawsCmd: Received DRAWS_RECEIVED', webData.type);
+            log.debug('Received draws webData', { type: webData.type });
             return DRAWS_RECEIVED(webData);
-        }
+        },
+        'FETCH_DRAWS'
     );
 };
 
 export const loadPendingBetsCmd = (): Cmd => {
-    return RemoteDataHttp.fetch<PendingBet[], any>(
-        async () => {
-            // Maintenance: Prune stale bets (> 48h) to prevent storage clutter
-            await OfflineStorage.pruneStalePendingBets();
-            return await OfflineStorage.getPendingBets();
+    return Cmd.task({
+        task: async () => {
+            try {
+                // Maintenance: Prune stale bets (> 48h) to prevent storage clutter
+                await OfflineStorage.pruneStalePendingBets();
+
+                // 1. Obtener apuestas del sistema legacy (V1)
+                const legacyPending = await OfflineStorage.getPendingBets();
+                // 2. Obtener todas las apuestas del día (incluidas sincronizadas)
+                const allLegacy = await OfflineStorage.getAllDailyBets?.() || [];
+
+                // 3. Obtener apuestas del nuevo sistema (V2)
+                const { OfflineFinancialService } = require('@/shared/services/offline');
+                const v2Pending = await OfflineFinancialService.getPendingBets();
+
+                // Combinar pendientes
+                const combinedPending = [...legacyPending];
+                v2Pending.forEach((v2Bet: any) => {
+                    const exists = combinedPending.some(b => b.offlineId === v2Bet.offlineId);
+                    if (!exists) combinedPending.push(v2Bet);
+                });
+
+                // Separar sincronizadas (aquellas que están en allLegacy pero no en legacyPending)
+                const syncedBets = allLegacy.filter(b => b.status === 'synced');
+
+                log.info('Loaded dashboard bets', {
+                    pending: combinedPending.length,
+                    synced: syncedBets.length
+                });
+
+                return { pending: combinedPending, synced: syncedBets };
+            } catch (error) {
+                log.error('Error loading bets', error);
+                return { pending: [], synced: [] };
+            }
         },
-        (webData) => {
-            return match(webData)
-                .with(RemoteData.Success, ({ data }) => PENDING_BETS_LOADED(data))
-                .with(RemoteData.Failure, ({ error }) => {
-                    console.error('Error loading pending bets:', error);
-                    return PENDING_BETS_LOADED([]);
-                })
-                .otherwise(() => PENDING_BETS_LOADED([]));
-        }
-    );
+        onSuccess: (data) => PENDING_BETS_LOADED(data.pending, data.synced),
+        onFailure: () => PENDING_BETS_LOADED([], [])
+    });
 };
 
 export const updateAuthTokenCmd = (): Cmd => {
@@ -77,7 +105,7 @@ export const updateAuthTokenCmd = (): Cmd => {
 
 export const fetchSummaryCmd = (structureId: string | null): Cmd => {
     if (!structureId || structureId === '0') return Cmd.none;
-    console.log('fetchSummaryCmd: Requesting financial summary for structure', structureId);
+    log.debug('Requesting financial summary for structure', { structureId });
     return RemoteDataHttp.fetch<FinancialSummary, any>(
         async () => {
             const [error, data] = await FinancialSummaryService.get(structureId);
@@ -86,7 +114,7 @@ export const fetchSummaryCmd = (structureId: string | null): Cmd => {
             return data;
         },
         (webData) => {
-            console.log('fetchSummaryCmd: Received SUMMARY_RECEIVED', webData.type);
+            log.debug('Received summary webData', { type: webData.type });
             return SUMMARY_RECEIVED(webData);
         }
     );

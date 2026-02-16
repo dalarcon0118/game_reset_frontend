@@ -6,6 +6,9 @@ import { RemoteDataHttp } from '@/shared/core/remote.data.http';
 import { RemoteData } from '@/shared/core/remote.data';
 import { StructureService } from '@/shared/services/structure';
 import { singleton, ret } from '@/shared/core/return';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('COLECTOR_DRAWERS_UPDATE');
 
 const formatDateToString = (date: Date) => {
     return date.toISOString().split('T')[0];
@@ -58,7 +61,7 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
 
         .with({ type: 'CONFIRM_DRAW' }, ({ drawId }) => {
             // For now, just log; full implementation would require task cmd for confirmation
-            console.log('Confirm draw', drawId);
+            log.debug('Confirm draw', { drawId });
             return singleton(model);
         })
 

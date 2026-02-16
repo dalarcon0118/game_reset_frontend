@@ -8,6 +8,10 @@ import { RemoteData } from '@/shared/core/remote.data';
 import RuleItem from '../../../screens/rule_item';
 import LayoutConstants from '@/constants/layout';
 import { useBetsStore, selectBetsModel } from '../../../core/store';
+import { logger } from '@/shared/utils/logger';
+import { UnifiedRule } from '../rules.types';
+
+const log = logger.withTag('LISTERO_RULES_LIST');
 
 interface RulesListProps {
     drawId?: string;
@@ -26,7 +30,7 @@ export const RulesList: React.FC<RulesListProps> = ({ drawId }) => {
     }, [drawId, currentDrawId, fetchRules]);
 
     const handleRefresh = useCallback(() => {
-        console.log('RulesList: handleRefresh triggered');
+        log.debug('RulesList: handleRefresh triggered');
         if (drawId) {
             refreshRules(drawId);
         }
@@ -115,7 +119,7 @@ export const RulesList: React.FC<RulesListProps> = ({ drawId }) => {
             </Card>
 
             <View style={styles.rulesContainer}>
-                {allRules.map((rule) => (
+                {allRules.map((rule: UnifiedRule) => (
                     <RuleItem key={`${rule.type}-${rule.id}`} rule={rule} type={rule.type} />
                 ))}
             </View>

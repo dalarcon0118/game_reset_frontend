@@ -4,14 +4,19 @@ import { Cmd, CommandDescriptor } from '@/shared/core/cmd';
 import { ret, singleton, Return } from '@/shared/core/return';
 import { handleAuthUserSynced as logicHandleAuthUserSynced } from '../logic';
 import { fetchDrawsCmd, fetchSummaryCmd, updateAuthTokenCmd, loadPendingBetsCmd } from '../commands';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('DASHBOARD_AUTH_HANDLER');
 
 export const AuthHandler = {
     handleAuthUserSynced: (model: Model, user: any): Return<Model, Msg> => {
+        // We rely on the logic handler to decide if we need to fetch or update
+        // It checks for data presence (hasDataOrLoading) and structure changes
         const { nextModel, shouldFetch, fetchId, shouldUpdateToken } = logicHandleAuthUserSynced(model, user);
         let cmds: CommandDescriptor[] = [];
 
         if (shouldFetch && fetchId) {
-            console.log('update: AUTH_USER_SYNCED triggering fetch for', fetchId);
+            log.debug('Auth user synced triggering fetch', { fetchId });
             cmds.push(fetchDrawsCmd(fetchId) as any);
             cmds.push(fetchSummaryCmd(fetchId) as any);
             cmds.push(loadPendingBetsCmd() as any);

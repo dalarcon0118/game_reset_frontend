@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { View, StyleSheet, useColorScheme, ActivityIndicator } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Layout, Text } from '@ui-kitten/components';
 import Colors from '@/constants/colors';
@@ -20,18 +21,20 @@ export const EditListScreen: React.FC<EditListScreenProps> = ({ drawId, title })
     const model = useBetsStore(selectBetsModel);
     const dispatch = useBetsStore(selectDispatch);
 
-    useEffect(() => {
-        if (drawId) {
-            dispatch({
-                type: 'CORE',
-                payload: {
-                    type: CoreMsgType.SCREEN_FOCUSED,
-                    drawId,
-                    isEditing: true
-                }
-            });
-        }
-    }, [drawId, dispatch]);
+    useFocusEffect(
+        useCallback(() => {
+            if (drawId) {
+                dispatch({
+                    type: 'CORE',
+                    payload: {
+                        type: CoreMsgType.SCREEN_FOCUSED,
+                        drawId,
+                        isEditing: true
+                    }
+                });
+            }
+        }, [drawId, dispatch])
+    );
 
     const renderContent = () => {
         return match(model.drawTypeCode)

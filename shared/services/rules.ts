@@ -2,11 +2,14 @@ import { DrawRules } from '@/types';
 import { mockRules } from '@/data/mock_data';
 import { ApiClientError } from './api_client';
 import { RulesApi } from './rules/api';
-import { 
-    BackendUnifiedRulesResponse as UnifiedRulesResponse, 
-    BackendValidationRule as ValidationRule, 
-    BackendRewardRule as RewardRule 
+import {
+  BackendUnifiedRulesResponse as UnifiedRulesResponse,
+  BackendValidationRule as ValidationRule,
+  BackendRewardRule as RewardRule
 } from './rules/types';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('RULES_SERVICE');
 
 export type { ValidationRule, RewardRule, UnifiedRulesResponse };
 
@@ -102,7 +105,7 @@ export class RulesService {
     try {
       return await RulesApi.getAllRulesForDraw(drawId);
     } catch (error) {
-      console.error('Error fetching unified rules for draw:', error);
+      log.error('Error fetching unified rules for draw', error);
       return null;
     }
   }
@@ -118,7 +121,7 @@ export class RulesService {
     try {
       return await RulesApi.getValidationRulesForCurrentUser();
     } catch (error) {
-      console.error('Error fetching validation rules for current user:', error);
+      log.error('Error fetching validation rules for current user', error);
       if (error instanceof ApiClientError && (error.status === 401 || error.status === 403)) {
         throw error;
       }
@@ -133,7 +136,7 @@ export class RulesService {
     try {
       return await RulesApi.getValidationRulesByStructure(structureId);
     } catch (error) {
-      console.error('Error fetching validation rules by structure:', error);
+      log.error('Error fetching validation rules by structure', error);
       return [];
     }
   }

@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { ValidationRule } from '@/types/rules';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('BANKER_RULE_UPDATE');
 
 interface RuleUpdateFormData {
     name: string;
@@ -95,7 +98,7 @@ export const useRuleUpdate = (ruleId?: string): UseRuleUpdateReturn => {
                 examples: mockRule.examples,
             });
         } catch (error) {
-            console.error('Error loading rule:', error);
+            log.error('Error loading rule', { error, ruleId: id });
             Alert.alert('Error', 'No se pudo cargar la regla');
         } finally {
             setLoading(false);
@@ -139,19 +142,19 @@ export const useRuleUpdate = (ruleId?: string): UseRuleUpdateReturn => {
             if (ruleId) {
                 // Update existing rule
                 // await ValidationRuleService.update(ruleId, ruleData);
-                console.log('Updating rule:', ruleId, ruleData);
+                log.info('Updating rule', { ruleId, ruleData });
                 Alert.alert('Éxito', 'Regla actualizada correctamente');
             } else {
                 // Create new rule
                 // await ValidationRuleService.create(ruleData);
-                console.log('Creating new rule:', ruleData);
+                log.info('Creating new rule', { ruleData });
                 Alert.alert('Éxito', 'Regla creada correctamente');
             }
 
             // The navigation back is handled in the component
 
         } catch (error) {
-            console.error('Error saving rule:', error);
+            log.error('Error saving rule', { error, ruleId });
             Alert.alert('Error', 'No se pudo guardar la regla');
         } finally {
             setSaving(false);

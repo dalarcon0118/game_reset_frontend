@@ -5,6 +5,9 @@ import { ColumnHeaders } from '@/features/listero/bets/shared/components/column_
 import { BolitaListGroup } from './BolitaListGroup';
 import { BolitaListFooter } from './BolitaListFooter';
 import { GroupedBets } from '../utils/list_grouping';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('BolitaListSuccessView');
 
 interface BolitaListSuccessViewProps {
     groupedBets: GroupedBets;
@@ -47,14 +50,17 @@ export const SuccessView: React.FC<BolitaListSuccessViewProps> = ({
                     />
                 }
             >
-                {Object.entries(groupedBets).map(([receiptCode, group]) => (
-                    <BolitaListGroup
-                        key={receiptCode}
-                        receiptCode={receiptCode}
-                        group={group}
-                        onViewReceipt={onViewReceipt}
-                    />
-                ))}
+                {Object.entries(groupedBets).map(([receiptCode, group]) => {
+                     log.debug('Rendering group', JSON.stringify(group, null, 2));
+                    return (
+                        <BolitaListGroup
+                            key={receiptCode}
+                            receiptCode={receiptCode}
+                            group={group}
+                            onViewReceipt={onViewReceipt}
+                        />
+                    );
+                })}
             </ScrollView>
             <BolitaListFooter
                 fijosCorridosTotal={totals.fijosCorridosTotal}

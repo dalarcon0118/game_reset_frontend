@@ -2,15 +2,30 @@ import { singleton, Return } from '@/shared/core/return';
 import { Sub } from '@/shared/core/sub';
 import { Model } from './model';
 import { Msg } from './msg';
-import { calculateSummary } from './summary.utils';
+import { calculateSummaryFromData, initialSummary } from './summary.utils';
 import { initialModel } from './initial.types';
 import { featureRegistry } from './update.registry';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('BETS_CORE');
+
+/**
+ * Selector to determine which data source to use for summary calculation
+ */
+const getSummaryData = (model: Model) => {
+    if (model.isEditing) {
+        return model.entrySession;
+    }
+    return model.listSession.remoteData.type === 'Success'
+        ? model.listSession.remoteData.data
+        : null;
+};
 
 export function update(model: Model, msg: Msg): Return<Model, Msg> {
     const feature = featureRegistry[msg.type];
 
     if (!feature) {
-        console.warn('Unhandled message type:', msg.type);
+        log.warn('Unhandled message type', { type: msg.type });
         return singleton(model);
     }
 
@@ -27,9 +42,14 @@ export function update(model: Model, msg: Msg): Return<Model, Msg> {
     let nextModel = updateResult.model;
 
     if (feature.requiresSummary) {
+        const dataSource = getSummaryData(nextModel);
+        const isSaving = nextModel.managementSession.saveStatus.type === 'Loading';
+
         nextModel = {
             ...nextModel,
-            summary: calculateSummary(nextModel)
+            summary: dataSource
+                ? calculateSummaryFromData(dataSource, isSaving)
+                : { ...initialSummary, isSaving }
         };
     }
 

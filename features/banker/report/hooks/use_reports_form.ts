@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Alert } from 'react-native';
 import { IndexPath } from '@ui-kitten/components';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../../auth';
 import { IncidentService } from '@/shared/services/incident';
 import { StructureService, ChildStructure } from '@/shared/services/structure';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('USE_BANKER_REPORTS_FORM');
 
 const INCIDENT_TYPES = [
     { title: 'Diferencia de Monto' },
@@ -44,7 +47,6 @@ export interface ReportsFormActions {
 }
 
 export function useReportsForm(): ReportsFormState & ReportsFormActions {
-    const router = useRouter();
     const params = useLocalSearchParams<{ drawId: string; drawName: string; agencyName: string; agencyId: string }>();
     const { user } = useAuth();
 
@@ -84,7 +86,7 @@ export function useReportsForm(): ReportsFormState & ReportsFormActions {
                     }
                 }
             } catch (error) {
-                console.error('Error fetching agencies:', error);
+                log.error('Error fetching agencies', { error });
                 Alert.alert('Error', 'No se pudieron cargar las agencias.');
             } finally {
                 setLoadingAgencies(false);
@@ -123,7 +125,7 @@ export function useReportsForm(): ReportsFormState & ReportsFormActions {
 
             setIsSubmitted(true);
         } catch (error) {
-            console.error('Error submitting incident:', error);
+            log.error('Error submitting incident', { error, agencyId: selectedAgency.id, drawId: params.drawId });
             Alert.alert('Error', 'No se pudo enviar el reporte. Por favor, intenta de nuevo.');
         } finally {
             setIsSubmitting(false);

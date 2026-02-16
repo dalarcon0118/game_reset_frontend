@@ -1,5 +1,8 @@
 import { StructureApi } from './structure/api';
 import { BackendChildStructure, BackendListeroDetails } from './structure/types';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('STRUCTURE_SERVICE');
 
 export type { BackendChildStructure as ChildStructure, BackendListeroDetails as ListeroDetails };
 
@@ -14,7 +17,7 @@ export class StructureService {
         try {
             return await StructureApi.getChildren(id, level);
         } catch (error) {
-            console.error('Error fetching children structures:', error);
+            log.error('Error fetching children structures', error);
             return [];
         }
     }
@@ -29,7 +32,7 @@ export class StructureService {
         try {
             return await StructureApi.getListeroDetails(id, date);
         } catch (error) {
-            console.error(`Error fetching listero details for ID ${id}:`, error);
+            log.error(`Error fetching listero details for ID ${id}`, error);
             throw error;
         }
     }

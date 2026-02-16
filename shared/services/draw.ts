@@ -4,6 +4,9 @@ import { OfflineStorage } from './offline_storage';
 import { DrawApi } from './draw/api';
 import { mapBackendDrawToFrontend, mapStatus } from './draw/mapper';
 import { ExtendedDrawType, DrawClosureConfirmation } from './draw/types';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('DRAW_SERVICE');
 
 export type { ExtendedDrawType, DrawClosureConfirmation };
 
@@ -19,7 +22,7 @@ export class DrawService {
       if (!response) return null;
       return mapBackendDrawToFrontend(response);
     } catch (error) {
-      console.error('Error fetching draw:', error);
+      log.error('Error fetching draw', error);
       return null;
     }
   }
@@ -33,7 +36,7 @@ export class DrawService {
     try {
       return await DrawApi.getBetTypes(drawId);
     } catch (error: any) {
-      console.error(`DrawService.getBetTypes: Error fetching bet types for draw ${drawId}`, error);
+      log.error(`Error fetching bet types for draw ${drawId}`, error);
       throw error;
     }
   }
@@ -53,7 +56,7 @@ export class DrawService {
 
       return response.map(mapBackendDrawToFrontend);
     } catch (error: any) {
-      console.warn('[DrawService] Network error or rate limit, falling back to offline cache', error);
+      log.warn('Network error or rate limit, falling back to offline cache', error);
       const cachedDraws = await OfflineStorage.getLastDraws();
       if (cachedDraws && Array.isArray(cachedDraws)) {
         return cachedDraws.map(mapBackendDrawToFrontend);
@@ -122,7 +125,7 @@ export class DrawService {
     try {
       return await DrawApi.getRulesForDraw(drawId);
     } catch (error) {
-      console.error('Error fetching rules for draw:', error);
+      log.error(`Error fetching rules for draw ${drawId}`, error);
       return null;
     }
   }
@@ -137,7 +140,7 @@ export class DrawService {
     try {
       return await DrawApi.addWinningNumbers(drawId, data);
     } catch (error) {
-      console.error('Error adding winning numbers:', error);
+      log.error(`Error adding winning numbers to draw ${drawId}`, error);
       return null;
     }
   }
@@ -149,7 +152,7 @@ export class DrawService {
     try {
       await DrawApi.updateStatus(drawId, status);
     } catch (error) {
-      console.error(`Error updating status for draw ${drawId}:`, error);
+      log.error(`Error updating status for draw ${drawId}`, error);
       throw error;
     }
   }
@@ -160,7 +163,7 @@ export class DrawService {
     try {
       return await DrawApi.getClosureConfirmationsByDraw(drawId);
     } catch (error) {
-      console.error(`Error fetching closure confirmations for draw ${drawId}:`, error);
+      log.error(`Error fetching closure confirmations for draw ${drawId}`, error);
       return [];
     }
   }
@@ -172,7 +175,7 @@ export class DrawService {
     try {
       return await DrawApi.createClosureConfirmationsForDraw(drawId, data);
     } catch (error) {
-      console.error(`Error creating closure confirmations for draw ${drawId}:`, error);
+      log.error(`Error creating closure confirmations for draw ${drawId}`, error);
       throw error;
     }
   }
@@ -185,7 +188,7 @@ export class DrawService {
     try {
       return await DrawApi.confirmClosure(confirmationId, status, notes);
     } catch (error) {
-      console.error(`Error confirming closure ${confirmationId}:`, error);
+      log.error(`Error confirming closure ${confirmationId}`, error);
       throw error;
     }
   }
@@ -194,7 +197,7 @@ export class DrawService {
     try {
       return await DrawApi.getPendingClosureConfirmations();
     } catch (error) {
-      console.error('Error fetching pending closure confirmations:', error);
+      log.error('Error fetching pending closure confirmations', error);
       return [];
     }
   }
@@ -203,7 +206,7 @@ export class DrawService {
     try {
       return await DrawApi.getClosureConfirmations(filters);
     } catch (error) {
-      console.error('Error fetching closure confirmations:', error);
+      log.error('Error fetching closure confirmations', error);
       return [];
     }
   }
@@ -215,7 +218,7 @@ export class DrawService {
     try {
       return await DrawApi.updateClosureConfirmation(confirmationId, data);
     } catch (error) {
-      console.error(`Error updating closure confirmation ${confirmationId}:`, error);
+      log.error(`Error updating closure confirmation ${confirmationId}`, error);
       throw error;
     }
   }
@@ -224,7 +227,7 @@ export class DrawService {
     try {
       await DrawApi.deleteClosureConfirmation(confirmationId);
     } catch (error) {
-      console.error(`Error deleting closure confirmation ${confirmationId}:`, error);
+      log.error(`Error deleting closure confirmation ${confirmationId}`, error);
       throw error;
     }
   }

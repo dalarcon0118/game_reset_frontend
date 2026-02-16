@@ -6,6 +6,9 @@ import { useTheme } from '@shared/hooks/use_theme';
 import { COLORS } from '@/shared/components/constants';
 import { useFinancialStore } from '@/shared/store/financial/store';
 import { match } from 'ts-pattern';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('COLECTOR_DRAW_ITEM');
 
 interface Draw {
     draw_id: number;
@@ -47,10 +50,10 @@ export const DrawItem: React.FC<DrawItemProps> = ({ draw, onConfirm, onReport })
     const { colors, spacing } = useTheme();
     const { model, dispatch } = useFinancialStore();
     const financialData = model.drawSummaries[draw.draw_id];
-
+  
     // Debug log to verify data
-    console.log(`[DrawItem] ${draw.draw_name} (${draw.draw_id}) status_closed:`, draw.status_closed);
-
+    log.debug('Draw item data check', { drawName: draw.draw_name, drawId: draw.draw_id, statusClosed: draw.status_closed });
+  
     const badgeProps = getStatusBadgeProps(draw.status);
     const isClosed = ['closed', 'completed', 'cancelled'].includes(draw.status);
     const isOpen = draw.status === 'open';

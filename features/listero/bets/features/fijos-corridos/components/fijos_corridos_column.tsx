@@ -7,6 +7,9 @@ import BottomDrawer from '@/components/ui/bottom_drawer';
 import Layout from '@/constants/layout';
 import { useFijos } from '../use_fijos';
 import { BetNumericKeyboard, AmountNumericKeyboard } from '../../../shared/components/numeric_keyboard';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('FIJOS_CORRIDOS_COLUMN');
 
 interface FijosCorridosColumnProps {
     editable?: boolean;
@@ -30,7 +33,7 @@ export default function FijosCorridosColumn({ editable = false, data }: FijosCor
 
     const fijosCorridosList = data || hookList;
 
-    console.log('FijosCorridosColumn rendering body... list length:', fijosCorridosList?.length);
+    log.debug('Rendering component', { listLength: fijosCorridosList?.length });
 
 
   const renderKeyboard = () => {
@@ -39,7 +42,7 @@ export default function FijosCorridosColumn({ editable = false, data }: FijosCor
 
     if (!isVisible) return null;
 
-    console.log('FijosCorridosColumn: Rendering Keyboard. showBetKeyboard:', showBetKeyboard, 'showAmountKeyboard:', showAmountKeyboard, 'editingAmountType:', editingAmountType, 'isVisible:', isVisible);
+    log.debug('Rendering Keyboard', { showBetKeyboard, showAmountKeyboard, editingAmountType, isVisible });
 
     return (
       <BottomDrawer isVisible={isVisible} onClose={onClose} title='' height={"60%"}>
@@ -86,7 +89,7 @@ export default function FijosCorridosColumn({ editable = false, data }: FijosCor
             <BetCircle 
               value={"+"} 
               onPress={() => {
-                console.log('BetCircle + pressed');
+                log.debug('BetCircle + pressed');
                 handleAddBetPress?.();
               }} 
             />

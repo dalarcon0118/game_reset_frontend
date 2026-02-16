@@ -69,3 +69,17 @@ export interface DrawClosureConfirmation {
   created_at: string;
   updated_at: string;
 }
+
+export interface BetType {
+  id: number;
+  name: string;
+  description?: string;
+  code?: string;
+}
+
+export interface DrawRule {
+  id: number;
+  name: string;
+  description?: string;
+  value?: any;
+}

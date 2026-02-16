@@ -6,9 +6,12 @@ import { match } from 'ts-pattern';
 import { SharingService } from '@/shared/services/sharing';
 import { RemoteDataHttp } from '@/shared/core/remote.data.http';
 import { RemoteData } from '@/shared/core/remote.data';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('SUCCESS_UPDATE');
 
 export function updateSuccess(model: GlobalModel, msg: SuccessMsg): Return<GlobalModel, SuccessMsg> {
-    console.log('[success.update] Received message:', msg.type);
+    log.debug('Received message', { type: msg.type });
     return match<SuccessMsg, Return<GlobalModel, SuccessMsg>>(msg)
         .with({ type: SuccessMsgType.SHARE_VOUCHER_REQUESTED }, ({ uri }) => {
             return ret(
@@ -38,7 +41,7 @@ export function updateSuccess(model: GlobalModel, msg: SuccessMsg): Return<Globa
 
             return match(webData)
                 .with({ type: 'Success' }, () => {
-                    console.log('[success.update] Sharing process completed successfully');
+                    log.debug('Sharing process completed successfully');
                     return singleton(nextModel);
                 })
                 .with({ type: 'Failure' }, ({ error }) => {

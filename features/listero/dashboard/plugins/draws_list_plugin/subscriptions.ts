@@ -1,61 +1,88 @@
 import { Model } from './model';
 import { Sub } from '@/shared/core/sub';
-import { SYNC_STATE } from './msg';
-import { DRAW_FILTER, DrawCodec } from './core/types';
-import { RemoteData } from '@/shared/core/remote.data';
-import * as E from 'fp-ts/Either';
-import * as t from 'io-ts';
-import { PathReporter } from 'io-ts/PathReporter';
+import { SYNC_STATE, BATCH_OFFLINE_UPDATE } from './msg';
+import { OfflineFinancialService } from '@/shared/services/offline';
+import { logger } from '@/shared/utils/logger';
+import { extractHostState, createDrawsHash, HostStatePayload } from './host.adapter';
+import { calculateOfflineUpdates } from './offline.calculator';
+
+const log = logger.withTag('DRAWS_LIST_PLUGIN_SUBS');
+
+let lastDrawsHash: string | null = null;
+let lastPayload: HostStatePayload | null = null;
 
 export const subscriptions = (model: Model) => {
-  if (!model.context?.hostStore) {
-    console.warn('[DrawsListPlugin] No hostStore found in context');
+  // Validación de entradas: Asegurar que el contexto y hostStore existen antes de suscribirse
+  if (!model.context || !model.context.hostStore) {
+    // Retornamos silenciosamente durante la inicialización para evitar ruido en logs
     return Sub.none();
   }
 
-  console.log('[DrawsListPlugin] Setting up watchStore subscription');
-
   return Sub.batch([
+    // Suscripción principal al host store
     Sub.watchStore(
       model.context.hostStore,
       (state: any) => {
-        // Intentar obtener el modelo del host de varias formas comunes
-        const hostModel = state.model || state;
+        // Use adapter to extract and validate state
+        const currentPayload = extractHostState(state, model.config);
 
-        const rawDraws = hostModel[model.config.drawsStateKey];
-        const availableKeys = Object.keys(hostModel);
+        // Calculate hash for change detection
+        const currentHash = createDrawsHash(
+          currentPayload.draws,
+          currentPayload.filter,
+          currentPayload.summary,
+          currentPayload.pendingBets.length,
+          currentPayload.syncedBets.length
+        );
 
-        console.log('[DrawsListPlugin] Syncing from host. Key:', model.config.drawsStateKey, 'Found:', !!rawDraws, 'Available keys:', availableKeys.slice(0, 10).join(', '));
-
-        if (rawDraws) {
-          console.log('[DrawsListPlugin] rawDraws type:', rawDraws.type, 'Data length:', rawDraws.data?.length);
+        // Si el hash es el mismo que el último procesado, retornamos el último payload
+        // para que la comparación por referencia en el engine detenga la propagación.
+        if (currentHash === lastDrawsHash && lastPayload) {
+          return lastPayload;
         }
 
-        // Validate draws with io-ts
-        let validatedDraws = rawDraws;
-        if (RemoteData.isSuccess(rawDraws)) {
-          console.log('[DrawsListPlugin] Validating', rawDraws.data?.length, 'draws');
-          if (rawDraws.data.length > 0) {
-            console.log('[DrawsListPlugin] RAW DRAW SAMPLE:', JSON.stringify(rawDraws.data[0], null, 2));
-          }
-          const result = t.array(DrawCodec).decode(rawDraws.data);
-          if (E.isLeft(result)) {
-            const errors = PathReporter.report(result);
-            console.error('[DrawsListPlugin] Validation FAILED for draws:', errors.join('\n'));
-            validatedDraws = RemoteData.failure('Invalid draws data format from host: ' + errors.join(', '));
-          } else {
-            console.log('[DrawsListPlugin] Validation successful');
-            validatedDraws = RemoteData.success(result.right);
-          }
-        }
-
-        return {
-          draws: validatedDraws,
-          filter: hostModel.statusFilter || DRAW_FILTER.ALL
-        };
+        lastDrawsHash = currentHash;
+        lastPayload = currentPayload;
+        return currentPayload;
       },
       (payload) => SYNC_STATE(payload),
       'draws-list-plugin-sync'
-    )
+    ),
+    // Fase 4: Suscripción a cambios offline
+    Sub.custom(
+      (dispatch: (msg: any) => void) => {
+        // 1. Ejecución inicial inmediata para cargar datos tras reinicio
+        const updateOfflineStates = async () => {
+          try {
+            const pendingBets = await OfflineFinancialService.getPendingBets();
+
+            // Use pure calculator logic
+            const updates = calculateOfflineUpdates(pendingBets);
+
+            // Siempre enviamos el dispatch (incluso si está vacío) para asegurar que el estado inicial sea correcto
+            dispatch(BATCH_OFFLINE_UPDATE({ updates }));
+          } catch (error) {
+            log.error('Error updating offline states', error);
+          }
+        };
+
+        // Ejecutar inmediatamente al suscribir
+        updateOfflineStates();
+
+        // 2. Suscribirse a cambios reales en el servicio para actualizaciones reactivas
+        const unsubscribe = OfflineFinancialService.onAnyStateChange(() => {
+          updateOfflineStates();
+        });
+
+        // 3. Mantener polling de seguridad (por si acaso fallan los eventos) pero más espaciado
+        const intervalId = setInterval(updateOfflineStates, 10000);
+
+        return () => {
+          unsubscribe();
+          clearInterval(intervalId);
+        };
+      },
+      'draws-list-plugin-offline'
+    ),
   ]);
 };

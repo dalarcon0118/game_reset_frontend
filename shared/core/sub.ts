@@ -3,7 +3,7 @@
  * Permite escuchar eventos externos de forma declarativa basándose en el estado del Modelo.
  */
 
-export type SubType = 'NONE' | 'EVERY' | 'BATCH' | 'WATCH_STORE' | 'SSE' | 'EVENT';
+export type SubType = 'NONE' | 'EVERY' | 'BATCH' | 'WATCH_STORE' | 'SSE' | 'EVENT' | 'CUSTOM';
 
 export interface SubDescriptor<Msg> {
     type: SubType;
@@ -11,6 +11,19 @@ export interface SubDescriptor<Msg> {
 }
 
 export const Sub = {
+    /**
+     * Permite crear una subscripción personalizada con lógica imperativa.
+     * Útil para APIs que no encajan en los otros tipos (ej: Firebase, Offline Services).
+     * @param subscribe Función que recibe dispatch y retorna una función de limpieza.
+     * @param id Identificador único para la subscripción.
+     */
+    custom: <Msg>(
+        subscribe: (dispatch: (msg: Msg) => void) => () => void,
+        id: string
+    ): SubDescriptor<Msg> => ({
+        type: 'CUSTOM',
+        payload: { subscribe, id }
+    }),
     /**
      * Representa la ausencia de subscripciones.
      */

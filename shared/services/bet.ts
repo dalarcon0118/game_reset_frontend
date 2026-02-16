@@ -1,43 +1,59 @@
 import { BetType } from '@/types';
-import NetInfo from '@react-native-community/netinfo';
+import { isServerReachable } from '../utils/network';
 import { BetApi } from './bet/api';
 import { BetOffline } from './bet/offline';
 import { mapBackendBetToFrontend } from './bet/mapper';
 import { sanitizeCreateBetData } from './bet/sanitizer';
 import { CreateBetDTO, ListBetsFilters } from './bet/types';
+import { OfflineFinancialService } from './offline';
+import { logger } from '../utils/logger';
+
+const log = logger.withTag('BET_SERVICE');
 
 export type { CreateBetDTO } from './bet/types';
 
 export class BetService {
 
     /**
-     * Create a new bet
+     * Create a new bet with offline-first support
      * @param betData - The bet data to send to the backend
      * @returns Promise with the created BetType or BetType[]
      */
     static async create(betData: CreateBetDTO): Promise<BetType | BetType[]> {
-        console.log('[BetService.create] Creating bet with data:', JSON.stringify(betData, null, 2));
+        log.debug('BET.CREATING', JSON.stringify(betData, null, 2));
 
-        const state = await NetInfo.fetch();
-        const isOnline = state.isConnected && state.isInternetReachable !== false;
-        console.log('[BetService.create] Network state:', { isConnected: state.isConnected, isInternetReachable: state.isInternetReachable, isOnline });
+        const isOnline = await isServerReachable();
+        log.debug('Network state check', { isOnline });
 
         const sanitizedData = sanitizeCreateBetData(betData);
 
-        console.log('[BetService.create] Saving to offline storage (Optimistic)...');
-        const offlineId = await BetOffline.savePendingBet(sanitizedData);
-        const pendingBet = BetOffline.buildPendingBet(sanitizedData, offlineId);
+        // Crear apuesta en sistema offline-first FIRST (antes de cualquier API call)
+        log.info('Saving to offline storage (Optimistic)...');
+
+        // Usar el nuevo OfflineFinancialService para tracking financiero
+        const pendingFinancialBet = await OfflineFinancialService.placeBet({
+            ...sanitizedData,
+            commissionRate: 0.1,
+        });
+
+        // También mantener compatibilidad con BetOffline legacy
+        // USAR EL MISMO ID para evitar duplicados en la lista combinada
+        const offlineId = await BetOffline.savePendingBet(sanitizedData, pendingFinancialBet.offlineId);
+        const legacyPendingBet = BetOffline.buildPendingBet(sanitizedData, offlineId);
 
         if (!isOnline) {
-            console.log('[BetService.create] Offline mode. Returning pending bet.');
-            return pendingBet;
+            log.info('Offline mode. Returning pending bet.');
+            return legacyPendingBet;
         }
 
         try {
-            const response = await BetApi.create(sanitizedData);
-            console.log('[BetService.create] API response received:', JSON.stringify(response, null, 2));
+            // Usar idempotency key para prevenir duplicados
+            const idempotencyKey = pendingFinancialBet.offlineId;
+            const response = await BetApi.createWithIdempotencyKey(sanitizedData, idempotencyKey);
+            log.debug('API response received', JSON.stringify(response, null, 2));
 
-            await BetOffline.removePendingBet(offlineId);
+            // Éxito: marcar como sincronizada (NO eliminar - se limpia a las 00:00)
+            await BetOffline.markAsSynced(offlineId);
 
             if (Array.isArray(response)) {
                 if (response.length === 0) {
@@ -47,19 +63,21 @@ export class BetService {
             }
             return mapBackendBetToFrontend(response);
         } catch (error: any) {
-            console.error('[BetService.create] API call failed:', error);
+            log.error('API call failed during bet creation', error);
 
             // Check if it's a client error (4xx) or server/network error
             const status = error?.status || error?.response?.status;
             const isClientError = status >= 400 && status < 500;
 
             if (isClientError) {
-                console.log('[BetService.create] Client error (Invalid Data). Removing from offline storage.');
+                log.warn('Client error (Invalid Data). Cancelling pending bet.');
+                // Para errores 4xx (datos inválidos), marcamos como error definitivo
                 await BetOffline.removePendingBet(offlineId);
                 throw error;
             } else {
-                console.log('[BetService.create] Network/Server error. Keeping bet in offline storage.');
-                return pendingBet;
+                log.info('Network/Server error. Bet queued for sync.');
+                // Error de red/servidor: la apuesta ya está en cola de sync via OfflineFinancialService
+                return legacyPendingBet;
             }
         }
     }
@@ -73,42 +91,65 @@ export class BetService {
         let onlineBets: BetType[] = [];
         let offlineBets: BetType[] = [];
 
-        console.log('[BetService.list] Starting with filters:', filters);
+        log.debug('Listing bets with filters', { filters });
 
         try {
-            const pendingBets = await BetOffline.getPendingBets();
-            console.log('[BetService.list] Raw pending bets from offline:', pendingBets?.length || 0);
-            offlineBets = BetOffline.flattenPendingBets(pendingBets, { drawId: filters?.drawId });
-            console.log(`[BetService.list] Flattened into ${offlineBets.length} pending bets.`);
+            // 1. Obtener apuestas del sistema legacy
+            const legacyPendingBets = await BetOffline.getPendingBets();
+
+            // 2. Obtener apuestas del nuevo sistema V2
+            const { OfflineFinancialService } = require('./offline');
+            const v2PendingBets = await OfflineFinancialService.getPendingBets();
+
+            log.debug('Merging pending bets', {
+                legacyCount: legacyPendingBets.length,
+                v2Count: v2PendingBets.length,
+                legacyIds: legacyPendingBets.map(b => b.offlineId),
+                v2Ids: v2PendingBets.map(b => b.offlineId)
+            });
+
+            // Combinar y deduplicar por offlineId
+            const combinedPending = [...legacyPendingBets];
+
+            v2PendingBets.forEach((v2Bet: any) => {
+                const exists = combinedPending.some(b => b.offlineId === v2Bet.offlineId);
+                if (!exists) {
+                    combinedPending.push(v2Bet);
+                } else {
+                    log.debug(`Deduplicated bet found in both systems: ${v2Bet.offlineId}`);
+                }
+            });
+
+            log.debug(`Combined pending bets: ${combinedPending.length} (${legacyPendingBets.length} legacy + ${v2PendingBets.length} v2)`);
+
+            offlineBets = BetOffline.flattenPendingBets(combinedPending, { drawId: filters?.drawId });
         } catch (e) {
-            console.warn('[BetService.list] Error fetching offline bets:', e);
+            log.warn('Error fetching offline bets', e);
         }
 
         try {
-            console.log('[BetService.list] Calling BetApi.list with filters:', JSON.stringify(filters));
+            log.debug('Calling BetApi.list', { filters });
             const response = await BetApi.list(filters);
-            console.log('[BetService.list] Response received from BetApi.list');
 
             if (!Array.isArray(response)) {
-                console.warn('[BetService.list] Unexpected response format (not an array):', typeof response);
+                log.warn('Unexpected response format from BetApi.list (not an array)', { type: typeof response });
             } else {
-                console.log(`[BetService.list] API returned ${response.length} bets`);
+                log.debug(`API returned ${response.length} bets`);
                 onlineBets = response.map(bet => {
                     try {
                         return mapBackendBetToFrontend(bet);
                     } catch (mapError) {
-                        console.error('[BetService.list] Error mapping individual bet:', mapError, bet);
+                        log.error('Error mapping individual bet', mapError, { bet });
                         return null;
                     }
                 }).filter(Boolean) as BetType[];
-                console.log(`[BetService.list] Successfully mapped ${onlineBets.length} online bets`);
             }
         } catch (error) {
-            console.error('[BetService.list] Error fetching bets from API:', error);
+            log.error('Error fetching bets from API', error);
         }
 
         const totalBets = [...offlineBets, ...onlineBets];
-        console.log(`[BetService.list] Returning total of ${totalBets.length} bets (${offlineBets.length} offline + ${onlineBets.length} online)`);
+        log.info(`Returning total of ${totalBets.length} bets (${offlineBets.length} offline + ${onlineBets.length} online)`);
         return totalBets;
     }
 

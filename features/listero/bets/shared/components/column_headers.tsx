@@ -24,6 +24,7 @@ const styles = StyleSheet.create({
     columnHeader: {
         fontWeight: 'bold',
         textAlign: 'center',
+        fontSize: 12,
     },
     colFijos: { flex: 3 },
     colParlet: { flex: 2 },

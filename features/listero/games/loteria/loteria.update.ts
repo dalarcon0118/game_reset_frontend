@@ -5,6 +5,9 @@ import { ListData } from '../../../../features/listero/bets/features/bet-list/li
 import { Return, singleton, ret } from '@/shared/core/return';
 import { RemoteData } from '@/shared/core/remote.data';
 import { getFixedAmountFromRules, filterRulesByBetType } from '@/shared/utils/validation';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('LOTERIA_UPDATE');
 
 export const updateLoteria = (model: GlobalModel, msg: LoteriaMsg): Return<GlobalModel, LoteriaMsg> => {
     return match<LoteriaMsg, Return<GlobalModel, LoteriaMsg>>(msg)
@@ -89,7 +92,7 @@ export const updateLoteria = (model: GlobalModel, msg: LoteriaMsg): Return<Globa
             const loteriaBetTypeId = model.managementSession.betTypes.loteria;
             const validationRules = model.rules.data?.validation_rules || [];
 
-            console.log('[loteria.update] Processing bet input. loteriaBetTypeId:', loteriaBetTypeId);
+            log.debug('Processing bet input', { loteriaBetTypeId });
 
             const betTypeRules = loteriaBetTypeId
                 ? filterRulesByBetType(validationRules, loteriaBetTypeId)
@@ -101,7 +104,7 @@ export const updateLoteria = (model: GlobalModel, msg: LoteriaMsg): Return<Globa
                 });
 
             const fixedAmount = getFixedAmountFromRules(betTypeRules);
-            console.log('[loteria.update] Detected fixedAmount:', fixedAmount);
+            log.debug('Detected fixedAmount', { fixedAmount });
 
             let shouldShowAmountKeyboard = false;
             let finalEditingBetId = null;

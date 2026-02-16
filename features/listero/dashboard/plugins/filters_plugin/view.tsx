@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ScrollView, TouchableOpacity, View } from 'react-native';
 import { Label } from '@/shared/components';
 import { PluginContext } from '@/shared/core/plugins/plugin.types';
@@ -15,9 +15,11 @@ interface FiltersComponentProps {
 export const FiltersComponent: React.FC<FiltersComponentProps> = ({ context, config }) => {
   const { model, dispatch, init } = useFiltersPluginStore();
 
-  if (!model.context || model.context?.hostStore !== context.hostStore || model.config !== config) {
-    init({ context, config });
-  }
+  useEffect(() => {
+    if (!model.context || model.context?.hostStore !== context.hostStore || model.config !== config) {
+      init({ context, config });
+    }
+  }, [context, config, model.context, model.config, init]);
 
   const handleFilterPress = (value: string) => {
     dispatch(SELECT_FILTER(value));

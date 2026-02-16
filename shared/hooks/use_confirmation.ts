@@ -1,5 +1,8 @@
 import { useCallback } from 'react';
 import { Alert } from 'react-native';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('USE_CONFIRMATION');
 
 interface UseConfirmationProps {
     title?: string;
@@ -43,7 +46,7 @@ export const useConfirmation = () => {
                                 onSuccess?.();
                             }
                         } catch (err) {
-                            console.error("Confirmation action error:", err);
+                            log.error("Confirmation action error", { error: err });
                             Alert.alert("Error", errorMessage);
                         }
                     }

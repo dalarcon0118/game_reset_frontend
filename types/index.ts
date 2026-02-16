@@ -47,12 +47,19 @@ export interface DrawType {
   date?: string; // Fecha formateada
   time?: string; // Hora formateada
   is_betting_open?: boolean;
+  is_rewarded?: boolean;
   extra_data?: {
     jackpot_amount?: number;
     currency?: string;
     award_date?: string;
     disclaimer?: string;
     [key: string]: any;
+  };
+  _offline?: {
+    pendingCount: number;
+    localAmount: number;
+    backendAmount: number;
+    hasDiscrepancy: boolean;
   };
 }
 

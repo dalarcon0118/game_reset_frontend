@@ -8,16 +8,19 @@ import {
     RESET_STATE
 } from '../../../features/notification/core/msg';
 import { NotificationService } from '../../../shared/services/notification_service';
+import { logger } from '../../../shared/utils/logger';
+
+const log = logger.withTag('TEST_NOTIFICATIONS');
 
 const feature = loadFeature('./tests/features/notification/notification.feature');
 
 defineFeature(feature, (test) => {
     test('Flujo completo de integración de notificaciones', ({ given, when, then, and }) => {
         given('un usuario autenticado en el sistema', async () => {
-            console.log('--- Attempting login for juan ---');
+            log.info('--- Attempting login for juan ---');
             const { dispatch, model } = useAuthStore.getState();
             if (model.isAuthenticated) {
-                console.log('Already authenticated');
+                log.info('Already authenticated');
                 return;
             }
 
@@ -27,13 +30,12 @@ defineFeature(feature, (test) => {
                 pin: '123456'
             });
 
-            console.log('--- Auth Store State BEFORE login dispatch ---', JSON.stringify(useAuthStore.getState().model, null, 2));
+            log.debug('--- Auth Store State BEFORE login dispatch ---', { model: useAuthStore.getState().model });
 
             let attempts = 0;
             while (!useAuthStore.getState().model.isAuthenticated && attempts < 100) {
                 if (attempts % 10 === 0) {
-                    console.log(`Waiting for auth... attempt ${attempts}`);
-                    console.log('Current state:', JSON.stringify(useAuthStore.getState().model, null, 2));
+                    log.debug(`Waiting for auth... attempt ${attempts}`, { state: useAuthStore.getState().model });
                 }
                 await new Promise(resolve => setTimeout(resolve, 200));
                 attempts++;
@@ -41,11 +43,11 @@ defineFeature(feature, (test) => {
 
             if (!useAuthStore.getState().model.isAuthenticated) {
                 const error = useAuthStore.getState().model.error;
-                console.error('Authentication failed:', error);
+                log.error('Authentication failed', 'AUTH_ERROR', error);
             }
 
             expect(useAuthStore.getState().model.isAuthenticated).toBe(true);
-            console.log('Authentication successful for juan');
+            log.info('Authentication successful for juan');
 
             // Wait a bit for tokens to sync to other stores
             await new Promise(resolve => setTimeout(resolve, 1000));

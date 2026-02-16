@@ -11,6 +11,9 @@ import { NotificationService } from '../../../shared/services/notification_servi
 import { useAuthStore } from '../../auth/store/store';
 import apiClient from '@/shared/services/api_client';
 import settings from '@/config/settings';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('NOTIFICATION_CORE');
 
 // Subscriptions
 export const subscriptions = (model: Model) => {
@@ -27,7 +30,9 @@ export const subscriptions = (model: Model) => {
     const subs = [authSub];
 
     if (model.authToken && model.currentUser) {
-        const sseUrl = `${settings.api.baseUrl}/notifications/stream/`;
+        // Pass token as query parameter for React Native Android compatibility
+        // EventSource polyfill has issues sending headers in RN Android
+        const sseUrl = `${settings.api.baseUrl}/notifications/stream/?token=${encodeURIComponent(model.authToken)}`;
         const sseSub = Sub.sse(
             sseUrl,
             (payload) => {
@@ -36,8 +41,8 @@ export const subscriptions = (model: Model) => {
                 }
                 return { type: 'NONE' };
             },
-            `notifications-sse-${model.authToken}`, // Dynamic ID based on token to force reconnection on change
-            { 'Authorization': `Bearer ${model.authToken}` }
+            `notifications-sse-${model.authToken}` // Dynamic ID based on token to force reconnection on change
+            // Note: Headers removed - token is now in URL for RN Android compatibility
         );
         subs.push(sseSub);
     }
@@ -298,7 +303,7 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
         })
 
         .with({ type: 'NOTIFICATION_ERROR' }, ({ error }) => {
-            console.error('Notification error:', error);
+            log.error('Notification error', error);
             return singleton(model);
         })
 

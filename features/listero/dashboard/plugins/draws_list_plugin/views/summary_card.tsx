@@ -7,6 +7,7 @@ interface SummaryCardProps {
   amount: number;
   type: 'collected' | 'paid' | 'net';
   showBalance: boolean;
+  hasDiscrepancy?: boolean;
 }
 
 export default function SummaryCard({
@@ -14,9 +15,11 @@ export default function SummaryCard({
   amount,
   type,
   showBalance,
+  hasDiscrepancy,
 }: SummaryCardProps) {
 
   const getTextColor = () => {
+    if (hasDiscrepancy && type === 'collected') return '#FF9500'; // Warning orange
     switch (type) {
       case 'collected':
         return '#2E3A59';

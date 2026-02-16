@@ -1,4 +1,7 @@
 import { EventDescriptor, EventHandler, globalEventRegistry } from './core/events';
+import { logger } from './utils/logger';
+
+const log = logger.withTag('RN_EVENTS');
 
 export const BeforeRemove: EventDescriptor = {
     type: 'navigation.beforeRemove',
@@ -27,7 +30,7 @@ export const NavigationState: EventDescriptor = {
 export const ReactNativeNavigationHandler: EventHandler = {
     subscribe(target: any, handler: (event: any) => void) {
         if (!target || !target.addListener) {
-            console.warn('ReactNativeNavigationHandler: target no válido para suscripción', target);
+            log.warn('ReactNativeNavigationHandler: target no válido para suscripción', { target });
             return () => { };
         }
 
@@ -37,11 +40,11 @@ export const ReactNativeNavigationHandler: EventHandler = {
                 try {
                     unsubscribe();
                 } catch (error) {
-                    console.warn('Error al desuscribirse de beforeRemove:', error);
+                    log.warn('Error al desuscribirse de beforeRemove', { error });
                 }
             };
         } catch (error) {
-            console.warn('Error al suscribirse a beforeRemove:', error);
+            log.warn('Error al suscribirse a beforeRemove', { error });
             return () => { };
         }
     }
@@ -50,7 +53,7 @@ export const ReactNativeNavigationHandler: EventHandler = {
 export const ReactNativeFocusHandler: EventHandler = {
     subscribe(target: any, handler: (event: any) => void) {
         if (!target || !target.addListener) {
-            console.warn('ReactNativeFocusHandler: target no válido para suscripción', target);
+            log.warn('ReactNativeFocusHandler: target no válido para suscripción', { target });
             return () => { };
         }
 
@@ -60,11 +63,11 @@ export const ReactNativeFocusHandler: EventHandler = {
                 try {
                     unsubscribe();
                 } catch (error) {
-                    console.warn('Error al desuscribirse de focus:', error);
+                    log.warn('Error al desuscribirse de focus', { error });
                 }
             };
         } catch (error) {
-            console.warn('Error al suscribirse a focus:', error);
+            log.warn('Error al suscribirse a focus', { error });
             return () => { };
         }
     }
@@ -73,7 +76,7 @@ export const ReactNativeFocusHandler: EventHandler = {
 export const ReactNativeBlurHandler: EventHandler = {
     subscribe(target: any, handler: (event: any) => void) {
         if (!target || !target.addListener) {
-            console.warn('ReactNativeBlurHandler: target no válido para suscripción', target);
+            log.warn('ReactNativeBlurHandler: target no válido para suscripción', { target });
             return () => { };
         }
 
@@ -83,11 +86,11 @@ export const ReactNativeBlurHandler: EventHandler = {
                 try {
                     unsubscribe();
                 } catch (error) {
-                    console.warn('Error al desuscribirse de blur:', error);
+                    log.warn('Error al desuscribirse de blur', { error });
                 }
             };
         } catch (error) {
-            console.warn('Error al suscribirse a blur:', error);
+            log.warn('Error al suscribirse a blur', { error });
             return () => { };
         }
     }
@@ -106,7 +109,7 @@ export const ReactNativeNavigationStateHandler: EventHandler = {
                 try {
                     unsubscribe();
                 } catch (error) {
-                    console.warn('Error al desuscribirse de state:', error);
+                    log.warn('Error al desuscribirse de state', { error });
                 }
             };
         } catch (error) {

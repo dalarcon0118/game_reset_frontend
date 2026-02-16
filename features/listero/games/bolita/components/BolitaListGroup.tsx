@@ -21,7 +21,9 @@ export const BolitaListGroup: React.FC<BolitaListGroupProps> = ({
     onViewReceipt 
 }) => {
     const colorScheme = (useColorScheme() ?? 'light') as keyof typeof Colors;
-    const hasBets = group.fijosCorridos.length > 0 || group.centenas.length > 0 || group.parlets.length > 0;
+    const hasBets = group.fijosCorridos.length > 0 || 
+                    group.centenas.length > 0 || 
+                    group.parlets.length > 0;
 
     return (
         <View style={styles.groupContainer}>

@@ -1,4 +1,7 @@
 import { SharingApi } from './sharing/api';
+import { logger } from '../utils/logger';
+
+const log = logger.withTag('SHARING_SERVICE');
 
 /**
  * Service to handle file sharing operations using expo-sharing.
@@ -12,11 +15,11 @@ export class SharingService {
      * @returns A promise that resolves to true if the sharing dialog was opened.
      */
     static async shareImage(uri: string, options?: { dialogTitle?: string }): Promise<boolean> {
-        console.log('[SharingService] Attempting to share URI:', uri);
+        log.debug('Attempting to share URI', { uri });
         try {
             return await SharingApi.shareImage(uri, options);
         } catch (error) {
-            console.error('[SharingService] Error sharing image:', error);
+            log.error('Error sharing image', error);
             throw error;
         }
     }

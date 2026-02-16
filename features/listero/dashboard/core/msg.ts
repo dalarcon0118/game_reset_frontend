@@ -20,7 +20,7 @@ export type Msg =
     | { type: 'FETCH_DATA_REQUESTED'; structureId?: string }
     | { type: 'DRAWS_RECEIVED'; webData: WebData<DrawType[]> }
     | { type: 'SUMMARY_RECEIVED'; webData: WebData<FinancialSummary> }
-    | { type: 'PENDING_BETS_LOADED'; bets: PendingBet[] }
+    | { type: 'PENDING_BETS_LOADED'; bets: PendingBet[]; syncedBets?: PendingBet[] }
     | { type: 'REFRESH_CLICKED' }
     | { type: 'SET_USER_STRUCTURE'; id: string }
     | { type: 'STATUS_FILTER_CHANGED'; filter: StatusFilter }
@@ -65,7 +65,7 @@ export const NONE = (): Msg => ({ type: 'NONE' });
 
 export const DRAWS_RECEIVED = (webData: WebData<DrawType[]>): Msg => ({ type: 'DRAWS_RECEIVED', webData });
 export const SUMMARY_RECEIVED = (webData: WebData<FinancialSummary>): Msg => ({ type: 'SUMMARY_RECEIVED', webData });
-export const PENDING_BETS_LOADED = (bets: PendingBet[]): Msg => ({ type: 'PENDING_BETS_LOADED', bets });
+export const PENDING_BETS_LOADED = (bets: PendingBet[], syncedBets?: PendingBet[]): Msg => ({ type: 'PENDING_BETS_LOADED', bets, syncedBets });
 export const FINANCIAL_UPDATE_RECEIVED = (update: FinancialUpdate): Msg => ({ type: 'FINANCIAL_UPDATE_RECEIVED', update });
 export const SSE_CONNECTED = (): Msg => ({ type: 'SSE_CONNECTED' });
 export const SSE_ERROR = (error: string): Msg => ({ type: 'SSE_ERROR', error });

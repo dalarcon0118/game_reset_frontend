@@ -4,6 +4,9 @@ import { Text, Icon, Layout } from '@ui-kitten/components';
 import { useNetwork } from '../hooks/use_network';
 import { OfflineStorage, PendingBet } from '../services/offline_storage';
 import { BetService } from '../services/bet';
+import { logger } from '../utils/logger';
+
+const log = logger.withTag('SYNC_MANAGER');
 
 export const SyncManager: React.FC = () => {
   const { isOnline } = useNetwork();
@@ -17,13 +20,15 @@ export const SyncManager: React.FC = () => {
   };
 
   const syncBets = async () => {
+    log.debug('syncBets called', { isSyncing, isOnline });
     if (isSyncing || !isOnline) return;
 
     const bets = await checkPendingBets();
+    log.debug('Pending bets check', { count: bets.length });
     if (bets.length === 0) return;
 
     setIsSyncing(true);
-    console.log(`Starting sync for ${bets.length} bets...`);
+    log.info(`Starting sync for ${bets.length} bets...`);
 
     for (const bet of bets) {
       try {
@@ -31,9 +36,9 @@ export const SyncManager: React.FC = () => {
         const { offlineId, timestamp, ...betData } = bet;
         await BetService.create(betData);
         await OfflineStorage.removePendingBet(offlineId);
-        console.log(`Synced bet ${offlineId}`);
+        log.debug(`Synced bet ${offlineId}`);
       } catch (error) {
-        console.error(`Failed to sync bet ${bet.offlineId}:`, error);
+        log.error(`Failed to sync bet ${bet.offlineId}:`, error);
         // Si falla (ej: sorteo cerrado), podrías decidir si borrarla o dejarla
       }
     }

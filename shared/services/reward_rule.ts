@@ -1,5 +1,8 @@
 import { RewardRuleApi } from './reward_rule/api';
 import { BackendRewardRule, BackendStructureRewardRule } from './reward_rule/types';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('REWARD_RULE_SERVICE');
 
 export type { BackendRewardRule as RewardRule, BackendStructureRewardRule as StructureRewardRule };
 
@@ -8,7 +11,7 @@ export class RewardRuleService {
     try {
       return await RewardRuleApi.list(params);
     } catch (error) {
-      console.error('Error fetching reward rules:', error);
+      log.error('Error fetching reward rules', error);
       return [];
     }
   }
@@ -17,7 +20,7 @@ export class RewardRuleService {
     try {
       return await RewardRuleApi.getForCurrentUser();
     } catch (error) {
-      console.error('Error fetching reward rules for current user:', error);
+      log.error('Error fetching reward rules for current user', error);
       return [];
     }
   }
@@ -26,7 +29,7 @@ export class RewardRuleService {
     try {
       return await RewardRuleApi.getByStructure(structureId);
     } catch (error) {
-      console.error('Error fetching reward rules by structure:', error);
+      log.error('Error fetching reward rules by structure', error);
       return [];
     }
   }
@@ -35,7 +38,7 @@ export class RewardRuleService {
     try {
       return await RewardRuleApi.getByBetType(betTypeId);
     } catch (error) {
-      console.error('Error fetching reward rules by bet type:', error);
+      log.error('Error fetching reward rules by bet type', error);
       return [];
     }
   }
@@ -44,7 +47,7 @@ export class RewardRuleService {
     try {
       return await RewardRuleApi.get(id);
     } catch (error) {
-      console.error('Error fetching reward rule:', error);
+      log.error('Error fetching reward rule', error);
       return null;
     }
   }

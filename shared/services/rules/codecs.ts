@@ -1,6 +1,9 @@
 import * as t from 'io-ts';
 import { isRight } from 'fp-ts/Either';
 import { PathReporter } from 'io-ts/PathReporter';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('RULES_CODECS');
 
 export const BackendValidationRuleCodec = t.type({
   id: t.string,
@@ -36,8 +39,10 @@ export const BackendUnifiedRulesResponseCodec = t.type({
 export const BackendValidationRuleArrayCodec = t.array(BackendValidationRuleCodec);
 
 export const decodeOrFallback = <T>(codec: t.Type<T>, value: unknown, label: string): T => {
-    const result = codec.decode(value);
-    if (isRight(result)) return result.right;
-    console.warn(`[RulesApi] ${label} decode failed:`, PathReporter.report(result).join('; '));
-    return value as T;
+  const result = codec.decode(value);
+  if (isRight(result)) return result.right;
+  log.warn(`${label} decode failed`, {
+    errors: PathReporter.report(result).join('; ')
+  });
+  return value as T;
 };

@@ -21,6 +21,19 @@ export const ParletDomain = {
     },
 
     /**
+     * Generates all possible combinations of 2 numbers from an array.
+     */
+    generateCombinations: (numbers: number[]): number[][] => {
+        const combinations: number[][] = [];
+        for (let i = 0; i < numbers.length; i++) {
+            for (let j = i + 1; j < numbers.length; j++) {
+                combinations.push([numbers[i], numbers[j]]);
+            }
+        }
+        return combinations;
+    },
+
+    /**
      * Creates a new ParletBet instance.
      */
     create: (numbers: number[]): ParletBet => {
@@ -29,6 +42,15 @@ export const ParletDomain = {
             bets: numbers,
             amount: 0,
         };
+    },
+
+    /**
+     * Returns the total amount for a parlet.
+     * Since parlets are now decomposed into individual bets of 2 numbers,
+     * no combination formula is needed. The amount is simply the bet amount.
+     */
+    calculateTotalAmount: (parlet: ParletBet): number => {
+        return parlet.amount || 0;
     },
 
     /**
@@ -67,11 +89,27 @@ export const ParletDomain = {
     },
 
     /**
+     * Adds multiple parlets to the model.
+     */
+    addManyToState: (model: Model, parlets: ParletBet[]): Model => {
+        return ParletDomain.modifyParletList(model, (list) => [...list, ...parlets]);
+    },
+
+    /**
      * Updates a parlet in the model.
      */
     updateInState: (model: Model, betId: string, changes: Partial<ParletBet>): Model => {
-        return ParletDomain.modifyParletList(model, (list) => 
+        return ParletDomain.modifyParletList(model, (list) =>
             list.map(p => p.id === betId ? { ...p, ...changes } : p)
+        );
+    },
+
+    /**
+     * Updates multiple parlets in the model.
+     */
+    updateManyInState: (model: Model, betIds: string[], changes: Partial<ParletBet>): Model => {
+        return ParletDomain.modifyParletList(model, (list) =>
+            list.map(p => betIds.includes(p.id) ? { ...p, ...changes } : p)
         );
     },
 
@@ -79,7 +117,7 @@ export const ParletDomain = {
      * Deletes a parlet from the model.
      */
     deleteFromState: (model: Model, betId: string): Model => {
-        return ParletDomain.modifyParletList(model, (list) => 
+        return ParletDomain.modifyParletList(model, (list) =>
             list.filter(p => p.id !== betId)
         );
     },

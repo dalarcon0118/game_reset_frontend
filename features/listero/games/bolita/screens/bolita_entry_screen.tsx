@@ -21,8 +21,12 @@ interface BolitaEntryScreenProps {
 }
 
 
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('BOLITA_ENTRY_SCREEN');
+
 const BolitaEntryScreen: React.FC<BolitaEntryScreenProps> = ({ drawId, title }) => {
-    console.log('BolitaEntryScreen rendering...');
+    log.debug('BolitaEntryScreen rendering...');
     const colorScheme = useColorScheme() ?? 'light';
     const themeColors = Colors[colorScheme as keyof typeof Colors];
     const model = useBetsStore(selectBetsModel);

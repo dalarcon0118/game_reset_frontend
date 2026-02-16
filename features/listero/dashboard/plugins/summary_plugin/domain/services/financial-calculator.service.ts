@@ -8,7 +8,9 @@ export class FinancialCalculatorService {
    * @returns Totales calculados
    */
   calculateFromSummary(summary: FinancialSummary): DailyTotals {
-    const { totalCollected, premiumsPaid, estimatedCommission } = summary;
+    const totalCollected = Number(summary.totalCollected) || 0;
+    const premiumsPaid = Number(summary.premiumsPaid) || 0;
+    const estimatedCommission = Number(summary.estimatedCommission) || 0;
     
     return {
       totalCollected,

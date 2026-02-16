@@ -1,4 +1,7 @@
 import { StructureService, ChildStructure } from '@/shared/services/structure';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('BANKER_DASHBOARD_SERVICE');
 
 export interface DashboardSummary {
     totalCollected: number;
@@ -29,7 +32,7 @@ export class BankerDashboardService {
 
             return { children, summary };
         } catch (error) {
-            console.error('Error fetching banker dashboard data:', error);
+            log.error('Error fetching banker dashboard data', { error, bankerId });
             // Return empty data on error to prevent UI crash
             return {
                 children: [],

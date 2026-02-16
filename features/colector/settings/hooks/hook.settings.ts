@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Alert } from 'react-native';
-import { useRouter } from 'expo-router';
+import { router } from 'expo-router';
 import { useAuth } from '../../../auth';
-import { useDataFetch } from '../../../../shared/hooks/use_data_fetch';
-import { ValidationRuleService, StructureSpecificRule, RuleRepository } from '../../../../shared/services/validation_rule';
+import { ValidationRuleService, RuleRepository } from '../../../../shared/services/validation_rule';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('USE_SETTINGS');
 
 interface ModulesState {
   notifications: boolean;
@@ -37,7 +39,6 @@ interface UseSettingsReturn {
 }
 
 export const useSettings = (): UseSettingsReturn => {
-  const router = useRouter();
   const { user, checkLoginStatus, logout } = useAuth();
 
   // Estados locales
@@ -59,7 +60,7 @@ export const useSettings = (): UseSettingsReturn => {
       // Usar la estructura del usuario del contexto de autenticación
       return user?.structure?.id?.toString() || null;
     } catch (error) {
-      console.error('Error getting user structure:', error);
+      log.error('Error getting user structure', { error });
       return null;
     }
   }, [user]);
@@ -103,7 +104,7 @@ export const useSettings = (): UseSettingsReturn => {
 
       setRules(templatesWithStatus);
     } catch (error) {
-      console.error('Error loading rules:', error);
+      log.error('Error loading rules', { error });
       setRulesError(error);
     } finally {
       setRulesLoading(false);
@@ -129,7 +130,7 @@ export const useSettings = (): UseSettingsReturn => {
         loadRules()
       ]);
     } catch (error) {
-      console.error('Error refreshing data:', error);
+      log.error('Error refreshing data', { error });
     } finally {
       setRefreshing(false);
     }
@@ -191,7 +192,7 @@ export const useSettings = (): UseSettingsReturn => {
         }
       }
     } catch (error) {
-      console.error('Error toggling rule status:', error);
+      log.error('Error toggling rule status', { error, ruleId: rule.id, checked });
       // Recargar datos para asegurar consistencia
       loadRules();
       // Mostrar notificación de error al usuario

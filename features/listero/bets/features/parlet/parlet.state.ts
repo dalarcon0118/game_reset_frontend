@@ -6,7 +6,7 @@ export const ParletState = {
      * Transitions the state to the Amount Input mode.
      * Used when a bet is created or selected for editing amount.
      */
-    toAmountInput: (model: Model, betId: string, initialInput: string = ''): Model => ({
+    toAmountInput: (model: Model, betId: string, initialInput: string = '', bulkIds: string[] = []): Model => ({
         ...model,
         editSession: {
             ...model.editSession,
@@ -23,6 +23,7 @@ export const ParletState = {
             fromFijosyCorridoBet: false,
             parletAlertVisibleState: false,
             activeParletBetId: betId,
+            bulkEditingBetIds: bulkIds,
         },
     }),
 
@@ -43,6 +44,7 @@ export const ParletState = {
         parletSession: {
             ...model.parletSession,
             activeParletBetId: null,
+            bulkEditingBetIds: [],
         }
     }),
 
@@ -59,6 +61,10 @@ export const ParletState = {
             editingAmountType: null,
             currentInput: '',
         },
+        parletSession: {
+            ...model.parletSession,
+            bulkEditingBetIds: [],
+        }
     }),
 
     /**

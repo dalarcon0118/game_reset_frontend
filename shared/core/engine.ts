@@ -3,6 +3,10 @@ import { SubDescriptor } from './sub';
 import { logger } from '../utils/logger';
 import { globalEventRegistry } from './events';
 import { Return } from './return';
+import { TeaMiddleware, TeaMiddlewareCodec } from './middleware.types';
+import { isLeft } from 'fp-ts/Either';
+import { PathReporter } from 'io-ts/PathReporter';
+import { Cmd as CoreCmd } from './cmd';
 
 // Un comando es un descriptor que el Engine puede ejecutar usando effectHandlers
 export interface CommandDescriptor {
@@ -13,14 +17,40 @@ export interface CommandDescriptor {
 export type Cmd = CommandDescriptor | CommandDescriptor[] | null | undefined;
 
 // La estructura que debe devolver cualquier función 'update'
-export type UpdateResult<TModel, TMsg> = [TModel, Cmd?] | Return<TModel, TMsg>;
+export type UpdateResult<TModel, TMsg> = [TModel, Cmd] | Return<TModel, TMsg>;
 
 export const createElmStore = <TModel, TMsg>(
     initial: TModel | ((params?: any) => UpdateResult<TModel, TMsg>),
     update: (model: TModel, msg: TMsg) => UpdateResult<TModel, TMsg>,
     effectHandlers: Record<string, (payload: any, dispatch: (msg: TMsg) => void) => Promise<any>>,
-    subscriptions?: (model: TModel) => SubDescriptor<TMsg>
+    subscriptions?: (model: TModel) => SubDescriptor<TMsg>,
+    middlewares: TeaMiddleware<TModel, TMsg>[] = []
 ) => {
+    // --- Middleware Validation ---
+    if (middlewares && middlewares.length > 0) {
+        middlewares.forEach((m, i) => {
+            const result = TeaMiddlewareCodec.decode(m);
+            if (isLeft(result)) {
+                logger.error(`Middleware at index ${i} is invalid`, 'ENGINE_INIT', { errors: PathReporter.report(result) });
+            } else {
+                // Check for unknown properties manually since io-ts strips them on decode
+                // We want to warn the developer if they passed 'onMsg' instead of 'beforeUpdate'
+                const knownKeys = Object.keys(result.right);
+                const actualKeys = Object.keys(m);
+                const extraKeys = actualKeys.filter(k => !knownKeys.includes(k));
+
+                if (extraKeys.length > 0) {
+                    logger.warn(
+                        `Middleware at index ${i} has unknown properties: [${extraKeys.join(', ')}]. \n` +
+                        `Did you mean 'beforeUpdate' or 'afterUpdate'? \n` +
+                        `Allowed keys are: ${knownKeys.join(', ')}`,
+                        'ENGINE_INIT'
+                    );
+                }
+            }
+        });
+    }
+
     const store = create<{
         model: TModel;
         dispatch: (msg: TMsg) => void;
@@ -57,7 +87,7 @@ export const createElmStore = <TModel, TMsg>(
             const flattenCmds = (c: Cmd): CommandDescriptor[] => {
                 if (!c) return [];
                 if (Array.isArray(c)) {
-                    return c.flatMap(flattenCmds);
+                    return c.reduce((acc, item) => acc.concat(flattenCmds(item)), [] as CommandDescriptor[]);
                 }
                 return [c];
             };
@@ -102,18 +132,41 @@ export const createElmStore = <TModel, TMsg>(
                 }
             },
             dispatch: (msg: TMsg) => {
+                if (!msg) {
+                    logger.error('Dispatch called with null or undefined message', 'ENGINE', { msg });
+                    return;
+                }
                 const msgType = (msg as any).type || 'UNKNOWN';
                 if (checkStorm(msgType)) return;
 
                 let cmdToRun: Cmd = null;
-                logger.debug(`Dispatching Msg: ${msgType}`, 'ENGINE', msg);
-                
+
                 try {
-                    set((state) => {
-                        const [nextModel, cmd] = update(state.model, msg);
-                        cmdToRun = cmd;
-                        return { model: nextModel };
-                    });
+                    // Middlewares: Before Update
+                    const prevModel = get().model;
+                    middlewares.forEach(m => m.beforeUpdate?.(prevModel, msg));
+
+                    let nextModel: TModel;
+                    let cmd: Cmd = null;
+
+                    const result = update(prevModel, msg);
+                    if (Array.isArray(result)) {
+                        [nextModel, cmd] = result;
+                    } else if (result && typeof (result as any)[Symbol.iterator] === 'function') {
+                        const iterator = (result as any)[Symbol.iterator]();
+                        nextModel = iterator.next().value;
+                        cmd = iterator.next().value;
+                    } else {
+                        // Fallback assuming destructuring works on whatever it is
+                        [nextModel, cmd] = result as any;
+                    }
+
+                    cmdToRun = cmd;
+                    set({ model: nextModel });
+
+                    // Middlewares: After Update
+                    middlewares.forEach(m => m.afterUpdate?.(prevModel, msg, nextModel, cmd || null));
+
                 } catch (error) {
                     logger.error(`Error in update function for Msg: ${msgType}`, 'ENGINE', error, { msg });
                     // No relanzamos el error para evitar colapsar la UI si es posible
@@ -137,6 +190,7 @@ export const createElmStore = <TModel, TMsg>(
             if (sub.type === 'EVERY') {
                 const { id, ms, msg } = sub.payload;
                 if (!activeSubs.has(id)) {
+                    logger.debug(`Starting interval sub: ${id} (${ms}ms)`, 'ENGINE');
                     const interval = setInterval(() => dispatch(msg), ms);
                     activeSubs.set(id, { type: 'EVERY', interval });
                 }
@@ -145,6 +199,7 @@ export const createElmStore = <TModel, TMsg>(
             if (sub.type === 'WATCH_STORE') {
                 const { id, store: externalStore, selector, msgCreator } = sub.payload;
                 if (!activeSubs.has(id)) {
+                    logger.debug(`Starting reactive sub: ${id} (WATCH_STORE)`, 'ENGINE');
                     // Pre-calculamos el valor inicial
                     const initialValue = selector(externalStore.getState().model || externalStore.getState());
                     let lastValue = initialValue;
@@ -168,15 +223,21 @@ export const createElmStore = <TModel, TMsg>(
                     setTimeout(() => {
                         // Verificamos que la suscripción siga activa antes de despachar
                         if (activeSubs.has(id)) {
-                            dispatch(msgCreator(initialValue));
+                            const msg = msgCreator(initialValue);
+                            if (!msg) {
+                                logger.error(`msgCreator returned null for WATCH_STORE sub: ${id}`, 'ENGINE', { initialValue });
+                                return;
+                            }
+                            dispatch(msg);
                         }
-                    }, 0);
+                    }, 100); // Increased delay to prevent rapid repeated messages
                 }
             }
 
             if (sub.type === 'EVENT') {
                 const { id, event, target, msgCreator } = sub.payload;
                 if (!activeSubs.has(id)) {
+                    logger.debug(`Starting reactive sub: ${id} (EVENT)`, 'ENGINE');
                     const handler = globalEventRegistry.getHandler(event);
                     if (handler) {
                         const resolvedTarget = typeof target === 'function' ? target() : target;
@@ -265,6 +326,15 @@ export const createElmStore = <TModel, TMsg>(
                     }, 500);
                 }
             }
+
+            if (sub.type === 'CUSTOM') {
+                const { id, subscribe } = sub.payload;
+                if (!activeSubs.has(id)) {
+                    logger.debug(`Starting custom sub: ${id}`, 'ENGINE');
+                    const unsubscribe = subscribe(dispatch);
+                    activeSubs.set(id, { type: 'CUSTOM', unsubscribe });
+                }
+            }
         };
 
         const cleanupSubs = (currentSubs: Set<string>) => {
@@ -272,7 +342,7 @@ export const createElmStore = <TModel, TMsg>(
                 if (!currentSubs.has(id)) {
                     if (sub.type === 'EVERY') {
                         clearInterval(sub.interval);
-                    } else if (sub.type === 'WATCH_STORE' || sub.type === 'EVENT') {
+                    } else if (sub.type === 'WATCH_STORE' || sub.type === 'EVENT' || sub.type === 'CUSTOM') {
                         sub.unsubscribe();
                     } else if (sub.type === 'SSE') {
                         logger.info(`Disconnecting SSE stream: ${id}`, 'ENGINE');
@@ -286,7 +356,7 @@ export const createElmStore = <TModel, TMsg>(
         const getActiveIds = (sub: SubDescriptor<TMsg>, ids: Set<string> = new Set()): Set<string> => {
             if (sub.type === 'BATCH') {
                 sub.payload.forEach((s: SubDescriptor<TMsg>) => getActiveIds(s, ids));
-            } else if ((sub.type === 'EVERY' || sub.type === 'WATCH_STORE' || sub.type === 'SSE' || sub.type === 'EVENT') && sub.payload.id) {
+            } else if ((sub.type === 'EVERY' || sub.type === 'WATCH_STORE' || sub.type === 'SSE' || sub.type === 'EVENT' || sub.type === 'CUSTOM') && sub.payload.id) {
                 ids.add(sub.payload.id);
             }
             return ids;
@@ -296,7 +366,7 @@ export const createElmStore = <TModel, TMsg>(
 
         const manageSubscriptions = (model: TModel, dispatch: (msg: TMsg) => void) => {
             const currentSub = subscriptions(model);
-            
+
             // 🔍 Validación de tipos: asegurar que recibimos un SubDescriptor válido
             if (!currentSub || typeof currentSub !== 'object' || !currentSub.type) {
                 logger.error(
@@ -306,7 +376,7 @@ export const createElmStore = <TModel, TMsg>(
                 );
                 return;
             }
-            
+
             const currentIds = getActiveIds(currentSub);
 
             // Evitar re-procesamiento si los IDs de las subscripciones no han cambiado

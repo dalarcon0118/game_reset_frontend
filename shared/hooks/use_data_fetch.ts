@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { ApiClientError } from '@/shared/services/api_client';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('USE_DATA_FETCH');
 
 type FetchFunction<T, P extends any[]> = (...args: P) => Promise<T>;
 
@@ -47,14 +50,14 @@ export function useDataFetch<T, P extends any[] = []>(
   }, []);
 
   const handleSetData = useCallback((newData: T | null) => {
-       if (isMounted.current) {
+    if (isMounted.current) {
       setData(newData);
       // Increment version when we get new data (not null)
       if (newData !== null) {
-        console.log('Incrementing version key for non-null data');
+        log.debug('Incrementing version key for non-null data');
         setVersionKey(prev => prev + 1);
       } else {
-        console.log('Data is null, not incrementing version key');
+        log.debug('Data is null, not incrementing version key');
       }
     }
   }, []);
@@ -76,13 +79,13 @@ export function useDataFetch<T, P extends any[] = []>(
       const result = currentFetcher instanceof Promise
         ? await currentFetcher
         : await currentFetcher(...args);
-    
+
       handleSetData(result);
       handleSetLoading(false);
 
       return result;
     } catch (error) {
-      console.error('Error caught in useDataFetch:', error);
+      log.error('Error caught in useDataFetch', { error });
       handleSetData(null);
       handleSetLoading(false);
       // Preserve ApiClientError to maintain status code and error details

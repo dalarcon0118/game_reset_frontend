@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ValidationRule, ValidationRuleService } from '@/shared/services/validation_rule';
 import { validateBet, validateBets, filterRulesByBetType, ValidationResult, BetData } from '@/shared/utils/validation';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('USE_VALIDATION_RULES');
 
 export interface UseValidationRulesOptions {
     structureId?: string;
@@ -35,7 +38,7 @@ export interface UseValidationRulesReturn {
  * });
  * 
  * if (!result.isValid) {
- *   console.log('Validation errors:', result.failedRules);
+ *   log.debug('Validation errors', { failedRules: result.failedRules });
  * }
  * ```
  */
@@ -68,7 +71,7 @@ export function useValidationRules(options: UseValidationRulesOptions = {}): Use
         } catch (err) {
             const error = err instanceof Error ? err : new Error('Failed to fetch validation rules');
             setError(error);
-            console.error('Error fetching validation rules:', error);
+            log.error('Error fetching validation rules', { error, structureId, betTypeId });
         } finally {
             setIsLoading(false);
         }

@@ -1,6 +1,9 @@
 import * as t from 'io-ts';
 import { isRight } from 'fp-ts/Either';
 import { PathReporter } from 'io-ts/PathReporter';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('INCIDENT_CODECS');
 
 export const BackendIncidentCodec = t.intersection([
     t.type({
@@ -31,6 +34,8 @@ export const BackendIncidentArrayCodec = t.array(BackendIncidentCodec);
 export const decodeOrFallback = <T>(codec: t.Type<T>, value: unknown, label: string): T => {
     const result = codec.decode(value);
     if (isRight(result)) return result.right;
-    console.warn(`[IncidentApi] ${label} decode failed:`, PathReporter.report(result).join('; '));
+    log.warn(`${label} decode failed`, {
+        errors: PathReporter.report(result).join('; ')
+    });
     return value as T;
 };

@@ -20,6 +20,7 @@ export interface AuthState {
     isAuthenticated: boolean;
     isLoading: boolean;
     isLoggingOut: boolean;
+    isOffline: boolean; // Indicates if currently authenticated locally without server confirmation
     error: string | null;
 }
 

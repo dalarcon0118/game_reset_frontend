@@ -53,7 +53,17 @@ export default function DashboardScreen() {
                     </View>
                 )}
 
-                
+                <Slot 
+                    name="dashboard.notifications" 
+                    contextData={model} 
+                    hostStore={useDashboardStore}
+                />
+
+                <Slot 
+                    name="dashboard.filters" 
+                    contextData={model} 
+                    hostStore={useDashboardStore}
+                />
                 
                 <Slot 
                     name="dashboard.summary" 
@@ -63,11 +73,7 @@ export default function DashboardScreen() {
                 
                 <Slot name="dashboard.summary_bottom" />
 
-                <Slot 
-                    name="dashboard.filters" 
-                    contextData={model} 
-                    hostStore={useDashboardStore}
-                />
+                
                 
                 <Slot 
                     name="dashboard.draws_list" 

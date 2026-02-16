@@ -4,6 +4,9 @@ import { DashboardStats } from '@/features/colector/dashboard/core/model';
 import { OfflineStorage } from './offline_storage';
 import { FinancialSummaryApi } from './financial_summary/api';
 import { NodeFinancialSummary } from './financial_summary/types';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('FINANCIAL_SUMMARY_SERVICE');
 
 export type { NodeFinancialSummary };
 
@@ -30,11 +33,11 @@ export class FinancialSummaryService {
           draws: summary.sorteos || [],
         };
       } catch (error: any) {
-        console.warn('FinancialSummaryService.get: Network error or rate limit, falling back to offline cache', error);
-        
+        log.warn('Network error or rate limit, falling back to offline cache', error);
+
         const cached = await OfflineStorage.getLastSummary();
         if (cached) {
-          console.log('FinancialSummaryService.get: Successfully loaded summary from offline storage');
+          log.debug('Successfully loaded summary from offline storage');
           return {
             totalCollected: cached.colectado_total || 0,
             premiumsPaid: cached.pagado_total || 0,
@@ -74,7 +77,7 @@ export class FinancialSummaryService {
     try {
       return await FinancialSummaryApi.getNodeSummary(id, date);
     } catch (error) {
-      console.error(`Error fetching node financial summary for ID ${id}:`, error);
+      log.error(`Error fetching node financial summary for ID ${id}`, error);
       throw error;
     }
   }
@@ -106,7 +109,7 @@ export class FinancialSummaryService {
         level: item.level as any
       }));
     } catch (error) {
-      console.error('Error fetching RESTful financial statements:', error);
+      log.error('Error fetching RESTful financial statements', error);
       throw error;
     }
   }
