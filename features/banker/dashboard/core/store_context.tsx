@@ -5,6 +5,7 @@ import { Msg } from './msg';
 import { update, subscriptions } from './update';
 import { RemoteData } from '@/shared/core/remote.data';
 import { effectHandlers } from '@/shared/core/effect_handlers';
+import { createLoggerMiddleware } from '@/shared/core/middlewares/logger.middleware';
 
 // Tipo para el store de Zustand interno
 type StoreType = ReturnType<typeof createElmStore<Model, Msg>>;
@@ -25,7 +26,8 @@ const createDashboardStore = () => {
         initialModel,
         update,
         effectHandlers as any,
-        subscriptions
+        subscriptions,
+        [createLoggerMiddleware()]
     );
 };
 

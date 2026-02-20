@@ -7,6 +7,8 @@ import { RemoteDataHttp } from '@/shared/core/remote.data.http';
 import { StructureService } from '@/shared/services/structure';
 import { Cmd } from '@/shared/core/cmd';
 import { effectHandlers } from '@/shared/core/effect_handlers';
+import { createLoggerMiddleware } from '@/shared/core/middlewares/logger.middleware';
+
 
 const createInitialModel = (id: number): Model => ({
     id,
@@ -35,7 +37,9 @@ const initial = (params?: { id: number }) => {
 const store = createElmStore<Model, Msg>(
     initial,
     update,
-    effectHandlers as any
+    effectHandlers as any,
+    undefined,
+    [createLoggerMiddleware()]
 );
 
 export const useDrawersStore = store;

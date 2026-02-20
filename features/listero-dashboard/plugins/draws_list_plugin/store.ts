@@ -5,8 +5,9 @@ import { update } from './update';
 import { subscriptions } from './subscriptions';
 import { Msg } from './msg';
 import { Cmd } from '@/shared/core';
+import { createLoggerMiddleware } from '@/shared/core/middlewares/logger.middleware';
 // 1. Declarar variable local nula
-let dashboardStoreInstance: ReturnType<typeof createElmStore> | null = null;
+let dashboardStoreInstance: ReturnType<typeof createElmStore<Model, Msg>> | null = null;
 // 2. Crear una función getter
 export const getDashboardStore = () => {
   if (!dashboardStoreInstance) {
@@ -16,7 +17,8 @@ export const getDashboardStore = () => {
       () => [initialModel(), Cmd.none],
       update,
       effectHandlers,
-      subscriptions
+      subscriptions,
+      [createLoggerMiddleware()]
     );
   }
   return dashboardStoreInstance;

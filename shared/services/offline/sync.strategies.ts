@@ -67,7 +67,24 @@ const classifySyncOutcome = (response: any, error?: any): SyncOutcome => {
         // Errores de cliente (400-499) son FATALES (excepto 408 y 429)
         const status = error.status || error.response?.status;
         if (status && status >= 400 && status < 500 && status !== 429 && status !== 408) {
-            return { type: 'FATAL_ERROR', reason: error.message || `Client Error ${status}` };
+            // Extraer información detallada del backend para mejor diagnóstico
+            const backendErrorDetail = error.data?.detail || error.data?.message || error.data?.error_type;
+            const backendContext = error.data?.context || error.data;
+
+            const reason = backendErrorDetail
+                ? `Client Error ${status}: ${backendErrorDetail}`
+                : error.message || `Client Error ${status}`;
+
+            // Log detallado para diagnóstico
+            log.error(`HTTP ${status} Error from backend`, {
+                status,
+                backendDetail: backendErrorDetail,
+                backendContext: backendContext,
+                errorMessage: error.message,
+                errorData: error.data
+            });
+
+            return { type: 'FATAL_ERROR', reason: reason };
         }
         // Errores de servidor (500+), Red (sin status) o Rate Limit (429/408) son REINTENTABLES
         return { type: 'RETRY_LATER', reason: error.message || 'Network/Server Error' };
@@ -128,6 +145,18 @@ export class BetPushStrategy implements SyncStrategy {
             // Llamar a la API
             let outcome: SyncOutcome;
             try {
+                // Log detallado del payload para diagnóstico de errores HTTP 400
+                log.info(`Sending bet payload for sync (ID: ${bet.offlineId})`, {
+                    offlineId: bet.offlineId,
+                    drawId: betData.drawId,
+                    receiptCode: betData.receiptCode,
+                    fijosCount: betData.fijosCorridos?.length,
+                    parletsCount: betData.parlets?.length,
+                    centenasCount: betData.centenas?.length,
+                    loteriaCount: betData.loteria?.length,
+                    fullPayload: JSON.stringify(betData, null, 2)
+                });
+
                 const response = await BetApi.createWithIdempotencyKey(betData, bet.offlineId);
 
                 // LOG: Diagnostic info

@@ -4,6 +4,7 @@ import { Msg } from './msg';
 import { update } from './update';
 import { effectHandlers } from '@/shared/core/effect_handlers';
 import { Sub } from '@/shared/core/sub';
+import { createLoggerMiddleware } from '@/shared/core/middlewares/logger.middleware';
 // import { useDashboardStore } from '@/features/colector/dashboard/core/store'; // TODO: This store is context-based, cannot be watched globally
 import { useDrawersStore } from '@/features/colector/drawers/core/store';
 import { useListeriasStore } from '@/features/banker/listerias/core/store';
@@ -98,7 +99,8 @@ export const useFinancialStore = createElmStore<Model, Msg>(
     initialModel,
     update,
     effectHandlers as any,
-    subscriptions
+    subscriptions,
+    [createLoggerMiddleware()]
 );
 
 // Selectors

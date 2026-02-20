@@ -1,12 +1,15 @@
 import { createElmStore } from '@/shared/core/engine';
 import { effectHandlers } from '@/shared/core/effect_handlers';
+import { createLoggerMiddleware } from '@/shared/core/middlewares/logger.middleware';
 import { Model, Msg } from './types';
 import { update, initialState } from './update';
 
 export const useSettingsStore = createElmStore<Model, Msg>(
     initialState,
     update,
-    effectHandlers as any
+    effectHandlers as any,
+    undefined,
+    [createLoggerMiddleware()]
 );
 
 // Selectores

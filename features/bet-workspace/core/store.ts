@@ -1,5 +1,6 @@
 import { createElmStore } from '@/shared/core/engine';
 import { effectHandlers } from '@/shared/core/effect_handlers';
+import { createLoggerMiddleware } from '@/shared/core/middlewares/logger.middleware';
 import { AppKernel } from '@/shared/core/architecture/kernel';
 import { Model } from '../model';
 import { Msg } from './msg';
@@ -45,7 +46,8 @@ export const useBetsStore = createElmStore<Model, Msg>(
     init,
     update,
     effectHandlers as any,
-    subscriptions
+    subscriptions,
+    [createLoggerMiddleware()]
 );
 
 // Selectors

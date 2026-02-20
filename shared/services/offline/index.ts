@@ -215,6 +215,11 @@ export class OfflineFinancialService {
             this.initPromise = (async () => {
                 await OfflineFinancialStorage.initialize();
                 log.info('Initialized');
+
+                // Exponer utilidades de debug en desarrollo
+                if (__DEV__) {
+                    this.exposeDebugUtilities();
+                }
             })();
         }
         return this.initPromise;
@@ -498,9 +503,36 @@ export class OfflineFinancialService {
     /**
      * Pausa temporalmente el worker
      */
-    static async pauseSyncWorker(): Promise<void> {
+    static async pauseWorker(): Promise<void> {
         await this.ensureInitialized();
         await pauseSyncWorker();
+    }
+
+    // ============================================================================
+    // DEBUG/DEVELOPMENT UTILITIES
+    // ============================================================================
+
+    /**
+     * Expone funciones de debug para desarrollo
+     * @internal Solo para desarrollo/testing
+     */
+    static exposeDebugUtilities() {
+        if (typeof global !== 'undefined') {
+            (global as any).__OFFLINE_DEBUG__ = {
+                retryFailedBet: this.retryFailedBet.bind(this),
+                recoverStuckBets: this.recoverStuckBets.bind(this),
+                cleanupFailedBets: this.cleanupFailedBets.bind(this),
+                getPendingBets: async () => {
+                    await this.ensureInitialized();
+                    return await OfflineFinancialStorage.getPendingBetsV2();
+                },
+                getSyncQueue: async () => {
+                    await this.ensureInitialized();
+                    return await OfflineFinancialStorage.getSyncQueue();
+                }
+            };
+            console.log('Offline debug utilities exposed to global.__OFFLINE_DEBUG__');
+        }
     }
 
     /**

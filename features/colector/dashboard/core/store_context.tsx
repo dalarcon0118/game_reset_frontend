@@ -27,7 +27,8 @@ const createDashboardStore = () => {
         initialModel,
         update,
         effectHandlers as any,
-        subscriptions
+        subscriptions,
+        [createLoggerMiddleware()]
     );
 };
 

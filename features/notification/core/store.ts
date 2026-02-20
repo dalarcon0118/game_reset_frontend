@@ -1,7 +1,8 @@
-import { createElmStore } from '../../../shared/core/engine';
+import { createElmStore } from '@/shared/core/engine';
 import { Model } from './model';
 import { update, subscriptions } from './update';
-import { effectHandlers } from '../../../shared/core/effect_handlers';
+import { effectHandlers } from '@/shared/core/effect_handlers';
+import { createLoggerMiddleware } from '@/shared/core/middlewares/logger.middleware';
 import { FETCH_NOTIFICATIONS_REQUESTED } from './msg';
 
 // Initial model
@@ -25,7 +26,8 @@ export const useNotificationStore = createElmStore<Model, import('./msg').Msg>(
     initialNotificationModel,
     update,
     effectHandlers as any,
-    (model) => subscriptions(model)
+    (model) => subscriptions(model),
+    [createLoggerMiddleware()]
 );
 
 // Selectors

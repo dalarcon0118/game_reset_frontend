@@ -112,12 +112,22 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
         .with({ type: 'BETS_LIST_CLICKED' }, ({ drawId, title }) =>
             NavigationHandler.handleBetsListClicked(model, drawId, title)
         )
-        .with({ type: 'CLOSE_DRAW_CLICKED' }, ({ drawId, title }) =>
-            NavigationHandler.handleCloseDrawClicked(model, drawId, title)
+        .with({ type: 'CREATE_BET_CLICKED' }, ({ drawId, title }) =>
+            NavigationHandler.handleCreateBetClicked(model, drawId, title)
         )
-        .with({ type: 'VALIDATE_DRAW_CLICKED' }, ({ drawId, title }) =>
-            NavigationHandler.handleValidateDrawClicked(model, drawId, title)
+        .with({ type: 'NAVIGATE_TO_ERROR' }, () =>
+            NavigationHandler.handleNavigateToError(model)
         )
+        .with({ type: 'HELP_CLICKED' }, () =>
+            NavigationHandler.handleHelpClicked(model)
+        )
+        .with({ type: 'NOTIFICATIONS_CLICKED' }, () =>
+            NavigationHandler.handleNotificationsClicked(model)
+        )
+        .with({ type: 'SETTINGS_CLICKED' }, () =>
+            NavigationHandler.handleSettingsClicked(model)
+        )
+        .with({ type: 'NONE' }, () => ret(model, Cmd.none))
         .exhaustive();
 
     return [result.model, result.cmd || Cmd.none];
