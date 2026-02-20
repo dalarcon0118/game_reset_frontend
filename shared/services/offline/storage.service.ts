@@ -486,22 +486,46 @@ async function cleanupOldDrawStates(maxAgeDays: number = 30): Promise<number> {
 }
 
 /**
+ * Limpia apuestas fallidas antiguas (> 7 días)
+ */
+async function cleanupOldFailedBets(maxAgeDays: number = 7): Promise<number> {
+    const bets = await getPendingBetsV2();
+    const cutoff = Date.now() - (maxAgeDays * 24 * 60 * 60 * 1000);
+
+    const toRemove = bets.filter(bet =>
+        bet.status === 'error' && (bet as any).timestamp < cutoff
+    );
+
+    for (const bet of toRemove) {
+        await removePendingBetV2(bet.offlineId);
+    }
+
+    if (toRemove.length > 0) {
+        log.info(`Cleaned up ${toRemove.length} old failed bets (> ${maxAgeDays} days)`);
+    }
+
+    return toRemove.length;
+}
+
+/**
  * Ejecuta mantenimiento completo
  */
 async function runMaintenance(): Promise<{
     betsCleaned: number;
     queueCleaned: number;
     statesCleaned: number;
+    failedCleaned: number;
 }> {
     await checkMigration();
 
-    const [betsCleaned, queueCleaned, statesCleaned] = await Promise.all([
+    const [betsCleaned, queueCleaned, statesCleaned, failedCleaned] = await Promise.all([
         cleanupSyncedBets(),
         cleanupCompletedQueueItems(),
         cleanupOldDrawStates(),
+        cleanupOldFailedBets()
     ]);
 
-    return { betsCleaned, queueCleaned, statesCleaned };
+    return { betsCleaned, queueCleaned, statesCleaned, failedCleaned };
 }
 
 // ============================================================================
@@ -650,6 +674,7 @@ export const OfflineFinancialStorage = {
     cleanupSyncedBets,
     cleanupCompletedQueueItems,
     cleanupOldDrawStates,
+    cleanupOldFailedBets,
     runMaintenance,
 
     // Bus de Eventos

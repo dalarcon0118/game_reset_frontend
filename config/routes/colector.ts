@@ -1,7 +1,9 @@
+export const COLECTOR_ROOT = '/colector/(tabs)';
+
 export const colectorRoutes = {
   colector: {
     tabs: {
-      screen: '/colector/(tabs)',
+      screen: COLECTOR_ROOT,
       options: {
         headerShown: false,
         headerTitle: 'Dashboard',

@@ -1,4 +1,4 @@
-import apiClient from '@/shared/services/api_client';
+import { apiClient } from '@/shared/services/api_client';
 import settings from '@/config/settings';
 import { BackendDraw, DrawClosureConfirmation, BetType, DrawRule } from './types';
 import {
@@ -26,6 +26,13 @@ export const DrawApi = {
   },
 
   list: async (params: Record<string, any> = {}): Promise<BackendDraw[]> => {
+    // Defensive check for apiClient
+    if (!apiClient) {
+      const error = new Error('DrawApi Error: apiClient is undefined. This suggests a module loading issue or circular dependency.');
+      log.error('Critical Error: apiClient is undefined in DrawApi.list', error);
+      throw error;
+    }
+
     const queryParams = { ...params };
     if (queryParams.next24h) {
       queryParams.next_24h = queryParams.next24h;

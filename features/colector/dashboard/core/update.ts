@@ -101,7 +101,16 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
         })
 
         .with({ type: 'AUTH_USER_SYNCED' }, ({ user }) => {
-            const structureId = user?.structure?.id ? String(user.structure.id) : model.userStructureId;
+            if (!user) {
+                return singleton({
+                    ...model,
+                    user: null,
+                    userStructureId: null,
+                    children: RemoteData.notAsked(),
+                    stats: RemoteData.notAsked()
+                });
+            }
+            const structureId = user.structure?.id ? String(user.structure.id) : model.userStructureId;
             return ret(
                 { ...model, user, userStructureId: structureId },
                 structureId !== model.userStructureId ? Cmd.batch([

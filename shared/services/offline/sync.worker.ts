@@ -239,12 +239,33 @@ async function runSyncCycle(config: WorkerConfig): Promise<void> {
         // 2. Procesar cola de sincronización (Estrategia PUSH)
         const result = await processBatch(config);
 
+        // BACKOFF LOGIC
+        if (result.success) {
+            // Si procesamos items y TODOS fallaron, incrementamos errores consecutivos
+            if (result.processed > 0 && result.succeeded === 0 && result.failed > 0) {
+                incrementConsecutiveErrors();
+                log.warn(`All ${result.processed} items failed. Incremented consecutive errors to ${workerState.consecutiveErrors}`);
+            } 
+            // Si al menos uno tuvo éxito, reseteamos (o si no había nada que procesar)
+            else if (result.succeeded > 0 || result.processed === 0) {
+                if (workerState.consecutiveErrors > 0) {
+                    log.info('Sync success/idle, resetting consecutive errors');
+                    resetConsecutiveErrors();
+                }
+            }
+        } else {
+            // Error fatal en el batch (ej. storage error)
+            incrementConsecutiveErrors();
+            log.warn(`Batch processing failed. Incremented consecutive errors to ${workerState.consecutiveErrors}`);
+        }
+
         emitEvent({
             type: result.success ? 'completed' : 'error',
             result,
         });
     } catch (error: any) {
         log.error('Sync cycle error', error);
+        incrementConsecutiveErrors();
         emitEvent({
             type: 'error',
             error: error.message || 'Sync cycle error',

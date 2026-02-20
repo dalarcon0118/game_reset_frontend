@@ -1,3 +1,4 @@
+
 /**
  * Extensión de comandos (Cmd) usando tipos algebraicos
  * 
@@ -8,6 +9,7 @@
 import { Cmd as CoreCmd, CommandDescriptor } from './cmd';
 import { Maybe, Either, Result } from './algebraic-types';
 import { logger } from '../utils/logger';
+import { ListParams } from './architecture/interfaces';
 
 const log = logger.withTag('CMD_ALGEBRAIC');
 
@@ -43,18 +45,14 @@ export const AlgebraicCmd = {
       });
       config.task = async () => { throw new Error('Invalid task function provided to AlgebraicCmd.resultTask'); };
     }
-    
+
     return {
       type: 'RESULT_TASK',
       payload: {
         ...config,
         task: async () => {
           const result = await config.task(...(config.args || []));
-          if (result._tag === 'Right') {
-            return result.right;
-          } else {
-            throw result.left;
-          }
+          return result;
         }
       }
     };
@@ -79,7 +77,7 @@ export const AlgebraicCmd = {
       });
       config.task = async () => { throw new Error('Invalid task function provided to AlgebraicCmd.maybeTask'); };
     }
-    
+
     return {
       type: 'MAYBE_TASK',
       payload: {
@@ -98,91 +96,94 @@ export const AlgebraicCmd = {
   },
 
   /**
-   * Cmd para operaciones que pueden tener éxito o fallar (similar a Either)
+   * Resource Commands (Refine-like Data Provider Integration)
    */
-  eitherTask: <L, R>(
-    config: {
-      task: (...args: any[]) => Promise<Either<L, R>>;
-      args?: any[];
-      onRight: (data: R) => any;
-      onLeft: (error: L) => any;
-      label?: string;
-    }
-  ): AlgebraicCommandDescriptor => {
-    if (typeof config.task !== 'function') {
-      log.error('Invalid task function - expected function', {
-        got: typeof config.task,
-        task: config.task
-      });
-      config.task = async () => { throw new Error('Invalid task function provided to AlgebraicCmd.eitherTask'); };
-    }
-    
-    return {
-      type: 'EITHER_TASK',
+  resource: {
+    /**
+     * Get a list of resources with pagination, sorting and filtering
+     */
+    list: <T, Msg>(
+      resource: string,
+      params: ListParams | undefined,
+      msgConstructor: (result: Result<T[], any>) => Msg
+    ): AlgebraicCommandDescriptor => ({
+      type: 'RESOURCE_LIST',
       payload: {
-        ...config,
-        task: async () => {
-          const eitherResult = await config.task(...(config.args || []));
-          if (eitherResult._tag === 'Right') {
-            return eitherResult.right;
-          } else {
-            throw eitherResult.left;
-          }
-        }
+        resource,
+        params,
+        onSuccess: (data: { data: T[], total: number }) => msgConstructor({ _tag: 'Right', right: data.data }), // We unwrap data structure here for simplicity or keep it? Let's keep data only for now or adapt
+        onFailure: (error: any) => msgConstructor({ _tag: 'Left', left: error })
       }
-    };
-  },
+    }),
 
-  /**
-   * Cmd para realizar llamadas HTTP que devuelven Result
-   */
- resultHttp: <E, T>(
-    config: {
-      url: string;
-      method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
-      body?: any;
-      headers?: Record<string, string>;
-      cacheTTL?: number;
-      retryCount?: number;
-      abortSignal?: AbortSignal;
-    },
-    onSuccess: (data: T) => any,
-    onFailure: (error: E) => any
-  ): AlgebraicCommandDescriptor => ({
-    type: 'RESULT_HTTP',
-    payload: {
-      ...config,
-      method: config.method || 'GET',
-      onSuccess,
-      onFailure
-    }
-  }),
+    /**
+     * Get a single resource by ID
+     */
+    getOne: <T, Msg>(
+      resource: string,
+      id: string | number,
+      msgConstructor: (result: Result<T, any>) => Msg
+    ): AlgebraicCommandDescriptor => ({
+      type: 'RESOURCE_GET_ONE',
+      payload: {
+        resource,
+        id,
+        onSuccess: (data: T) => msgConstructor({ _tag: 'Right', right: data }),
+        onFailure: (error: any) => msgConstructor({ _tag: 'Left', left: error })
+      }
+    }),
 
-  /**
-   * Cmd para operaciones asíncronas que devuelven Maybe
-   */
-  maybeHttp: <T>(
-    config: {
-      url: string;
-      method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
-      body?: any;
-      headers?: Record<string, string>;
-    },
-    onJust: (data: T) => any,
-    onNothing: () => any
-  ): AlgebraicCommandDescriptor => ({
-    type: 'MAYBE_HTTP',
-    payload: {
-      ...config,
-      method: config.method || 'GET',
-      onJust,
-      onNothing
-    }
-  })
-};
+    /**
+     * Create a new resource
+     */
+    create: <T, Msg>(
+      resource: string,
+      variables: any,
+      msgConstructor: (result: Result<T, any>) => Msg
+    ): AlgebraicCommandDescriptor => ({
+      type: 'RESOURCE_CREATE',
+      payload: {
+        resource,
+        variables,
+        onSuccess: (data: T) => msgConstructor({ _tag: 'Right', right: data }),
+        onFailure: (error: any) => msgConstructor({ _tag: 'Left', left: error })
+      }
+    }),
 
-// Exportar una versión combinada que incluya ambas funcionalidades
-export const ExtendedCmd = {
-  ...CoreCmd,
-  ...AlgebraicCmd
+    /**
+     * Update an existing resource
+     */
+    update: <T, Msg>(
+      resource: string,
+      id: string | number,
+      variables: any,
+      msgConstructor: (result: Result<T, any>) => Msg
+    ): AlgebraicCommandDescriptor => ({
+      type: 'RESOURCE_UPDATE',
+      payload: {
+        resource,
+        id,
+        variables,
+        onSuccess: (data: T) => msgConstructor({ _tag: 'Right', right: data }),
+        onFailure: (error: any) => msgConstructor({ _tag: 'Left', left: error })
+      }
+    }),
+
+    /**
+     * Delete a resource
+     */
+    delete: <T, Msg>(
+      resource: string,
+      id: string | number,
+      msgConstructor: (result: Result<T, any>) => Msg
+    ): AlgebraicCommandDescriptor => ({
+      type: 'RESOURCE_DELETE',
+      payload: {
+        resource,
+        id,
+        onSuccess: (data: T) => msgConstructor({ _tag: 'Right', right: data }),
+        onFailure: (error: any) => msgConstructor({ _tag: 'Left', left: error })
+      }
+    })
+  }
 };

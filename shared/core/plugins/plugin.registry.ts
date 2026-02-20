@@ -1,95 +1,74 @@
-import { Plugin, PluginContext, SlotComponentMetadata } from './plugin.types';
+import {
+    Plugin,
+    PluginContext,
+    SlotComponentMetadata
+} from './plugin.types';
+import { AppKernel } from '../architecture/kernel';
+import { logger } from '../../utils/logger';
 import { pluginEventBus } from './plugin.event_bus';
-import apiClient from '../../services/api_client';
 import { storageClient } from '../../services/storage_client';
-import { FinancialSummaryService } from '../../services/financial_summary';
-import { logger } from '@/shared/utils/logger';
 
-const log = logger.withTag('PLUGIN_MANAGER');
+const log = logger.withTag('PLUGIN_REGISTRY');
 
-/**
- * PluginManager (Inspirado en el Bundle Manager de Eclipse).
- * Orquestra el ciclo de vida de los plugins y la inyección de contexto.
- */
-class PluginManager {
-    private plugins: Map<string, { plugin: Plugin, context: PluginContext }> = new Map();
+interface RegisteredPlugin {
+    plugin: Plugin;
+    context: PluginContext;
+}
+
+class PluginManagerRegistry {
+    private plugins: Map<string, RegisteredPlugin> = new Map();
+    private hostStore: any = null;
 
     /**
-     * Registra e inicializa un nuevo plugin.
+     * Registra un nuevo plugin en el sistema.
      */
-    register(plugin: Plugin, hostState?: Partial<PluginContext['state']>): void {
-        if (!plugin) {
-            log.error('Se intentó registrar un plugin undefined o null');
-            return;
-        }
-
-        if (!plugin.id) {
-            log.error(`El plugin "${plugin.name || 'Sin Nombre'}" no tiene un ID válido`);
-            return;
-        }
-
+    register(plugin: Plugin, hostState?: any, hostStore?: any): void {
         if (this.plugins.has(plugin.id)) {
-            log.warn(`Plugin "${plugin.id}" ya está registrado. Reiniciando...`);
-            this.unregister(plugin.id);
+            log.warn(`Plugin ${plugin.id} is already registered.`);
+            return;
+        }
+
+        // Almacenar el hostStore si se proporciona
+        if (hostStore) {
+            this.hostStore = hostStore;
         }
 
         const context = this.createContext(plugin.id, hostState);
 
         try {
+            // Inicializar el plugin si tiene método init
             if (plugin.init) {
+                // Remove invalid properties from context before passing to init
+                // The PluginContext type does not have 'id' or 'logger'
                 plugin.init(context);
             }
+
             this.plugins.set(plugin.id, { plugin, context });
-            pluginEventBus.publish('sys:plugin_registered', plugin.id);
-            log.info(`Plugin inicializado: ${plugin.name} (${plugin.id})`);
+
+            // Notificar que se ha registrado un plugin (para reactividad de Slots)
+            pluginEventBus.publish('sys:plugin_registered', { pluginId: plugin.id });
+
+            log.info(`Plugin ${plugin.id} registered successfully.`);
         } catch (error) {
-            log.error(`Error inicializando plugin "${plugin.id}"`, error);
+            log.error(`Failed to initialize plugin ${plugin.id}`, error);
         }
     }
 
     /**
-     * Crea un contexto seguro y aislado para el plugin.
+     * Obtiene todas las extensiones (componentes) registradas para un Slot específico.
+     * Retorna los componentes ordenados por prioridad.
      */
-    private createContext(pluginId: string, hostState?: Partial<PluginContext['state']>): PluginContext {
-        return {
-            api: {
-                get: (endpoint) => apiClient.get(endpoint),
-                post: (endpoint, body) => apiClient.post(endpoint, body),
-                FinancialSummaryService: {
-                    get: (structureId: string | number, date?: string) => FinancialSummaryService.get(structureId, date)
-                }
-            },
-            storage: {
-                getItem: async (key) => {
-                    return storageClient.get(`plugin:${pluginId}:${key}`);
-                },
-                setItem: async (key, value) => {
-                    await storageClient.set(`plugin:${pluginId}:${key}`, value);
-                }
-            },
-            events: pluginEventBus,
-            state: {
-                user: hostState?.user || null,
-                isOnline: hostState?.isOnline ?? true,
-                theme: hostState?.theme || {},
-            }
-        };
-    }
+    getExtensionsForSlot(slotName: string) {
+        const extensions: {
+            id: string;
+            component: React.ComponentType<any>;
+            layout?: SlotComponentMetadata;
+            context: PluginContext;
+        }[] = [];
 
-    /**
-     * Obtiene componentes para un Slot, ordenados por metadatos.
-     */
-    getExtensionsForSlot(slotName: string): {
-        id: string,
-        component: React.ComponentType<any>,
-        layout?: SlotComponentMetadata,
-        context: PluginContext
-    }[] {
-        const extensions: any[] = [];
-
-        this.plugins.forEach(({ plugin, context }) => {
-            const slotConfig = plugin.slots[slotName];
-            if (slotConfig) {
+        for (const { plugin, context } of this.plugins.values()) {
+            if (plugin.slots && plugin.slots[slotName]) {
+                const slotConfig = plugin.slots[slotName];
                 extensions.push({
                     id: plugin.id,
                     component: slotConfig.component,
@@ -97,31 +76,108 @@ class PluginManager {
                     context
                 });
             }
-        });
+        }
 
-        // Ordenar por el campo 'order' (menor a mayor)
-        return extensions.sort((a, b) => (a.layout?.order || 99) - (b.layout?.order || 99));
+        // Ordenar por prioridad (menor número = antes)
+        return extensions.sort((a, b) => {
+            const orderA = a.layout?.order ?? 999;
+            const orderB = b.layout?.order ?? 999;
+            return orderA - orderB;
+        });
     }
 
     /**
-     * Desregistra y limpia un plugin.
+     * Crea el contexto aislado para un plugin.
      */
-    unregister(pluginId: string): void {
-        const entry = this.plugins.get(pluginId);
-        if (entry && entry.plugin.destroy) {
-            try {
-                entry.plugin.destroy();
-            } catch (error) {
-                log.error(`Error destruyendo plugin "${pluginId}"`, error);
-            }
-        }
-        this.plugins.delete(pluginId);
+    private createContext(pluginId: string, hostState?: any): PluginContext {
+        return {
+            // API Layer (usando AppKernel/DataProvider)
+            api: {
+                get: (endpoint: string) => {
+                    if (!AppKernel.dataProvider) {
+                        const error = new Error(`Plugin API Error: AppKernel.dataProvider is not initialized when calling GET ${endpoint}`);
+                        log.error('Failed to access AppKernel.dataProvider. Ensure architecture is bootstrapped.', error);
+                        throw error;
+                    }
+                    try {
+                        return AppKernel.dataProvider.getList(endpoint, {});
+                    } catch (e) {
+                        log.error(`Failed to execute GET ${endpoint}`, e);
+                        throw e;
+                    }
+                },
+                post: (endpoint: string, body: any) => {
+                    if (!AppKernel.dataProvider) {
+                        const error = new Error(`Plugin API Error: AppKernel.dataProvider is not initialized when calling POST ${endpoint}`);
+                        log.error('Failed to access AppKernel.dataProvider. Ensure architecture is bootstrapped.', error);
+                        throw error;
+                    }
+                    try {
+                        return AppKernel.dataProvider.create(endpoint, body);
+                    } catch (e) {
+                        log.error(`Failed to execute POST ${endpoint}`, e);
+                        throw e;
+                    }
+                },
+                ...new Proxy({}, {
+                    get: (_, prop) => {
+                        if (prop === 'get') return (endpoint: string) => {
+                            if (!AppKernel.dataProvider) {
+                                const error = new Error(`Plugin API Error: AppKernel.dataProvider is not initialized when calling GET ${endpoint} via Proxy`);
+                                log.error('Failed to access AppKernel.dataProvider. Ensure architecture is bootstrapped.', error);
+                                throw error;
+                            }
+                            try {
+                                return AppKernel.dataProvider.getList(endpoint, {});
+                            } catch (e) {
+                                log.error(`Failed to execute GET ${endpoint} via Proxy`, e);
+                                throw e;
+                            }
+                        };
+                        if (prop === 'post') return (endpoint: string, body: any) => {
+                            if (!AppKernel.dataProvider) {
+                                const error = new Error(`Plugin API Error: AppKernel.dataProvider is not initialized when calling POST ${endpoint} via Proxy`);
+                                log.error('Failed to access AppKernel.dataProvider. Ensure architecture is bootstrapped.', error);
+                                throw error;
+                            }
+                            try {
+                                return AppKernel.dataProvider.create(endpoint, body);
+                            } catch (e) {
+                                log.error(`Failed to execute POST ${endpoint} via Proxy`, e);
+                                throw e;
+                            }
+                        };
+                        return undefined;
+                    }
+                })
+            } as any,
+
+            // Storage Layer (Namespaced)
+            storage: {
+                getItem: (key: string) => storageClient.get(`plugin:${pluginId}:${key}`),
+                setItem: (key: string, value: any) => storageClient.set(`plugin:${pluginId}:${key}`, value)
+            },
+
+            // Event Bus
+            events: pluginEventBus,
+
+            // Host State (Read-only access to some global state)
+            state: hostState || {},
+
+            // Host Store for subscriptions
+            hostStore: this.hostStore
+        };
     }
 
-    getAllPlugins(): Plugin[] {
-        return Array.from(this.plugins.values()).map(e => e.plugin);
+    getPlugin(id: string) {
+        return this.plugins.get(id);
+    }
+
+    getAllPlugins() {
+        return Array.from(this.plugins.values()).map(p => p.plugin);
     }
 }
 
-export const pluginManager = new PluginManager();
-export const pluginRegistry = pluginManager; // Alias para compatibilidad parcial
+export const PluginManager = new PluginManagerRegistry();
+// Alias for compatibility with components using lowercase import
+export const pluginManager = PluginManager;

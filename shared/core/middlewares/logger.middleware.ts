@@ -18,7 +18,8 @@ export const createLoggerMiddleware = <Model, Msg>(): TeaMiddleware<Model, Msg> 
                 log.debug('├─ ⏩ Next:', nextModel);
 
                 if (cmd) {
-                    const formatCmd = (c: any) => {
+                    const formatCmd = (c: any): any => {
+
                         if (!c) return 'null';
                         if (Array.isArray(c)) return c.map(formatCmd);
                         // Try to extract readable info
@@ -34,6 +35,16 @@ export const createLoggerMiddleware = <Model, Msg>(): TeaMiddleware<Model, Msg> 
 
                 log.groupEnd();
             }
+        },
+        onUpdateError: (model, msg, error) => {
+            if (__DEV__) {
+                const msgType = (msg as any)?.type || 'UNKNOWN';
+                log.error(`❌ [TEA] UPDATE FAILED: ${msgType}`, error);
+                log.debug('├─ 💣 State at crash:', model);
+                log.debug('└─ 📝 Message causing crash:', msg);
+                log.groupEnd();
+            }
         }
     };
 };
+

@@ -304,20 +304,56 @@ export async function* createStream<T>(provider: () => Promise<T[]>): AsyncGener
 /**
  * Helper para manejo de errores con Result types
  * Convierte Promise<T> a AsyncResult<T, E> para mejor manejo de errores
+ * @deprecated Use Result from neverthrow instead. This utility will be removed.
  */
 export type AsyncResult<T, E = Error> = [E, null] | [null, T];
 
+/**
+ * @deprecated Use Result from neverthrow instead. This utility will be removed.
+ */
 export async function to<T, E = Error>(
     promise: Promise<T>,
     ErrorClass: new (message?: string) => E = Error as any
 ): Promise<AsyncResult<T, E>> {
+    // Log deprecation warning (debounced or similar if possible, but for now just log)
+    if (process.env.NODE_ENV !== 'production') {
+        console.warn('Deprecation Warning: "to" utility is deprecated. Use "neverthrow" Result instead.');
+    }
     try {
         const data = await promise;
         return [null, data];
-    } catch (error) {
+    } catch (error: any) {
+        let message = String(error);
+
+        if (error instanceof Error) {
+            message = error.message;
+        } else if (typeof error === 'object' && error !== null) {
+            // Try to extract message from object commonly used in APIs
+            if ('message' in error && typeof (error as any).message === 'string') {
+                message = (error as any).message;
+            } else if ('detail' in error && typeof (error as any).detail === 'string') {
+                message = (error as any).detail;
+            } else {
+                // Fallback to JSON stringify for plain objects to avoid [object Object]
+                try {
+                    const json = JSON.stringify(error);
+                    // Only use JSON if it's not empty object (which implies no enumerable properties)
+                    // unless the original String(error) was [object Object]
+                    if (json !== '{}') {
+                        message = json;
+                    } else if (message === '[object Object]') {
+                        // If it's an empty object AND String() gives [object Object], use a better default
+                        message = 'Unknown error';
+                    }
+                } catch {
+                    // Ignore JSON errors, keep original String(error)
+                }
+            }
+        }
+
         const errorInstance = error instanceof ErrorClass
             ? error
-            : new ErrorClass(error instanceof Error ? error.message : String(error));
+            : new ErrorClass(message);
         return [errorInstance, null];
     }
 }

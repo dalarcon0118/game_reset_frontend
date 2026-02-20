@@ -10,7 +10,7 @@ import { Label } from '@/shared/components/label';
 import { AgencyCard } from '../common/agency_card';
 import { ButtonKit } from '@/shared/components/button';
 import { ChildStructure } from '@/shared/services/structure';
-import { es } from '../../language/es';
+import { es } from '../../../config/language/es';
 
 interface Agency {
   id: number;

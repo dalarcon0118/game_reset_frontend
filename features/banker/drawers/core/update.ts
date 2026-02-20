@@ -6,18 +6,12 @@ import { Sub, SubDescriptor } from '@/shared/core/sub';
 import { RemoteDataHttp } from '@/shared/core/remote.data.http';
 import { RemoteData } from '@/shared/core/remote.data';
 import { StructureService } from '@/shared/services/structure';
-import { useDashboardStore } from '../../dashboard/core/store';
 import { singleton, ret, Return } from '@/shared/core/return';
 import { UpdateResult } from '@/shared/core/engine';
 import * as config from '@/config';
 
 export const subscriptions = (_model: Model): SubDescriptor<Msg> => {
-    return Sub.watchStore(
-        useDashboardStore,
-        (state: any) => state?.model?.selectedAgencyId ?? state?.selectedAgencyId,
-        (id) => ({ type: 'INIT_SCREEN', id: id || 0 }),
-        'drawers-init-sync'
-    );
+    return Sub.none();
 };
 
 const fetchDetailsCmd = (id: number, date: Date): Cmd => {

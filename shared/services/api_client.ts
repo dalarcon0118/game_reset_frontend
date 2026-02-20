@@ -1,11 +1,8 @@
 import settings from '../../config/settings';
-import * as SecureStore from 'expo-secure-store';
+import { TokenService } from './token_service'; // Use TokenService instead of direct SecureStore
 import { logger } from '../utils/logger';
 
 const log = logger.withTag('API_CLIENT');
-
-const TOKEN_KEY = 'auth_access_token';
-const REFRESH_TOKEN_KEY = 'auth_refresh_token';
 
 // --- Types ---
 
@@ -35,6 +32,7 @@ export class ApiClientError extends Error {
 
 export interface RequestOptions extends RequestInit {
   skipAuthHandler?: boolean;
+  skipAuth?: boolean; // New flag to skip token validation and attachment
   silentErrors?: boolean; // New flag to suppress error logging for expected failures
   cacheTTL?: number; // In milliseconds
   retryCount?: number;
@@ -75,6 +73,7 @@ type ErrorHandlerResponse = { retry: boolean; newToken?: string } | null;
 type ErrorHandler = (error: ApiClientError, endpoint: string, options: RequestInit) => Promise<ErrorHandlerResponse>;
 
 let errorHandler: ErrorHandler | null = null;
+let onSessionExpired: (() => void) | null = null;
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -101,6 +100,10 @@ const apiClient = {
     errorHandler = handler;
   },
 
+  setSessionExpiredHandler(handler: () => void) {
+    onSessionExpired = handler;
+  },
+
   setupAuthErrorHandler(logoutCallback: () => Promise<void>) {
     this.setErrorHandler(async (error: ApiClientError, endpoint: string, options: RequestInit) => {
       if (error.status === 401 || error.status === 403) {
@@ -122,8 +125,12 @@ const apiClient = {
       return new Promise((resolve) => subscribeTokenRefresh(resolve));
     }
 
-    const refreshToken = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
-    if (!refreshToken) return null;
+    const { refresh: refreshToken } = await TokenService.getToken();
+    if (!refreshToken) {
+      log.warn('No refresh token available, session expired.');
+      if (onSessionExpired) onSessionExpired();
+      return null;
+    }
 
     isRefreshing = true;
     try {
@@ -155,6 +162,10 @@ const apiClient = {
     } catch (error) {
       currentAccessToken = null;
       onTokenRefreshed('');
+      if (onSessionExpired) {
+        log.warn('Refresh token failed, session expired.');
+        onSessionExpired();
+      }
       throw error;
     } finally {
       isRefreshing = false;
@@ -187,8 +198,12 @@ const apiClient = {
       }
     }
 
-    // ... (token refresh remains same)
-    if (!endpoint.includes(settings.api.endpoints.refresh())) {
+    // Check if endpoint is whitelisted as public
+    const isPublicEndpoint = settings.api.endpoints.public?.some((publicPath: string) => endpoint.includes(publicPath));
+    const shouldSkipAuth = fetchOptions.skipAuth || isPublicEndpoint;
+
+    // Check token expiration before request (only for authenticated endpoints)
+    if (!shouldSkipAuth && !endpoint.includes(settings.api.endpoints.refresh())) {
       const token = await this.getAuthToken();
       if (token && this.isTokenExpired(token)) {
         log.debug('Token expired, refreshing...');
@@ -220,7 +235,7 @@ const apiClient = {
         }
 
         // Log outgoing request
-        let parsedBody = null;
+        let parsedBody: any = null;
         try {
           parsedBody = fetchOptions.body ? JSON.parse(fetchOptions.body as string) : null;
           // Mask sensitive fields in logs
@@ -247,7 +262,7 @@ const apiClient = {
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
-            ...(currentToken ? { 'Authorization': `Bearer ${currentToken}` } : {}),
+            ...(!fetchOptions.skipAuth && currentToken ? { 'Authorization': `Bearer ${currentToken}` } : {}),
             ...fetchOptions.headers,
           },
           signal: abortSignal || controller.signal,
@@ -422,11 +437,11 @@ const apiClient = {
   async getAuthToken(): Promise<string | null> {
     if (currentAccessToken) return currentAccessToken;
     try {
-      const savedToken = await SecureStore.getItemAsync(TOKEN_KEY);
-      if (savedToken) currentAccessToken = savedToken;
-      return savedToken;
+      const { access } = await TokenService.getToken();
+      if (access) currentAccessToken = access;
+      return access;
     } catch (error) {
-      logger.error('Error reading from SecureStore', 'API', error);
+      logger.error('Error reading token from TokenService', 'API', error);
       return null;
     }
   },
@@ -435,17 +450,12 @@ const apiClient = {
     currentAccessToken = token;
     try {
       if (token) {
-        await SecureStore.setItemAsync(TOKEN_KEY, token);
+        await TokenService.saveToken(token, refreshToken || undefined);
       } else {
-        await SecureStore.deleteItemAsync(TOKEN_KEY);
-      }
-      if (refreshToken) {
-        await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, refreshToken);
-      } else if (token === null) {
-        await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+        await TokenService.clearToken();
       }
     } catch (error) {
-      logger.error('Error writing to SecureStore', 'API', error);
+      logger.error('Error writing token to TokenService', 'API', error);
     }
   },
 
@@ -491,4 +501,5 @@ const apiClient = {
   }
 };
 
+export { apiClient };
 export default apiClient;

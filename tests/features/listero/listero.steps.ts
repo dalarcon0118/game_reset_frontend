@@ -2,16 +2,70 @@ import { defineFeature, loadFeature } from 'jest-cucumber';
 import { updateAuth } from '@/features/auth/store/update';
 import { initialAuthModel } from '@/features/auth/store/initial';
 import { AuthMsgType } from '@/features/auth/store/types';
-import { update as updateBets } from '@/features/listero/bets/core/update';
-import { initialModel as initialBetsModel } from '@/features/listero/bets/core/msg';
-import { CoreMsgType } from '@/features/listero/bets/core/msg';
-import { RemoteData } from '@/shared/core/remote.data';
+import { initialModel as initialBetsModel } from '@/features/bet-workspace/initial.types';
+import { CoreMsgType } from '@/features/bet-workspace/core/msg';
+import { AppKernel } from '../../../shared/core/architecture/kernel';
+import { BolitaFeature } from '../../../features/bet-bolita/bolita.feature';
+import { LoteriaFeature } from '../../../features/bet-loteria/loteria.feature';
+import { BetWorkspaceFeature } from '../../../features/bet-workspace/workspace.feature';
+import { BetRegistry } from '../../../features/bet-workspace/core/registry';
+import { ParletRegistryFeature } from '../../../features/bet-bolita/parlet/parlet.registry';
+import { StandardRegistryFeature } from '../../../features/bet-bolita/standard/standard.registry';
+import { CentenaRegistryFeature } from '../../../features/bet-bolita/centena/centena.registry';
+import { LoteriaRegistryFeature } from '../../../features/bet-loteria/loteria.registry';
+import { restDataProvider } from '../../../shared/core/architecture/adapters';
+import { gameResetAuthProvider } from '../../../features/auth/adapters/auth_provider';
+import { AuthSubscriptionHandler } from '../../../features/auth/subscription_handler';
+
+// Helper to setup the test environment with all features registered
+const setupTestEnvironment = () => {
+    // Register Kernel Subscription Handlers
+    AppKernel.registerSubscriptionHandler(AuthSubscriptionHandler);
+
+    // Configure Kernel with mocks or adapters
+    // In unit/integration tests, we might want to mock these, but for now we use the real ones
+    // assuming they are properly mocked in test-env or behave predictably.
+    AppKernel.configure({
+        dataProvider: restDataProvider,
+        authProvider: gameResetAuthProvider,
+    });
+
+    // Initialize Bet Registry Features (Domain Logic)
+    // Moved from workspace bootstrap to config to maintain agnostic principle
+    BetRegistry.register(StandardRegistryFeature);
+    BetRegistry.register(ParletRegistryFeature);
+    BetRegistry.register(CentenaRegistryFeature);
+    BetRegistry.register(LoteriaRegistryFeature);
+
+    // Register Features
+    AppKernel.registerFeature(BolitaFeature);
+    AppKernel.registerFeature(LoteriaFeature);
+    AppKernel.registerFeature(BetManagementFeature);
+    AppKernel.registerFeature(BetRulesFeature);
+    AppKernel.registerFeature(BetListFeature);
+    AppKernel.registerFeature(BetSuccessFeature);
+    AppKernel.registerFeature(BetRewardsFeature);
+    AppKernel.registerFeature(CreateBetFeature);
+    AppKernel.registerFeature(EditBetFeature);
+    AppKernel.registerFeature(BetKeyboardFeature);
+    AppKernel.registerFeature(BetWorkspaceGatewayFeature);
+};
 
 const feature = loadFeature('./tests/features/listero/listero.feature');
 
 defineFeature(feature, (test) => {
+    // Setup environment before tests run
+    setupTestEnvironment();
+
     let authModel = initialAuthModel;
     let betsModel = initialBetsModel;
+
+    // Helper to get the update function dynamically
+    const getUpdateBets = () => {
+        const feature = AppKernel.getFeature('BET_WORKSPACE_GATEWAY');
+        if (!feature) throw new Error('BET_WORKSPACE_GATEWAY not registered');
+        return feature.update;
+    };
 
     test('Autenticación exitosa como listero', ({ when, then, and }) => {
         when(/^intento iniciar sesión con usuario "([^"]*)" y contraseña "([^"]*)"$/, (username, password) => {
@@ -27,7 +81,7 @@ defineFeature(feature, (test) => {
 
             const [nextModel] = updateAuth(authModel, {
                 type: AuthMsgType.LOGIN_RESPONSE_RECEIVED,
-                webData: loginResponse as any
+                user: loginResponse.data as any
             });
             authModel = nextModel;
         });
@@ -69,11 +123,12 @@ defineFeature(feature, (test) => {
                 isAuthenticated: true,
                 user: { username: 'listero_test', role, token: 'mock-token' } as any
             };
-            betsModel = { ...initialBetsModel, drawId: '1' };
+            betsModel = { ...initialBetsModel, currentDrawId: '1' };
         });
 
         when('listo los sorteos abiertos', () => {
             // Mock receiving draw info
+            const updateBets = getUpdateBets() as any;
             const [nextModel] = updateBets(betsModel, {
                 type: 'CORE',
                 payload: {
@@ -90,13 +145,13 @@ defineFeature(feature, (test) => {
 
         when(/^selecciono un sorteo para anotar una apuesta de (\d+) DOP al número "([^"]*)"$/, (amount, number) => {
             // Simulate adding a bet
-            const msg: any = {
-                type: 'CREATE',
-                payload: {
-                    type: 'ADD_PLAY',
-                    play: { number, amount: parseInt(amount) }
-                }
-            };
+            // const msg: any = {
+            //     type: 'CREATE',
+            //     payload: {
+            //         type: 'ADD_PLAY',
+            //         play: { number, amount: parseInt(amount) }
+            //     }
+            // };
             // Note: we'd need to mock the create update correctly
             // For now, we simulate the effect on the model
             betsModel = {

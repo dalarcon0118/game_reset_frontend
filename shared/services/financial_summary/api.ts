@@ -1,24 +1,27 @@
-import apiClient from '@/shared/services/api_client';
+import { apiClient } from '@/shared/services/api_client';
 import settings from '@/config/settings';
-import { 
-    BackendFinancialSummary, 
-    NodeFinancialSummary, 
+import {
+    BackendFinancialSummary,
+    NodeFinancialSummary,
     BackendDashboardStats,
     BackendFinancialStatement
 } from './types';
-import { 
-    BackendFinancialSummaryCodec, 
-    NodeFinancialSummaryCodec, 
+import {
+    BackendFinancialSummaryCodec,
+    NodeFinancialSummaryCodec,
     BackendDashboardStatsCodec,
     BackendFinancialStatementArrayCodec,
-    decodeOrFallback 
+    decodeOrFallback
 } from './codecs';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('FINANCIAL_SUMMARY_API');
 
 export const FinancialSummaryApi = {
     getSummary: async (structureId: string | number, date: string): Promise<BackendFinancialSummary> => {
         const endpoint = `${settings.api.endpoints.financialStatement()}?structure_id=${structureId}&date=${date}`;
         const response = await apiClient.get<any>(endpoint);
-        
+
         let data: any;
         if (Array.isArray(response)) {
             data = response.length > 0 ? response[0] : null;
@@ -27,6 +30,7 @@ export const FinancialSummaryApi = {
         }
 
         if (!data) {
+            log.warn('API returned null/undefined summary data');
             return {
                 id_estructura: 0,
                 nombre_estructura: '',
@@ -38,13 +42,14 @@ export const FinancialSummaryApi = {
             };
         }
 
+        log.debug('Decoding financial summary', { data });
         return decodeOrFallback(BackendFinancialSummaryCodec, data, 'getSummary');
     },
 
     getDashboardStats: async (structureId: string | number): Promise<BackendDashboardStats> => {
         const endpoint = `${settings.api.endpoints.dashboardStats()}?structure_id=${structureId}`;
         const response = await apiClient.get<BackendDashboardStats>(endpoint);
-        return decodeOrFallback(BackendDashboardStatsCodec, response, 'getDashboardStats');
+        return decodeOrFallback(BackendDashboardStatsCodec, response, 'getDashboardStats') as BackendDashboardStats;
     },
 
     getNodeSummary: async (id: number, date?: string): Promise<NodeFinancialSummary> => {

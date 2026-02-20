@@ -1,0 +1,421 @@
+import { match } from 'ts-pattern';
+import { Model as GlobalModel } from '@/features/bet-workspace/model';
+import { CreateMsgType, CreateMsg, Model } from './create.types';
+import { GameTypeCodes } from '@/constants/bet';
+import { Return, singleton, ret } from '@/shared/core/return';
+import { RemoteData } from '@/shared/core/remote.data';
+import { Cmd } from '@/shared/core/cmd';
+import { DrawService } from '@/shared/services/draw';
+import { BetRepository } from '@/shared/repositories/bet.repository';
+import { BetRegistry } from '@/features/bet-workspace/core/registry';
+
+// Initial state for this submodule
+export const initCreate = (model: GlobalModel): Return<GlobalModel, CreateMsg> => {
+    return singleton({
+        ...model,
+        createSession: {
+            ...model.createSession,
+            submissionStatus: RemoteData.notAsked(),
+            draw: RemoteData.notAsked(),
+            gameTypes: RemoteData.notAsked(),
+        },
+    });
+};
+
+// Helper functions for business logic
+export const getMaxLength = (gameTypeCode: GameTypeCodes | null): number => {
+    if (!gameTypeCode) return 2;
+    const feature = BetRegistry.getFeatureForType(gameTypeCode);
+    return feature ? feature.getMaxLength(gameTypeCode) : 2;
+};
+
+export const isValidBetNumbers = (numbers: string, gameTypeCode: GameTypeCodes | null): boolean => {
+    if (!numbers || !gameTypeCode) return false;
+    const feature = BetRegistry.getFeatureForType(gameTypeCode);
+    return feature ? feature.isValidInput(numbers, gameTypeCode) : false;
+};
+
+const clearSessionData = (createSession: Model): Model => ({
+    ...createSession,
+    selectedDrawId: null,
+    draw: RemoteData.notAsked(),
+    gameTypes: RemoteData.notAsked(),
+    selectedGameType: null,
+    numbersPlayed: '',
+    amount: '',
+    playerAlias: '',
+    tempBets: [],
+    submissionStatus: RemoteData.notAsked(),
+});
+
+export const updateCreate = (model: GlobalModel, msg: CreateMsg): Return<GlobalModel, CreateMsg> => {
+    return match<CreateMsg, Return<GlobalModel, CreateMsg>>(msg)
+        .with({ type: CreateMsgType.LOAD_INITIAL_DATA }, ({ drawId }) => {
+            return ret(
+                {
+                    ...model,
+                    createSession: {
+                        ...model.createSession,
+                        selectedDrawId: drawId,
+                        draw: RemoteData.loading(),
+                        gameTypes: RemoteData.loading(),
+                    },
+                },
+                Cmd.batch([
+                    Cmd.task({
+                        task: async () => await DrawService.getOne(drawId),
+                        onSuccess: (draw) => draw
+                            ? { type: CreateMsgType.SET_DRAW_DATA, data: RemoteData.success(draw) }
+                            : { type: CreateMsgType.SET_DRAW_DATA, data: RemoteData.failure('Sorteo no encontrado') },
+                        onFailure: (error) => ({ type: CreateMsgType.SET_DRAW_DATA, data: RemoteData.failure(error.message || 'Error desconocido') })
+                    }),
+                    Cmd.task({
+                        task: async () => await DrawService.filterBetsTypeByDrawId(drawId),
+                        onSuccess: (gameTypes) => ({ type: CreateMsgType.SET_GAME_TYPES_DATA, data: RemoteData.success(gameTypes) }),
+                        onFailure: (error) => ({ type: CreateMsgType.SET_GAME_TYPES_DATA, data: RemoteData.failure(error.message || 'Error desconocido') })
+                    })
+                ])
+            );
+        })
+        .with({ type: CreateMsgType.SET_DRAW_DATA }, ({ data }) => {
+            return singleton({
+                ...model,
+                createSession: {
+                    ...model.createSession,
+                    draw: data,
+                },
+            });
+        })
+        .with({ type: CreateMsgType.SET_GAME_TYPES_DATA }, ({ data }) => {
+            const selectedGameType = data.type === 'Success' ? data.data[0] : model.createSession.selectedGameType;
+            return singleton({
+                ...model,
+                createSession: {
+                    ...model.createSession,
+                    gameTypes: data,
+                    selectedGameType: selectedGameType,
+                },
+            });
+        })
+        .with({ type: CreateMsgType.SET_CREATE_DRAW }, ({ drawId }) => {
+            return Return.val(
+                {
+                    ...model,
+                    createSession: {
+                        ...model.createSession,
+                        selectedDrawId: drawId,
+                    },
+                },
+                Cmd.none
+            );
+        })
+        .with({ type: CreateMsgType.SET_CREATE_GAME_TYPE }, ({ gameType }) => {
+            return Return.val(
+                {
+                    ...model,
+                    createSession: {
+                        ...model.createSession,
+                        selectedGameType: gameType,
+                    },
+                },
+                Cmd.none
+            );
+        })
+        .with({ type: CreateMsgType.UPDATE_CREATE_NUMBERS }, ({ numbers }) => {
+            return Return.val(
+                {
+                    ...model,
+                    createSession: {
+                        ...model.createSession,
+                        numbersPlayed: numbers,
+                    },
+                },
+                Cmd.none
+            );
+        })
+        .with({ type: CreateMsgType.UPDATE_CREATE_AMOUNT }, ({ amount }) => {
+            return Return.val(
+                {
+                    ...model,
+                    createSession: {
+                        ...model.createSession,
+                        amount: amount,
+                    },
+                },
+                Cmd.none
+            );
+        })
+        .with({ type: CreateMsgType.UPDATE_CREATE_PLAYER_ALIAS }, ({ alias }) => {
+            return Return.val(
+                {
+                    ...model,
+                    createSession: {
+                        ...model.createSession,
+                        playerAlias: alias,
+                    },
+                },
+                Cmd.none
+            );
+        })
+        .with({ type: CreateMsgType.ADD_BET_TO_CREATE_LIST }, () => {
+            const { createSession } = model;
+            if (!createSession.selectedGameType || !createSession.numbersPlayed || !createSession.amount) {
+                return Return.val(model, Cmd.none);
+            }
+
+            const newBet = {
+                gameType: createSession.selectedGameType,
+                numbers: createSession.numbersPlayed,
+                amount: parseFloat(createSession.amount) || 0,
+            };
+
+            return Return.val(
+                {
+                    ...model,
+                    createSession: {
+                        ...model.createSession,
+                        tempBets: [...model.createSession.tempBets, newBet],
+                        numbersPlayed: '',
+                        amount: '',
+                    },
+                },
+                Cmd.none
+            );
+        })
+        .with({ type: CreateMsgType.REMOVE_BET_FROM_CREATE_LIST }, ({ index }) => {
+            const newTempBets = [...model.createSession.tempBets];
+            newTempBets.splice(index, 1);
+
+            return Return.val(
+                {
+                    ...model,
+                    createSession: {
+                        ...model.createSession,
+                        tempBets: newTempBets,
+                    },
+                },
+                Cmd.none
+            );
+        })
+        .with({ type: CreateMsgType.CLEAR_CREATE_SESSION }, () => {
+            return Return.val(
+                {
+                    ...model,
+                    createSession: clearSessionData(model.createSession),
+                },
+                Cmd.none
+            );
+        })
+        .with({ type: CreateMsgType.HANDLE_KEY_PRESS }, ({ key }) => {
+            if (key === 'RETRY') {
+                const drawId = model.createSession.selectedDrawId;
+                if (!drawId) return singleton(model);
+
+                return updateCreate(model, { type: CreateMsgType.LOAD_INITIAL_DATA, drawId });
+            }
+
+            const { createSession } = model;
+            const gameTypeCode = createSession.selectedGameType?.code?.toLowerCase() as GameTypeCodes | undefined;
+            let newNumbers = createSession.numbersPlayed;
+
+            if (key === 'delete') {
+                newNumbers = createSession.numbersPlayed.slice(0, -1);
+            } else {
+                const maxLength = getMaxLength(gameTypeCode || null);
+
+                if (createSession.numbersPlayed.length >= maxLength) {
+                    return Return.val(model, Cmd.none);
+                }
+
+                if (key === 'X' && gameTypeCode !== 'centena') {
+                    return Return.val(model, Cmd.none);
+                }
+
+                newNumbers = createSession.numbersPlayed + key;
+            }
+
+            return Return.val(
+                {
+                    ...model,
+                    createSession: {
+                        ...model.createSession,
+                        numbersPlayed: newNumbers,
+                    },
+                },
+                Cmd.none
+            );
+        })
+        .with({ type: CreateMsgType.HANDLE_AMOUNT_SELECTION }, ({ value }) => {
+            return Return.val(
+                {
+                    ...model,
+                    createSession: {
+                        ...model.createSession,
+                        amount: value.toString(),
+                    },
+                },
+                Cmd.none
+            );
+        })
+        .with({ type: CreateMsgType.VALIDATE_AND_ADD_BET }, ({ drawId }) => {
+            const { createSession } = model;
+
+            if (!drawId) {
+                return Return.val(model, Cmd.none);
+            }
+
+            const gameTypeCode = createSession.selectedGameType?.code?.toLowerCase() as GameTypeCodes | undefined;
+
+            if (!isValidBetNumbers(createSession.numbersPlayed, gameTypeCode || null)) {
+                return Return.val(model, Cmd.none);
+            }
+
+            if (!createSession.amount || parseInt(createSession.amount) <= 0) {
+                return Return.val(model, Cmd.none);
+            }
+
+            const newBet = {
+                gameType: createSession.selectedGameType!,
+                numbers: createSession.numbersPlayed,
+                amount: parseFloat(createSession.amount) || 0,
+            };
+
+            return Return.val(
+                {
+                    ...model,
+                    createSession: {
+                        ...model.createSession,
+                        tempBets: [...model.createSession.tempBets, newBet],
+                        numbersPlayed: '',
+                        amount: '',
+                    },
+                },
+                Cmd.none
+            );
+        })
+        .with({ type: CreateMsgType.SUBMIT_CREATE_SESSION }, () => {
+            const { createSession } = model;
+
+            if (createSession.tempBets.length === 0) {
+                return singleton(model);
+            }
+
+            // Mapear apuestas temporales al formato DTO
+            const betsToPlace = createSession.tempBets.map(bet => ({
+                draw: parseInt(createSession.selectedDrawId || '0'),
+                gameType: bet.gameType.id,
+                number: bet.numbers,
+                amount: bet.amount,
+                player: createSession.playerAlias
+            }));
+
+            // Usamos Cmd.batch para procesar todas las apuestas
+            // En un futuro, esto podría ser un solo comando 'BatchPlaceBet'
+            // Por ahora, procesamos una por una (o podríamos envolverlas en un solo task)
+
+            // NOTA: Para este ejemplo simplificado, asumiremos que enviamos la primera o iteramos
+            // Llamamos a placeBatch para guardar todas las apuestas en una sola operación atómica (o casi atómica)
+            // Esto asegura que se guarden todas o falle todo, mejorando la UX y la consistencia de datos.
+            return ret(
+                {
+                    ...model,
+                    createSession: {
+                        ...model.createSession,
+                        submissionStatus: RemoteData.loading(),
+                    },
+                },
+                Cmd.task({
+                    task: async () => {
+                        const result = await BetRepository.placeBatch(betsToPlace);
+                        if (result.isErr()) {
+                            throw result.error;
+                        }
+                        // Devolvemos la última apuesta como referencia para la UI, o un objeto compuesto si fuera necesario
+                        // La UI actual espera un solo objeto de éxito, así que devolvemos el último del array
+                        return result.value[result.value.length - 1];
+                    },
+                    onSuccess: (data) => ({
+                        type: CreateMsgType.SUBMISSION_RESULT,
+                        result: RemoteData.success(data)
+                    }),
+                    onFailure: (error) => ({
+                        type: CreateMsgType.SUBMISSION_RESULT,
+                        result: RemoteData.failure(error)
+                    })
+                })
+            );
+        })
+        .with({ type: CreateMsgType.SUBMISSION_RESULT }, ({ result }) => {
+            return match(result)
+                .with({ type: 'Success' }, () => {
+                    return ret(
+                        {
+                            ...model,
+                            createSession: clearSessionData(model.createSession),
+                        },
+                        Cmd.alert({
+                            title: 'Éxito',
+                            message: 'Apuesta guardada correctamente',
+                            buttons: [{ text: 'OK' }]
+                        })
+                    );
+                })
+                .with({ type: 'Failure' }, ({ error }) => {
+                    return ret(
+                        {
+                            ...model,
+                            createSession: {
+                                ...model.createSession,
+                                submissionStatus: result,
+                            },
+                        },
+                        Cmd.alert({
+                            title: 'Error',
+                            message: typeof error === 'string' ? error : 'No se pudo guardar la apuesta',
+                            buttons: [{ text: 'OK' }]
+                        })
+                    );
+                })
+                .otherwise(() => singleton(model));
+        })
+        .with({ type: CreateMsgType.REQUEST_CLEAR_BETS }, () => {
+            const { tempBets } = model.createSession;
+            if (tempBets.length > 0) {
+                return ret<GlobalModel, CreateMsg>(
+                    model,
+                    Cmd.alert({
+                        title: 'Confirmar',
+                        message: '¿Está seguro que desea limpiar todas las apuestas?',
+                        buttons: [
+                            { text: 'Cancelar', style: 'cancel' },
+                            {
+                                text: 'Limpiar',
+                                onPressMsg: { type: CreateMsgType.CONFIRM_CLEAR_BETS }
+                            }
+                        ]
+                    })
+                );
+            }
+            return singleton({
+                ...model,
+                createSession: {
+                    ...model.createSession,
+                    tempBets: [],
+                    numbersPlayed: '',
+                    amount: '',
+                },
+            });
+        })
+        .with({ type: CreateMsgType.CONFIRM_CLEAR_BETS }, () => {
+            return singleton({
+                ...model,
+                createSession: {
+                    ...model.createSession,
+                    tempBets: [],
+                    numbersPlayed: '',
+                    amount: '',
+                },
+            });
+        })
+        .exhaustive();
+};

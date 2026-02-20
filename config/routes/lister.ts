@@ -1,7 +1,9 @@
+export const LISTER_ROOT = '/lister/(tabs)';
+
 export const listerRoutes = {
   lister: {
     tabs: {
-      screen: '/lister/(tabs)',
+      screen: LISTER_ROOT,
       options: {
         headerShown: false,
         headerTitle: '',

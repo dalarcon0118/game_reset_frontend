@@ -1,4 +1,4 @@
-import { DrawType } from '@/types';
+import { DrawType } from './index';
 
 export interface BetLimit {
   fijo: number;

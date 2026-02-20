@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useListeriasStore } from '../core/store';
 import { 
     INIT_SCREEN, 
@@ -14,6 +15,12 @@ interface UseListeriasProps {
 export const useListerias = ({ id }: UseListeriasProps) => {
     const model = useListeriasStore((state) => state.model);
     const dispatch = useListeriasStore((state) => state.dispatch);
+
+    useEffect(() => {
+        if (id) {
+            dispatch(INIT_SCREEN(id));
+        }
+    }, [id, dispatch]);
 
     return {
         listerias: model.listerias.type === 'Success' ? model.listerias.data : [],

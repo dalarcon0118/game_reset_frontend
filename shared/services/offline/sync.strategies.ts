@@ -40,11 +40,21 @@ const classifySyncOutcome = (response: any, error?: any): SyncOutcome => {
         log.warn('Sync response received but NO ID found', {
             responseType: typeof response,
             isArray: Array.isArray(response),
-            preview: JSON.stringify(response).substring(0, 1000) // Log detailed response
+            preview: JSON.stringify(response).substring(0, 1000)
         });
 
-        // Si llegamos aquí, es una respuesta 200 OK pero vacía o malformada -> FATAL
-        return { type: 'FATAL_ERROR', reason: 'Server returned empty or invalid response (No ID)' };
+        // 1.1 Si es un array vacío [] con status 200, esto puede ser un éxito parcial (ej. filtro de negocio).
+        // Aceptamos como ÉXITO para evitar bloqueo de cola.
+        if (Array.isArray(response) && response.length === 0) {
+            log.info('Server returned empty list (200 OK) - Treating as SUCCESS to unblock queue');
+            return { type: 'SUCCESS', backendId: 'empty-response-200' };
+        }
+
+        // Si llegamos aquí, es una respuesta 200 OK pero malformada (sin ID).
+        // En lugar de FATAL_ERROR que detiene todo, lo marcamos como SUCCESS con advertencia
+        // para que el item salga de la cola y no bloquee el sistema.
+        log.warn('Server returned invalid response structure (No ID) - Treating as SUCCESS to unblock queue');
+        return { type: 'SUCCESS', backendId: 'unknown-id-200' };
     }
 
     // 2. Clasificación de errores
@@ -54,12 +64,12 @@ const classifySyncOutcome = (response: any, error?: any): SyncOutcome => {
             return { type: 'FATAL_ERROR', reason: `Code Error: ${error.name} - ${error.message}` };
         }
 
-        // Errores de cliente (400-499) son FATALES (excepto 429 Too Many Requests)
+        // Errores de cliente (400-499) son FATALES (excepto 408 y 429)
         const status = error.status || error.response?.status;
-        if (status && status >= 400 && status < 500 && status !== 429) {
+        if (status && status >= 400 && status < 500 && status !== 429 && status !== 408) {
             return { type: 'FATAL_ERROR', reason: error.message || `Client Error ${status}` };
         }
-        // Errores de servidor (500+), Red (sin status) o Rate Limit (429) son REINTENTABLES
+        // Errores de servidor (500+), Red (sin status) o Rate Limit (429/408) son REINTENTABLES
         return { type: 'RETRY_LATER', reason: error.message || 'Network/Server Error' };
     }
 
@@ -119,9 +129,9 @@ export class BetPushStrategy implements SyncStrategy {
             let outcome: SyncOutcome;
             try {
                 const response = await BetApi.createWithIdempotencyKey(betData, bet.offlineId);
-                
+
                 // LOG: Diagnostic info
-                log.info(`Sync API response for bet ${bet.offlineId}`, { 
+                log.info(`Sync API response for bet ${bet.offlineId}`, {
                     hasResponse: !!response,
                     isArray: Array.isArray(response),
                     length: Array.isArray(response) ? response.length : 'N/A'

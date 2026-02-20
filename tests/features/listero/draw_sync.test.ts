@@ -88,7 +88,10 @@ describe('Draw Synchronization Flow', () => {
       );
 
       // Verify result mapping
-      expect(result).toHaveLength(2);
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toHaveLength(2);
+      }
     });
 
     it('should fall back to offline storage when API fails', async () => {
@@ -111,7 +114,10 @@ describe('Draw Synchronization Flow', () => {
       expect(storageClient.get).toHaveBeenCalledWith(expect.stringContaining('last_draws'));
 
       // Verify result
-      expect(result).toHaveLength(2);
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toHaveLength(2);
+      }
     });
   });
 

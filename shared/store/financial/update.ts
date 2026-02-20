@@ -17,7 +17,14 @@ const fetchSummaryCmd = (nodeId: number): Cmd => {
 const fetchDrawSummaryCmd = (drawId: number): Cmd => {
     return RemoteDataHttp.fetch(
         async () => {
-            const results = await FinancialSummaryService.list({ draw_id: drawId, level: 'DRAW' });
+            const result = await FinancialSummaryService.list({ draw_id: drawId, level: 'DRAW' });
+            
+            if (result.isErr()) {
+                throw result.error;
+            }
+            
+            const results = result.value;
+
             if (results.length === 0) {
                 // Return a zeroed summary instead of throwing an error
                 return {

@@ -4,7 +4,7 @@ module.exports = {
     '^.+\\.(js|jsx|ts|tsx)$': 'babel-jest',
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(react-native|@react-native|@react-navigation|@ui-kitten|react-native-svg|react-native-gesture-handler)/.*)',
+    'node_modules/(?!(react-native|@react-native|@react-navigation|@ui-kitten|react-native-svg|react-native-gesture-handler|jest-cucumber|@cucumber|uuid)/.*)',
   ],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   moduleNameMapper: {

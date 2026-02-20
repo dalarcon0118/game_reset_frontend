@@ -8,7 +8,7 @@ const log = logger.withTag('DRAW_CODECS');
 const DrawTypeDetailsCodec = t.type({
   id: t.number,
   name: t.string,
-  description: t.string,
+  description: t.union([t.string, t.null]),
   code: t.string,
 });
 

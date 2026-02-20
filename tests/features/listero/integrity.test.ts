@@ -1,4 +1,4 @@
-import { calculateLocalTotals, reconcile } from '@/features/listero/dashboard/plugins/financial_integrity_plugin/core/reconciler';
+import { calculateLocalTotals, reconcile } from '@/features/listero-dashboard/plugins/financial_integrity_plugin/core/reconciler';
 import { PendingBet } from '@/shared/services/offline_storage';
 
 describe('Financial Integrity Plugin Logic', () => {

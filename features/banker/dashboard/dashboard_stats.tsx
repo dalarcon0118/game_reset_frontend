@@ -6,7 +6,7 @@ import { COLORS } from '@/shared/components/constants';
 import { Flex } from '@/shared/components/flex';
 import { GridStatCard } from '../common/grid_stat_card';
 import { DashboardSummary } from '../services/banker_dashboard_service';
-import { es } from '../../language/es';
+import { es } from '../../../config/language/es';
 
 const { width } = Dimensions.get('window');
 

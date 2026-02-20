@@ -22,7 +22,9 @@ export const useDrawConfirmation = ({ onSuccess, details }: UseDrawConfirmationP
 
         try {
             // First, create closure confirmations for this draw if they don't exist
-            const confirmations = await DrawService.createClosureConfirmationsForDraw(drawId);
+            const confirmationsResult = await DrawService.createClosureConfirmationsForDraw(drawId);
+            if (confirmationsResult.isErr()) throw confirmationsResult.error;
+            const confirmations = confirmationsResult.value;
 
             // Find the confirmation for the current user's structure (collector)
             // Use user's structure information instead of hardcoded values
@@ -39,11 +41,12 @@ export const useDrawConfirmation = ({ onSuccess, details }: UseDrawConfirmationP
 
             if (collectorConfirmation) {
                 // Confirm the collector's closure with success status
-                await DrawService.confirmClosure(
+                const confirmResult = await DrawService.confirmClosure(
                     collectorConfirmation.id,
                     'confirmed_success',
                     'Confirmado exitosamente por el colector'
                 );
+                if (confirmResult.isErr()) throw confirmResult.error;
             }
 
             // Call success callback
@@ -72,7 +75,9 @@ export const useDrawConfirmation = ({ onSuccess, details }: UseDrawConfirmationP
     const reportDrawIssue = useCallback(async (drawId: number, issueDescription: string) => {
         try {
             // Create closure confirmations if they don't exist
-            const confirmations = await DrawService.createClosureConfirmationsForDraw(drawId);
+            const confirmationsResult = await DrawService.createClosureConfirmationsForDraw(drawId);
+            if (confirmationsResult.isErr()) throw confirmationsResult.error;
+            const confirmations = confirmationsResult.value;
 
             // Find the confirmation for the current user's structure
             const userLevel = user?.structure?.role_in_structure === 'collector' ? 1 : null;
@@ -88,11 +93,12 @@ export const useDrawConfirmation = ({ onSuccess, details }: UseDrawConfirmationP
 
             if (userConfirmation) {
                 // Report issue with the draw
-                await DrawService.confirmClosure(
+                const result = await DrawService.confirmClosure(
                     userConfirmation.id,
                     'reported_issue',
                     issueDescription
                 );
+                if (result.isErr()) throw result.error;
             }
 
             onSuccess();

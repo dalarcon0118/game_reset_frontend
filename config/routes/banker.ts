@@ -1,7 +1,9 @@
+export const BANKER_ROOT = '/banker/(tabs)';
+
 export const bankerRoutes = {
   banker: {
     tabs: {
-      screen: '/banker/(tabs)',
+      screen: BANKER_ROOT,
       options: {
         headerShown: false,
         headerTitle: 'Dashboard',

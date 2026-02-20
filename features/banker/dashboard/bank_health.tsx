@@ -7,7 +7,7 @@ import { Flex } from '@/shared/components/flex';
 import { Label } from '@/shared/components/label';
 import { Card } from '@/shared/components/card';
 import { ChildStructure } from '@/shared/services/structure';
-import { es } from '../../language/es';
+import { es } from '../../../config/language/es';
 
 const { width } = Dimensions.get('window');
 

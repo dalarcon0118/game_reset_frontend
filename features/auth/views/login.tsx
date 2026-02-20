@@ -42,6 +42,12 @@ export default function LoginScreen() {
   }, [loginSession.pin]);
 
   const handleLogin = async (currentPin: string) => {
+    if (!loginSession.username) {
+      setIsEditingUser(true);
+      // Optional: Clear PIN or keep it? If we clear it, user has to re-enter.
+      // Maybe better to just show the username input.
+      return;
+    }
     // TEA: Dispatch login action (handled by TEA store)
     login(loginSession.username, currentPin);
   };
@@ -82,12 +88,14 @@ export default function LoginScreen() {
     );
   };
 
+  const isKeypadDisabled = isLoading || isEditingUser;
+
   const renderKey = (val: string) => (
     <TouchableOpacity
-      style={[styles.key, { opacity: isLoading ? 0.3 : 1 }]}
+      style={[styles.key, { opacity: isKeypadDisabled ? 0.3 : 1 }]}
       onPress={() => handlePress(val)}
       activeOpacity={0.5}
-      disabled={isLoading}
+      disabled={isKeypadDisabled}
     >
       <Text style={styles.keyText}>{val}</Text>
     </TouchableOpacity>
@@ -196,10 +204,10 @@ export default function LoginScreen() {
             <View style={styles.key} />
             {renderKey('0')}
             <TouchableOpacity
-              style={[styles.key, { opacity: isLoading ? 0.3 : 1 }]}
+              style={[styles.key, { opacity: isKeypadDisabled ? 0.3 : 1 }]}
               onPress={handleDelete}
               activeOpacity={0.5}
-              disabled={isLoading}
+              disabled={isKeypadDisabled}
             >
               <Delete size={28} color={THEME.text} />
             </TouchableOpacity>

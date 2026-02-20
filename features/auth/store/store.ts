@@ -1,14 +1,14 @@
 // Auth Zustand store with TEA integration
 import { AuthModel, AuthMsg } from './types';
-import { initialAuthModel } from './initial';
+import { initAuth } from './init';
 import { updateAuth } from './update';
 import { authSubscriptions } from './subscriptions';
-import { createElmStore } from '../../../shared/core/engine';
-import { effectHandlers } from '../../../shared/core/effect_handlers';
+import { createElmStore } from '@/shared/core/engine';
+import { effectHandlers } from '@/shared/core/effect_handlers';
 
 // Zustand store with TEA integration using the central engine
 export const useAuthStore = createElmStore<AuthModel, AuthMsg>(
-    initialAuthModel,
+    initAuth, // Use init function instead of static initial model
     updateAuth,
     effectHandlers as any,
     authSubscriptions

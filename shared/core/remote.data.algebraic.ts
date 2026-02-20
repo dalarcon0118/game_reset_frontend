@@ -6,6 +6,7 @@
  */
 
 import { Maybe, Either, Result, TEAAlgebraicUtils } from './algebraic-types';
+import { RemoteData } from './remote.data';
 
 /**
  * Extensión de RemoteData para incluir tipos algebraicos

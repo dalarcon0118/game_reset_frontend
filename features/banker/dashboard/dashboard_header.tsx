@@ -7,7 +7,7 @@ import { COLORS } from '@/shared/components/constants';
 import { Flex } from '@/shared/components/flex';
 import { NotificationBadge } from '@/features/notification/components/notification_badge';
 import { useAuth } from '../../auth';
-import { es } from '../../language/es';
+import { es } from '../../../config/language/es';
 import { useDashboardStore, selectDashboardDispatch } from './core';
 import { NAVIGATE_TO_NOTIFICATIONS, NAVIGATE_TO_SETTINGS } from './core/msg';
 

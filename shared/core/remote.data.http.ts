@@ -1,6 +1,7 @@
 import { RemoteData, WebData } from './remote.data';
 import { Cmd } from './cmd';
 import { logger } from '../utils/logger';
+import { Result } from 'neverthrow';
 
 const log = logger.withTag('REMOTE_DATA_HTTP');
 
@@ -106,7 +107,7 @@ export const RemoteDataHttp = {
    * a message with the result as WebData.
    */
   fetch: <T, Msg>(
-    task: () => Promise<T | [any, T]>,
+    task: () => Promise<T | [any, T] | Result<T, any>>,
     msgCreator: (data: WebData<T>) => Msg,
     label?: string
   ): Cmd => {
@@ -126,20 +127,34 @@ export const RemoteDataHttp = {
 
     return Cmd.task({
       task: async () => {
-        const result = await task();
-        // If it's the [error, data] tuple from our to() helper
-        if (Array.isArray(result) && result.length === 2) {
-          const [error, data] = result;
+        try {
+          const result = await task();
 
-          // Pattern [Error, null] or [null, Data]
-          const isResultPattern = (error === null) || (error instanceof Error);
-
-          if (isResultPattern) {
-            if (error) throw error;
-            return data;
+          // Check for Result pattern (neverthrow)
+          if (result && typeof (result as any).isOk === 'function' && typeof (result as any).isErr === 'function') {
+            if ((result as any).isErr()) {
+              throw (result as any).error;
+            }
+            return (result as any).value;
           }
+
+          // If it's the [error, data] tuple from our to() helper
+          if (Array.isArray(result) && result.length === 2) {
+            const [error, data] = result;
+
+            // Pattern [Error, null] or [null, Data]
+            const isResultPattern = (error === null) || (error instanceof Error);
+
+            if (isResultPattern) {
+              if (error) throw error;
+              return data;
+            }
+          }
+          return result as T;
+        } catch (error) {
+          log.error('RemoteDataHttp task execution failed', { label: label || 'REMOTE_DATA_HTTP_FETCH', error });
+          throw error;
         }
-        return result as T;
       },
       onSuccess: (data: T) => msgCreator(RemoteData.success(data)),
       onFailure: (error: any) => msgCreator(RemoteData.failure(error)),

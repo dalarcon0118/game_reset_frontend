@@ -1,20 +1,37 @@
 import * as t from 'io-ts';
 import { isRight } from 'fp-ts/Either';
 import { PathReporter } from 'io-ts/PathReporter';
-import { logger } from '@/shared/utils/logger';
+import { logger } from '../../utils/logger';
 
 const log = logger.withTag('AUTH_CODECS');
 
-export const BackendUserCodec = t.type({
-  id: t.union([t.string, t.number]),
-  username: t.string,
-  // Add more user fields as per @/data/mock_data User type if needed
-});
+// Codec flexible para User basado en la interfaz existente
+export const BackendUserCodec = t.intersection([
+  t.type({
+    id: t.union([t.string, t.number]),
+    username: t.string,
+    role: t.string, // Permitimos cualquier string para no acoplar el código a roles específicos
+    email: t.string,
+  }),
+  t.partial({
+    name: t.string,
+    active: t.boolean,
+    password: t.string,
+    structure: t.type({
+      id: t.number,
+      name: t.string,
+      type: t.string,
+      path: t.string,
+      role_in_structure: t.string,
+      commission_rate: t.union([t.number, t.undefined])
+    })
+  })
+]);
 
 export const BackendLoginResponseCodec = t.intersection([
   t.type({
     access: t.string,
-    user: t.unknown, // Keeping it simple for now as User is mock data based
+    user: BackendUserCodec,
   }),
   t.partial({
     refresh: t.string,

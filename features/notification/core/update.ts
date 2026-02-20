@@ -2,16 +2,16 @@ import { match } from 'ts-pattern';
 import { Model, AppNotification } from './model';
 import { Msg } from './msg';
 import { initialNotificationModel } from './store';
-import { Cmd } from '@/shared/core/cmd';
-import { Sub } from '@/shared/core/sub';
-import { RemoteDataHttp } from '@/shared/core/remote.data.http';
-import { RemoteData } from '@/shared/core/remote.data';
-import { singleton, ret } from '@/shared/core/return';
+import { Cmd } from '../../../shared/core/cmd';
+import { Sub } from '../../../shared/core/sub';
+import { RemoteDataHttp } from '../../../shared/core/remote.data.http';
+import { RemoteData } from '../../../shared/core/remote.data';
+import { singleton, ret } from '../../../shared/core/return';
 import { NotificationService } from '../../../shared/services/notification_service';
 import { useAuthStore } from '../../auth/store/store';
-import apiClient from '@/shared/services/api_client';
-import settings from '@/config/settings';
-import { logger } from '@/shared/utils/logger';
+import { apiClient } from '../../../shared/services/api_client';
+import settings from '../../../config/settings';
+import { logger } from '../../../shared/utils/logger';
 
 const log = logger.withTag('NOTIFICATION_CORE');
 
@@ -329,7 +329,14 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
             return ret(
                 { ...model, currentUser: user },
                 Cmd.task({
-                    task: () => apiClient.getAuthToken(),
+                    task: async () => {
+                        let token = await apiClient.getAuthToken();
+                        if (token && apiClient.isTokenExpired(token)) {
+                            log.debug('Token expired during notification sync, refreshing...');
+                            token = await apiClient.refreshAccessToken();
+                        }
+                        return token;
+                    },
                     onSuccess: (token) => ({ type: 'AUTH_TOKEN_UPDATED', token }),
                     onFailure: () => ({ type: 'NONE' } as any)
                 })

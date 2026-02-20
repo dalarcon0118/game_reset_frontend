@@ -1,5 +1,7 @@
+import { useEffect } from 'react';
 import { useDrawersStore } from "../core/store";
 import {
+  INIT_SCREEN,
   NAVIGATE_DATE,
   REFRESH_CLICKED,
   REPORT_CLICKED,
@@ -11,6 +13,12 @@ import { useDrawConfirmation } from "@/features/colector/drawers/hooks/use_draw_
 export const useDrawer = ({ id }: { id: number }) => {
   const model = useDrawersStore((state) => state.model);
   const dispatch = useDrawersStore((state) => state.dispatch);
+
+  useEffect(() => {
+    if (id) {
+      dispatch(INIT_SCREEN(id));
+    }
+  }, [id, dispatch]);
 
   const { confirmDraw } = useDrawConfirmation({
     onSuccess: () => dispatch(REFRESH_CLICKED()),

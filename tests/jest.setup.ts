@@ -107,3 +107,10 @@ jest.mock('@ui-kitten/components', () => {
         useStyleSheet: (style: any) => style,
     };
 });
+
+jest.mock('@react-native-community/netinfo', () => ({
+    configure: jest.fn(),
+    fetch: jest.fn(),
+    addEventListener: jest.fn(),
+    useNetInfo: jest.fn(),
+}));

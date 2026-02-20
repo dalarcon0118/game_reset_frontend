@@ -6,7 +6,7 @@ export interface BackendDraw {
   draw_type_details: {
     id: number;
     name: string;
-    description: string;
+    description: string | null;
     code: string;
   };
   total_collected: number;
@@ -47,7 +47,7 @@ export interface ExtendedDrawType extends DrawType {
   draw_type_details?: {
     id: number;
     name: string;
-    description: string;
+    description: string | null;
     code: string;
   };
 }

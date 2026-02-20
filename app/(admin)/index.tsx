@@ -1,4 +1,4 @@
-import WithRole from "@/features/auth/with_role";
+import WithRole from "@/features/auth/views/with_role";
 import { useAuth } from '../../features/auth';
 import { Redirect } from "expo-router";
 /*

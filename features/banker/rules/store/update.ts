@@ -55,12 +55,21 @@ export const subscriptions = (_model: Model): SubDescriptor<Msg> => {
 export const update = (model: Model, msg: Msg): UpdateResult<Model, Msg> => {
     const result = match<Msg, Return<Model, Msg>>(msg)
         .with({ type: 'AUTH_USER_SYNCED' }, ({ user }) => {
+            if (!user) {
+                return singleton({
+                    ...model,
+                    currentUser: null,
+                    rules: [],
+                    loading: false,
+                    error: null
+                });
+            }
             // Si el usuario cambia (de null a algo), cargamos las reglas
-            if (user && !model.currentUser) {
+            if (!model.currentUser) {
                 return ret(
                     { ...model, currentUser: user },
                     Cmd.ofMsg({ type: 'FETCH_RULES_REQUESTED' })
-                ); ß
+                );
             }
             return singleton({ ...model, currentUser: user });
         })

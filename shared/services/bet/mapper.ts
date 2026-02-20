@@ -1,5 +1,6 @@
 import { BetType } from '@/types';
-import { BackendBet } from './types';
+import { BackendBet, ListBetsFilters } from './types';
+import { PendingBetV2 } from '../offline/types';
 import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('BET_MAPPER');
@@ -101,4 +102,120 @@ export const mapBackendBetToFrontend = (backendBet: BackendBet): BetType => {
         log.error('Error mapping bet', error, { backendBet });
         throw error;
     }
+};
+
+export const mapPendingBetsToFrontend = (pendingBets: PendingBetV2[], filters?: Pick<ListBetsFilters, 'drawId'>): BetType[] => {
+    const relevantPendingBets = filters?.drawId
+        ? pendingBets.filter(pb => (pb.draw || pb.drawId)?.toString() === filters.drawId)
+        : pendingBets;
+
+    const offlineBets: BetType[] = [];
+
+    relevantPendingBets.forEach(pb => {
+        const drawId = (pb.draw || pb.drawId || '').toString();
+        const createdAt = new Date(pb.timestamp).toLocaleTimeString();
+        const receiptCode = pb.receiptCode || 'P-OFFLINE';
+
+        if (pb.amount && pb.numbers_played) {
+            offlineBets.push({
+                id: `offline-${pb.offlineId}`,
+                type: 'Fijo',
+                numbers: JSON.stringify(pb.numbers_played),
+                amount: pb.amount,
+                draw: drawId,
+                createdAt,
+                isPending: true,
+                receiptCode
+            });
+        }
+        
+        if (pb.fijosCorridos && Array.isArray(pb.fijosCorridos)) {
+            pb.fijosCorridos.forEach((item, idx) => {
+                if (item.fijoAmount) {
+                    offlineBets.push({
+                        id: `offline-${pb.offlineId}-fijo-${idx}`,
+                        type: 'Fijo',
+                        numbers: JSON.stringify({ number: item.bet }),
+                        amount: item.fijoAmount,
+                        draw: drawId,
+                        createdAt,
+                        isPending: true,
+                        receiptCode
+                    });
+                }
+                if (item.corridoAmount) {
+                    offlineBets.push({
+                        id: `offline-${pb.offlineId}-corrido-${idx}`,
+                        type: 'Corrido',
+                        numbers: JSON.stringify({ number: item.bet }),
+                        amount: item.corridoAmount,
+                        draw: drawId,
+                        createdAt,
+                        isPending: true,
+                        receiptCode
+                    });
+                }
+            });
+        }
+
+        if (pb.parlets && Array.isArray(pb.parlets)) {
+            pb.parlets.forEach((item, idx) => {
+                offlineBets.push({
+                    id: `offline-${pb.offlineId}-parlet-${idx}`,
+                    type: 'Parlet',
+                    numbers: JSON.stringify({ numbers: item.bets }),
+                    amount: item.amount,
+                    draw: drawId,
+                    createdAt,
+                    isPending: true,
+                    receiptCode
+                });
+            });
+        }
+
+        if (pb.centenas && Array.isArray(pb.centenas)) {
+            pb.centenas.forEach((item, idx) => {
+                offlineBets.push({
+                    id: `offline-${pb.offlineId}-centena-${idx}`,
+                    type: 'Centena' as any,
+                    numbers: JSON.stringify({ number: item.bet }),
+                    amount: item.amount,
+                    draw: drawId,
+                    createdAt,
+                    isPending: true,
+                    receiptCode
+                });
+            });
+        }
+
+        if (pb.loteria && Array.isArray(pb.loteria)) {
+            pb.loteria.forEach((item, idx) => {
+                offlineBets.push({
+                    id: `offline-${pb.offlineId}-loteria-${idx}`,
+                    type: 'Loteria' as any,
+                    numbers: JSON.stringify({ bet: item.bet }),
+                    amount: item.amount,
+                    draw: drawId,
+                    createdAt,
+                    isPending: true,
+                    receiptCode
+                });
+            });
+        }
+    });
+
+    return offlineBets;
+};
+
+export const mapSinglePendingBetToFrontend = (pb: PendingBetV2): BetType => {
+    return {
+        id: `offline-${pb.offlineId}`,
+        type: 'Fijo',
+        numbers: JSON.stringify(pb.numbers_played || []),
+        amount: pb.amount || 0,
+        draw: (pb.draw || pb.drawId || '').toString(),
+        createdAt: new Date(pb.timestamp).toLocaleTimeString(),
+        isPending: true,
+        receiptCode: pb.receiptCode || 'P-OFFLINE'
+    };
 };

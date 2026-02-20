@@ -38,17 +38,17 @@ export type AuthMsg =
     | { type: AuthMsgType.LOGIN_REQUESTED; username: string; pin: string }
     | { type: AuthMsgType.LOGIN_PIN_UPDATED; pin: string }
     | { type: AuthMsgType.LOGIN_USERNAME_UPDATED; username: string }
-    | { type: AuthMsgType.LOGIN_RESPONSE_RECEIVED; webData: WebData<User | null>; isOffline?: boolean; hashedPin?: string }
+    | { type: AuthMsgType.LOGIN_RESPONSE_RECEIVED; user: User }
     | { type: AuthMsgType.LOGIN_SUCCEEDED; user: User }
     | { type: AuthMsgType.LOGIN_FAILED; error: string }
     | { type: AuthMsgType.LOGOUT_REQUESTED }
     | { type: AuthMsgType.LOGOUT_SUCCEEDED }
     | { type: AuthMsgType.LOGOUT_FAILED; error: string }
     | { type: AuthMsgType.CHECK_AUTH_STATUS_REQUESTED }
-    | { type: AuthMsgType.CHECK_AUTH_STATUS_RESPONSE_RECEIVED; webData: WebData<User | null> }
+    | { type: AuthMsgType.CHECK_AUTH_STATUS_RESPONSE_RECEIVED; user: User | null }
     | { type: AuthMsgType.CHECK_AUTH_STATUS_FAILED; error: string }
     | { type: AuthMsgType.SESSION_EXPIRED }
-    | { type: AuthMsgType.ROLE_CHECK_REQUESTED; role: string }
+    | { type: AuthMsgType.ROLE_CHECK_REQUESTED }
     | { type: AuthMsgType.LOAD_SAVED_USERNAME_REQUESTED }
     | { type: AuthMsgType.SAVED_USERNAME_LOADED; username: string | null }
     | { type: AuthMsgType.FORGOT_PIN_REQUESTED }

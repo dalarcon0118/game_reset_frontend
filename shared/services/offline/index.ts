@@ -398,6 +398,88 @@ export class OfflineFinancialService {
     }
 
     /**
+     * Reintenta manualmente una apuesta fallida
+     */
+    static async retryFailedBet(offlineId: string): Promise<boolean> {
+        await this.ensureInitialized();
+        const bets = await OfflineFinancialStorage.getPendingBetsV2();
+        const bet = bets.find(b => b.offlineId === offlineId);
+
+        if (bet && bet.status === 'error') {
+            // 1. Resetear estado
+            await OfflineFinancialStorage.updatePendingBetV2(offlineId, {
+                status: 'pending',
+                retryCount: 0,
+                lastError: undefined
+            });
+
+            // 2. Re-encolar para sincronización
+            await OfflineFinancialStorage.addToQueue({
+                type: 'bet',
+                entityId: offlineId,
+                priority: 1,
+                status: 'pending',
+                attempts: 0
+            });
+
+            log.info(`Manually retried bet ${offlineId}`);
+            // Disparar sync inmediato
+            forceSyncNow().catch(e => log.error('Error triggering immediate sync', e));
+            return true;
+        }
+
+        log.warn(`Cannot retry bet ${offlineId}: Not found or not in error state`);
+        return false;
+    }
+
+    /**
+     * Limpia apuestas fallidas antiguas manualmente
+     */
+    static async cleanupFailedBets(days: number = 7): Promise<number> {
+        await this.ensureInitialized();
+        return OfflineFinancialStorage.cleanupOldFailedBets(days);
+    }
+
+    /**
+     * Recupera apuestas atascadas con errores recuperables (ej: "No ID received")
+     * Útil para migrar datos antiguos que quedaron en estado de error
+     */
+    static async recoverStuckBets(): Promise<number> {
+        await this.ensureInitialized();
+        const bets = await OfflineFinancialStorage.getPendingBetsV2();
+
+        // Identificar apuestas que deberían reintentarse
+        const stuckBets = bets.filter(bet => {
+            if (bet.status !== 'error') return false;
+
+            const error = bet.lastError || '';
+            // Lista de errores que sabemos que son recuperables o falsos positivos
+            const recoverableErrors = [
+                'No ID received',
+                'Network request failed',
+                'timeout',
+                '500', // Server errors
+                '502',
+                '503',
+                '504',
+                '408', // Request Timeout
+            ];
+
+            return recoverableErrors.some(err => error.includes(err));
+        });
+
+        log.info(`Found ${stuckBets.length} stuck bets to recover`);
+
+        let recoveredCount = 0;
+        for (const bet of stuckBets) {
+            const success = await this.retryFailedBet(bet.offlineId);
+            if (success) recoveredCount++;
+        }
+
+        return recoveredCount;
+    }
+
+    /**
      * Inicia el worker de sincronización en segundo plano
      */
     static async startSyncWorker(config?: { syncInterval?: number }): Promise<void> {
@@ -490,6 +572,7 @@ export class OfflineFinancialService {
         betsCleaned: number;
         queueCleaned: number;
         statesCleaned: number;
+        failedCleaned: number;
     }> {
         await this.ensureInitialized();
         return OfflineFinancialStorage.runMaintenance();

@@ -38,7 +38,7 @@ export interface DrawType {
   draw_type_details?: {
     id: number;
     name: string;
-    description: string;
+    description: string | null;
     code: string;
   };
 

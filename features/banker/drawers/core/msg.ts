@@ -12,6 +12,7 @@ export type Msg =
     | { type: 'CONFIRM_DRAW'; drawId: number }
     | { type: 'NAVIGATE_DATE'; days: number };
 
+export const INIT_SCREEN = (id: number): Msg => ({ type: 'INIT_SCREEN', id });
 export const SET_SELECTED_DATE = (date: Date): Msg => ({ type: 'SET_SELECTED_DATE', date });
 export const FETCH_DETAILS_REQUESTED = (): Msg => ({ type: 'FETCH_DETAILS_REQUESTED' });
 export const REFRESH_CLICKED = (): Msg => ({ type: 'REFRESH_CLICKED' });

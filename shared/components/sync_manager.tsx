@@ -2,8 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, Icon, Layout } from '@ui-kitten/components';
 import { useNetwork } from '../hooks/use_network';
-import { OfflineStorage, PendingBet } from '../services/offline_storage';
-import { BetService } from '../services/bet';
+import { OfflineFinancialService } from '../services/offline';
 import { logger } from '../utils/logger';
 
 const log = logger.withTag('SYNC_MANAGER');
@@ -14,9 +13,14 @@ export const SyncManager: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
 
   const checkPendingBets = async () => {
-    const bets = await OfflineStorage.getPendingBets();
-    setPendingCount(bets.length);
-    return bets;
+    try {
+        const bets = await OfflineFinancialService.getPendingBets();
+        setPendingCount(bets.length);
+        return bets;
+    } catch (e) {
+        log.error('Error checking pending bets', e);
+        return [];
+    }
   };
 
   const syncBets = async () => {
@@ -24,27 +28,18 @@ export const SyncManager: React.FC = () => {
     if (isSyncing || !isOnline) return;
 
     const bets = await checkPendingBets();
-    log.debug('Pending bets check', { count: bets.length });
     if (bets.length === 0) return;
 
     setIsSyncing(true);
     log.info(`Starting sync for ${bets.length} bets...`);
-
-    for (const bet of bets) {
-      try {
-        // Quitamos campos temporales de offline antes de enviar
-        const { offlineId, timestamp, ...betData } = bet;
-        await BetService.create(betData);
-        await OfflineStorage.removePendingBet(offlineId);
-        log.debug(`Synced bet ${offlineId}`);
-      } catch (error) {
-        log.error(`Failed to sync bet ${bet.offlineId}:`, error);
-        // Si falla (ej: sorteo cerrado), podrías decidir si borrarla o dejarla
-      }
-    }
-
-    await checkPendingBets();
-    setIsSyncing(false);
+    
+    // V2 handles sync automatically via worker when online.
+    // We can just wait a bit and refresh the count.
+    
+    setTimeout(async () => {
+        await checkPendingBets();
+        setIsSyncing(false);
+    }, 3000);
   };
 
   useEffect(() => {

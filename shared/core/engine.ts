@@ -2,19 +2,12 @@ import { create } from 'zustand';
 import { SubDescriptor } from './sub';
 import { logger } from '../utils/logger';
 import { globalEventRegistry } from './events';
+import { AppKernel } from './architecture/kernel';
 import { Return } from './return';
 import { TeaMiddleware, TeaMiddlewareCodec } from './middleware.types';
 import { isLeft } from 'fp-ts/Either';
 import { PathReporter } from 'io-ts/PathReporter';
-import { Cmd as CoreCmd } from './cmd';
-
-// Un comando es un descriptor que el Engine puede ejecutar usando effectHandlers
-export interface CommandDescriptor {
-    type: string;
-    payload?: any;
-}
-
-export type Cmd = CommandDescriptor | CommandDescriptor[] | null | undefined;
+import { Cmd, CommandDescriptor } from './cmd';
 
 // La estructura que debe devolver cualquier función 'update'
 export type UpdateResult<TModel, TMsg> = [TModel, Cmd] | Return<TModel, TMsg>;
@@ -55,6 +48,7 @@ export const createElmStore = <TModel, TMsg>(
         model: TModel;
         dispatch: (msg: TMsg) => void;
         init: (params?: any) => void;
+        cleanup: () => void;
     }>((set, get) => {
         // --- Storm Protection ---
         let msgCount = 0;
@@ -89,11 +83,31 @@ export const createElmStore = <TModel, TMsg>(
                 if (Array.isArray(c)) {
                     return c.reduce((acc, item) => acc.concat(flattenCmds(item)), [] as CommandDescriptor[]);
                 }
+
+                // --- Safety Check: Detect functions being passed as commands ---
+                if (typeof c === 'function') {
+                    const error = new Error(
+                        `[TEA_ENGINE] ERROR: Received a function instead of a CommandDescriptor. \n` +
+                        `Did you forget to call a command creator like fetchXXXXCmd()? \n` +
+                        `Source: ${(c as any).toString().substring(0, 100)}...`
+
+                    );
+                    logger.error(error.message, 'ENGINE_VALIDATION', error);
+                    if (__DEV__) throw error;
+                    return [];
+                }
+
                 return [c];
             };
 
             const cmdsToExecute = flattenCmds(cmd);
             cmdsToExecute.forEach(async (singleCmd: any) => {
+                // --- Additional Validation ---
+                if (singleCmd && typeof singleCmd !== 'object') {
+                    logger.error(`Invalid command detected: expected object, got ${typeof singleCmd}`, 'ENGINE_VALIDATION', { singleCmd });
+                    return;
+                }
+
                 if (singleCmd && effectHandlers[singleCmd.type]) {
                     try {
                         logger.debug(`Executing Cmd: ${singleCmd.type}`, 'ENGINE', singleCmd.payload);
@@ -114,6 +128,7 @@ export const createElmStore = <TModel, TMsg>(
             });
         };
 
+
         // Pre-calculate initial model and commands
         const initialResult = typeof initial === 'function' ? (initial as any)() : [initial, null];
         const [initialModel, initialCmd] = initialResult;
@@ -130,6 +145,10 @@ export const createElmStore = <TModel, TMsg>(
                     // Execute initial commands if they exist
                     executeCmds(initialCmd);
                 }
+            },
+            cleanup: () => {
+                // Default no-op, will be overridden if subscriptions exist
+                logger.debug('Engine cleanup: No subscriptions to clean', 'ENGINE_CLEANUP');
             },
             dispatch: (msg: TMsg) => {
                 if (!msg) {
@@ -168,9 +187,19 @@ export const createElmStore = <TModel, TMsg>(
                     middlewares.forEach(m => m.afterUpdate?.(prevModel, msg, nextModel, cmd || null));
 
                 } catch (error) {
+                    const currentModel = get().model;
                     logger.error(`Error in update function for Msg: ${msgType}`, 'ENGINE', error, { msg });
-                    // No relanzamos el error para evitar colapsar la UI si es posible
+
+                    // Middlewares: On Error
+                    middlewares.forEach(m => m.onUpdateError?.(currentModel, msg, error));
+
+                    if (__DEV__) {
+                        // Fail Fast in development: This triggers the Red Box in React Native
+                        // providing much better visibility of the bug.
+                        throw error;
+                    }
                 }
+
 
                 if (cmdToRun) executeCmds(cmdToRun);
             },
@@ -327,6 +356,48 @@ export const createElmStore = <TModel, TMsg>(
                 }
             }
 
+            if (sub.type === 'KERNEL_HANDLER') {
+                const { id, handlerId, params } = sub.payload;
+                if (!activeSubs.has(id)) {
+                    logger.debug(`Starting kernel sub: ${id} (${handlerId})`, 'ENGINE');
+                    const handler = AppKernel.getSubscriptionHandler(handlerId);
+
+                    if (handler) {
+                        try {
+                            const innerSub = handler.createSubscription(params);
+
+                            // Validate inner sub
+                            if (!innerSub || typeof innerSub !== 'object') {
+                                logger.error(`Invalid inner subscription from handler: ${handlerId}`, 'ENGINE');
+                                return;
+                            }
+
+                            // KERNEL_HANDLER must resolve to an atomic subscription (not BATCH)
+                            // to maintain ID consistency.
+                            if (innerSub.type === 'BATCH') {
+                                logger.warn(`KERNEL_HANDLER ${handlerId} returned BATCH, which is not supported for atomic subscriptions. Use multiple subscriptions instead.`, 'ENGINE');
+                                return;
+                            }
+
+                            // Override ID to match the parent subscription ID
+                            // This ensures that activeSubs tracks it under the requested ID
+                            if (innerSub.payload) {
+                                // Create a shallow copy to avoid mutating the original descriptor if reused
+                                const subToProcess = { ...innerSub, payload: { ...innerSub.payload, id } };
+                                processSub(subToProcess, dispatch);
+                            } else {
+                                logger.error(`Inner subscription has no payload: ${handlerId}`, 'ENGINE');
+                            }
+
+                        } catch (e) {
+                            logger.error(`Error creating subscription from handler: ${handlerId}`, 'ENGINE', e);
+                        }
+                    } else {
+                        logger.warn(`No handler registered for subscription: ${handlerId}`, 'ENGINE');
+                    }
+                }
+            }
+
             if (sub.type === 'CUSTOM') {
                 const { id, subscribe } = sub.payload;
                 if (!activeSubs.has(id)) {
@@ -338,7 +409,7 @@ export const createElmStore = <TModel, TMsg>(
         };
 
         const cleanupSubs = (currentSubs: Set<string>) => {
-            for (const [id, sub] of activeSubs.entries()) {
+            activeSubs.forEach((sub, id) => {
                 if (!currentSubs.has(id)) {
                     if (sub.type === 'EVERY') {
                         clearInterval(sub.interval);
@@ -350,13 +421,21 @@ export const createElmStore = <TModel, TMsg>(
                     }
                     activeSubs.delete(id);
                 }
-            }
+            });
         };
+
+        // Override cleanup function to allow full disposal
+        store.setState({
+            cleanup: () => {
+                logger.debug('Engine cleanup: Stopping all subscriptions', 'ENGINE_CLEANUP');
+                cleanupSubs(new Set()); // Pass empty set to remove everything
+            }
+        });
 
         const getActiveIds = (sub: SubDescriptor<TMsg>, ids: Set<string> = new Set()): Set<string> => {
             if (sub.type === 'BATCH') {
                 sub.payload.forEach((s: SubDescriptor<TMsg>) => getActiveIds(s, ids));
-            } else if ((sub.type === 'EVERY' || sub.type === 'WATCH_STORE' || sub.type === 'SSE' || sub.type === 'EVENT' || sub.type === 'CUSTOM') && sub.payload.id) {
+            } else if ((sub.type === 'EVERY' || sub.type === 'WATCH_STORE' || sub.type === 'SSE' || sub.type === 'EVENT' || sub.type === 'CUSTOM' || sub.type === 'KERNEL_HANDLER') && sub.payload.id) {
                 ids.add(sub.payload.id);
             }
             return ids;

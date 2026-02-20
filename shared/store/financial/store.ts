@@ -4,13 +4,14 @@ import { Msg } from './msg';
 import { update } from './update';
 import { effectHandlers } from '@/shared/core/effect_handlers';
 import { Sub } from '@/shared/core/sub';
-import { useDashboardStore } from '@/features/colector/dashboard/core/store';
+// import { useDashboardStore } from '@/features/colector/dashboard/core/store'; // TODO: This store is context-based, cannot be watched globally
 import { useDrawersStore } from '@/features/colector/drawers/core/store';
 import { useListeriasStore } from '@/features/banker/listerias/core/store';
-import { useDashboardStore as useBankerDashboardStore } from '@/features/banker/dashboard/core/store';
+// import { useDashboardStore as useBankerDashboardStore } from '@/features/banker/dashboard/core/store'; // TODO: This store is context-based, cannot be watched globally
 
 export const subscriptions = (model: Model) => {
     // Watch Colector Dashboard children to sync financial data
+    /* TODO: Restore when dashboard store is accessible globally
     const dashboardSub = Sub.watchStore(
         useDashboardStore,
         (state: any) => {
@@ -27,6 +28,7 @@ export const subscriptions = (model: Model) => {
         },
         'financial-sync-colector-dashboard'
     );
+    */
 
     // Watch Drawers list to sync financial data for draws
     const drawersSub = Sub.watchStore(
@@ -47,6 +49,7 @@ export const subscriptions = (model: Model) => {
     );
 
     // Watch Banker Dashboard agencies to sync financial data
+    /* TODO: Restore when dashboard store is accessible globally
     const bankerDashboardSub = Sub.watchStore(
         useBankerDashboardStore,
         (state: any) => {
@@ -63,6 +66,7 @@ export const subscriptions = (model: Model) => {
         },
         'financial-sync-banker-dashboard'
     );
+    */
 
     // Watch Banker Listerias list to sync financial data
     const bankerListeriasSub = Sub.watchStore(
@@ -83,9 +87,9 @@ export const subscriptions = (model: Model) => {
     );
 
     return Sub.batch([
-        dashboardSub,
+        // dashboardSub,
         drawersSub,
-        bankerDashboardSub,
+        // bankerDashboardSub,
         bankerListeriasSub
     ]);
 };

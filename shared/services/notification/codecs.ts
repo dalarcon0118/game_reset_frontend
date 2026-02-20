@@ -1,7 +1,7 @@
 import * as t from 'io-ts';
 import { isRight } from 'fp-ts/Either';
 import { PathReporter } from 'io-ts/PathReporter';
-import { logger } from '@/shared/utils/logger';
+import { logger } from '../../utils/logger';
 
 const log = logger.withTag('NOTIFICATION_CODECS');
 

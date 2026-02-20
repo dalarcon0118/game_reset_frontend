@@ -1,0 +1,264 @@
+import { match } from 'ts-pattern';
+import { Model as GlobalModel } from '@/features/bet-workspace/model';
+import { LoteriaMsg, LoteriaMsgType } from './loteria.types';
+import { ListData } from '@/features/bet-workspace/list/list.types';
+import { Return, singleton, ret } from '@/shared/core/return';
+import { RemoteData } from '@/shared/core/remote.data';
+import { getFixedAmountFromRules, filterRulesByBetType } from '@/shared/utils/validation';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('LOTERIA_UPDATE');
+
+export const updateLoteria = (model: GlobalModel, msg: LoteriaMsg): Return<GlobalModel, LoteriaMsg> => {
+    return match<LoteriaMsg, Return<GlobalModel, LoteriaMsg>>(msg)
+        .with({ type: LoteriaMsgType.OPEN_BET_KEYBOARD }, () => {
+            return singleton({
+                ...model,
+                loteriaSession: { ...model.loteriaSession, isBetKeyboardVisible: true },
+                editSession: { ...model.editSession, currentInput: '' }
+            });
+        })
+        .with({ type: LoteriaMsgType.CLOSE_BET_KEYBOARD }, () => {
+            return singleton({
+                ...model,
+                loteriaSession: { ...model.loteriaSession, isBetKeyboardVisible: false },
+                editSession: { ...model.editSession, currentInput: '' }
+            });
+        })
+        .with({ type: LoteriaMsgType.OPEN_AMOUNT_KEYBOARD }, ({ betId }) => {
+            return singleton({
+                ...model,
+                loteriaSession: {
+                    ...model.loteriaSession,
+                    isAmountKeyboardVisible: true,
+                    editingBetId: betId
+                },
+                editSession: { ...model.editSession, currentInput: '' }
+            });
+        })
+        .with({ type: LoteriaMsgType.CLOSE_AMOUNT_KEYBOARD }, () => {
+            return singleton({
+                ...model,
+                loteriaSession: {
+                    ...model.loteriaSession,
+                    isAmountKeyboardVisible: false,
+                    editingBetId: null
+                },
+                editSession: { ...model.editSession, currentInput: '' }
+            });
+        })
+        .with({ type: LoteriaMsgType.KEY_PRESSED }, ({ key }) => {
+            const currentInput = model.editSession.currentInput;
+            let nextInput = currentInput;
+            const normalizedKey = key.toUpperCase();
+
+            if (normalizedKey === 'BACKSPACE') {
+                nextInput = currentInput.slice(0, -1);
+            } else if (normalizedKey === 'CLEAR') {
+                nextInput = '';
+            } else {
+                // Max length for Loteria is 5 for (X)-(XX)-(XX) format
+                const maxLength = model.loteriaSession.isBetKeyboardVisible ? 5 : 6;
+                if (currentInput.length < maxLength && /^\d+$/.test(key)) {
+                    nextInput = currentInput + key;
+                }
+            }
+
+            return singleton({
+                ...model,
+                editSession: { ...model.editSession, currentInput: nextInput }
+            });
+        })
+        .with({ type: LoteriaMsgType.CONFIRM_INPUT }, () => {
+            const { currentInput } = model.editSession;
+
+            if (model.loteriaSession.isBetKeyboardVisible) {
+                if (currentInput.length === 0) return singleton(model);
+                return updateLoteria(model, { type: LoteriaMsgType.PROCESS_BET_INPUT, input: currentInput });
+            }
+
+            if (model.loteriaSession.isAmountKeyboardVisible) {
+                if (currentInput.length === 0) return singleton(model);
+                return updateLoteria(model, { type: LoteriaMsgType.SUBMIT_AMOUNT_INPUT, amount: currentInput });
+            }
+
+            return singleton(model);
+        })
+        .with({ type: LoteriaMsgType.PROCESS_BET_INPUT }, ({ input }) => {
+            const betValue = input;
+            const editingBetId = model.loteriaSession.editingBetId;
+
+            // Check for fixed amount rules
+            const loteriaBetTypeId = model.managementSession.betTypes.loteria;
+            const validationRules = model.rules.data?.validation_rules || [];
+
+            log.debug('Processing bet input', { loteriaBetTypeId });
+
+            const betTypeRules = loteriaBetTypeId
+                ? filterRulesByBetType(validationRules, loteriaBetTypeId)
+                : validationRules.filter(r => {
+                    const name = (r.name || '').toUpperCase();
+                    return name.includes('LOTERIA') ||
+                        name.includes('LOTERÍA') ||
+                        name.includes('CUATERNA');
+                });
+
+            const fixedAmount = getFixedAmountFromRules(betTypeRules);
+            log.debug('Detected fixedAmount', { fixedAmount });
+
+            let shouldShowAmountKeyboard = false;
+            let finalEditingBetId = null;
+
+            if (model.isEditing) {
+                let updatedEntrySession = { ...model.entrySession };
+
+                if (editingBetId) {
+                    // Update existing bet in entrySession
+                    updatedEntrySession.loteria = updatedEntrySession.loteria.map(bet =>
+                        bet.id === editingBetId ? { ...bet, bet: betValue } : bet
+                    );
+                    shouldShowAmountKeyboard = false;
+                    finalEditingBetId = null;
+                } else {
+                    // Create new bet in entrySession
+                    const newBet = {
+                        id: Math.random().toString(36).substr(2, 9),
+                        bet: betValue,
+                        amount: fixedAmount || 0
+                    };
+                    updatedEntrySession.loteria = [...updatedEntrySession.loteria, newBet];
+                    shouldShowAmountKeyboard = fixedAmount === null;
+                    finalEditingBetId = shouldShowAmountKeyboard ? newBet.id : null;
+                }
+
+                return ret(
+                    {
+                        ...model,
+                        entrySession: updatedEntrySession,
+                        loteriaSession: {
+                            ...model.loteriaSession,
+                            isBetKeyboardVisible: false,
+                            isAmountKeyboardVisible: shouldShowAmountKeyboard,
+                            editingBetId: finalEditingBetId
+                        },
+                        editSession: { ...model.editSession, currentInput: '' }
+                    },
+                    []
+                );
+            } else {
+                // Modo lista
+                let nextRemoteData;
+                if (editingBetId) {
+                    // Update existing bet in listSession
+                    nextRemoteData = RemoteData.map<any, ListData, ListData>(data => ({
+                        ...data,
+                        loteria: data.loteria.map(bet =>
+                            bet.id === editingBetId ? { ...bet, bet: betValue } : bet
+                        )
+                    }), model.listSession.remoteData);
+                    shouldShowAmountKeyboard = false;
+                    finalEditingBetId = null;
+                } else {
+                    // Create new bet in listSession
+                    const newBet = {
+                        id: Math.random().toString(36).substr(2, 9),
+                        bet: betValue,
+                        amount: fixedAmount || 0
+                    };
+                    nextRemoteData = RemoteData.map<any, ListData, ListData>(data => ({
+                        ...data,
+                        loteria: [...data.loteria, newBet]
+                    }), model.listSession.remoteData);
+                    shouldShowAmountKeyboard = fixedAmount === null;
+                    finalEditingBetId = shouldShowAmountKeyboard ? newBet.id : null;
+                }
+
+                return ret(
+                    {
+                        ...model,
+                        listSession: { ...model.listSession, remoteData: nextRemoteData },
+                        loteriaSession: {
+                            ...model.loteriaSession,
+                            isBetKeyboardVisible: false,
+                            isAmountKeyboardVisible: shouldShowAmountKeyboard,
+                            editingBetId: finalEditingBetId
+                        },
+                        editSession: { ...model.editSession, currentInput: '' }
+                    },
+                    []
+                );
+            }
+        })
+        .with({ type: LoteriaMsgType.SUBMIT_AMOUNT_INPUT }, ({ amount }) => {
+            const amountValue = parseInt(amount, 10);
+            const betId = model.loteriaSession.editingBetId;
+
+            if (!betId) return singleton(model);
+
+            if (model.isEditing) {
+                const updatedEntrySession = {
+                    ...model.entrySession,
+                    loteria: model.entrySession.loteria.map(bet =>
+                        bet.id === betId ? { ...bet, amount: amountValue } : bet
+                    )
+                };
+
+                return singleton({
+                    ...model,
+                    entrySession: updatedEntrySession,
+                    loteriaSession: {
+                        ...model.loteriaSession,
+                        isAmountKeyboardVisible: false,
+                        editingBetId: null
+                    },
+                    editSession: { ...model.editSession, currentInput: '' }
+                });
+            } else {
+                const nextRemoteData = RemoteData.map<any, ListData, ListData>(data => ({
+                    ...data,
+                    loteria: data.loteria.map(bet =>
+                        bet.id === betId ? { ...bet, amount: amountValue } : bet
+                    )
+                }), model.listSession.remoteData);
+
+                return singleton({
+                    ...model,
+                    listSession: { ...model.listSession, remoteData: nextRemoteData },
+                    loteriaSession: {
+                        ...model.loteriaSession,
+                        isAmountKeyboardVisible: false,
+                        editingBetId: null
+                    },
+                    editSession: { ...model.editSession, currentInput: '' }
+                });
+            }
+        })
+        .with({ type: LoteriaMsgType.EDIT_LOTERIA_BET }, ({ betId }) => {
+            const bets = model.isEditing
+                ? model.entrySession.loteria
+                : RemoteData.withDefault<any, ListData>({
+                    fijosCorridos: [],
+                    parlets: [],
+                    centenas: [],
+                    loteria: []
+                }, model.listSession.remoteData).loteria;
+
+            const betToEdit = bets.find(b => b.id === betId);
+
+            if (!betToEdit) return singleton(model);
+
+            return singleton({
+                ...model,
+                loteriaSession: {
+                    ...model.loteriaSession,
+                    isBetKeyboardVisible: true,
+                    editingBetId: betId
+                },
+                editSession: {
+                    ...model.editSession,
+                    currentInput: betToEdit.bet
+                }
+            });
+        })
+        .otherwise(() => singleton(model));
+};

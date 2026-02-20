@@ -7,7 +7,7 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "start": "mkdir -p logs && script -F -a logs/frontend.log node scripts/start-with-logs.js",
+    "start": "node scripts/start-with-logs.js",
     "start:dev": "node start-dev.js",
     "start:render": "EXPO_PUBLIC_APP_ENV=production node start-dev.js",
     "dev": "npm run start:dev",

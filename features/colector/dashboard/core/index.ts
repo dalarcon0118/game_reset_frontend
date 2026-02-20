@@ -1,3 +1,1 @@
-export { useDashboardStore, selectDashboardModel, selectDashboardDispatch } from './store';
-export type { Model } from './model';
-export type { Msg } from './msg';
+export { ColectorDashboardProvider, useDashboardStore, selectDashboardModel, selectDashboardDispatch } from './store_context';

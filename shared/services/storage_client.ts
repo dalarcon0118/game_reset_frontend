@@ -42,7 +42,22 @@ export const storageClient = {
         parsedValue = value as unknown as T;
       }
 
-      log.debug(`<<< STORAGE GET: ${key}`, { value: parsedValue });
+      // Enhanced logging
+      const logData: any = { value: parsedValue };
+      if (Array.isArray(parsedValue)) {
+        logData.count = parsedValue.length;
+        // Try to summarize status if available
+        if (parsedValue.length > 0 && typeof parsedValue[0] === 'object' && 'status' in (parsedValue[0] as any)) {
+             const statusCounts = parsedValue.reduce((acc: any, item: any) => {
+                 const s = item.status || 'unknown';
+                 acc[s] = (acc[s] || 0) + 1;
+                 return acc;
+             }, {});
+             logData.statusSummary = statusCounts;
+        }
+      }
+
+      log.debug(`<<< STORAGE GET: ${key}`, logData);
       return parsedValue;
     } catch (error) {
       log.error(`Error reading from storage: ${key}`, error);

@@ -73,6 +73,12 @@ export const settings = {
       retryCount: 3,           // 3 retries default
     },
     endpoints: {
+      public: [
+        '/auth/login/',
+        '/auth/register/',
+        '/auth/login/refresh/',
+        '/public/config',
+      ],
       auth: () => '/auth',
       login: () => '/auth/login/',
       refresh: () => '/auth/login/refresh/',

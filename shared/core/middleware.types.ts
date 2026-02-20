@@ -14,6 +14,7 @@ export const TeaMiddlewareCodec = t.exact(t.partial({
   init: FunctionType,
   beforeUpdate: FunctionType,
   afterUpdate: FunctionType,
+  onUpdateError: FunctionType,
 }));
 
 export interface TeaMiddleware<TModel, TMsg> {
@@ -21,4 +22,6 @@ export interface TeaMiddleware<TModel, TMsg> {
   init?: (dispatch: (msg: TMsg) => void) => void;
   beforeUpdate?: (model: TModel, msg: TMsg) => void;
   afterUpdate?: (prevModel: TModel, msg: TMsg, nextModel: TModel, cmd: Cmd) => void;
+  onUpdateError?: (model: TModel, msg: TMsg, error: any) => void;
 }
+

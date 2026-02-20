@@ -1,12 +1,25 @@
-import apiClient from '@/shared/services/api_client';
-import settings from '@/config/settings';
+import apiClient from '../api_client';
+import settings from '../../../config/settings';
 import { BackendLoginResponse, User } from './types';
 import { BackendLoginResponseCodec, decodeOrFallback } from './codecs';
+import { logger } from '../../utils/logger';
+
+const log = logger.withTag('AUTH_API');
 
 export const AuthApi = {
-  login: async (username: string, password: string): Promise<BackendLoginResponse> => {
-    const response = await apiClient.post<any>(settings.api.endpoints.login(), { username, password });
-    return decodeOrFallback(BackendLoginResponseCodec, response, 'login') as BackendLoginResponse;
+  login: async (username: string, pin: string): Promise<BackendLoginResponse> => {
+    // Mapear pin a password para compatibilidad con Django REST framework simplejwt
+    const response = await apiClient.post<any>(settings.api.endpoints.login(), { username, password: pin });
+    
+    // Validar la respuesta con io-ts
+    const validatedResponse = decodeOrFallback(BackendLoginResponseCodec, response, 'login');
+    
+    // Log para debugging si la validación falla
+    if (validatedResponse !== response) {
+      log.warn('Login response validation failed', { original: response, validated: validatedResponse });
+    }
+    
+    return validatedResponse as BackendLoginResponse;
   },
 
   logout: async (): Promise<void> => {
