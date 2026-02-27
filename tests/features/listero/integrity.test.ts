@@ -1,5 +1,5 @@
-import { calculateLocalTotals, reconcile } from '@/features/listero-dashboard/plugins/financial_integrity_plugin/core/reconciler';
-import { PendingBet } from '@/shared/services/offline_storage';
+import { calculateLocalTotals, reconcile } from '@/features/listero/listero-dashboard/plugins/financial_integrity_plugin/core/reconciler';
+import { PendingBetV2 as PendingBet } from '@/shared/services/offline';
 
 describe('Financial Integrity Plugin Logic', () => {
   const commissionRate = 0.1;

@@ -1,6 +1,9 @@
-import { Sub, SubDescriptor } from '../../shared/core/sub';
+import { Sub, SubDescriptor } from '@/shared/core/sub';
 import { useAuthStore } from './store/store';
-import { SubscriptionHandler } from '../../shared/core/architecture/kernel';
+import { SubscriptionHandler } from '@/shared/core/architecture/kernel';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('AUTH_SUB_HANDLER');
 
 /**
  * Handler universal para suscripciones de autenticación.
@@ -9,11 +12,13 @@ import { SubscriptionHandler } from '../../shared/core/architecture/kernel';
  */
 export const AuthSubscriptionHandler: SubscriptionHandler = {
     id: 'AUTH_SYNC',
-    createSubscription: (params: { 
-        msgCreator: (user: any) => any, 
+    createSubscription: (params: {
+        msgCreator: (user: any) => any,
         selector?: (state: any) => any,
         id?: string
     }) => {
+        log.debug('Creating subscription', { id: params.id });
+
         // Selector por defecto: obtener el usuario del modelo
         const defaultSelector = (state: any) => state.model?.user ?? state.user;
         const selector = params.selector || defaultSelector;

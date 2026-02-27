@@ -25,9 +25,16 @@ export const subscriptions = (model: Model) => {
         'notification-auth-sync'
     );
 
+    // Periodic token validity check (every 30 seconds)
+    const tokenCheckSub = Sub.every(
+        30000,
+        { type: 'CHECK_TOKEN_VALIDITY' },
+        'notification-token-check'
+    );
+
     // SSE Subscription for real-time notifications
     // We only enable it if we have an authToken and a currentUser
-    const subs = [authSub];
+    const subs = [authSub, tokenCheckSub];
 
     if (model.authToken && model.currentUser) {
         // Pass token as query parameter for React Native Android compatibility
@@ -307,6 +314,35 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
             return singleton(model);
         })
 
+        .with({ type: 'CHECK_TOKEN_VALIDITY' }, () => {
+            if (!model.authToken) {
+                return singleton(model);
+            }
+
+            // Check if token is expired or about to expire
+            if (apiClient.isTokenExpired(model.authToken)) {
+                log.debug('Token expired during periodic check, refreshing...');
+                return ret(
+                    model,
+                    Cmd.task({
+                        task: async () => {
+                            // Try to refresh the token
+                            try {
+                                const token = await apiClient.refreshAccessToken();
+                                return token;
+                            } catch (e) {
+                                log.error('Failed to refresh token during check', e);
+                                return null;
+                            }
+                        },
+                        onSuccess: (token) => ({ type: 'AUTH_TOKEN_UPDATED', token }),
+                        onFailure: () => ({ type: 'NONE' } as any)
+                    })
+                );
+            }
+            return singleton(model);
+        })
+
         .with({ type: 'AUTH_USER_SYNCED' }, ({ user }) => {
             // Only update and trigger task if the user has actually changed OR if we don't have a token
             const currentUserId = model.currentUser?.id || model.currentUser?.pk;
@@ -321,9 +357,13 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
                 });
             }
 
-            // If user is the same AND we already have a token, do nothing
+            // If user is the same AND we already have a token
             if (currentUserId === nextUserId && model.authToken !== null) {
-                return singleton(model);
+                // Check if token is expired even if user is same
+                if (!apiClient.isTokenExpired(model.authToken)) {
+                    return singleton(model);
+                }
+                log.debug('User synced but token expired, refreshing...');
             }
 
             return ret(

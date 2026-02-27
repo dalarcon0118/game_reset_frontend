@@ -1,15 +1,14 @@
 import React from 'react';
 import { useLocalSearchParams } from 'expo-router';
-import { GameLoader } from '@/features/bet-workspace/games/game_loader';
+import BolitaEntryScreen from '@/features/listero/bet-bolita/ui/screens/bolita_entry_screen';
 
 export default function ListerBetsCreateScreen() {
   const { id, title } = useLocalSearchParams();
 
   return (
-    <GameLoader
+    <BolitaEntryScreen
       drawId={id as string}
       title={title as string}
-      mode="entry"
     />
   );
 }

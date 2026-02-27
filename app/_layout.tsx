@@ -3,6 +3,7 @@ import { Stack } from 'expo-router';
 import { AppProviders } from '../providers/AppProviders';
 import { useAppBootstrap } from '../hooks/useAppBootstrap';
 import { GlobalErrorBoundary } from '../components/GlobalErrorBoundary';
+import { ErrorBoundary as SharedErrorBoundary } from '../shared/components/error_boundary';
 import { useAuthNavigation } from '../hooks/useAuthNavigation';
 import { routes } from '../config/routes';
 
@@ -17,9 +18,13 @@ export default function RootLayout() {
   }
 
   return (
-    <AppProviders>
-      <RootLayoutInner />
-    </AppProviders>
+    <GlobalErrorBoundary>
+      <AppProviders>
+        <SharedErrorBoundary name="RootLayout">
+          <RootLayoutInner />
+        </SharedErrorBoundary>
+      </AppProviders>
+    </GlobalErrorBoundary>
   );
 }
 

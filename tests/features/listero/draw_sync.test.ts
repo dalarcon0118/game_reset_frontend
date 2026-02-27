@@ -1,10 +1,13 @@
 import { DrawService } from '@/shared/services/draw';
 import { DrawApi } from '@/shared/services/draw/api';
-import { OfflineStorage } from '@/shared/services/offline_storage';
+import { OfflineFinancialStorage as OfflineStorage } from '@/shared/services/offline';
 import { storageClient } from '@/shared/services/storage_client';
 
 // Mock dependencies
 jest.mock('@/shared/services/draw/api');
+jest.mock('@/shared/utils/network', () => ({
+  isServerReachable: jest.fn().mockResolvedValue(true)
+}));
 // Do NOT mock OfflineStorage, we want to test its integration
 // jest.mock('@/shared/services/offline_storage');
 
@@ -123,6 +126,10 @@ describe('Draw Synchronization Flow', () => {
 
   describe('Daily Cache Validation', () => {
     it('should return cached draws if timestamp is today', async () => {
+      // Mock offline
+      const { isServerReachable } = require('@/shared/utils/network');
+      isServerReachable.mockResolvedValue(false);
+
       // Setup mock
       (storageClient.get as jest.Mock).mockResolvedValue({
         data: mockDraws,
@@ -130,14 +137,22 @@ describe('Draw Synchronization Flow', () => {
       });
 
       // Execute
-      const result = await OfflineStorage.getLastDraws();
+      const result = await DrawService.list({ owner_structure: '123' });
 
       // Verify
-      expect(result).toEqual(mockDraws);
+      expect(result.isOk()).toBe(true);
+      const draws = result._unsafeUnwrap();
+      expect(draws).toHaveLength(2);
+      expect(draws[0].id).toBe('1');
+      expect(draws[0].name).toBe('Morning Draw');
       expect(storageClient.remove).not.toHaveBeenCalled();
     });
 
-    it('should clear cache and return null if timestamp is yesterday', async () => {
+    it('should clear cache and return empty if timestamp is yesterday', async () => {
+      // Mock offline
+      const { isServerReachable } = require('@/shared/utils/network');
+      isServerReachable.mockResolvedValue(false);
+
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
 
@@ -148,10 +163,11 @@ describe('Draw Synchronization Flow', () => {
       });
 
       // Execute
-      const result = await OfflineStorage.getLastDraws();
+      const result = await DrawService.list({ owner_structure: '123' });
 
       // Verify
-      expect(result).toBeNull();
+      // OfflineFirstDrawRepository returns error if no internet and no valid cache
+      expect(result.isErr()).toBe(true);
       expect(storageClient.remove).toHaveBeenCalledWith(expect.stringContaining('last_draws'));
     });
   });

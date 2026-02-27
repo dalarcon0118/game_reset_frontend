@@ -99,6 +99,16 @@ export interface ResourceDefinition {
     meta?: Record<string, any>;
 }
 
+export interface KernelAdapters {
+    dataProvider: DataProvider;
+    authProvider: AuthProvider;
+    navigationStrategy: NavigationStrategy;
+    apiClient?: any;
+    resources?: ResourceDefinition[];
+}
+
+
+
 // ==========================================
 // Feature Architecture Interfaces
 // ==========================================
@@ -158,7 +168,62 @@ export interface FeatureGateway<InMsg = any, State = any> {
 }
 
 /**
- * Feature Interface
+ * Feature API Interface
+ * Restricted API exposed to features during registration
+ */
+export interface FeatureAPI {
+    // TODO: Add route and menu registrars when available
+    // routes: RouteRegistrar;
+    // menu: MenuRegistrar;
+    services: {
+        register: (id: string, service: any) => void;
+        get: (id: string) => any;
+    };
+}
+
+/**
+ * Feature Implementation Interface (The Bundle)
+ * Represents the actual loaded feature module
+ */
+export interface FeatureImplementation {
+    /**
+     * Entry point for feature integration.
+     * Receives a restricted API to register routes, menus, and services.
+     */
+    register: (api: FeatureAPI) => void;
+
+    /**
+     * Optional: Root Provider for the feature (Context/Store)
+     * If provided, the Kernel will mount this provider in the tree.
+     */
+    Provider?: React.ComponentType<{ children: React.ReactNode }>;
+}
+
+/**
+ * Lazy Feature Definition (The Manifest)
+ * Lightweight definition for initial app load
+ */
+export interface LazyFeature {
+    id: string;
+
+    /**
+     * Function to load the feature module.
+     * Can return a Promise (Web/Async) or the implementation directly (RN/Sync).
+     * Supports both modern FeatureImplementation and Legacy Feature types.
+     */
+    load: () => Promise<FeatureImplementation | Feature> | FeatureImplementation | Feature;
+
+    /**
+     * Optional: Triggers for loading the feature
+     */
+    trigger?: {
+        path?: string; // React Navigation path or URL path
+        event?: string; // Global event name
+    };
+}
+
+/**
+ * Legacy Feature Interface (Deprecated but supported for backward compatibility)
  * Represents a modular unit of functionality (Model-View-Update).
  */
 export interface Feature<State = any, Msg = any, Cmd = any> {

@@ -72,6 +72,10 @@ export const BetApi = {
             params.append('draw', filters.drawId);
         }
 
+        if (filters?.receiptCode) {
+            params.append('receipt_code', filters.receiptCode);
+        }
+
         if (filters?.limit) {
             params.append('limit', filters.limit.toString());
         }

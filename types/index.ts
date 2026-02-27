@@ -67,18 +67,19 @@ export interface DrawType {
 
 export interface BetType {
   id: string;
-  type: 'Fijo' | 'Parlet' | 'Corrido' | 'Centena' | 'Loteria' | 'Cuaterna Semanal';
+  type: string;
   numbers: string;
   amount: number;
   draw: string;
   createdAt: string;
   isPending?: boolean;
   receiptCode?: string;
+  betTypeId?: string | number; // Almacenamos el ID original del backend
 }
 export type GameType = {
   id: string;
   name: string;
-  code: 'FIJO' | 'PARLET' | 'CORRIDO' | 'CENTENA' | 'QUINIELA_DIRECTA' | 'fijo' | 'parlet' | 'corrido' | 'centena' | 'quiniela_directa';
+  code: string;
   description: string;
 };
 
@@ -104,6 +105,8 @@ export interface FijosCorridosBet {
   fijoAmount: number | null; // Allow null for empty state
   corridoAmount: number | null; // Allow null for empty state
   receiptCode?: string;
+  betTypeid?: string | number;
+  drawid?: string | number;
 }
 
 
@@ -112,6 +115,8 @@ export interface ParletBet {
   bets: number[];
   amount?: number | null;
   receiptCode?: string;
+  betTypeid?: string | number;
+  drawid?: string | number;
 }
 
 export interface CentenaBet {
@@ -119,12 +124,16 @@ export interface CentenaBet {
   bet: number;
   amount: number;
   receiptCode?: string;
+  betTypeid?: string | number;
+  drawid?: string | number;
 }
 
 export interface LoteriaBet {
   id: string;
   bet: string;
   amount: number | null;
+  betTypeid?: string | number;
+  drawid?: string | number;
 }
 
 export * from "./rules"

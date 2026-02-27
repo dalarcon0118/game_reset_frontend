@@ -1,22 +1,14 @@
-import { AppKernel } from '../shared/core/architecture/kernel';
-import { restDataProvider } from '../shared/core/architecture/adapters';
-import { gameResetAuthProvider } from '../features/auth/adapters/auth_provider';
+import { AppKernel } from '@/shared/core/architecture/kernel';
 import { logger } from '../shared/utils/logger';
 import apiClient, { ApiClientError } from '../shared/services/api_client';
 import { useAuthStore } from '../features/auth/store/store';
 import { AuthMsgType } from '../features/auth/store/types';
-import { RoleBasedStrategy } from '../shared/core/architecture/navigation';
-import { AppRoots } from './routes';
 import { EffectRegistry } from '../shared/core/effect_registry';
-import { CoreEffectsModule, ResourceEffectsModule } from '../shared/core/effect_handlers';
 import { AuthSubscriptionHandler } from '../features/auth/subscription_handler';
-import { BetWorkspaceFeature } from '../features/bet-workspace/workspace.feature';
-import { BetRegistry } from '../features/bet-workspace/core/registry';
-import { StandardRegistryFeature } from '../features/bet-bolita/standard/standard.registry';
-import { ParletRegistryFeature } from '../features/bet-bolita/parlet/parlet.registry';
-import { CentenaRegistryFeature } from '../features/bet-bolita/centena/centena.registry';
-import { LoteriaRegistryFeature } from '../features/bet-loteria/loteria.registry';
-import { useBetsStore } from '../features/bet-workspace/core/store';
+import { bootstrapKernel } from '../shared/core/architecture/bootstrap_kernel';
+import { AppManifest } from './app_manifest';
+import { MiddlewareRegistry } from '../shared/core/middleware_registry';
+import { createLoggerMiddleware } from '../shared/core/middlewares/logger.middleware';
 
 /**
  * Bootstraps the Application Architecture
@@ -27,6 +19,10 @@ export const bootstrapArchitecture = async (): Promise<void> => {
     logger.info('Starting Architecture Bootstrap...', 'BOOTSTRAP');
 
     try {
+        // 0. Register Global Middlewares
+        logger.info('Registering Global Middlewares...', 'BOOTSTRAP');
+        MiddlewareRegistry.register(createLoggerMiddleware());
+
         // 0. Register Core Effects
         logger.info('Verifying Core Effects registration...', 'BOOTSTRAP');
         //EffectRegistry.register(CoreEffectsModule);
@@ -43,48 +39,33 @@ export const bootstrapArchitecture = async (): Promise<void> => {
 
         // 0.5 Register Kernel Subscription Handlers
         logger.info('Registering Kernel Subscription Handlers...', 'BOOTSTRAP');
-        AppKernel.registerSubscriptionHandler(AuthSubscriptionHandler);
+        if (AuthSubscriptionHandler) {
+            AppKernel.registerSubscriptionHandler(AuthSubscriptionHandler);
+            logger.info('AuthSubscriptionHandler registered successfully', 'BOOTSTRAP');
+        } else {
+            logger.error('AuthSubscriptionHandler is undefined! Check imports.', 'BOOTSTRAP');
+        }
 
-        // 1. Configure Kernel
-        AppKernel.configure({
-            dataProvider: restDataProvider,
-            authProvider: gameResetAuthProvider,
-            navigationStrategy: new RoleBasedStrategy(AppRoots),
-            // Resource definitions can be loaded dynamically or statically here
-            resources: [
-                { name: 'games' },
-                { name: 'players' },
-                { name: 'matches' }
-            ]
-        });
-
-        // 1.5 Register Features
-        logger.info('Registering Features...', 'BOOTSTRAP');
-
-        // Initialize Bet Registry Features (Domain Logic)
-        // Moved from workspace bootstrap to config to maintain agnostic principle
-        BetRegistry.register(StandardRegistryFeature);
-        BetRegistry.register(ParletRegistryFeature);
-        BetRegistry.register(CentenaRegistryFeature);
-        BetRegistry.register(LoteriaRegistryFeature);
-
-        // Register Workspace Feature (Composite Feature) - MOVED TO LAZY LOADING
-        // This feature orchestrates all betting logic
-        // Inject External Features Gateway via configuration
-        AppKernel.registerFeature(BetWorkspaceFeature);
+        // 1. Initialize Kernel from Declarative Manifest
+        await bootstrapKernel(AppManifest);
 
         // Re-initialize the Bets Store now that the feature is registered.
         // This fixes the initialization order issue where the store module is evaluated
         // before the feature is registered in the kernel.
-        useBetsStore.getState().init();
 
         logger.info(`Architecture bootstrapped successfully`, 'BOOTSTRAP');
 
         // 2. Configure Global Session Expiration Handler
         // This handles critical failures in token refresh logic (e.g. preventive refresh failure)
         apiClient.setSessionExpiredHandler(() => {
-            logger.warn('Session expired signal received - Logging out', 'BOOTSTRAP');
-            useAuthStore.getState().dispatch({ type: AuthMsgType.LOGOUT_REQUESTED });
+            const state = useAuthStore.getState();
+            // Solo hacer logout si el usuario está autenticado
+            if (state.model?.isAuthenticated) {
+                logger.warn('Session expired signal received - Logging out', 'BOOTSTRAP');
+                useAuthStore.getState().dispatch({ type: AuthMsgType.LOGOUT_REQUESTED });
+            } else {
+                logger.debug('Session expired but user already logged out', 'BOOTSTRAP');
+            }
         });
 
         // 3. Configure Global API Error Handling (Interceptor)

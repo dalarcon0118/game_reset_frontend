@@ -18,8 +18,8 @@ export type RemoteData<E, A> =
  */
 export type WebData<A> = RemoteData<any, A>;
 
-// Static constructors and helpers
-export const RemoteData = {
+// Static constructors and helpers - use a different name to avoid TypeScript issues
+const remoteDataHelpers = {
     // Pattern Matchers for ts-pattern
     NotAsked: { type: 'NotAsked' as const },
     Loading: { type: 'Loading' as const },
@@ -117,3 +117,6 @@ export const RemoteData = {
         return rd as unknown as RemoteData<E, B>;
     }
 };
+
+// Export as RemoteData for backward compatibility
+export const RemoteData = remoteDataHelpers;

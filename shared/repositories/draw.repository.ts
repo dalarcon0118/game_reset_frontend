@@ -8,10 +8,12 @@ import { isServerReachable } from '@/shared/utils/network';
 
 const log = logger.withTag('DrawRepository');
 const LAST_DRAWS_KEY = '@last_draws';
+const BET_TYPES_CACHE_KEY_PREFIX = '@bet_types:';
 
 export interface IDrawRepository {
     getDraws(params?: Record<string, any>): Promise<Result<ExtendedDrawType[], Error>>;
     getDraw(id: string): Promise<Result<ExtendedDrawType, Error>>;
+    getBetTypes(drawId: string): Promise<Result<any[], Error>>;
 }
 
 export class OfflineFirstDrawRepository implements IDrawRepository {
@@ -77,6 +79,38 @@ export class OfflineFirstDrawRepository implements IDrawRepository {
 
         } catch (error: any) {
             log.error('Error getting draw', error);
+            return err(error);
+        }
+    }
+
+    async getBetTypes(drawId: string): Promise<Result<any[], Error>> {
+        try {
+            const isOnline = await isServerReachable();
+            const cacheKey = `${BET_TYPES_CACHE_KEY_PREFIX}${drawId}`;
+
+            if (isOnline) {
+                try {
+                    const response = await DrawApi.getBetTypes(drawId);
+                    if (response && Array.isArray(response)) {
+                        await storageClient.set(cacheKey, {
+                            data: response,
+                            timestamp: Date.now()
+                        });
+                        return ok(response);
+                    }
+                } catch (error) {
+                    log.warn('Online fetch for bet types failed', error);
+                }
+            }
+
+            const cached = await storageClient.get<{ data: any[], timestamp: number }>(cacheKey);
+            if (cached && cached.data) {
+                return ok(cached.data);
+            }
+
+            return ok([]);
+        } catch (error: any) {
+            log.error('Error getting bet types', error);
             return err(error);
         }
     }

@@ -1,7 +1,7 @@
-import { AuthHandler } from '@/features/listero-dashboard/core/handlers/auth.handler';
-import { Model } from '@/features/listero-dashboard/core/model';
+import { AuthHandler } from '@/features/listero/listero-dashboard/core/handlers/auth.handler';
+import { Model } from '@/features/listero/listero-dashboard/core/model';
 import { RemoteData } from '@/shared/core/remote.data';
-import { DashboardUser } from '@/features/listero-dashboard/core/user.dto';
+import { DashboardUser } from '@/features/listero/listero-dashboard/core/user.dto';
 import { DrawType, FinancialSummary } from '@/types';
 
 // Mock del modelo inicial

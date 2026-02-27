@@ -1,14 +1,28 @@
-import React from 'react';
-import { GameLoader } from '@/features/bet-workspace/games/game_loader';
-import { useLocalSearchParams } from 'expo-router';
+import React, { useEffect } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import BolitaListPlays from '@/features/listero/bet-bolita/ui/screens/bolita_list_plays';
+import { Text, View } from 'react-native';
 
 export default function BetsListPage() {
-  const { id, title } = useLocalSearchParams();
+  const { id } = useLocalSearchParams();
+
+  useEffect(() => {
+    if (!id) {
+      console.warn('[BetsListPage] Missing drawId param');
+      // Opcional: Redirigir atrás si no hay ID
+      // router.back();
+    }
+  }, [id]);
+
+  if (!id) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{ color: 'red' }}>Error: Identificador de sorteo no válido</Text>
+      </View>
+    );
+  }
+
   return (
-    <GameLoader
-      drawId={id as string}
-      title={title as string}
-      mode="list"
-    />
+    <BolitaListPlays drawId={id as string} />
   );
 }

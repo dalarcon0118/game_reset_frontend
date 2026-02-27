@@ -1,15 +1,14 @@
 import React from 'react';
 import { useLocalSearchParams } from 'expo-router';
-import { GameLoader } from '@/features/bet-workspace/games/game_loader';
+import LoteriaEntryScreen from '@/features/listero/bet-loteria/screens/loteria_entry_screen';
 
 export default function ListerBetsCreateScreen() {
   const { id, title } = useLocalSearchParams();
 
   return (
-    <GameLoader
+    <LoteriaEntryScreen
       drawId={id as string}
       title={title as string}
-      mode="entry"
     />
   );
 }

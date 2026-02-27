@@ -3,7 +3,9 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, useTheme } from '@ui-kitten/components';
 import { X, Delete } from 'lucide-react-native';
 
-type BetType = 'fijo-corrido' | 'parlet' | 'centena' | 'loteria';
+import { BET_TYPE_KEYS } from '@/shared/types/bet_types';
+
+type BetType = typeof BET_TYPE_KEYS.FIJO_CORRIDO | typeof BET_TYPE_KEYS.PARLET | typeof BET_TYPE_KEYS.CENTENA | typeof BET_TYPE_KEYS.LOTERIA;
 
 interface BetNumericKeyboardProps {
     onNumberPress?: (number: string) => void;
@@ -13,6 +15,7 @@ interface BetNumericKeyboardProps {
     onConfirm?: () => void;
     betType?: BetType;
     formatInput?: (input: string) => string;
+    betFormat?: string;
 }
 
 export const BetNumericKeyboard: React.FC<BetNumericKeyboardProps> = ({
@@ -21,8 +24,9 @@ export const BetNumericKeyboard: React.FC<BetNumericKeyboardProps> = ({
     allowWildcard = false,
     currentInput = '',
     onConfirm,
-    betType = 'fijo-corrido',
+    betType = BET_TYPE_KEYS.FIJO_CORRIDO,
     formatInput,
+    betFormat,
 }) => {
     const theme = useTheme();
 
@@ -35,19 +39,40 @@ export const BetNumericKeyboard: React.FC<BetNumericKeyboardProps> = ({
         if (!input || !/^\d+$/.test(input)) return '';
         if (formatInput) return formatInput(input);
 
+        // If a custom betFormat is provided, use it to format the input
+        if (betFormat) {
+            const betLength = (betFormat.match(/X/g) || []).length;
+            if (betLength === 0) return input;
+
+            const chunks = input.match(new RegExp(`.{1,${betLength}}`, 'g')) || [];
+            
+            return chunks.map(chunk => {
+                let formatted = '';
+                let charIdx = 0;
+                for (let i = 0; i < betFormat.length && charIdx < chunk.length; i++) {
+                    if (betFormat[i] === 'X') {
+                        formatted += chunk[charIdx++];
+                    } else {
+                        formatted += betFormat[i];
+                    }
+                }
+                return `(${formatted})`;
+            }).join('-');
+        }
+
         switch (betType) {
-            case 'centena':
+            case BET_TYPE_KEYS.CENTENA:
                 // Format centena bets as three-digit numbers (123)
                 const centenaMatches = input.match(/.{1,3}/g);
                 if (!centenaMatches) return '';
                 return centenaMatches.map(m => `(${m})`).join(' ');
-            case 'loteria':
+            case BET_TYPE_KEYS.LOTERIA:
                 // Format loteria bets as four-digit numbers (1234)
                 const loteriaMatches = input.match(/.{1,4}/g);
                 if (!loteriaMatches) return '';
                 return loteriaMatches.map(m => `(${m})`).join(' ');
-            case 'fijo-corrido':
-            case 'parlet':
+            case BET_TYPE_KEYS.FIJO_CORRIDO:
+            case BET_TYPE_KEYS.PARLET:
             default:
                 // Format bets as pairs (15)-(25)
                 const matches = input.match(/.{1,2}/g);
@@ -85,11 +110,18 @@ export const BetNumericKeyboard: React.FC<BetNumericKeyboardProps> = ({
         </View>
     );
 
+    const betLength = betFormat ? (betFormat.match(/X/g) || []).length : (betType === BET_TYPE_KEYS.CENTENA ? 3 : betType === BET_TYPE_KEYS.LOTERIA ? 4 : 2);
+    const isConfirmDisabled = currentInput.length === 0 || currentInput.length % betLength !== 0;
+
     const confirmButton = (
         <TouchableOpacity
-            style={[styles.confirmButton, { backgroundColor: theme['color-primary-500'] }]}
+            style={[
+                styles.confirmButton, 
+                { backgroundColor: isConfirmDisabled ? theme['color-basic-400'] : theme['color-primary-500'] }
+            ]}
             onPress={onConfirm}
             activeOpacity={0.8}
+            disabled={isConfirmDisabled}
         >
             <Text style={styles.confirmText}>Confirmar</Text>
         </TouchableOpacity>
@@ -100,8 +132,8 @@ export const BetNumericKeyboard: React.FC<BetNumericKeyboardProps> = ({
             <View style={[styles.displayContainer, { backgroundColor: theme['background-basic-color-3'] }]}>
                 <Text category="h5" style={styles.displayText}>
                     {formatBetInput(currentInput) || 
-                      (betType === 'centena' ? 'Introducir Centenas' : 
-                       betType === 'loteria' ? 'Introducir Lotería' : 
+                      (betType === BET_TYPE_KEYS.CENTENA ? 'Introducir Centenas' : 
+                       betType === BET_TYPE_KEYS.LOTERIA ? 'Introducir Lotería' : 
                        'Introducir Apuestas')}
                 </Text>
             </View>

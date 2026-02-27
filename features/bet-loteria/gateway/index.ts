@@ -1,1 +1,0 @@
-export { LoteriaExternalFeaturesGateway, LoteriaExternalFeaturesHandler } from './loteria.external.gateway';

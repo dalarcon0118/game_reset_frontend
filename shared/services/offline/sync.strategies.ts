@@ -1,6 +1,7 @@
 import { OfflineFinancialStorage } from './storage.service';
 import { BetApi } from '../bet/api';
 import { CreateBetDTO } from '../bet/types';
+import { transformBetToBackend, createValidBetPayload } from '../bet/mappers';
 import { DrawApi } from '../draw/api';
 import apiClient from '../api_client';
 import {
@@ -36,36 +37,38 @@ const classifySyncOutcome = (response: any, error?: any): SyncOutcome => {
             return { type: 'SUCCESS', backendId: responseId.toString() };
         }
 
-        // DIAGNOSTIC LOG: Server returned 200 OK but we couldn't find an ID
-        log.warn('Sync response received but NO ID found', {
+        // CRITICAL FIX: Server returned 200 OK but we couldn't find an ID
+        // This should be treated as an ERROR, not success, to prevent data loss
+        log.error('Sync response received but NO ID found - This is a DATA LOSS risk!', {
             responseType: typeof response,
             isArray: Array.isArray(response),
             preview: JSON.stringify(response).substring(0, 1000)
         });
 
-        // 1.1 Si es un array vacío [] con status 200, esto puede ser un éxito parcial (ej. filtro de negocio).
-        // Aceptamos como ÉXITO para evitar bloqueo de cola.
-        if (Array.isArray(response) && response.length === 0) {
-            log.info('Server returned empty list (200 OK) - Treating as SUCCESS to unblock queue');
-            return { type: 'SUCCESS', backendId: 'empty-response-200' };
-        }
-
-        // Si llegamos aquí, es una respuesta 200 OK pero malformada (sin ID).
-        // En lugar de FATAL_ERROR que detiene todo, lo marcamos como SUCCESS con advertencia
-        // para que el item salga de la cola y no bloquee el sistema.
-        log.warn('Server returned invalid response structure (No ID) - Treating as SUCCESS to unblock queue');
-        return { type: 'SUCCESS', backendId: 'unknown-id-200' };
+        // Return FATAL_ERROR instead of success to preserve the item in queue for manual review
+        return {
+            type: 'FATAL_ERROR',
+            reason: 'Server returned successful response (200) but no ID was found in the response. Manual review required.'
+        };
     }
 
     // 2. Clasificación de errores
     if (error) {
+        const status = error.status || error.response?.status;
+
+        // Errores de autenticación (401) -> RETRY_LATER (con warning)
+        // No marcamos como FATAL porque es un estado transitorio que se resuelve con login
+        if (status === 401) {
+            log.warn('Authentication expired during sync. Marking for retry later.');
+            return { type: 'RETRY_LATER', reason: 'Authentication expired' };
+        }
+
         // Errores de código local (bug en frontend) -> FATAL
         if (error instanceof SyntaxError || error instanceof TypeError || error instanceof ReferenceError) {
             return { type: 'FATAL_ERROR', reason: `Code Error: ${error.name} - ${error.message}` };
         }
 
         // Errores de cliente (400-499) son FATALES (excepto 408 y 429)
-        const status = error.status || error.response?.status;
         if (status && status >= 400 && status < 500 && status !== 429 && status !== 408) {
             // Extraer información detallada del backend para mejor diagnóstico
             const backendErrorDetail = error.data?.detail || error.data?.message || error.data?.error_type;
@@ -132,8 +135,9 @@ export class BetPushStrategy implements SyncStrategy {
                 timestamp, backendId, ...restBetData
             } = bet;
 
-            // 2. Preparar payload robusto
-            const betData: CreateBetDTO = {
+            // 2. Preparar payload usando el mapper para asegurar formato correcto para Pydantic
+            // Primero preparamos los datos básicos
+            const rawBetData: CreateBetDTO = {
                 ...restBetData,
                 draw: typeof restBetData.draw === 'string' ? parseInt(restBetData.draw) : restBetData.draw,
                 drawId: restBetData.drawId || restBetData.draw?.toString(),
@@ -141,6 +145,9 @@ export class BetPushStrategy implements SyncStrategy {
                     ? JSON.parse(restBetData.numbers_played)
                     : restBetData.numbers_played,
             };
+
+            // USAR EL MAPPER: Transformar al formato exacto que el backend (Pydantic) espera
+            const betData = transformBetToBackend(rawBetData);
 
             // Llamar a la API
             let outcome: SyncOutcome;
@@ -157,7 +164,7 @@ export class BetPushStrategy implements SyncStrategy {
                     fullPayload: JSON.stringify(betData, null, 2)
                 });
 
-                const response = await BetApi.createWithIdempotencyKey(betData, bet.offlineId);
+                const response = await BetApi.createWithIdempotencyKey(betData as unknown as CreateBetDTO, bet.offlineId);
 
                 // LOG: Diagnostic info
                 log.info(`Sync API response for bet ${bet.offlineId}`, {
@@ -259,7 +266,12 @@ export class DrawsPullStrategy implements SyncStrategy {
                 return true;
             }
             return false;
-        } catch (error) {
+        } catch (error: any) {
+            const status = error?.status || error?.response?.status;
+            if (status === 401) {
+                log.warn(`Authentication expired during sync for ${config.name}. Stopping sync.`);
+                return false;
+            }
             log.error(`Error syncing entity ${config.name}`, error);
             return false;
         }

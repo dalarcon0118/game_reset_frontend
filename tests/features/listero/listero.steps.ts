@@ -3,16 +3,16 @@ import { updateAuth } from '@/features/auth/store/update';
 import { initialAuthModel } from '@/features/auth/store/initial';
 import { AuthMsgType } from '@/features/auth/store/types';
 import { initialModel as initialBetsModel } from '@/features/bet-workspace/initial.types';
-import { CoreMsgType } from '@/features/bet-workspace/core/msg';
+import { CoreMsgType } from '@/_legacy/workspace/core/msg';
 import { AppKernel } from '../../../shared/core/architecture/kernel';
-import { BolitaFeature } from '../../../features/bet-bolita/bolita.feature';
-import { LoteriaFeature } from '../../../features/bet-loteria/loteria.feature';
-import { BetWorkspaceFeature } from '../../../features/bet-workspace/workspace.feature';
-import { BetRegistry } from '../../../features/bet-workspace/core/registry';
-import { ParletRegistryFeature } from '../../../features/bet-bolita/parlet/parlet.registry';
-import { StandardRegistryFeature } from '../../../features/bet-bolita/standard/standard.registry';
-import { CentenaRegistryFeature } from '../../../features/bet-bolita/centena/centena.registry';
-import { LoteriaRegistryFeature } from '../../../features/bet-loteria/loteria.registry';
+// import { BolitaFeature } from '../../../features/bet-bolita/bolita.feature';
+import { LoteriaFeature } from '../../../features/listero/bet-loteria/loteria.feature';
+import { BetWorkspaceFeature } from '../../../features/listero/bet-workspace/workspace.feature';
+import { BetRegistry } from '../../../../.trae/_legacy/workspace/core/registry';
+// import { ParletRegistryFeature } from '../../../features/bet-bolita/parlet/parlet.registry';
+// import { StandardRegistryFeature } from '../../../features/bet-bolita/standard/standard.registry';
+// import { CentenaRegistryFeature } from '../../../features/bet-bolita/centena/centena.registry';
+import { LoteriaRegistryFeature } from '../../../features/listero/bet-loteria/loteria.registry';
 import { restDataProvider } from '../../../shared/core/architecture/adapters';
 import { gameResetAuthProvider } from '../../../features/auth/adapters/auth_provider';
 import { AuthSubscriptionHandler } from '../../../features/auth/subscription_handler';
@@ -32,13 +32,13 @@ const setupTestEnvironment = () => {
 
     // Initialize Bet Registry Features (Domain Logic)
     // Moved from workspace bootstrap to config to maintain agnostic principle
-    BetRegistry.register(StandardRegistryFeature);
-    BetRegistry.register(ParletRegistryFeature);
-    BetRegistry.register(CentenaRegistryFeature);
+    // BetRegistry.register(StandardRegistryFeature);
+    // BetRegistry.register(ParletRegistryFeature);
+    // BetRegistry.register(CentenaRegistryFeature);
     BetRegistry.register(LoteriaRegistryFeature);
 
     // Register Features
-    AppKernel.registerFeature(BolitaFeature);
+    // AppKernel.registerFeature(BolitaFeature);
     AppKernel.registerFeature(LoteriaFeature);
     AppKernel.registerFeature(BetManagementFeature);
     AppKernel.registerFeature(BetRulesFeature);

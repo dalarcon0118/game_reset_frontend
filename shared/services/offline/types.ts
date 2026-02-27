@@ -5,7 +5,7 @@
  * manteniendo compatibilidad hacia atrás.
  */
 
-import { PendingBet as LegacyPendingBet } from '../offline_storage';
+import { CreateBetDTO } from '../bet/types';
 
 // ============================================================================
 // ENUMERACIONES
@@ -18,6 +18,7 @@ export type SyncStatus =
     | 'pending'      // Pendiente de sincronizar
     | 'syncing'      // Sincronizando actualmente
     | 'synced'       // Sincronizado exitosamente
+    | 'blocked'      // Bloqueado por más de 24h sin sincronizar
     | 'error';       // Error en sincronización
 
 /**
@@ -66,9 +67,15 @@ export interface FinancialImpact {
 
 /**
  * Apuesta pendiente extendida (V2)
- * Extiende PendingBet legacy manteniendo compatibilidad
+ * Extiende CreateBetDTO manteniendo compatibilidad
  */
-export type PendingBetV2 = Omit<LegacyPendingBet, 'status'> & {
+export interface PendingBetV2 extends CreateBetDTO {
+    /** ID único offline */
+    offlineId: string;
+
+    /** Timestamp de creación */
+    timestamp: number;
+
     /** Impacto financiero calculado localmente */
     financialImpact?: FinancialImpact;
 
@@ -86,7 +93,10 @@ export type PendingBetV2 = Omit<LegacyPendingBet, 'status'> & {
 
     /** Timestamp de sincronización exitosa */
     syncedAt?: number;
-};
+
+    /** Error message (legacy support) */
+    errorMessage?: string;
+}
 
 /**
  * Resultado de una operación de sincronización
@@ -310,6 +320,7 @@ export const OFFLINE_STORAGE_KEYS = {
     SYNC_METADATA: '@sync_metadata',
     DRAWS: '@draws', // Nueva base de datos de sorteos principal
     SUMMARY: '@summary', // Nueva base de datos de resumen principal
+    LAST_RESET_DATE: '@last_reset_date', // Fecha del último reset nocturno
 } as const;
 
 export const SYNC_CONSTANTS = {
@@ -327,6 +338,12 @@ export const SYNC_CONSTANTS = {
 
     /** Días para limpiar apuestas sync */
     DAYS_TO_CLEANUP: 7,
+
+    /** Horas hasta bloquear una apuesta sin sincronizar */
+    BLOCK_AFTER_HOURS: 24,
+
+    /** Hora del reset nocturno (0 = medianoche) */
+    RESET_HOUR: 0,
 } as const;
 
 // ============================================================================
@@ -404,7 +421,8 @@ export type DomainEventType =
     | 'SYNC_STARTED'
     | 'SYNC_COMPLETED'
     | 'SYNC_ERROR'
-    | 'MAINTENANCE_COMPLETED';
+    | 'MAINTENANCE_COMPLETED'
+    | 'BETS_BLOCKED';
 
 export interface DomainEvent<T = any> {
     type: DomainEventType;
@@ -422,7 +440,7 @@ export type DomainEventCallback = (event: DomainEvent) => void;
 /**
  * Verifica si un PendingBet es V2 (tiene los campos nuevos)
  */
-export function isPendingBetV2(bet: LegacyPendingBet | PendingBetV2): bet is PendingBetV2 {
+export function isPendingBetV2(bet: any | PendingBetV2): bet is PendingBetV2 {
     return 'status' in bet || 'financialImpact' in bet;
 }
 

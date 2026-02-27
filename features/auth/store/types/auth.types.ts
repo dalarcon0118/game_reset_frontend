@@ -11,6 +11,8 @@ export interface User {
         id: number | string;
         name?: string;
         commission_rate?: number;
+        type?: string;
+        role_in_structure?: string;
     };
     // Add other user properties as needed
 }

@@ -1,22 +1,17 @@
 import { GameType } from '@/types';
 import { BetType } from '@/shared/services/draw/types';
+import logger from '@/shared/utils/logger';
+
+const log = logger.withTag('[BetTypeMapper]');
 
 // Normalizamos los códigos para asegurar que coincidan con GameType
-const normalizeCode = (code?: string, name?: string): GameType['code'] => {
+const normalizeCode = (code?: string, name?: string): string => {
   const input = code || name || '';
-  const upperInput = input.toUpperCase();
-
-  if (upperInput.includes('FIJO')) return 'FIJO';
-  if (upperInput.includes('PARLET')) return 'PARLET';
-  if (upperInput.includes('CORRIDO')) return 'CORRIDO';
-  if (upperInput.includes('CENTENA')) return 'CENTENA';
-  if (upperInput.includes('QUINIELA') || upperInput.includes('DIRECTA')) return 'QUINIELA_DIRECTA';
-
-  // Fallback seguro
-  return 'FIJO';
+  return input.toUpperCase();
 };
 
 export const mapBetTypeToGameType = (betType: BetType): GameType => {
+  log.debug('mapBetTypeToGameType', betType);
   return {
     id: betType.id.toString(),
     name: betType.name,

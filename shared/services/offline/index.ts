@@ -213,12 +213,34 @@ export class OfflineFinancialService {
     static async initialize(): Promise<void> {
         if (!this.initPromise) {
             this.initPromise = (async () => {
-                await OfflineFinancialStorage.initialize();
-                log.info('Initialized');
+                log.debug('OfflineFinancialService.initialize START');
 
-                // Exponer utilidades de debug en desarrollo
-                if (__DEV__) {
-                    this.exposeDebugUtilities();
+                // Timeout promise to prevent infinite hanging
+                const timeoutMs = 5000;
+                const timeoutPromise = new Promise<void>((_, reject) => {
+                    setTimeout(() => reject(new Error(`OfflineFinancialService initialization timed out after ${timeoutMs}ms`)), timeoutMs);
+                });
+
+                try {
+                    // Race between initialization and timeout
+                    await Promise.race([
+                        OfflineFinancialStorage.initialize(),
+                        timeoutPromise
+                    ]);
+
+                    log.info('OfflineFinancialService Initialized successfully');
+
+                    // Ejecutar mantenimiento de bloqueo y reset al iniciar
+                    await this.runInitialMaintenance();
+
+                    // Exponer utilidades de debug en desarrollo
+                    if (__DEV__) {
+                        this.exposeDebugUtilities();
+                    }
+                } catch (error) {
+                    log.error('OfflineFinancialService initialization failed', error);
+                    // Rethrow to ensure initPromise rejects
+                    throw error;
                 }
             })();
         }
@@ -237,10 +259,46 @@ export class OfflineFinancialService {
     }
 
     /**
+     * Realiza tareas de mantenimiento iniciales
+     */
+    private static async runInitialMaintenance(): Promise<void> {
+        try {
+            log.info('Running initial maintenance check...');
+            // Solo reset nocturno al inicio. El bloqueo se encarga el worker o el validador
+            const resetResult = await OfflineFinancialStorage.checkMidnightReset();
+            if (resetResult.reset) {
+                log.info(resetResult.message);
+            }
+        } catch (error) {
+            log.error('Error in initial maintenance', error);
+        }
+    }
+
+    /**
+     * Verifica si la aplicación debe estar bloqueada por apuestas pendientes antiguas
+     */
+    static async isAppBlocked(): Promise<{ blocked: boolean; blockedBetsCount: number }> {
+        await this.ensureInitialized();
+        const blockedBets = await OfflineFinancialStorage.getPendingBetsByStatusV2('blocked');
+        return {
+            blocked: blockedBets.length > 0,
+            blockedBetsCount: blockedBets.length
+        };
+    }
+
+    /**
      * Crea una nueva apuesta offline
      */
     static async placeBet(betData: CreateBetDTO & { commissionRate?: number }): Promise<PendingBetV2> {
         await this.ensureInitialized();
+
+        // Verificar si la aplicación está bloqueada antes de permitir nuevas apuestas
+        const blockStatus = await this.isAppBlocked();
+        if (blockStatus.blocked) {
+            log.error('Cannot place bet: App is blocked due to unsynced bets > 24h');
+            throw new Error(`APUESTA_BLOQUEADA: Tienes ${blockStatus.blockedBetsCount} apuestas pendientes de más de 24h. Debes sincronizar antes de continuar.`);
+        }
+
         const localId = uuidv4();
         const now = Date.now();
         const commissionRate = betData.commissionRate || 0.1;

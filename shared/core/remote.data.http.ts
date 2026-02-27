@@ -1,9 +1,15 @@
+import { logger } from '../utils/logger';
 import { RemoteData, WebData } from './remote.data';
 import { Cmd } from './cmd';
-import { logger } from '../utils/logger';
 import { Result } from 'neverthrow';
 
 const log = logger.withTag('REMOTE_DATA_HTTP');
+
+// Log de diagnóstico para verificar que RemoteData está disponible
+log.debug('RemoteDataHttp module loaded', {
+  hasRemoteData: typeof RemoteData !== 'undefined',
+  remoteDataKeys: typeof RemoteData !== 'undefined' ? Object.keys(RemoteData) : 'N/A'
+});
 
 /**
  * Configuration for the HTTP request.
@@ -127,6 +133,13 @@ export const RemoteDataHttp = {
 
     return Cmd.task({
       task: async () => {
+        // DIAGNOSTIC LOG: Verificar RemoteData en el scope del task
+        log.debug('RemoteDataHttp.fetch task executing', {
+          hasRemoteData: typeof RemoteData !== 'undefined',
+          remoteDataKeys: typeof RemoteData !== 'undefined' ? Object.keys(RemoteData) : 'N/A',
+          label: label || 'REMOTE_DATA_HTTP_FETCH'
+        });
+
         try {
           const result = await task();
 
@@ -156,8 +169,24 @@ export const RemoteDataHttp = {
           throw error;
         }
       },
-      onSuccess: (data: T) => msgCreator(RemoteData.success(data)),
-      onFailure: (error: any) => msgCreator(RemoteData.failure(error)),
+      onSuccess: (data: T) => {
+        // DIAGNOSTIC LOG: Verificar RemoteData en onSuccess
+        log.debug('RemoteDataHttp.fetch onSuccess', {
+          hasRemoteData: typeof RemoteData !== 'undefined',
+          dataType: typeof data,
+          label: label || 'REMOTE_DATA_HTTP_FETCH'
+        });
+        return msgCreator(RemoteData.success(data));
+      },
+      onFailure: (error: any) => {
+        // DIAGNOSTIC LOG: Verificar RemoteData en onFailure
+        log.debug('RemoteDataHttp.fetch onFailure', {
+          hasRemoteData: typeof RemoteData !== 'undefined',
+          errorType: typeof error,
+          label: label || 'REMOTE_DATA_HTTP_FETCH'
+        });
+        return msgCreator(RemoteData.failure(error));
+      },
       label: label || 'REMOTE_DATA_HTTP_FETCH'
     });
   }

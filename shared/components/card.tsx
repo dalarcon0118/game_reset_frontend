@@ -6,13 +6,15 @@ export interface CardProps {
   style?: StyleProp<ViewStyle>;
   padding?: number;
   onPress?: () => void;
+  collapsable?: boolean;
 }
 
 export const Card: React.FC<CardProps> = ({ 
   children, 
   style, 
   padding = 16,
-  onPress 
+  onPress,
+  collapsable
 }) => {
   const containerStyles = [
     styles.container, 
@@ -33,7 +35,7 @@ export const Card: React.FC<CardProps> = ({
   }
 
   return (
-    <View style={containerStyles}>
+    <View style={containerStyles} collapsable={collapsable}>
       {children}
     </View>
   );

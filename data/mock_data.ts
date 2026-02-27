@@ -1,4 +1,5 @@
 import { BetType, DrawRules, DrawType, FinancialSummary, GameType, FijosCorridosBet, ParletBet, CentenaBet } from '../types';
+import { BET_TYPE_KEYS } from '@/shared/types/bet_types';
 
 export const mockFinancialSummary: FinancialSummary = {
   totalCollected: 250.75,
@@ -47,7 +48,7 @@ export const mockDraws: DrawType[] = [
 export const mockRecentBets: BetType[] = [
   {
     id: '1',
-    type: 'Fijo',
+    type: BET_TYPE_KEYS.FIJO,
     numbers: '23',
     amount: 5.00,
     draw: 'Florida Mañana',
@@ -55,7 +56,7 @@ export const mockRecentBets: BetType[] = [
   },
   {
     id: '2',
-    type: 'Parlet',
+    type: BET_TYPE_KEYS.PARLET,
     numbers: '15-88',
     amount: 10.00,
     draw: 'NY Noche',
@@ -63,7 +64,7 @@ export const mockRecentBets: BetType[] = [
   },
   {
     id: '3',
-    type: 'Corrido',
+    type: BET_TYPE_KEYS.CORRIDO,
     numbers: '42',
     amount: 3.00,
     draw: 'Florida Mañana',
@@ -71,7 +72,7 @@ export const mockRecentBets: BetType[] = [
   },
   {
     id: '4',
-    type: 'Fijo',
+    type: BET_TYPE_KEYS.FIJO,
     numbers: '67',
     amount: 8.00,
     draw: 'La Habana Tarde',
@@ -79,7 +80,7 @@ export const mockRecentBets: BetType[] = [
   },
   {
     id: '5',
-    type: 'Parlet',
+    type: BET_TYPE_KEYS.PARLET,
     numbers: '31-74',
     amount: 6.00,
     draw: 'NY Noche',
@@ -87,7 +88,7 @@ export const mockRecentBets: BetType[] = [
   },
   {
     id: '6',
-    type: 'Fijo',
+    type: BET_TYPE_KEYS.FIJO,
     numbers: '19',
     amount: 4.00,
     draw: 'Miami Mañana',

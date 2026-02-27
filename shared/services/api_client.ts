@@ -159,12 +159,22 @@ const apiClient = {
         onTokenRefreshed('');
         return null;
       }
-    } catch (error) {
+    } catch (error: any) {
+      // Solo llamar onSessionExpired para errores de autenticación (401/403)
+      // Errores de red (backend caído) no deben causar logout
+      const isAuthError = error?.status === 401 || error?.status === 403;
+
       currentAccessToken = null;
       onTokenRefreshed('');
-      if (onSessionExpired) {
-        log.warn('Refresh token failed, session expired.');
+
+      if (isAuthError && onSessionExpired) {
+        log.warn('Refresh token failed (401/403), session expired.');
         onSessionExpired();
+      } else if (!isAuthError) {
+        // Error de red u otro error del servidor - no es problema de autenticación
+        log.warn('Refresh token failed (network/server error), NOT calling session expired.', {
+          error: error?.message || error?.toString()
+        });
       }
       throw error;
     } finally {

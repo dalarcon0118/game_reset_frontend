@@ -7,6 +7,7 @@ import { AppKernel } from '../architecture/kernel';
 import { logger } from '../../utils/logger';
 import { pluginEventBus } from './plugin.event_bus';
 import { storageClient } from '../../services/storage_client';
+import { Registry } from '../utils/registry';
 
 const log = logger.withTag('PLUGIN_REGISTRY');
 
@@ -16,21 +17,32 @@ interface RegisteredPlugin {
 }
 
 class PluginManagerRegistry {
-    private plugins: Map<string, RegisteredPlugin> = new Map();
+    private registry = new Registry<RegisteredPlugin>('PLUGIN_REGISTRY');
     private hostStore: any = null;
 
     /**
      * Registra un nuevo plugin en el sistema.
      */
     register(plugin: Plugin, hostState?: any, hostStore?: any): void {
-        if (this.plugins.has(plugin.id)) {
-            log.warn(`Plugin ${plugin.id} is already registered.`);
-            return;
-        }
-
-        // Almacenar el hostStore si se proporciona
+        // DEFENSIVE: Always update hostStore reference if provided
+        // This ensures we have the latest store instance even if plugins were registered before
         if (hostStore) {
             this.hostStore = hostStore;
+        }
+
+        if (this.registry.has(plugin.id)) {
+            log.warn(`Plugin ${plugin.id} is already registered. Updating context references.`);
+
+            // DEFENSIVE: Update existing plugin context with latest store/state
+            // This fixes the issue where plugins kept stale references after navigation/reload
+            const registered = this.registry.get(plugin.id)!;
+            if (hostStore) {
+                registered.context.hostStore = hostStore;
+            }
+            if (hostState) {
+                registered.context.state = hostState;
+            }
+            return;
         }
 
         const context = this.createContext(plugin.id, hostState);
@@ -43,7 +55,7 @@ class PluginManagerRegistry {
                 plugin.init(context);
             }
 
-            this.plugins.set(plugin.id, { plugin, context });
+            this.registry.register(plugin.id, { plugin, context });
 
             // Notificar que se ha registrado un plugin (para reactividad de Slots)
             pluginEventBus.publish('sys:plugin_registered', { pluginId: plugin.id });
@@ -58,7 +70,7 @@ class PluginManagerRegistry {
      * Obtiene todas las extensiones (componentes) registradas para un Slot específico.
      * Retorna los componentes ordenados por prioridad.
      */
-    getExtensionsForSlot(slotName: string) {
+    getExtensionsForSlot(slotName: string): any[] {
         const extensions: {
             id: string;
             component: React.ComponentType<any>;
@@ -66,17 +78,23 @@ class PluginManagerRegistry {
             context: PluginContext;
         }[] = [];
 
-        for (const { plugin, context } of this.plugins.values()) {
+        // Iterar sobre todos los plugins registrados
+        const allPlugins = this.registry.getAll();
+        
+        allPlugins.forEach((entry) => {
+            const { plugin, context } = entry;
+            
+            // Verificar si el plugin tiene slots y si tiene el slot específico que buscamos
             if (plugin.slots && plugin.slots[slotName]) {
                 const slotConfig = plugin.slots[slotName];
                 extensions.push({
                     id: plugin.id,
                     component: slotConfig.component,
                     layout: slotConfig.layout,
-                    context
+                    context: context
                 });
             }
-        }
+        });
 
         // Ordenar por prioridad (menor número = antes)
         return extensions.sort((a, b) => {
@@ -170,11 +188,11 @@ class PluginManagerRegistry {
     }
 
     getPlugin(id: string) {
-        return this.plugins.get(id);
+        return this.registry.get(id);
     }
 
     getAllPlugins() {
-        return Array.from(this.plugins.values()).map(p => p.plugin);
+        return this.registry.getAll().map(p => p.plugin);
     }
 }
 

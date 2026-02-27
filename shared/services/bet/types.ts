@@ -1,15 +1,26 @@
+export interface GenericBetItemDTO {
+    betTypeId: number | string;
+    drawId?: number | string;
+    amount: number;
+    numbers: string | number | number[] | Record<string, any>;
+    localId?: string;
+}
+
 export interface CreateBetDTO {
+    drawId: string | number;
+    bets?: GenericBetItemDTO[];
+    receiptCode?: string;
+    // Legacy fields for backward compatibility
     draw?: number;
     game_type?: number;
     numbers_played?: any;
     amount?: number;
     owner_structure?: number;
-    drawId?: string;
     centenas?: any[];
     fijosCorridos?: any[];
     parlets?: any[];
     loteria?: any[];
-    receiptCode?: string;
+    betTypeid?: number | string; // Campo para ID dinámico del backend
 }
 
 export interface BackendBet {
@@ -42,6 +53,7 @@ export interface BackendBet {
 
 export interface ListBetsFilters {
     drawId?: string;
+    receiptCode?: string;
     limit?: number;
     offset?: number;
 }

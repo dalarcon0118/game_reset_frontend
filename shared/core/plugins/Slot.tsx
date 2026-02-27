@@ -41,11 +41,15 @@ export const Slot: React.FC<Props> = ({
   useEffect(() => {
     // Función para actualizar extensiones
     const updateExtensions = () => {
-      setExtensions(pluginManager.getExtensionsForSlot(name));
+      const newExtensions = pluginManager.getExtensionsForSlot(name);
+      setExtensions(newExtensions);
     };
 
     // Suscribirse al evento de registro
-    const unsubscribe = pluginEventBus.subscribe('sys:plugin_registered', updateExtensions);
+    const unsubscribe = pluginEventBus.subscribe('sys:plugin_registered', (data) => {
+        console.log(`[Slot:${name}] Plugin registered event received`, data);
+        updateExtensions();
+    });
 
     // Actualizar inmediatamente por si hubo cambios durante el montaje
     updateExtensions();

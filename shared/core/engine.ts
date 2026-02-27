@@ -5,6 +5,7 @@ import { globalEventRegistry } from './events';
 import { AppKernel } from './architecture/kernel';
 import { Return } from './return';
 import { TeaMiddleware, TeaMiddlewareCodec } from './middleware.types';
+import { MiddlewareRegistry } from './middleware_registry';
 import { isLeft } from 'fp-ts/Either';
 import { PathReporter } from 'io-ts/PathReporter';
 import { Cmd, CommandDescriptor } from './cmd';
@@ -19,9 +20,26 @@ export const createElmStore = <TModel, TMsg>(
     subscriptions?: (model: TModel) => SubDescriptor<TMsg>,
     middlewares: TeaMiddleware<TModel, TMsg>[] = []
 ) => {
+    // Combine global and local middlewares, filtering duplicates by ID
+    const combined = [...MiddlewareRegistry.getGlobals(), ...middlewares];
+    const allMiddlewares: TeaMiddleware<TModel, TMsg>[] = [];
+    const seenIds = new Set<string>();
+
+    for (const mw of combined) {
+        if (mw.id) {
+            if (seenIds.has(mw.id)) continue;
+            seenIds.add(mw.id);
+        }
+        allMiddlewares.push(mw);
+    }
+
+    // --- Metadata & Traceability System ---
+    // Engine only manages propagation, not business logic of metadata
+    const metaRegistry = new WeakMap<any, Record<string, any>>();
+
     // --- Middleware Validation ---
-    if (middlewares && middlewares.length > 0) {
-        middlewares.forEach((m, i) => {
+    if (allMiddlewares && allMiddlewares.length > 0) {
+        allMiddlewares.forEach((m, i) => {
             const result = TeaMiddlewareCodec.decode(m);
             if (isLeft(result)) {
                 logger.error(`Middleware at index ${i} is invalid`, 'ENGINE_INIT', { errors: PathReporter.report(result) });
@@ -77,7 +95,14 @@ export const createElmStore = <TModel, TMsg>(
             return isStorming;
         };
 
-        const executeCmds = (cmd: Cmd) => {
+        const executeCmds = (cmd: Cmd, parentMeta?: Record<string, any>) => {
+            const dispatchWithMeta = (nextMsg: TMsg) => {
+                if (parentMeta) {
+                    metaRegistry.set(nextMsg, { ...parentMeta });
+                }
+                get().dispatch(nextMsg);
+            };
+
             const flattenCmds = (c: Cmd): CommandDescriptor[] => {
                 if (!c) return [];
                 if (Array.isArray(c)) {
@@ -90,7 +115,6 @@ export const createElmStore = <TModel, TMsg>(
                         `[TEA_ENGINE] ERROR: Received a function instead of a CommandDescriptor. \n` +
                         `Did you forget to call a command creator like fetchXXXXCmd()? \n` +
                         `Source: ${(c as any).toString().substring(0, 100)}...`
-
                     );
                     logger.error(error.message, 'ENGINE_VALIDATION', error);
                     if (__DEV__) throw error;
@@ -110,14 +134,17 @@ export const createElmStore = <TModel, TMsg>(
 
                 if (singleCmd && effectHandlers[singleCmd.type]) {
                     try {
-                        logger.debug(`Executing Cmd: ${singleCmd.type}`, 'ENGINE', singleCmd.payload);
-                        const result = await effectHandlers[singleCmd.type](singleCmd.payload, get().dispatch);
+                        // Middleware: Before Command
+                        const currentMeta = parentMeta || {};
+                        allMiddlewares.forEach(m => m.beforeCmd?.(singleCmd, currentMeta));
+
+                        const result = await effectHandlers[singleCmd.type](singleCmd.payload, dispatchWithMeta);
                         if (singleCmd.payload && singleCmd.payload.msgCreator) {
-                            get().dispatch(singleCmd.payload.msgCreator(result));
+                            dispatchWithMeta(singleCmd.payload.msgCreator(result));
                         }
                     } catch (error) {
                         if (singleCmd.payload && singleCmd.payload.errorCreator) {
-                            get().dispatch(singleCmd.payload.errorCreator(error));
+                            dispatchWithMeta(singleCmd.payload.errorCreator(error));
                         } else {
                             logger.error(`Unhandled error in Cmd: ${singleCmd.type}`, 'ENGINE', error, { payload: singleCmd.payload });
                         }
@@ -136,14 +163,15 @@ export const createElmStore = <TModel, TMsg>(
         return {
             model: initialModel,
             init: (params?: any) => {
+                const initMeta = { traceId: 'INIT-' + Math.random().toString(36).substring(2, 6).toUpperCase() };
                 // If called with params, or if it's the first time and we have initial commands
                 if (params !== undefined && typeof initial === 'function') {
                     const [nextModel, cmd] = (initial as Function)(params);
                     set({ model: nextModel });
-                    if (cmd) executeCmds(cmd);
+                    if (cmd) executeCmds(cmd, initMeta);
                 } else if (initialCmd) {
                     // Execute initial commands if they exist
-                    executeCmds(initialCmd);
+                    executeCmds(initialCmd, initMeta);
                 }
             },
             cleanup: () => {
@@ -158,12 +186,19 @@ export const createElmStore = <TModel, TMsg>(
                 const msgType = (msg as any).type || 'UNKNOWN';
                 if (checkStorm(msgType)) return;
 
+                // --- Retrieve/Initialize Metadata ---
+                let meta = metaRegistry.get(msg);
+                if (!meta) {
+                    meta = {};
+                    metaRegistry.set(msg, meta);
+                }
+
                 let cmdToRun: Cmd = null;
 
                 try {
                     // Middlewares: Before Update
                     const prevModel = get().model;
-                    middlewares.forEach(m => m.beforeUpdate?.(prevModel, msg));
+                    allMiddlewares.forEach(m => m.beforeUpdate?.(prevModel, msg, meta!));
 
                     let nextModel: TModel;
                     let cmd: Cmd = null;
@@ -184,14 +219,14 @@ export const createElmStore = <TModel, TMsg>(
                     set({ model: nextModel });
 
                     // Middlewares: After Update
-                    middlewares.forEach(m => m.afterUpdate?.(prevModel, msg, nextModel, cmd || null));
+                    allMiddlewares.forEach(m => m.afterUpdate?.(prevModel, msg, nextModel, cmd || null, meta!));
 
                 } catch (error) {
                     const currentModel = get().model;
-                    logger.error(`Error in update function for Msg: ${msgType}`, 'ENGINE', error, { msg });
+                    logger.error(`Error in update function for Msg: ${msgType}`, 'ENGINE', error, { msg, meta });
 
                     // Middlewares: On Error
-                    middlewares.forEach(m => m.onUpdateError?.(currentModel, msg, error));
+                    allMiddlewares.forEach(m => m.onUpdateError?.(currentModel, msg, error, meta!));
 
                     if (__DEV__) {
                         // Fail Fast in development: This triggers the Red Box in React Native
@@ -201,7 +236,7 @@ export const createElmStore = <TModel, TMsg>(
                 }
 
 
-                if (cmdToRun) executeCmds(cmdToRun);
+                if (cmdToRun) executeCmds(cmdToRun, meta);
             },
         };
     });
@@ -238,7 +273,8 @@ export const createElmStore = <TModel, TMsg>(
                     const unsubscribe = externalStore.subscribe((state: any) => {
                         const selectedValue = selector(state.model || state);
                         // Solo disparamos si el valor seleccionado ha cambiado (shallow comparison)
-                        if (selectedValue !== lastValue) {
+                        // y si el valor no es null/undefined (para evitar mensajes inválidos)
+                        if (selectedValue !== lastValue && selectedValue != null) {
                             lastValue = selectedValue;
                             dispatch(msgCreator(selectedValue));
                         }

@@ -1,9 +1,9 @@
 import { createElmStore } from '@/shared/core/engine';
 import { createTestMiddleware } from '@/shared/core/middlewares/test.middleware';
-import { update } from '@/features/listero-dashboard/core/update';
-import { Msg } from '@/features/listero-dashboard/core/msg';
-import { Model } from '@/features/listero-dashboard/core/model';
-import { initialState } from '@/features/listero-dashboard/core/initial.types';
+import { update } from '@/features/listero/listero-dashboard/core/update';
+import { Msg } from '@/features/listero/listero-dashboard/core/msg';
+import { Model } from '@/features/listero/listero-dashboard/core/model';
+import { initialState } from '@/features/listero/listero-dashboard/core/initial.types';
 import { effectHandlers } from '@/shared/core/effect_handlers';
 import apiClient from '@/shared/services/api_client';
 import { AuthApi } from '@/shared/services/auth/api';

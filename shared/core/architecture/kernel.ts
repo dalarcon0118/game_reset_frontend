@@ -2,6 +2,7 @@
 import { DataProvider, AuthProvider, NotificationProvider, ResourceDefinition, Feature, Plugin, NavigationStrategy } from './interfaces';
 import { logger } from '../../utils/logger';
 import { SubDescriptor } from '../sub';
+import { Registry } from '../utils/registry';
 
 /**
  * Default fallback strategy if none is provided
@@ -33,12 +34,12 @@ class AppKernelRegistry {
     private _authProvider?: AuthProvider;
     private _notificationProvider?: NotificationProvider;
     private _navigationStrategy: NavigationStrategy = new DefaultNavigationStrategy();
-    private _resources: Map<string, ResourceDefinition> = new Map();
 
     // Registry for Modular Architecture
-    private _features: Map<string, Feature> = new Map();
-    private _plugins: Map<string, Plugin> = new Map();
-    private _subscriptionHandlers: Map<string, SubscriptionHandler> = new Map();
+    private _resources = new Registry<ResourceDefinition>('KERNEL_RESOURCES');
+    private _features = new Registry<Feature>('KERNEL_FEATURES');
+    private _plugins = new Registry<Plugin>('KERNEL_PLUGINS');
+    private _subscriptionHandlers = new Registry<SubscriptionHandler>('KERNEL_SUBSCRIPTIONS');
 
     private constructor() { }
 
@@ -68,7 +69,7 @@ class AppKernelRegistry {
 
         if (config.resources) {
             config.resources.forEach(res => {
-                this._resources.set(res.name, res);
+                this._resources.register(res.name, res);
             });
         }
 
@@ -113,37 +114,32 @@ class AppKernelRegistry {
      * @param config Optional configuration object to pass to the feature's configure method
      */
     registerFeature(feature: Feature, config?: any) {
-        if (this._features.has(feature.id)) {
-            logger.warn(`Feature ${feature.id} already registered. Overwriting.`, 'KERNEL');
-        }
-
         // 1. Dependency Injection / Configuration Phase
-        if (feature.configure && config) {
+        if (feature.configure) {
             try {
+                // Call configure even if config is undefined, to support parameterless setup
                 feature.configure(config);
                 logger.debug(`Feature ${feature.id} configured successfully`, 'KERNEL');
             } catch (e) {
                 logger.error(`Failed to configure feature ${feature.id}`, 'KERNEL', e);
-                throw e; // Fail fast if configuration fails
+                // We don't throw here to allow partial failures in configuration if needed,
+                // or we should throw if it's critical. The original code threw.
+                throw e;
             }
-        } else if (feature.configure && !config) {
-            logger.warn(`Feature ${feature.id} has a configure method but no config was provided`, 'KERNEL');
         }
 
         // 2. Registration Phase
-        this._features.set(feature.id, feature);
-        logger.info(`Feature registered: ${feature.id}`, 'KERNEL');
+        this._features.register(feature.id, feature, true); // true = overwrite allowed as per original warning
     }
 
     /**
      * Registers a global Plugin (Middleware).
      */
     registerPlugin(plugin: Plugin) {
-        this._plugins.set(plugin.id, plugin);
+        this._plugins.register(plugin.id, plugin);
         if (plugin.onInit) {
             plugin.onInit();
         }
-        logger.info(`Plugin registered: ${plugin.id}`, 'KERNEL');
     }
 
     /**
@@ -157,29 +153,33 @@ class AppKernelRegistry {
      * Retrieves all registered plugins.
      */
     getPlugins(): Plugin[] {
-        return Array.from(this._plugins.values());
+        return this._plugins.getAll();
     }
 
     /**
      * Registers a subscription handler that can be used by features
      */
     registerSubscriptionHandler(handler: SubscriptionHandler) {
-        this._subscriptionHandlers.set(handler.id, handler);
-        logger.info(`Subscription handler registered: ${handler.id}`, 'KERNEL');
+        this._subscriptionHandlers.register(handler.id, handler);
+        logger.info(`[KERNEL] Subscription handler registered: ${handler.id}`, 'KERNEL');
     }
 
     /**
      * Gets a registered subscription handler by ID
      */
     getSubscriptionHandler(id: string): SubscriptionHandler | undefined {
-        return this._subscriptionHandlers.get(id);
+        const handler = this._subscriptionHandlers.get(id);
+        if (!handler) {
+            logger.warn(`[KERNEL] Subscription handler not found: ${id}. Available: ${this._subscriptionHandlers.getIds().join(', ')}`, 'KERNEL');
+        }
+        return handler;
     }
 
     /**
      * Gets all registered subscription handlers
      */
-    getSubscriptionHandlers(): Map<string, SubscriptionHandler> {
-        return this._subscriptionHandlers;
+    getSubscriptionHandlers(): SubscriptionHandler[] {
+        return this._subscriptionHandlers.getAll();
     }
 
     /**
@@ -191,7 +191,7 @@ class AppKernelRegistry {
      */
     resolveUpdate(msg: any): { update: (state: any) => any, featureId: string } | null {
         // 1. Check features with adapters (Priority/Complex)
-        for (const feature of this._features.values()) {
+        for (const feature of this._features.getAll()) {
             if (feature.adapter) {
                 const innerMsg = feature.adapter.lower(msg);
                 if (innerMsg) {

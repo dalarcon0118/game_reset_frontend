@@ -1,3 +1,5 @@
+import { Registry } from './utils/registry';
+
 export interface EventDescriptor {
     readonly type: string;
     readonly platform: 'generic' | 'react-native' | 'dom';
@@ -16,18 +18,18 @@ export interface EventRegistry {
 }
 
 export class SimpleEventRegistry implements EventRegistry {
-    private handlers = new Map<string, EventHandler>();
+    private registry = new Registry<EventHandler>('EVENT_REGISTRY');
 
     register(event: EventDescriptor, handler: EventHandler): void {
-        this.handlers.set(event.type, handler);
+        this.registry.register(event.type, handler, true); // Overwrite by default in original implementation? It was just set()
     }
 
     getHandler(event: EventDescriptor): EventHandler | undefined {
-        return this.handlers.get(event.type);
+        return this.registry.get(event.type);
     }
 
     unregister(event: EventDescriptor): void {
-        this.handlers.delete(event.type);
+        this.registry.unregister(event.type);
     }
 }
 

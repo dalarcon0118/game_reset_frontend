@@ -8,6 +8,10 @@ import { logger } from '../../../shared/utils/logger';
 
 const log = logger.withTag('AUTH_UPDATE');
 
+// Helper to check if two users are effectively equal
+// DEPRECATED: Using simple ID comparison for performance as requested
+// const areUsersEqual = (u1: User | null, u2: User | null): boolean => { ... };
+
 // Pure update function for authentication
 export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => {
     return match(msg)
@@ -261,10 +265,22 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
 
         .with({ type: AuthMsgType.CHECK_AUTH_STATUS_RESPONSE_RECEIVED }, ({ user }) => {
             if (user) {
+                // If user data hasn't changed (same ID), keep the old reference to avoid unnecessary re-renders.
+                // NOTE: This intentionally ignores changes in other fields (role, name, etc) for performance,
+                // as requested by user. Only a full logout/login will refresh updated user data.
+                const isSameUser = model.user && model.user.id === user.id;
+                const finalUser = isSameUser ? model.user! : user;
+
+                if (isSameUser) {
+                    log.info('User identity validated, reference preserved (ID match)');
+                } else {
+                    log.info('User identity updated', { old: model.user?.id, new: user.id });
+                }
+
                 return [
                     {
                         ...model,
-                        user,
+                        user: finalUser,
                         isAuthenticated: true,
                         isLoading: false,
                         isOffline: false,

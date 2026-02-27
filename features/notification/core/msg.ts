@@ -21,6 +21,7 @@ export type Msg =
     | { type: 'AUTH_USER_SYNCED'; user: any }
     | { type: 'NAVIGATE_TO_DETAIL'; notification: AppNotification }
     | { type: 'NAVIGATE_BACK' }
+    | { type: 'CHECK_TOKEN_VALIDITY' }
     | { type: 'NONE' }
     | { type: 'NOTIFICATION_ERROR'; error: string };
 

@@ -1,14 +1,12 @@
 import React from 'react';
-import { GameLoader } from '@/features/bet-workspace/games/game_loader';
 import { useLocalSearchParams } from 'expo-router';
+import LoteriaListPlays from '@/features/listero/bet-loteria/screens/loteria_list_plays';
 
 export default function BetsListPage() {
   const { id, title } = useLocalSearchParams();
   return (
-    <GameLoader
+    <LoteriaListPlays
       drawId={id as string}
-      title={title as string}
-      mode="list"
     />
   );
 }

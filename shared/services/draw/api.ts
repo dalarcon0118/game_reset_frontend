@@ -41,9 +41,8 @@ export const DrawApi = {
 
     log.debug('<<< API CALL: GET draws', { queryParams });
     const response = await apiClient.get<any>(settings.api.endpoints.draws(), { queryParams });
-    log.debug('<<< API CALL: GET draws response', JSON.stringify(response, null, 2));
     const data = normalizeListResponse<BackendDraw>(response);
-    log.debug('<<< API CALL: GET draws data', JSON.stringify(data, null, 2));
+    log.debug('<<< API CALL: GET draws data', JSON.stringify(data));
 
     return decodeOrFallback(BackendDrawArrayCodec, data, 'list');
   },

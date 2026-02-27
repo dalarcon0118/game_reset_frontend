@@ -39,6 +39,12 @@ config.resolver.blockList = exclusionList([
 // Add resolver to handle potential bridge issues
 config.resolver = {
   ...config.resolver,
+  alias: {
+    '@': path.resolve(projectRoot, '.'),
+    '@shared': path.resolve(projectRoot, 'shared'),
+    '@features': path.resolve(projectRoot, 'features'),
+    '@core': path.resolve(projectRoot, 'shared/core'),
+  },
   assetExts: [
     ...config.resolver.assetExts,
     'bin',

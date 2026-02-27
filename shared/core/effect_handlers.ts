@@ -74,9 +74,10 @@ export const effectHandlers = new Proxy(
             return async (payload: any, dispatch: (msg: any) => void) => {
                 const handler = EffectRegistry.get(key);
                 if (handler) {
+                    console.log(`[EFFECT_HANDLER] ✅ Found handler for: ${key}`);
                     await handler(payload, dispatch);
                 } else {
-                    console.error(`Effect handler not found for key: ${key}`);
+                    console.error(`[EFFECT_HANDLER] ❌ Handler not found for key: ${key}`);
                     // @ts-ignore
                     const registryId = EffectRegistry.instanceId;
                     console.error(`Current Registry ID: ${registryId}`);

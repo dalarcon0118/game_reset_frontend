@@ -1,9 +1,9 @@
 import { useAuth } from '../../../auth';
 import useDataFetch from "@/shared/hooks/use_data_fetch";
-import { ListeroDetails, StructureService } from "@/shared/services/structure";
-import { useTheme } from "@ui-kitten/components";
-import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "expo-router";
+import { useTheme } from "@ui-kitten/components";
+import { ListeroDetails, StructureService } from "@/shared/services/structure";
 
 const formatDateToString = (date: Date) => {
     return date.toISOString().split('T')[0];

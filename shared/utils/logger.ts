@@ -15,6 +15,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type LogLevel = 'info' | 'warn' | 'error' | 'debug';
 
+export interface LogContext {
+    traceId?: string;
+    category?: 'BUSINESS' | 'INFRA' | 'NETWORK' | 'UI';
+    importance?: 'HIGH' | 'LOW';
+    [key: string]: any;
+}
+
 /**
  * Genera un color consistente (hex) basado en una cadena de texto.
  * Utiliza el algoritmo djb2 para crear un hash y mapearlo a colores HSL vibrantes.
@@ -84,10 +91,17 @@ function getAnsiColorFromTag(tag: string): string {
     return ANSI_TAG_COLORS[Math.abs(hash) % ANSI_TAG_COLORS.length];
 }
 
+// Detect environment
+// In React Native, we might be in the remote debugger (Chrome) or in the terminal (Metro)
 const isBrowser = typeof document !== 'undefined';
+const isRemoteDebugger = typeof window !== 'undefined' && !!(window as any).chrome;
+const useBrowserFormatting = isBrowser || isRemoteDebugger;
 
 class Logger {
-    constructor() {
+    private context: LogContext = {};
+
+    constructor(context: LogContext = {}) {
+        this.context = context;
         this.info = this.info.bind(this);
         this.warn = this.warn.bind(this);
         this.error = this.error.bind(this);
@@ -100,20 +114,37 @@ class Logger {
         tag?: string,
     ): { text: string; style: string; ansiText: string } {
         try {
-            const timestamp = new Date().toISOString();
+            const timestamp = new Date().toLocaleTimeString();
             const tagStr = tag ? `[${tag}]` : '';
-            const plainText = `${timestamp} [${level.toUpperCase()}]${tagStr} ${message}`;
+            const traceStr = this.context.traceId ? `(#${this.context.traceId})` : '';
+            const categoryStr = this.context.category ? `[${this.context.category}]` : '';
+
+            // Texto base sin colores (para logs planos o fallback)
+            // Filtramos elementos vacíos y unimos con un solo espacio
+            const plainText = [timestamp, categoryStr, traceStr, tagStr, message]
+                .filter(Boolean)
+                .join(' ');
 
             // Browser styling (%c)
             const color = tag ? generateColorFromTag(tag) : LEVEL_COLORS[level];
-            const style = `color: ${color}; font-weight: bold; font-size: 12px;`;
+            const style = `color: ${color}; font-weight: bold; font-size: 11px;`;
 
             // Terminal styling (ANSI)
             const levelColor = ANSI_COLORS[level];
             const tagColor = tag ? getAnsiColorFromTag(tag) : levelColor;
+
             const ansiTagStr = tag ? `${tagColor}[${tag}]${ANSI_COLORS.reset}` : '';
-            const ansiLevelStr = `${levelColor}[${level.toUpperCase()}]${ANSI_COLORS.reset}`;
-            const ansiText = `${timestamp} ${ansiLevelStr}${ansiTagStr} ${message}`;
+            const ansiTraceStr = this.context.traceId ? `\x1b[94m(#${this.context.traceId})\x1b[0m` : '';
+            const ansiCategoryStr = this.context.category ? `\x1b[35m[${this.context.category}]\x1b[0m` : '';
+
+            // Construimos el log con colores ANSI
+            const ansiText = [
+                timestamp,
+                ansiCategoryStr,
+                ansiTraceStr,
+                ansiTagStr,
+                message
+            ].filter(Boolean).join(' ');
 
             return { text: plainText, style, ansiText };
         } catch (e) {
@@ -152,15 +183,23 @@ class Logger {
             group: (message: string, ...args: any[]) => this.group(message, tag, ...args),
             groupCollapsed: (message: string, ...args: any[]) => this.groupCollapsed(message, tag, ...args),
             groupEnd: () => this.groupEnd(),
+            withContext: (ctx: Partial<LogContext>) => this.withContext({ ...this.context, ...ctx }).withTag(tag),
         };
+    }
+
+    /**
+     * Creates a new logger instance with the given context merged with current context.
+     */
+    withContext(context: Partial<LogContext>): Logger {
+        return new Logger({ ...this.context, ...context });
     }
 
     info(message: string, tag?: string, ...args: any[]) {
         if (__DEV__) {
             try {
-                const { style, ansiText } = this.formatMessage('info', message, tag);
-                if (isBrowser) {
-                    console.log(`%c${ansiText.replace(/\x1b\[[0-9;]*m/g, '')}`, style, ...args);
+                const { style, text, ansiText } = this.formatMessage('info', message, tag);
+                if (useBrowserFormatting) {
+                    console.log(`%c${text}`, style, ...args);
                 } else {
                     console.log(ansiText, ...args);
                 }
@@ -175,9 +214,9 @@ class Logger {
     warn(message: string, tag?: string, ...args: any[]) {
         if (__DEV__) {
             try {
-                const { style, ansiText } = this.formatMessage('warn', message, tag);
-                if (isBrowser) {
-                    console.log(`%c${ansiText.replace(/\x1b\[[0-9;]*m/g, '')}`, style, ...args);
+                const { style, text, ansiText } = this.formatMessage('warn', message, tag);
+                if (useBrowserFormatting) {
+                    console.log(`%c${text}`, style, ...args);
                 } else {
                     console.log(ansiText, ...args);
                 }
@@ -193,9 +232,9 @@ class Logger {
         if (__DEV__) {
             try {
                 const serializedError = this.serializeError(error);
-                const { style, ansiText } = this.formatMessage('error', message, tag);
-                if (isBrowser) {
-                    console.log(`%c${ansiText.replace(/\x1b\[[0-9;]*m/g, '')}`, style, serializedError, ...args);
+                const { style, text, ansiText } = this.formatMessage('error', message, tag);
+                if (useBrowserFormatting) {
+                    console.log(`%c${text}`, style, serializedError, ...args);
                 } else {
                     console.log(ansiText, serializedError, ...args);
                 }
@@ -211,9 +250,9 @@ class Logger {
     debug(message: string, tag?: string, ...args: any[]) {
         if (__DEV__) {
             try {
-                const { style, ansiText } = this.formatMessage('debug', message, tag);
-                if (isBrowser) {
-                    console.log(`%c${ansiText.replace(/\x1b\[[0-9;]*m/g, '')}`, style, ...args);
+                const { style, text, ansiText } = this.formatMessage('debug', message, tag);
+                if (useBrowserFormatting) {
+                    console.log(`%c${text}`, style, ...args);
                 } else {
                     console.log(ansiText, ...args);
                 }
@@ -259,11 +298,11 @@ class Logger {
      */
     group(message: string, tag?: string, ...args: any[]) {
         if (!__DEV__) return;
-        
+
         try {
-            const { style, ansiText } = this.formatMessage('info', message, tag);
-            if (isBrowser) {
-                console.group(`%c${ansiText.replace(/\x1b\[[0-9;]*m/g, '')}`, style, ...args);
+            const { style, text, ansiText } = this.formatMessage('info', message, tag);
+            if (useBrowserFormatting) {
+                console.group(`%c${text}`, style, ...args);
             } else {
                 console.log('┌─ GROUP: ' + ansiText, ...args);
             }
@@ -278,11 +317,11 @@ class Logger {
      */
     groupCollapsed(message: string, tag?: string, ...args: any[]) {
         if (!__DEV__) return;
-        
+
         try {
-            const { style, ansiText } = this.formatMessage('info', message, tag);
-            if (isBrowser) {
-                console.groupCollapsed(`%c${ansiText.replace(/\x1b\[[0-9;]*m/g, '')}`, style, ...args);
+            const { style, text, ansiText } = this.formatMessage('info', message, tag);
+            if (useBrowserFormatting) {
+                console.groupCollapsed(`%c${text}`, style, ...args);
             } else {
                 console.log('┌─ GROUP (collapsed): ' + ansiText, ...args);
             }
@@ -297,9 +336,9 @@ class Logger {
      */
     groupEnd() {
         if (!__DEV__) return;
-        
+
         try {
-            if (isBrowser) {
+            if (useBrowserFormatting) {
                 console.groupEnd();
             } else {
                 console.log('└─ END GROUP');

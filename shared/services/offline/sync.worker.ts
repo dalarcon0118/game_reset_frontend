@@ -6,6 +6,9 @@
  */
 
 import { OfflineFinancialStorage } from './storage.service';
+import { BetMaintenancePolicies } from './domain/bet.maintenance';
+import storageClient from '../storage_client';
+import { OFFLINE_STORAGE_KEYS } from './types';
 import NetInfo from '@react-native-community/netinfo';
 import { isServerReachable } from '../../utils/network';
 import {
@@ -215,8 +218,53 @@ async function processBatch(config: WorkerConfig): Promise<SyncResult> {
 }
 
 /**
+ * Ejecuta tareas de mantenimiento (Bloqueo y Reset)
+ */
+async function runMaintenanceTasks(currentTime: number): Promise<void> {
+    const today = new Date(currentTime).toDateString();
+    log.debug('Running maintenance tasks...', { today });
+
+    try {
+        // 1. Reset nocturno
+        const lastReset = await storageClient.get<string>(OFFLINE_STORAGE_KEYS.LAST_RESET_DATE);
+        if (lastReset !== today) {
+            const removed = await OfflineFinancialStorage.applyMaintenancePolicy(
+                OFFLINE_STORAGE_KEYS.PENDING_BETS_V2,
+                (OfflineFinancialStorage as any).getPendingBetsV2,
+                BetMaintenancePolicies.midnightReset()
+            );
+            await storageClient.set(OFFLINE_STORAGE_KEYS.LAST_RESET_DATE, today);
+            if (removed > 0) log.info(`Midnight reset: ${removed} bets removed`);
+        }
+
+        // 2. Bloqueo de apuestas > 24h
+        const blocked = await OfflineFinancialStorage.applyMaintenancePolicy(
+            OFFLINE_STORAGE_KEYS.PENDING_BETS_V2,
+            (OfflineFinancialStorage as any).getPendingBetsV2,
+            BetMaintenancePolicies.blockOldBets(currentTime)
+        );
+        if (blocked > 0) {
+            log.warn(`${blocked} bets have been blocked due to sync timeout`);
+            // Emitir evento a través del storage para que llegue a los suscriptores
+            // Nota: El storage ya emite BETS_BLOCKED si usamos checkAndBlockOldBets
+            // Pero aquí lo hacemos manual por la política inyectada
+            (OfflineFinancialStorage as any).emitEvent?.({
+                type: 'BETS_BLOCKED',
+                entity: 'BETS',
+                payload: { count: blocked }
+            });
+        }
+    } catch (error) {
+        log.error('Error during maintenance tasks', error);
+    }
+}
+
+/**
  * Ejecuta un ciclo de sincronización
  */
+let lastMaintenanceTime = 0;
+const MAINTENANCE_INTERVAL = 3600000; // 1 hora
+
 async function runSyncCycle(config: WorkerConfig): Promise<void> {
     if (workerState.state !== 'running' || !workerState.isOnline) {
         return;
@@ -225,6 +273,13 @@ async function runSyncCycle(config: WorkerConfig): Promise<void> {
     try {
         emitEvent({ type: 'started' });
         await OfflineFinancialStorage.updateWorkerStatus('running');
+
+        // Astucia: Solo ejecutar mantenimiento si ha pasado el intervalo o es el primer ciclo
+        const now = Date.now();
+        if (now - lastMaintenanceTime > MAINTENANCE_INTERVAL) {
+            await runMaintenanceTasks(now);
+            lastMaintenanceTime = now;
+        }
 
         // 1. Procesar todas las entidades registradas con estrategia PULL
         // NOTA: Esto podría moverse a un "PullWorker" separado si crece mucho
@@ -245,7 +300,7 @@ async function runSyncCycle(config: WorkerConfig): Promise<void> {
             if (result.processed > 0 && result.succeeded === 0 && result.failed > 0) {
                 incrementConsecutiveErrors();
                 log.warn(`All ${result.processed} items failed. Incremented consecutive errors to ${workerState.consecutiveErrors}`);
-            } 
+            }
             // Si al menos uno tuvo éxito, reseteamos (o si no había nada que procesar)
             else if (result.succeeded > 0 || result.processed === 0) {
                 if (workerState.consecutiveErrors > 0) {
@@ -316,84 +371,12 @@ export async function startSyncWorker(userConfig?: Partial<WorkerConfig>): Promi
     }
 
     workerState.state = 'running';
+    log.info('Sync Worker started');
 
-    // 1. Suscribirse a cambios de red (Network-Aware)
-    if (!workerState.netInfoUnsubscribe) {
-        workerState.netInfoUnsubscribe = NetInfo.addEventListener(async state => {
-            const wasOnline = workerState.isOnline;
-
-            // Re-verificar con ping real si el estado básico cambió
-            if (state.isConnected) {
-                workerState.isOnline = await isServerReachable();
-            } else {
-                workerState.isOnline = false;
-            }
-
-            if (workerState.isOnline && !wasOnline && workerState.state === 'running') {
-                log.info('Network recovered, triggering immediate sync');
-                runSyncCycle(config);
-            }
-        });
-    }
-
-    // 2. Verificar conectividad inicial
-    await checkConnectivity();
-
-    log.info('Starting SmartSync', { isOnline: workerState.isOnline });
-    await OfflineFinancialStorage.updateWorkerStatus(workerState.isOnline ? 'running' : 'paused');
-
-    // 3. Ejecutar inmediatamente el primer ciclo si hay internet
-    if (workerState.isOnline) {
-        workerState.currentPromise = runSyncCycle(config);
-        await workerState.currentPromise;
-    }
-
-    // 4. Configurar intervalo adaptativo si hay items pendientes
-    const pendingItems = await OfflineFinancialStorage.getPendingQueueItems();
-    if (pendingItems.length > 0) {
-        setupAdaptiveInterval(config);
-    }
-}
-
-/**
- * Pausa el worker temporalmente
- */
-export async function pauseSyncWorker(): Promise<void> {
-    if (workerState.state !== 'running') {
-        return;
-    }
-
-    workerState.state = 'paused';
-    log.info('Worker paused');
-
-    if (workerState.intervalId) {
-        clearInterval(workerState.intervalId);
-        workerState.intervalId = null;
-    }
-
-    await OfflineFinancialStorage.updateWorkerStatus('paused');
-}
-
-/**
- * Reanuda el worker
- */
-export async function resumeSyncWorker(config?: Partial<WorkerConfig>): Promise<void> {
-    if (workerState.state !== 'paused') {
-        return;
-    }
-
-    workerState.state = 'running';
-    log.info('Resumed');
-
-    const fullConfig = { ...defaultWorkerConfig, ...config };
-
-    // Verificar si necesitamos el intervalo
-    const pendingItems = await OfflineFinancialStorage.getPendingQueueItems();
-    if (pendingItems.length > 0) {
-        setupAdaptiveInterval(fullConfig);
-    }
-
-    await OfflineFinancialStorage.updateWorkerStatus('running');
+    // Mantenemos la verificación de conectividad periódica
+    workerState.intervalId = setInterval(async () => {
+        await checkConnectivity();
+    }, 30000); // 30s para verificar conectividad
 }
 
 /**
@@ -406,12 +389,6 @@ export async function stopSyncWorker(): Promise<void> {
 
     workerState.state = 'stopping';
     log.info('Stopping...');
-
-    // Limpiar suscripción de red
-    if (workerState.netInfoUnsubscribe) {
-        workerState.netInfoUnsubscribe();
-        workerState.netInfoUnsubscribe = null;
-    }
 
     // Limpiar intervalo
     if (workerState.intervalId) {
@@ -429,6 +406,35 @@ export async function stopSyncWorker(): Promise<void> {
     resetWorkerStats();
 
     log.info('Stopped');
+}
+
+/**
+ * Disparador manual de sincronización para apuestas
+ * Se invoca desde la UI.
+ */
+export async function startManualSync(): Promise<{ success: number; failed: number }> {
+    log.info('Manual sync triggered');
+
+    // Lazy import para evitar ciclos
+    const { BetRepository } = require('../../repositories/bet/bet.repository');
+    const { BetStorageAdapter } = require('../../repositories/bet/adapters/bet.storage.adapter');
+    const { BetApiAdapter } = require('../../repositories/bet/adapters/bet.api.adapter');
+
+    const repo = new BetRepository(new BetStorageAdapter(), new BetApiAdapter());
+
+    if (!await isServerReachable()) {
+        throw new Error('Sin conexión al servidor');
+    }
+
+    emitEvent({ type: 'started' });
+    try {
+        const result = await repo.syncPending();
+        emitEvent({ type: 'completed' });
+        return result;
+    } catch (error: any) {
+        emitEvent({ type: 'error', error: error.message });
+        throw error;
+    }
 }
 
 /**

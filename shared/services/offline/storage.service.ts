@@ -1,11 +1,9 @@
 /**
  * Servicio de almacenamiento offline para estados financieros
- * 
- * Extiende la funcionalidad de OfflineStorage existente
- * manteniendo compatibilidad hacia atrás.
  */
 
 import storageClient from '../storage_client';
+import { BetMaintenancePolicies } from './domain/bet.maintenance';
 import {
     PendingBetV2,
     DrawFinancialState,
@@ -18,6 +16,7 @@ import {
     DomainEvent,
     DomainEventCallback,
     Unsubscribe,
+    SYNC_CONSTANTS,
 } from './types';
 import { logger } from '../../utils/logger';
 
@@ -61,6 +60,7 @@ function emitEvent(event: Omit<DomainEvent, 'timestamp'>): void {
 
 const STORAGE_VERSION = 'v2';
 const VERSION_KEY = '@offline_storage_version';
+const LAST_RESET_DATE_KEY = '@last_reset_date';
 
 // ============================================================================
 // FUNCIONES AUXILIARES
@@ -75,7 +75,7 @@ const now = (): number => Date.now();
  * Genera un UUID v4
  */
 const generateId = (): string => {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
         var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
         return v.toString(16);
     });
@@ -112,6 +112,14 @@ async function checkMigration(): Promise<void> {
                         }));
 
                         await storageClient.set(OFFLINE_STORAGE_KEYS.PENDING_BETS_V2, migratedBets);
+
+                        // Limpiar almacenamiento V1 después de migración exitosa
+                        try {
+                            await storageClient.remove('@pending_bets');
+                            log.info('Legacy V1 storage removed after successful migration');
+                        } catch (e) {
+                            log.warn('Failed to remove legacy V1 storage', e);
+                        }
 
                         // También migrar a la cola de sincronización si están pendientes
                         const queueItems: SyncQueueItem[] = migratedBets
@@ -228,6 +236,67 @@ async function getPendingBetsByDrawV2(drawId: string): Promise<PendingBetV2[]> {
 async function getPendingBetsByStatusV2(status: PendingBetV2['status']): Promise<PendingBetV2[]> {
     const bets = await getPendingBetsV2();
     return bets.filter(bet => bet.status === status);
+}
+
+/**
+ * Aplica una política de mantenimiento a una lista de items de forma atómica
+ */
+async function applyMaintenancePolicy<T>(
+    storageKey: string,
+    getItems: () => Promise<T[]>,
+    policy: (items: T[]) => { updated: T[], changes: number }
+): Promise<number> {
+    const items = await getItems();
+    const { updated, changes } = policy(items);
+
+    if (changes > 0) {
+        await storageClient.set(storageKey, updated);
+    }
+
+    return changes;
+}
+
+/**
+ * @deprecated Use applyMaintenancePolicy con BetMaintenancePolicies.blockOldBets
+ */
+async function checkAndBlockOldBets(): Promise<number> {
+    const changes = await applyMaintenancePolicy(
+        OFFLINE_STORAGE_KEYS.PENDING_BETS_V2,
+        getPendingBetsV2,
+        BetMaintenancePolicies.blockOldBets(Date.now())
+    );
+    if (changes > 0) {
+        emitEvent({
+            type: 'BETS_BLOCKED',
+            entity: 'BETS',
+            payload: { count: changes }
+        });
+    }
+    return changes;
+}
+
+/**
+ * @deprecated Use applyMaintenancePolicy con BetMaintenancePolicies.midnightReset
+ */
+async function checkMidnightReset(): Promise<{ reset: boolean; message: string }> {
+    const today = new Date().toDateString();
+    const lastReset = await storageClient.get<string>(OFFLINE_STORAGE_KEYS.LAST_RESET_DATE);
+
+    if (lastReset === today) {
+        return { reset: false, message: 'Reset already performed today' };
+    }
+
+    const removedCount = await applyMaintenancePolicy(
+        OFFLINE_STORAGE_KEYS.PENDING_BETS_V2,
+        getPendingBetsV2,
+        BetMaintenancePolicies.midnightReset()
+    );
+    await storageClient.set(OFFLINE_STORAGE_KEYS.LAST_RESET_DATE, today);
+
+    return {
+        reset: true,
+        message: `Reset realizado. Se eliminaron ${removedCount} apuestas pendientes.`
+    };
 }
 
 // ============================================================================
@@ -649,8 +718,9 @@ export const OfflineFinancialStorage = {
     removePendingBetV2,
     getPendingBetsByDrawV2,
     getPendingBetsByStatusV2,
-
-    // Draw Financial States
+    applyMaintenancePolicy,
+    checkAndBlockOldBets,
+    checkMidnightReset,
     getDrawState,
     saveDrawState,
     getAllDrawStates,

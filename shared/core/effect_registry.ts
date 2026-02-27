@@ -1,4 +1,5 @@
 import { logger } from '../utils/logger';
+import { Registry } from './utils/registry';
 
 const log = logger.withTag('EFFECT_REGISTRY');
 
@@ -18,7 +19,7 @@ export interface EffectModule {
 }
 
 class EffectRegistryImpl {
-  private handlers: Map<string, EffectHandler> = new Map();
+  private registry = new Registry<EffectHandler>('EFFECT_REGISTRY');
   private readonly instanceId: string;
 
   constructor() {
@@ -37,14 +38,7 @@ class EffectRegistryImpl {
 
     Object.entries(handlers).forEach(([key, handler]) => {
       const fullKey = `${prefix}${key}`;
-
-      if (this.handlers.has(fullKey) && !options.override) {
-        log.warn(`Effect handler collision for key "${fullKey}". Use override: true to replace.`);
-        throw new Error(`Effect handler collision: ${fullKey}`);
-      }
-
-      this.handlers.set(fullKey, handler);
-      log.info(`Registered effect handler: ${fullKey}`);
+      this.registry.register(fullKey, handler, options.override);
     });
   }
 
@@ -53,14 +47,14 @@ class EffectRegistryImpl {
    * @param key La clave del efecto (incluyendo namespace si aplica).
    */
   get(key: string): EffectHandler | undefined {
-    return this.handlers.get(key);
+    return this.registry.get(key);
   }
 
   /**
    * Obtiene todas las claves registradas.
    */
   keys(): string[] {
-    return Array.from(this.handlers.keys());
+    return this.registry.getIds();
   }
 
   /**
@@ -87,7 +81,7 @@ class EffectRegistryImpl {
    * Limpia todos los handlers (útil para tests).
    */
   clear() {
-    this.handlers.clear();
+    this.registry.clear();
   }
 }
 
