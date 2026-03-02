@@ -1,6 +1,5 @@
-import { PendingBet } from '@/shared/services/offline_storage';
+import { BetType as PendingBet } from '@/types';
 import { DailyTotals, IntegrityStatus, DiscrepancyReport } from './types';
-import { calculatePayloadAmount } from '@/features/listero/listero-dashboard/core/logic';
 
 /**
  * Calcula los totales basados exclusivamente en las apuestas almacenadas localmente.
@@ -12,7 +11,7 @@ export const calculateLocalTotals = (
 ): DailyTotals => {
   return allLocalBets.reduce(
     (acc, bet) => {
-      const amount = calculatePayloadAmount(bet);
+      const amount = bet.amount || 0;
       const commission = amount * commissionRate;
 
       return {

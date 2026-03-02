@@ -21,6 +21,10 @@ const normalizeListResponse = <T>(response: any): T[] => {
 
 export const DrawApi = {
   getOne: async (id: string | number): Promise<BackendDraw> => {
+    if (!id) {
+      log.warn('getOne called with empty id');
+      throw new Error('getOne: id is required');
+    }
     const response = await apiClient.get<BackendDraw>(`${settings.api.endpoints.draws()}${id}/`);
     return decodeOrFallback(BackendDrawCodec, response, `getOne(${id})`);
   },
@@ -48,17 +52,26 @@ export const DrawApi = {
   },
 
   getBetTypes: async (drawId: string | number): Promise<BetType[]> => {
+    if (!drawId) {
+      log.warn('getBetTypes called with empty drawId, skipping request');
+      return [];
+    }
     const endpoint = `${settings.api.endpoints.draws()}${drawId}/bet-types/`;
     return await apiClient.get<BetType[]>(endpoint);
   },
 
   getRulesForDraw: async (drawId: string | number): Promise<DrawRule[]> => {
+    if (!drawId) {
+      log.warn('getRulesForDraw called with empty drawId, skipping request');
+      return [];
+    }
     return await apiClient.get<DrawRule[]>(
       `${settings.api.endpoints.draws()}${drawId}/rules-for-current-user/`
     );
   },
 
   addWinningNumbers: async (drawId: string | number, data: { winning_number: string; date: string }): Promise<any> => {
+    if (!drawId) throw new Error('addWinningNumbers: drawId is required');
     return await apiClient.post<any>(
       `${settings.api.endpoints.draws()}${drawId}/add-winning-numbers/`,
       data
@@ -66,6 +79,7 @@ export const DrawApi = {
   },
 
   updateStatus: async (drawId: string | number, status: 'success' | 'reported'): Promise<void> => {
+    if (!drawId) throw new Error('updateStatus: drawId is required');
     await apiClient.patch(
       `${settings.api.endpoints.draws()}${drawId}/`,
       { status_closed: status }
@@ -73,6 +87,7 @@ export const DrawApi = {
   },
 
   getClosureConfirmationsByDraw: async (drawId: string | number): Promise<DrawClosureConfirmation[]> => {
+    if (!drawId) return [];
     const response = await apiClient.get<DrawClosureConfirmation[]>(
       `${settings.api.endpoints.closureConfirmations()}by-draw/${drawId}/`
     );
@@ -83,6 +98,7 @@ export const DrawApi = {
     drawId: string | number,
     data?: { status?: string; notes?: string }
   ): Promise<DrawClosureConfirmation[]> => {
+    if (!drawId) throw new Error('createClosureConfirmationsForDraw: drawId is required');
     const response = await apiClient.post<DrawClosureConfirmation[]>(
       `${settings.api.endpoints.closureConfirmations()}create-for-draw/${drawId}/`,
       data || {}

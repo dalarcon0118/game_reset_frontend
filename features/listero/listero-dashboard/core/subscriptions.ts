@@ -1,8 +1,24 @@
 import { Model } from './model';
-import { SubDescriptor } from '@/shared/core/sub';
+import { SubDescriptor, Sub } from '@/shared/core/sub';
 import { Msg } from './msg';
-import { DashboardGateway } from '../gateways/external.gateway';
+import { useAuthStore } from '@features/auth';
+import { pluginEventBus } from '@/shared/core/plugins/plugin.event_bus';
 
 export const subscriptions = (model: Model): SubDescriptor<Msg> => {
-    return DashboardGateway.subscriptions(model);
+    // Sincronización automática con el store de Auth para cambios de usuario
+    const authSub = Sub.watchStore(
+        useAuthStore,
+        (state: any) => state?.model?.user ?? state?.user,
+        (user) => ({ type: 'AUTH_USER_SYNCED', user }),
+        'listero-dashboard-auth-sync'
+    );
+
+    // Escucha eventos de filtrado desde los plugins (ej: FiltersPlugin)
+    const filterSub = Sub.custom<Msg>((dispatch) => {
+        return pluginEventBus.subscribe('dashboard:filter_changed', (filter) => {
+            dispatch({ type: 'STATUS_FILTER_CHANGED', filter });
+        });
+    }, 'listero-dashboard-filter-sync');
+
+    return Sub.batch([authSub, filterSub]);
 };

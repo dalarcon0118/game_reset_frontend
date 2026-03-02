@@ -1,7 +1,7 @@
 import { BetType } from '@/types';
 import { CreateBetDTO, ListBetsFilters } from './bet/types';
 import { logger } from '../utils/logger';
-import { BetRepository } from '@/shared/repositories/bet.repository';
+import { betRepository } from '@/shared/repositories/bet.repository';
 
 const log = logger.withTag('BET_SERVICE');
 
@@ -24,9 +24,9 @@ export class BetService {
      */
     static async create(betData: CreateBetDTO): Promise<BetType | BetType[]> {
         log.debug('BET_SERVICE.create', { betData });
-        
-        const result = await BetRepository.placeBet(betData);
-        
+
+        const result = await betRepository.placeBet(betData);
+
         if (result.isOk()) {
             return result.value;
         } else {
@@ -41,9 +41,9 @@ export class BetService {
      */
     static async list(filters?: ListBetsFilters): Promise<BetType[]> {
         log.debug('BET_SERVICE.list', { filters });
-        
-        const result = await BetRepository.getBets(filters);
-        
+
+        const result = await betRepository.getBets(filters);
+
         if (result.isOk()) {
             return result.value;
         } else {
@@ -59,16 +59,16 @@ export class BetService {
      */
     static async filterBetsTypeByDrawId(drawId: string): Promise<BetType[]> {
         log.debug('BET_SERVICE.filterBetsTypeByDrawId', { drawId });
-        
+
         // Reuse getBets with filter to include offline bets
-        const result = await BetRepository.getBets({ drawId });
-        
+        const result = await betRepository.getBets({ drawId });
+
         if (result.isOk()) {
             return result.value;
         } else {
-             log.error('Failed to filter bets by draw', result.error);
-             // Return empty array to match previous behavior for simple filters
-             return [];
+            log.error('Failed to filter bets by draw', result.error);
+            // Return empty array to match previous behavior for simple filters
+            return [];
         }
     }
 }

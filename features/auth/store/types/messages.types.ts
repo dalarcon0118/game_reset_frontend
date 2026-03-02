@@ -1,5 +1,4 @@
-// Auth message types - TEA messages for authentication
-import { User } from './auth.types';
+import { AuthSession, User, AuthErrorType } from '../../../../shared/repositories/auth';
 import { WebData } from '@/shared/core/remote.data';
 
 export enum AuthMsgType {
@@ -13,6 +12,7 @@ export enum AuthMsgType {
 
     // Logout
     LOGOUT_REQUESTED = 'LOGOUT_REQUESTED',
+    LOGOUT_RESPONSE_RECEIVED = 'LOGOUT_RESPONSE_RECEIVED',
     LOGOUT_SUCCEEDED = 'LOGOUT_SUCCEEDED',
     LOGOUT_FAILED = 'LOGOUT_FAILED',
 
@@ -28,28 +28,33 @@ export enum AuthMsgType {
     // Persistence
     LOAD_SAVED_USERNAME_REQUESTED = 'LOAD_SAVED_USERNAME_REQUESTED',
     SAVED_USERNAME_LOADED = 'SAVED_USERNAME_LOADED',
+    SAVED_USERNAME_SAVED = 'SAVED_USERNAME_SAVED',
     FORGOT_PIN_REQUESTED = 'FORGOT_PIN_REQUESTED',
 
     // Connectivity and Sync
     CONNECTION_STATUS_CHANGED = 'CONNECTION_STATUS_CHANGED',
+    USER_CHANGED = 'USER_CHANGED',
 }
 
 export type AuthMsg =
     | { type: AuthMsgType.LOGIN_REQUESTED; username: string; pin: string }
     | { type: AuthMsgType.LOGIN_PIN_UPDATED; pin: string }
     | { type: AuthMsgType.LOGIN_USERNAME_UPDATED; username: string }
-    | { type: AuthMsgType.LOGIN_RESPONSE_RECEIVED; user: User }
+    | { type: AuthMsgType.LOGIN_RESPONSE_RECEIVED; webData: WebData<AuthSession> }
     | { type: AuthMsgType.LOGIN_SUCCEEDED; user: User }
-    | { type: AuthMsgType.LOGIN_FAILED; error: string }
+    | { type: AuthMsgType.LOGIN_FAILED; errorType: AuthErrorType; message: string }
     | { type: AuthMsgType.LOGOUT_REQUESTED }
+    | { type: AuthMsgType.LOGOUT_RESPONSE_RECEIVED; webData: WebData<void> }
     | { type: AuthMsgType.LOGOUT_SUCCEEDED }
     | { type: AuthMsgType.LOGOUT_FAILED; error: string }
     | { type: AuthMsgType.CHECK_AUTH_STATUS_REQUESTED }
-    | { type: AuthMsgType.CHECK_AUTH_STATUS_RESPONSE_RECEIVED; user: User | null }
+    | { type: AuthMsgType.CHECK_AUTH_STATUS_RESPONSE_RECEIVED; webData: WebData<User | null> }
     | { type: AuthMsgType.CHECK_AUTH_STATUS_FAILED; error: string }
     | { type: AuthMsgType.SESSION_EXPIRED }
     | { type: AuthMsgType.ROLE_CHECK_REQUESTED }
     | { type: AuthMsgType.LOAD_SAVED_USERNAME_REQUESTED }
-    | { type: AuthMsgType.SAVED_USERNAME_LOADED; username: string | null }
+    | { type: AuthMsgType.SAVED_USERNAME_LOADED; webData: WebData<string | null> }
+    | { type: AuthMsgType.SAVED_USERNAME_SAVED; webData: WebData<void> }
     | { type: AuthMsgType.FORGOT_PIN_REQUESTED }
-    | { type: AuthMsgType.CONNECTION_STATUS_CHANGED; isOnline: boolean };
+    | { type: AuthMsgType.CONNECTION_STATUS_CHANGED; isOnline: boolean }
+    | { type: AuthMsgType.USER_CHANGED; user: User | null };

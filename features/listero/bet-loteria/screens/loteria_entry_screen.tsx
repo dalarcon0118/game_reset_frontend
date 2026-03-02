@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Layout, Button } from '@ui-kitten/components';
-import { LoteriaColumn } from '../components/loteria_column';
+import { LoteriaColumn } from '../components/loteria/loteria_column';
 import { useLoteria } from '../use_loteria';
 import { SumRowComponent } from '@/shared/components/bets/sum_row_component';
 import { useTheme } from '@/shared/hooks/use_theme';

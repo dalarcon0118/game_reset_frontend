@@ -1,4 +1,4 @@
-import { betRepository } from './bet/bet.repository';
+import { betRepository as _betRepository } from './bet/bet.repository';
 import { IBetRepository } from './bet/bet.types';
 
 /**
@@ -7,4 +7,4 @@ import { IBetRepository } from './bet/bet.types';
  * 
  * @deprecated Prefer importing betRepository from '@/shared/repositories/bet/bet.repository'
  */
-export const BetRepository: IBetRepository = betRepository;
+export const BetRepository: IBetRepository = _betRepository;

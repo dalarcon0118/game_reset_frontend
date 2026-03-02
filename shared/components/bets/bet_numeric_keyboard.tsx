@@ -111,7 +111,8 @@ export const BetNumericKeyboard: React.FC<BetNumericKeyboardProps> = ({
     );
 
     const betLength = betFormat ? (betFormat.match(/X/g) || []).length : (betType === BET_TYPE_KEYS.CENTENA ? 3 : betType === BET_TYPE_KEYS.LOTERIA ? 4 : 2);
-    const isConfirmDisabled = currentInput.length === 0 || currentInput.length % betLength !== 0;
+    // Cambiamos la lógica: el botón de confirmar solo se deshabilita si no hay entrada
+    const isConfirmDisabled = currentInput.length === 0;
 
     const confirmButton = (
         <TouchableOpacity

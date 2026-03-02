@@ -109,6 +109,9 @@ export interface LoteriaFeatureModel {
     isEditing: boolean;
     summary: LoteriaSummary;
 
+    // Structure ID del usuario actual (para registro financiero)
+    structureId: string | null;
+
     // Sessions (Internalized)
     loteriaSession: LoteriaState;
     editSession: EditSession;

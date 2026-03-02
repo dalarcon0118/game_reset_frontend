@@ -1,5 +1,4 @@
-import { FinancialSummary, DrawType, DRAW_STATUS } from '@/types';
-import { PendingBet } from '@/shared/services/offline_storage';
+import { FinancialSummary, DrawType, DRAW_STATUS, BetType } from '@/types';
 import { DailyTotals, isExpired, isClosingSoon, StatusFilter, DRAW_FILTER } from './core.types';
 import { Model } from './model';
 import { RemoteData, WebData } from '@/shared/core/remote.data';
@@ -49,35 +48,36 @@ export const calculatePayloadAmount = (payload: any): number => {
     return total;
 };
 
-export const calculatePendingDelta = (pendingBets: PendingBet[], commissionRate: number): DailyTotals => {
-    const now = new Date();
-    // Reset to start of day (00:00:00)
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    // End of day (23:59:59.999)
-    const endOfDay = startOfDay + 24 * 60 * 60 * 1000;
+/**
+ * Calculates financial delta for a set of bets.
+ */
+export const calculatePendingDelta = (pendingBets: BetType[], commissionRate: number): DailyTotals => {
+    const startOfDay = new Date().setHours(0, 0, 0, 0);
+    const endOfDay = new Date().setHours(23, 59, 59, 999);
 
-    return pendingBets.reduce((acc, bet) => {
-        // Strict date filtering: 00:00 to 23:59
-        if (bet.timestamp >= startOfDay && bet.timestamp < endOfDay) {
-            const amount = calculatePayloadAmount(bet);
-            const commission = amount * commissionRate;
-
-            return {
-                totalCollected: acc.totalCollected + amount,
-                premiumsPaid: acc.premiumsPaid,
-                netResult: acc.netResult + amount,
-                estimatedCommission: acc.estimatedCommission + commission,
-                amountToRemit: acc.amountToRemit + (amount - commission),
-            };
-        }
-        return acc;
-    }, {
+    const initialTotals: DailyTotals = {
         totalCollected: 0,
         premiumsPaid: 0,
         netResult: 0,
         estimatedCommission: 0,
         amountToRemit: 0
-    });
+    };
+
+    return pendingBets.reduce((acc, bet) => {
+        // Only include bets from today in the delta
+        if (bet.timestamp && bet.timestamp >= startOfDay && bet.timestamp < endOfDay) {
+            const amount = bet.amount || 0;
+            return {
+                ...acc,
+                totalCollected: acc.totalCollected + amount,
+                // Pending bets don't have premiums paid yet
+                netResult: acc.netResult + amount,
+                estimatedCommission: acc.estimatedCommission + (amount * commissionRate),
+                amountToRemit: acc.amountToRemit + (amount * (1 - commissionRate))
+            };
+        }
+        return acc;
+    }, initialTotals);
 };
 
 export const summaryToTotals = (summary: FinancialSummary, commissionRate: number): DailyTotals => {
@@ -96,17 +96,56 @@ export const summaryToTotals = (summary: FinancialSummary, commissionRate: numbe
 };
 
 /**
- * Enriches draws with financial information from a summary and adds pending bets.
+ * Enriches draws with local pending bets data.
  */
 export const enrichDraws = (
     draws: DrawType[],
     summary: FinancialSummary | null,
-    pendingBets: PendingBet[] = [],
-    syncedBets: PendingBet[] = [] // New parameter to include already synced bets in reconciliation
+    pendingBets: BetType[] = [],
+    syncedBets: BetType[] = [] // New parameter to include already synced bets in reconciliation
 ): DrawType[] => {
+    // DEBUG: Log summary data structure and pending bets
+    log.info('EnrichDraws called', {
+        drawsCount: draws.length,
+        hasSummary: !!summary,
+        summaryKeys: summary ? Object.keys(summary) : [],
+        sorteosCount: summary?.sorteos?.length || 0,
+        pendingBetsCount: pendingBets.length,
+        syncedBetsCount: syncedBets.length
+    });
+
+    // DEBUG: Log sample of pending bets to understand structure
+    if (pendingBets.length > 0) {
+        log.debug('PENDING_BETS_SAMPLE', {
+            firstBet: pendingBets[0],
+            firstBetKeys: Object.keys(pendingBets[0] || {}),
+            betDrawIds: pendingBets.map(b => b.draw || b.drawId)
+        });
+    }
+
     // 1. Create a map for financial data from summary
+    // DEBUG: Log what fields are available in summary.draws
+    if (summary?.draws && summary.draws.length > 0) {
+        log.info('Summary draws sample', {
+            firstDraw: summary.draws[0],
+            keys: Object.keys(summary.draws[0] || {})
+        });
+    }
+
+    // DEBUG: Log all summary.draws to find the 300 value
+    if (summary?.draws) {
+        summary.draws.forEach((draw: any) => {
+            log.info('Summary draw detail', {
+                id_sorteo: draw.id_sorteo,
+                source: draw.source,
+                colectado: draw.colectado,
+                pagado: draw.pagado
+            });
+        });
+    }
+
     const financialMap = new Map(
-        summary?.draws?.map(d => [d.id_sorteo.toString(), d]) || []
+        summary?.draws?.map(d => [d.id_sorteo?.toString(), d]) || []
     );
 
     // 2. Create a map for local totals by drawId (Pending + Synced)
@@ -122,6 +161,15 @@ export const enrichDraws = (
             const current = localMap.get(drawId) || 0;
             localMap.set(drawId, current + amount);
             pendingCountMap.set(drawId, (pendingCountMap.get(drawId) || 0) + 1);
+
+            // DEBUG: Log loteria bets
+            if (bet.loteria && Array.isArray(bet.loteria)) {
+                log.debug('LOTERIA_BET_IN_FINANCIAL', {
+                    drawId,
+                    loteriaCount: bet.loteria.length,
+                    loteriaAmounts: bet.loteria.map((l: any) => l.amount)
+                });
+            }
         }
     });
 
@@ -140,6 +188,15 @@ export const enrichDraws = (
     return draws.map(draw => {
         const drawId = draw.id.toString();
         const financial = financialMap.get(drawId);
+
+        // DEBUG: Log para ver qué datos viene del summary
+        if (!financial) {
+            log.info(`No financial data for draw ${drawId} (${draw.source})`, {
+                drawId,
+                source: draw.source,
+                availableDrawIds: Array.from(financialMap.keys()).slice(0, 10)
+            });
+        }
 
         // IMPORTANT: If we have synced bets that are already in the backend summary,
         // we might be double counting if we just add localMap to backendCollected.
@@ -278,8 +335,8 @@ export const recalculateDashboardState = (
     summaryData: FinancialSummary | null,
     filter: StatusFilter,
     commissionRate: number,
-    pendingBets: PendingBet[] = [],
-    syncedBets: PendingBet[] = []
+    pendingBets: BetType[] = [],
+    syncedBets: BetType[] = []
 ): { filteredDraws: DrawType[], dailyTotals: DailyTotals } => {
 
     const safeDrawsData = Array.isArray(drawsData) ? drawsData : null;

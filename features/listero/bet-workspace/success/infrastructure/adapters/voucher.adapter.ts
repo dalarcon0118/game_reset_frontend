@@ -1,5 +1,5 @@
 import { VoucherPort, VoucherSourceData } from '../../core/domain/success.ports';
-import { DrawRepository } from '@/shared/repositories/draw.repository';
+import { drawRepository } from '@/shared/repositories/draw';
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
 import { SharingService } from '@/shared/services/sharing';
 import { logger } from '@/shared/utils/logger';
@@ -17,9 +17,9 @@ export const VoucherAdapter: VoucherPort = {
         }
 
         const [drawRes, betsRes, betTypesRes] = await Promise.all([
-            drawId ? DrawRepository.getDraw(drawId) : Promise.resolve(null),
+            drawId ? drawRepository.getDraw(drawId) : Promise.resolve(null),
             betRepository.getBets(receiptCode ? { receiptCode } : { drawId }),
-            drawId ? DrawRepository.getBetTypes(drawId) : Promise.resolve(null)
+            drawId ? drawRepository.getBetTypes(drawId) : Promise.resolve(null)
         ]);
 
         if (drawRes && drawRes.isErr()) {

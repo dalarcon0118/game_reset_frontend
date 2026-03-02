@@ -11,6 +11,9 @@ export interface ContextValidationError {
 /**
  * Valida que el contexto proporcionado por el Host cumpla con los requisitos mínimos del Plugin.
  * Esto actúa como un "Contrato de Runtime" para evitar errores silenciosos o crashes.
+ * 
+ * NOTA: Somos más lenient con la validación ya que el contexto se construye gradualmente.
+ * El estado inicial puede no tener todos los datos (se cargan después).
  */
 export const validatePluginContext = (context: any): { isValid: boolean; error?: string } => {
     if (!context) {
@@ -19,15 +22,14 @@ export const validatePluginContext = (context: any): { isValid: boolean; error?:
 
     const missingProps: string[] = [];
 
-    // 1. Validar API básica
+    // 1. Validar API básica - hacer más lenient
     if (!context.api) {
         missingProps.push('api');
     } else {
         if (typeof context.api.get !== 'function') missingProps.push('api.get');
-        // Ya no requerimos FinancialSummaryService explícitamente, pero si el contrato lo pidiera, lo validaríamos aquí.
     }
 
-    // 2. Validar Storage
+    // 2. Validar Storage - hacer más lenient
     if (!context.storage) {
         missingProps.push('storage');
     } else {
@@ -35,14 +37,13 @@ export const validatePluginContext = (context: any): { isValid: boolean; error?:
         if (typeof context.storage.setItem !== 'function') missingProps.push('storage.setItem');
     }
 
-    // 3. Validar Estado del Host
+    // 3. Validar Estado del Host - somos más lenient con valores nulos
+    // El estado puede no estar completamente cargado al inicio
     if (!context.state) {
         missingProps.push('state');
-    } else {
-        // Validamos propiedades críticas del estado que el plugin consume
-        // En este caso, structureId parece ser crítico
-        if (context.state.userStructureId === undefined) missingProps.push('state.userStructureId');
     }
+    // Nota: No validamos userStructureId aquí ya que puede ser null inicialmente
+    // y se cargará después cuando el usuario esté autenticado
 
     if (missingProps.length > 0) {
         const errorMsg = `Invalid Plugin Context. Missing required services/properties: ${missingProps.join(', ')}`;

@@ -16,10 +16,14 @@ export const FiltersComponent: React.FC<FiltersComponentProps> = ({ context, con
   const { model, dispatch, init } = useFiltersPluginStore();
 
   useEffect(() => {
-    if (!model.context || model.context?.hostStore !== context.hostStore || model.config !== config) {
+    const shouldInit = !model.context || 
+      model.context?.hostStore !== context.hostStore || 
+      model.config !== config;
+
+    if (shouldInit) {
       init({ context, config });
     }
-  }, [context, config, model.context, model.config, init]);
+  }, [context, config, init]); // Removed model.context and model.config from dependencies
 
   const handleFilterPress = (value: string) => {
     dispatch(SELECT_FILTER(value));

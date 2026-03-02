@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { 
     StyleSheet, 
     ScrollView, 
@@ -10,15 +10,37 @@ import { RemoteData } from '@/shared/core/remote.data';
 import { Label } from '@/shared/components';
 import Header from '../views/header';
 import { useDashboardStore } from '../store';
-import { REFRESH_CLICKED } from '../core/msg';
+import { REFRESH_CLICKED, AUTH_USER_SYNCED } from '../core/msg';
+import { adaptAuthUser } from '../core/user.dto';
 import { Slot } from '@/shared/core/plugins';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '../../../auth/hooks/use_auth';
+import { useDashboardLifecycle } from '../core/lifecycle';
+import { DevTools } from '@/config/init';
 
 export default function DashboardScreen() {
+    const { user } = useAuth();
     
     // Using the whole model to pass to slots, making the host agnostic
     const model = useDashboardStore((state) => state.model);
     const dispatch = useDashboardStore((state) => state.dispatch);
+    useEffect(() => {
+       DevTools.printFullStorage();
+    }, [dispatch]);
+    // Manage Dashboard Lifecycle (Initialization & Cleanup)
+    useDashboardLifecycle(useDashboardStore);
+
+    // Synchronize auth user state with dashboard store
+    // This ensures the dashboard and its plugins have the latest user data
+    // even before the background subscription triggers.
+    React.useEffect(() => {
+        if (user) {
+            const adapted = adaptAuthUser(user);
+            if (adapted) {
+                dispatch(AUTH_USER_SYNCED(adapted));
+            }
+        }
+    }, [user, dispatch]);
 
     return (
         <SafeAreaView style={styles.container}>

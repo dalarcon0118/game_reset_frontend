@@ -7,7 +7,7 @@
 import type { OfflineSyncModel } from './types';
 import { OfflineSyncMsg } from './msg';
 import { MAX_TOASTS, formatTimeSince } from './types';
-import { OfflineFinancialService } from '@/shared/services/offline';
+import { syncWorker } from '@/shared/core/offline-storage/instance';
 import { Cmd } from '@/shared/core/cmd';
 import { Return, ret, singleton } from '@/shared/core/return';
 import { match } from 'ts-pattern';
@@ -196,7 +196,7 @@ function handleForceSync(model: OfflineSyncModel): Return<OfflineSyncModel, Offl
     model,
     Cmd.task({
       task: async () => {
-        OfflineFinancialService.syncNow();
+        await syncWorker.triggerSync();
         return null;
       },
       onSuccess: () => null,

@@ -2,7 +2,7 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, Button, Icon } from '@ui-kitten/components';
 import { logger } from '../utils/logger';
-
+ 
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;

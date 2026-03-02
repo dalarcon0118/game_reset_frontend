@@ -1,6 +1,6 @@
 import { createMsg } from '@/shared/core/msg';
 import type { ToastConfig } from './types';
-import type { PendingBetV2 } from '@/shared/services/offline';
+import type { BetDomainModel } from '@/shared/repositories/bet';
 
 // ============================================================================
 // Toast Messages
@@ -35,8 +35,8 @@ export const CLEAR_ERROR = createMsg<'CLEAR_ERROR', { offlineId: string }>('CLEA
 // Data Loaded Messages
 // ============================================================================
 
-export const LOADED_PENDING_BETS = createMsg<'LOADED_PENDING_BETS', PendingBetV2[]>('LOADED_PENDING_BETS');
-export const LOADED_ERROR_BETS = createMsg<'LOADED_ERROR_BETS', PendingBetV2[]>('LOADED_ERROR_BETS');
+export const LOADED_PENDING_BETS = createMsg<'LOADED_PENDING_BETS', BetDomainModel[]>('LOADED_PENDING_BETS');
+export const LOADED_ERROR_BETS = createMsg<'LOADED_ERROR_BETS', BetDomainModel[]>('LOADED_ERROR_BETS');
 export const LOADED_SYNC_STATS = createMsg<'LOADED_SYNC_STATS', {
   pendingCount: number;
   syncingCount: number;

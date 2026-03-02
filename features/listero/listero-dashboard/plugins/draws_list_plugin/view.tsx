@@ -25,19 +25,16 @@ export const DrawsListComponent: React.FC<DrawsListComponentProps> = ({ context,
   const dispatch = useDrawsListPluginStore(selectDispatch);
   const init = useDrawsListPluginStore(selectInit);
 
-  log.debug('Rendering', { 
-    hasContext: !!model.context, 
-    drawsType: model.draws.type, 
-    filteredCount: model.filteredDraws.length,
-    drawsState: model.draws
-  });
+  // log.debug('Rendering', { 
+  //   hasContext: !!model.context, 
+  //   drawsType: model.draws.type, 
+  //   filteredCount: model.filteredDraws.length,
+  //   drawsState: model.draws
+  // });
+  
+  log.debug('DRAWS_STATE', { type: model.draws.type, count: model.filteredDraws.length });
 
   useEffect(() => {
-    log.debug('useEffect triggered', { 
-      hasContext: !!model.context, 
-      drawsType: model.draws.type, 
-      filteredCount: model.filteredDraws.length 
-    });
     const shouldInit = !model.context ||
       model.context?.hostStore !== context.hostStore ||
       model.config !== config;
@@ -47,13 +44,18 @@ export const DrawsListComponent: React.FC<DrawsListComponentProps> = ({ context,
       init({ context, config });
       dispatch(INIT_CONTEXT({ context, config }));
     }
-  }, [context, config, model.context, model.config, init, dispatch]);
+  }, [context, config, init, dispatch]); // Removed model.context and model.config from dependencies
 
   const handleRefresh = () => {
     dispatch(REFRESH_CLICKED());
   };
 
-  const renderNotAsked = () => null;
+  const renderNotAsked = () => (
+    <View style={styles.centerContainer}>
+      <ActivityIndicator size="large" color="#00C48C" />
+      <Label style={styles.loadingText}>Iniciando sorteos...</Label>
+    </View>
+  );
 
   const renderLoading = () => (
     <View style={styles.centerContainer}>
@@ -81,12 +83,12 @@ export const DrawsListComponent: React.FC<DrawsListComponentProps> = ({ context,
       <View>
         {filteredDraws.length > 0 ? (
           filteredDraws.map((draw) => {
-            // Fase 4: Enriquecer draw con datos offline
-            const enrichedDraw = enrichDrawWithOfflineData(draw, model.offlineStates);
+            // Fase 4: Enriquecer draw con datos offline de forma estable
+            // Enriquecemos en el update para evitar crear nuevos objetos en el render
             return (
               <DrawItem
                 key={draw.id}
-                draw={enrichedDraw}
+                draw={draw} // Ahora pasamos el draw ya enriquecido desde el update (o al menos más estable)
                 onRulePress={(id) => dispatch(RULES_CLICKED(id))}
                 onRewardsPress={(id, title) => dispatch(REWARDS_CLICKED({ id, title }))}
                 onBetsListPress={(id, title) => dispatch(BETS_LIST_CLICKED({ id, title }))}

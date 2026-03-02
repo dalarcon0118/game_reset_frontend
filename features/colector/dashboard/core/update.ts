@@ -1,12 +1,12 @@
 import { match } from 'ts-pattern';
-import { Model } from './model';
+import { Model, DashboardStats } from './model';
 import { Msg, AUTH_USER_SYNCED } from './msg';
 import { Cmd } from '@/shared/core/cmd';
 import { Sub } from '@/shared/core/sub';
 import { RemoteDataHttp } from '@/shared/core/remote.data.http';
 import { RemoteData } from '@/shared/core/remote.data';
-import { StructureService, ChildStructure } from '@/shared/services/structure';
-import { FinancialSummaryService } from '@/shared/services/financial_summary';
+import { structureRepository, ChildStructure } from '@/shared/repositories/structure';
+import { financialRepository, FinancialKeys } from '@/shared/repositories/financial/ledger.repository';
 import { singleton, ret } from '@/shared/core/return';
 
 import { useAuthStore } from '@/features/auth/store/store';
@@ -26,7 +26,7 @@ export const subscriptions = (model: Model) => {
 const fetchChildrenCmd = (structureId: string | null): Cmd => {
     if (!structureId || structureId === '0') return Cmd.none;
     return RemoteDataHttp.fetch(
-        () => StructureService.getChildren(Number(structureId)) as any,
+        () => structureRepository.getChildren(Number(structureId)),
         (webData) => ({ type: 'CHILDREN_RECEIVED', webData })
     );
 };
@@ -34,7 +34,24 @@ const fetchChildrenCmd = (structureId: string | null): Cmd => {
 const fetchStatsCmd = (structureId: string | null): Cmd => {
     if (!structureId || structureId === '0') return Cmd.none;
     return RemoteDataHttp.fetch(
-        () => FinancialSummaryService.getDashboardStats(structureId),
+        async () => {
+            const filter = FinancialKeys.forStructure(structureId);
+            const aggregation = await financialRepository.getAggregation(filter);
+            const commissions = aggregation.credits * 0.10; // 10% hardcoded for now or from config
+            const stats: DashboardStats = {
+                total: aggregation.count,
+                pending: 0, // Ledger doesn't track pending yet
+                completed: aggregation.count,
+                netTotal: String(aggregation.total - commissions),
+                grossTotal: String(aggregation.credits),
+                commissions: String(commissions),
+                dailyProfit: String(aggregation.total - commissions)
+            };
+            return {
+                stats,
+                date: new Date().toISOString().split('T')[0]
+            };
+        },
         (webData) => ({ type: 'STATS_RECEIVED', webData })
     );
 };

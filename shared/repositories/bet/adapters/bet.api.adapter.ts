@@ -1,6 +1,8 @@
 import { IBetApi } from '../bet.ports';
 import { CreateBetDTO, BackendBet, ListBetsFilters } from '@/shared/services/bet/types';
 import { BetApi as LegacyBetApi } from '@/shared/services/bet/api';
+import { StructureApi } from '@/shared/services/structure/api';
+import { BackendChildStructure, BackendListeroDetails } from '@/shared/services/structure/types';
 
 /**
  * Adapter for Bet API using the existing BetApi.
@@ -32,5 +34,13 @@ export class BetApiAdapter implements IBetApi {
     async list(filters?: ListBetsFilters): Promise<BackendBet[]> {
         const response = await LegacyBetApi.list(filters);
         return Array.isArray(response) ? response : [];
+    }
+
+    async getChildren(id: number, level: number = 1): Promise<BackendChildStructure[]> {
+        return StructureApi.getChildren(id, level);
+    }
+
+    async getListeroDetails(id: number, date?: string): Promise<BackendListeroDetails> {
+        return StructureApi.getListeroDetails(id, date);
     }
 }

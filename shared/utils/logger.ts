@@ -11,8 +11,6 @@
  * Use .withTag('MY_TAG') to create a scoped logger for your module.
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
 type LogLevel = 'info' | 'warn' | 'error' | 'debug';
 
 export interface LogContext {

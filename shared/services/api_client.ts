@@ -1,5 +1,5 @@
 import settings from '../../config/settings';
-import { TokenService } from './token_service'; // Use TokenService instead of direct SecureStore
+import { AuthRepository } from '../repositories/auth';
 import { logger } from '../utils/logger';
 
 const log = logger.withTag('API_CLIENT');
@@ -125,7 +125,7 @@ const apiClient = {
       return new Promise((resolve) => subscribeTokenRefresh(resolve));
     }
 
-    const { refresh: refreshToken } = await TokenService.getToken();
+    const { refresh: refreshToken } = await AuthRepository.getToken();
     if (!refreshToken) {
       log.warn('No refresh token available, session expired.');
       if (onSessionExpired) onSessionExpired();
@@ -447,11 +447,11 @@ const apiClient = {
   async getAuthToken(): Promise<string | null> {
     if (currentAccessToken) return currentAccessToken;
     try {
-      const { access } = await TokenService.getToken();
+      const { access } = await AuthRepository.getToken();
       if (access) currentAccessToken = access;
       return access;
     } catch (error) {
-      logger.error('Error reading token from TokenService', 'API', error);
+      logger.error('Error reading token from AuthRepository', 'API', error);
       return null;
     }
   },
@@ -460,12 +460,12 @@ const apiClient = {
     currentAccessToken = token;
     try {
       if (token) {
-        await TokenService.saveToken(token, refreshToken || undefined);
+        await AuthRepository.saveToken(token, refreshToken || undefined);
       } else {
-        await TokenService.clearToken();
+        await AuthRepository.clearToken();
       }
     } catch (error) {
-      logger.error('Error writing token to TokenService', 'API', error);
+      logger.error('Error writing token to AuthRepository', 'API', error);
     }
   },
 

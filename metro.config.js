@@ -1,5 +1,7 @@
-// Add ReadableStream polyfill for older Node.js versions - MUST BE FIRST
-global.ReadableStream = global.ReadableStream || require('web-streams-polyfill').ReadableStream;
+// Add ReadableStream polyfill for older Node.js versions (only if needed)
+if (typeof global.ReadableStream === 'undefined' && parseInt(process.versions.node.split('.')[0]) < 18) {
+  global.ReadableStream = require('web-streams-polyfill').ReadableStream;
+}
 
 // Learn more https://docs.expo.io/guides/customizing-metro
 const { getDefaultConfig } = require('expo/metro-config');

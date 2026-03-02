@@ -1,6 +1,5 @@
 import { WebData } from '@/shared/core/remote.data';
-import { FinancialSummary, DrawType } from '@/types';
-import { PendingBet } from '@/shared/services/offline_storage';
+import { FinancialSummary, DrawType, BetType } from '@/types';
 import { StatusFilter } from './core.types';
 import { DashboardUser } from './user.dto';
 
@@ -21,7 +20,7 @@ export type Msg =
     | { type: 'FETCH_DATA_REQUESTED'; structureId?: string }
     | { type: 'DRAWS_RECEIVED'; webData: WebData<DrawType[]> }
     | { type: 'SUMMARY_RECEIVED'; webData: WebData<FinancialSummary> }
-    | { type: 'PENDING_BETS_LOADED'; bets: PendingBet[]; syncedBets?: PendingBet[] }
+    | { type: 'PENDING_BETS_LOADED'; bets: BetType[]; syncedBets?: BetType[] }
     | { type: 'REFRESH_CLICKED' }
     | { type: 'SET_USER_STRUCTURE'; id: string }
     | { type: 'STATUS_FILTER_CHANGED'; filter: StatusFilter }

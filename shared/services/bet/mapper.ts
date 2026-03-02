@@ -1,6 +1,6 @@
 import { BetType } from '@/types';
 import { BackendBet, ListBetsFilters } from './types';
-import { PendingBetV2 } from '../offline/types';
+import { BetDomainModel } from '../../repositories/bet/bet.types';
 import { logger } from '@/shared/utils/logger';
 import { BET_TYPE_KEYS, BetTypeKind, BACKEND_BET_CODES, BET_TYPE_KEYWORDS, UI_CONSTANTS } from '@/shared/types/bet_types';
 import { GameType } from '@/types';
@@ -133,6 +133,7 @@ export const mapBackendBetToFrontend = (backendBet: BackendBet, betTypes: GameTy
                 minute: '2-digit'
             }),
             receiptCode: backendBet.receipt_code || UI_CONSTANTS.EMPTY_RECEIPT_CODE,
+            timestamp: backendBet.created_at ? new Date(backendBet.created_at).getTime() : Date.now(),
             betTypeId: backendBet.bet_type // Almacenamos el ID del backend
         };
     } catch (error) {
@@ -141,11 +142,29 @@ export const mapBackendBetToFrontend = (backendBet: BackendBet, betTypes: GameTy
     }
 };
 
-export const mapPendingBetsToFrontend = (pendingBets: PendingBetV2[], filters?: ListBetsFilters, betTypes: GameType[] = []): BetType[] => {
+export const mapPendingBetsToFrontend = (pendingBets: BetDomainModel[], filters?: ListBetsFilters, betTypes: GameType[] = []): BetType[] => {
     let relevantPendingBets = pendingBets;
 
     if (filters?.drawId) {
-        relevantPendingBets = relevantPendingBets.filter(pb => (pb.draw || pb.drawId)?.toString() === filters.drawId);
+        // El drawId puede estar en pb.drawId, pb.data.drawId, o pb.data.draw
+        // Usamos any para manejar la estructura real que viene del storage
+        relevantPendingBets = relevantPendingBets.filter((pb: any) => {
+            const drawIdFromPb = pb.drawId?.toString() || pb.draw?.toString();
+            const drawIdFromData = pb.data?.drawId?.toString() || pb.data?.draw?.toString();
+            // Normalizar a string para comparación
+            const filterId = String(filters.drawId);
+            const matches = drawIdFromPb === filterId || drawIdFromData === filterId;
+            log.debug('FILTRO_OFFLINE', {
+                filterDrawId: filterId,
+                drawIdFromPb,
+                drawIdFromData,
+                matches,
+                pbOfflineId: pb.offlineId,
+                pbKeys: Object.keys(pb),
+                pbDataKeys: pb.data ? Object.keys(pb.data) : 'no data'
+            });
+            return matches;
+        });
     }
 
     if (filters?.receiptCode) {
@@ -164,24 +183,27 @@ export const mapPendingBetsToFrontend = (pendingBets: PendingBetV2[], filters?: 
     const offlineBets: BetType[] = [];
 
     relevantPendingBets.forEach(pb => {
-        const drawId = (pb.draw || pb.drawId || '').toString();
+        // Los datos de la apuesta pueden estar en el nivel superior (pb) o dentro de pb.data
+        const betData = (pb as any).data || pb;
+        const drawId = (betData.drawId || betData.draw || '').toString();
         const createdAt = new Date(pb.timestamp).toLocaleTimeString(UI_CONSTANTS.DEFAULT_LOCALE, {
             hour: '2-digit',
             minute: '2-digit'
         });
-        const receiptCode = pb.receiptCode || UI_CONSTANTS.PENDING_OFFLINE_PREFIX;
+        // El receiptCode puede estar en pb.receiptCode o en pb.data.receiptCode
+        const receiptCode = pb.receiptCode || betData.receiptCode || UI_CONSTANTS.PENDING_OFFLINE_PREFIX;
 
-        if (pb.amount && pb.numbers_played) {
+        if (betData.amount && betData.numbers_played) {
             offlineBets.push(mapSinglePendingBetToFrontend(pb, betTypes));
         }
 
-        if (pb.fijosCorridos && Array.isArray(pb.fijosCorridos)) {
-            pb.fijosCorridos.forEach((item, idx) => {
+        if (betData.fijosCorridos && Array.isArray(betData.fijosCorridos)) {
+            betData.fijosCorridos.forEach((item: any, idx: number) => {
                 if (item.fijoAmount) {
                     offlineBets.push({
                         id: `${UI_CONSTANTS.OFFLINE_ID_PREFIX}-${pb.offlineId}-${UI_CONSTANTS.FIJO_LABEL}-${idx}`,
                         type: BET_TYPE_KEYS.FIJO,
-                        numbers: JSON.stringify({ number: item.bet }),
+                        numbers: String(item.bet),
                         amount: item.fijoAmount,
                         draw: drawId,
                         createdAt,
@@ -194,7 +216,7 @@ export const mapPendingBetsToFrontend = (pendingBets: PendingBetV2[], filters?: 
                     offlineBets.push({
                         id: `${UI_CONSTANTS.OFFLINE_ID_PREFIX}-${pb.offlineId}-${UI_CONSTANTS.CORRIDO_LABEL}-${idx}`,
                         type: BET_TYPE_KEYS.CORRIDO,
-                        numbers: JSON.stringify({ number: item.bet }),
+                        numbers: String(item.bet),
                         amount: item.corridoAmount,
                         draw: drawId,
                         createdAt,
@@ -206,12 +228,12 @@ export const mapPendingBetsToFrontend = (pendingBets: PendingBetV2[], filters?: 
             });
         }
 
-        if (pb.parlets && Array.isArray(pb.parlets)) {
-            pb.parlets.forEach((item, idx) => {
+        if (betData.parlets && Array.isArray(betData.parlets)) {
+            betData.parlets.forEach((item: any, idx: number) => {
                 offlineBets.push({
                     id: `${UI_CONSTANTS.OFFLINE_ID_PREFIX}-${pb.offlineId}-${UI_CONSTANTS.PARLET_LABEL}-${idx}`,
                     type: BET_TYPE_KEYS.PARLET,
-                    numbers: JSON.stringify({ numbers: item.bets }),
+                    numbers: String(item.bets),
                     amount: item.amount,
                     draw: drawId,
                     createdAt,
@@ -222,12 +244,12 @@ export const mapPendingBetsToFrontend = (pendingBets: PendingBetV2[], filters?: 
             });
         }
 
-        if (pb.centenas && Array.isArray(pb.centenas)) {
-            pb.centenas.forEach((item, idx) => {
+        if (betData.centenas && Array.isArray(betData.centenas)) {
+            betData.centenas.forEach((item: any, idx: number) => {
                 offlineBets.push({
                     id: `${UI_CONSTANTS.OFFLINE_ID_PREFIX}-${pb.offlineId}-${UI_CONSTANTS.CENTENA_LABEL}-${idx}`,
                     type: BET_TYPE_KEYS.CENTENA,
-                    numbers: JSON.stringify({ number: item.bet }),
+                    numbers: String(item.bet),
                     amount: item.amount,
                     draw: drawId,
                     createdAt,
@@ -238,14 +260,26 @@ export const mapPendingBetsToFrontend = (pendingBets: PendingBetV2[], filters?: 
             });
         }
 
-        if (pb.loteria && Array.isArray(pb.loteria)) {
-            pb.loteria.forEach((item, idx) => {
-                // Si es offline, por defecto usamos LOTERIA, 
-                // pero el Voucher lo hidratará con el nombre real (ej: Cuaterna) usando el betTypeId
+        // Procesar lotería - los datos pueden estar en pb.data o en pb
+        const loteriaData = betData.loteria;
+        log.debug('PROCESANDO_LOTERIA', {
+            drawId,
+            betDataLoteria: loteriaData,
+            betDataKeys: Object.keys(betData)
+        });
+        if (loteriaData && Array.isArray(loteriaData)) {
+            log.info('LOTERIA_BETS_ENCONTRADOS', {
+                count: loteriaData.length,
+                items: loteriaData
+            });
+            loteriaData.forEach((item: any, idx: number) => {
+                // Simplificar: No usar JSON.stringify para lotería, usar el valor directamente
+                const loteriaBetValue = String(item.bet);
+
                 offlineBets.push({
                     id: `${UI_CONSTANTS.OFFLINE_ID_PREFIX}-${pb.offlineId}-${UI_CONSTANTS.LOTERIA_LABEL}-${idx}`,
                     type: BET_TYPE_KEYS.LOTERIA,
-                    numbers: JSON.stringify({ bet: item.bet }),
+                    numbers: loteriaBetValue,
                     amount: item.amount,
                     draw: drawId,
                     createdAt,
@@ -257,12 +291,22 @@ export const mapPendingBetsToFrontend = (pendingBets: PendingBetV2[], filters?: 
         }
     });
 
+    log.info('MAP_PENDING_BETS_RESULT', {
+        inputCount: pendingBets.length,
+        filteredCount: relevantPendingBets.length,
+        outputCount: offlineBets.length,
+        outputBets: offlineBets.map(b => ({ id: b.id, type: b.type, numbers: b.numbers, amount: b.amount, receiptCode: b.receiptCode }))
+    });
+
     return offlineBets;
 };
 
-export const mapSinglePendingBetToFrontend = (pb: PendingBetV2, betTypes: GameType[] = []): BetType => {
+export const mapSinglePendingBetToFrontend = (pb: any, betTypes: GameType[] = []): BetType => {
+    // Los datos pueden estar en pb o en pb.data
+    const betData = pb.data || pb;
+
     // Intentar inferir el tipo mapeado si tenemos betTypeId y cache
-    const betTypeId = (pb.betTypeid || '').toString();
+    const betTypeId = (betData.betTypeid || pb.betTypeid || '').toString();
     const betTypeFromCache = betTypes.find(t => t.id?.toString() === betTypeId);
 
     let mappedType: BetTypeKind = BET_TYPE_KEYS.FIJO;
@@ -283,15 +327,16 @@ export const mapSinglePendingBetToFrontend = (pb: PendingBetV2, betTypes: GameTy
     return {
         id: `${UI_CONSTANTS.OFFLINE_ID_PREFIX}-${pb.offlineId}`,
         type: mappedType,
-        numbers: JSON.stringify(pb.numbers_played || []),
-        amount: pb.amount || 0,
-        draw: (pb.draw || pb.drawId || '').toString(),
+        numbers: String(betData.numbers_played || pb.numbers_played || ''),
+        amount: Number(betData.amount || pb.amount || 0),
+        draw: (betData.drawId || betData.draw || pb.draw || pb.drawId || '').toString(),
         createdAt: new Date(pb.timestamp).toLocaleTimeString(UI_CONSTANTS.DEFAULT_LOCALE, {
             hour: '2-digit',
             minute: '2-digit'
         }),
+        timestamp: pb.timestamp,
         isPending: true,
-        receiptCode: pb.receiptCode || UI_CONSTANTS.PENDING_OFFLINE_PREFIX,
-        betTypeId: pb.betTypeid // Inyectar ID dinámico para hidratación posterior
+        receiptCode: pb.receiptCode || betData.receiptCode || UI_CONSTANTS.PENDING_OFFLINE_PREFIX,
+        betTypeId: betData.betTypeid || pb.betTypeid // Inyectar ID dinámico para hidratación posterior
     };
 };

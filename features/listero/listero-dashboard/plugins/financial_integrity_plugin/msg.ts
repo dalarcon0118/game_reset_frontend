@@ -1,6 +1,6 @@
 import { createMsg } from '@/shared/core/msg';
 import { PluginContext } from '@/shared/core/plugins/plugin.types';
-import { PendingBet } from '@/shared/services/offline_storage';
+import { BetType as PendingBet } from '@/types';
 import { FinancialSummary } from '@/types';
 
 export const INIT_CONTEXT = createMsg<'INIT_CONTEXT', PluginContext>('INIT_CONTEXT');

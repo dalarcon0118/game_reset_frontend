@@ -5,7 +5,7 @@
  */
 
 import type { OfflineSyncModel } from './types';
-import type { PendingBetV2 } from '@/shared/services/offline';
+import type { BetDomainModel } from '@/shared/repositories/bet';
 
 export const initialOfflineSyncModel: OfflineSyncModel = {
   // Toasts activos

@@ -6,6 +6,7 @@ import { subscriptions } from './subscriptions';
 import { Model } from './model';
 import { Msg } from './msg';
 import { createLoggerMiddleware } from '@/shared/core/middlewares/logger.middleware';
+import { registerDashboardPlugins } from '../plugins/plugin-registrar';
 
 export const useDashboardStore = createElmStore<Model, Msg>(
     initialState,

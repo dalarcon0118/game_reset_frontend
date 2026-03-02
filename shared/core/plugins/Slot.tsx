@@ -21,6 +21,55 @@ interface Props {
   pluginProps?: Record<string, any>;
 }
 
+interface SlotItemProps {
+  id: string;
+  component: React.ComponentType<any>;
+  layout?: any;
+  context: any;
+  hostStore: any;
+  contextData: any;
+  pluginProps: any;
+}
+
+const SlotItem: React.FC<SlotItemProps> = ({ 
+  id, 
+  component: PluginComponent, 
+  layout, 
+  context, 
+  hostStore, 
+  contextData, 
+  pluginProps 
+}) => {
+  const containerStyle: ViewStyle = {
+    flex: layout?.flex ?? (layout?.fullWidth ? 1 : undefined),
+    width: layout?.fullWidth ? '100%' : undefined,
+    ...(layout?.containerStyle || {})
+  };
+
+  const pluginContext = React.useMemo(() => ({
+    ...context,
+    hostStore,
+    state: {
+      ...context.state,
+      ...contextData
+    }
+  }), [context, hostStore, contextData]);
+
+  return (
+    <View style={containerStyle}>
+      <ErrorBoundary 
+        name={`Plugin:${id}`}
+        fallback={<View style={styles.errorFallback} />}
+      >
+        <PluginComponent 
+          {...pluginProps}
+          context={pluginContext}
+        />
+      </ErrorBoundary>
+    </View>
+  );
+};
+
 /**
  * Componente Slot: El punto de inyección de UI para plugins.
  * Implementa resiliencia mediante ErrorBoundaries individuales.
@@ -66,34 +115,18 @@ export const Slot: React.FC<Props> = ({
   return (
     <View style={[styles.container, style]}>
       <Flex vertical={direction === 'vertical'} wrap="wrap">
-        {extensions.map(({ id, component: PluginComponent, layout, context }) => {
-          const containerStyle: ViewStyle = {
-            flex: layout?.flex ?? (layout?.fullWidth ? 1 : undefined),
-            width: layout?.fullWidth ? '100%' : undefined,
-            ...(layout?.containerStyle || {})
-          };
-
-          return (
-            <View key={id} style={containerStyle}>
-              <ErrorBoundary 
-                name={`Plugin:${id}`}
-                fallback={<View style={styles.errorFallback} />}
-              >
-                <PluginComponent 
-                  {...pluginProps}
-                  context={{
-                    ...context,
-                    hostStore,
-                    state: {
-                      ...context.state,
-                      ...contextData
-                    }
-                  }}
-                />
-              </ErrorBoundary>
-            </View>
-          );
-        })}
+        {extensions.map(({ id, component, layout, context }) => (
+          <SlotItem
+            key={id}
+            id={id}
+            component={component}
+            layout={layout}
+            context={context}
+            hostStore={hostStore}
+            contextData={contextData}
+            pluginProps={pluginProps}
+          />
+        ))}
       </Flex>
     </View>
   );

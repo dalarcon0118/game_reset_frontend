@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, Icon, Layout } from '@ui-kitten/components';
 import { useNetwork } from '../hooks/use_network';
-import { OfflineFinancialService } from '../services/offline';
+import { betRepository } from '../repositories/bet';
+import { syncWorker } from '../core/offline-storage/instance';
 import { logger } from '../utils/logger';
 
 const log = logger.withTag('SYNC_MANAGER');
@@ -14,7 +15,7 @@ export const SyncManager: React.FC = () => {
 
   const checkPendingBets = async () => {
     try {
-        const bets = await OfflineFinancialService.getPendingBets();
+        const bets = await betRepository.getPendingBets();
         setPendingCount(bets.length);
         return bets;
     } catch (e) {
@@ -33,24 +34,17 @@ export const SyncManager: React.FC = () => {
     setIsSyncing(true);
     log.info(`Starting sync for ${bets.length} bets...`);
     
-    // V2 handles sync automatically via worker when online.
-    // We can just wait a bit and refresh the count.
+    // V2 handles sync manually.
+    const report = await syncWorker.triggerSync();
+    log.info('Sync finished', report);
     
-    setTimeout(async () => {
-        await checkPendingBets();
-        setIsSyncing(false);
-    }, 3000);
+    await checkPendingBets();
+    setIsSyncing(false);
   };
 
   useEffect(() => {
     checkPendingBets();
   }, []);
-
-  useEffect(() => {
-    if (isOnline) {
-      syncBets();
-    }
-  }, [isOnline]);
 
   if (pendingCount === 0) return null;
 
@@ -58,14 +52,19 @@ export const SyncManager: React.FC = () => {
     <Layout style={styles.container} level="4">
       <View style={styles.content}>
         <Icon 
-          name={isOnline ? "cloud-upload-outline" : "cloud-off-outline"} 
-          fill={isOnline ? "#3366FF" : "#FF3D71"}
-          style={styles.icon}
+          name={isOnline ? (isSyncing ? "refresh-outline" : "cloud-upload-outline") : "cloud-off-outline"} 
+          fill={isOnline ? (isSyncing ? "#3366FF" : "#3366FF") : "#FF3D71"}
+          style={[styles.icon, isSyncing && styles.rotatingIcon]}
+          onPress={() => !isSyncing && isOnline && syncBets()}
         />
-        <Text category="c1" style={styles.text}>
+        <Text 
+          category="c1" 
+          style={styles.text}
+          onPress={() => !isSyncing && isOnline && syncBets()}
+        >
           {isSyncing 
             ? 'Sincronizando apuestas...' 
-            : `${pendingCount} apuesta(s) pendiente(s) ${isOnline ? '' : '(Sin conexión)'}`}
+            : `${pendingCount} apuesta(s) pendiente(s) ${isOnline ? '(Toca para sincronizar)' : '(Sin conexión)'}`}
         </Text>
       </View>
     </Layout>
@@ -87,6 +86,9 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     marginRight: 8,
+  },
+  rotatingIcon: {
+    // Note: Animation would need a separate Animated.Value, but we add the style for clarity
   },
   text: {
     fontWeight: 'bold',

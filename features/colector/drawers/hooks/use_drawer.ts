@@ -3,7 +3,7 @@ import useDataFetch from "@/shared/hooks/use_data_fetch";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "expo-router";
 import { useTheme } from "@ui-kitten/components";
-import { ListeroDetails, StructureService } from "@/shared/services/structure";
+import { structureRepository, ListeroDetails } from "@/shared/repositories/structure";
 
 const formatDateToString = (date: Date) => {
     return date.toISOString().split('T')[0];
@@ -24,7 +24,7 @@ export const useDrawer = ({ id }: { id: number }) => {
     }, [id, router]);
 
     const fetchDetails = useCallback(() => {
-        return StructureService.getListeroDetails(Number(id), formatDateToString(selectedDate));
+        return structureRepository.getListeroDetails(Number(id), formatDateToString(selectedDate));
     }, [id, selectedDate]);
 
     const [refresh, details, loading, error] = useDataFetch<ListeroDetails>(fetchDetails);

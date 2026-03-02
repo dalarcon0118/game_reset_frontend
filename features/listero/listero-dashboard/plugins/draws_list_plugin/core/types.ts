@@ -18,6 +18,12 @@ export const DrawCodec = t.intersection([
         totalCollected: t.number,
         premiumsPaid: t.number,
         netResult: t.number,
+        _offline: t.partial({
+            pendingCount: t.number,
+            localAmount: t.number,
+            backendAmount: t.number,
+            hasDiscrepancy: t.boolean,
+        }),
     })
 ]);
 

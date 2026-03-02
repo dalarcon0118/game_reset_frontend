@@ -2,7 +2,7 @@ import { PluginContext } from '@/shared/core/plugins/plugin.types';
 import { WebData, RemoteData } from '@/shared/core/remote.data';
 import { DRAW_FILTER, Draw } from './core/types';
 import { FinancialSummary } from '@/types';
-import { PendingBet } from '@/shared/services/offline_storage';
+import { BetDomainModel as PendingBet } from '@/shared/repositories/bet/bet.types';
 
 export interface DrawsListPluginConfig {
   drawsStateKey: string;
@@ -37,7 +37,9 @@ export const defaultConfig: DrawsListPluginConfig = {
  */
 export interface DrawOfflineState {
   drawId: string;
-  localTotalCollected: number;
+  localAmount: number; // Esto es el neto (credits - debits)
+  localCredits: number;
+  localDebits: number;
   localNetResult: number;
   pendingCount: number;
   lastUpdated: number;
@@ -104,9 +106,9 @@ export const offlineSelectors = {
   /**
    * Obtiene el monto total local recolectado para un sorteo
    */
-  getLocalTotalCollected: (model: Model, drawId: string): number => {
+  getLocalAmount: (model: Model, drawId: string): number => {
     const state = model.offlineStates.get(drawId);
-    return state?.localTotalCollected ?? 0;
+    return state?.localAmount ?? 0;
   },
 
   /**
@@ -114,7 +116,7 @@ export const offlineSelectors = {
    */
   getCombinedTotalCollected: (model: Model, draw: Draw): number => {
     const serverTotal = draw.totalCollected ?? 0;
-    const localTotal = offlineSelectors.getLocalTotalCollected(model, draw.id.toString());
+    const localTotal = offlineSelectors.getLocalAmount(model, draw.id.toString());
     return serverTotal + localTotal;
   },
 

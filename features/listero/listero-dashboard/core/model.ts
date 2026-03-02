@@ -1,6 +1,5 @@
 import { WebData } from '@/shared/core/remote.data';
-import { FinancialSummary, DrawType } from '@/types';
-import { PendingBet } from '@/shared/services/offline_storage';
+import { FinancialSummary, DrawType, BetType } from '@/types';
 import { StatusFilter, DailyTotals } from './core.types';
 import { DashboardUser } from './user.dto';
 
@@ -8,8 +7,8 @@ export interface Model {
     draws: WebData<DrawType[]>;
     filteredDraws: DrawType[];
     summary: WebData<FinancialSummary>;
-    pendingBets: PendingBet[];
-    syncedBets: PendingBet[]; // Todas las apuestas sincronizadas del día
+    pendingBets: BetType[];
+    syncedBets: BetType[]; // Todas las apuestas sincronizadas del día
     dailyTotals: DailyTotals;
     userStructureId: string | null;
     statusFilter: StatusFilter;

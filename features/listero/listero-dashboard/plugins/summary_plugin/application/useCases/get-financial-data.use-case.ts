@@ -2,8 +2,8 @@
 import { FinancialSummary, PendingBet, DailyTotals } from '../../domain/models';
 import { FinancialCalculatorService } from '../../domain/services/financial-calculator.service';
 import { TimeRangeService } from '../../domain/services/time-range.service';
-import { FinancialSummaryService } from '@/shared/services/financial_summary';
-import { OfflineFinancialService } from '@/shared/services/offline';
+import { financialRepository } from '@/shared/repositories/financial';
+import { betRepository } from '@/shared/repositories/bet/bet.repository';
 
 export interface GetFinancialDataInput {
   structureId: string;
@@ -25,12 +25,23 @@ export class GetFinancialDataUseCase {
   async execute(input: GetFinancialDataInput): Promise<GetFinancialDataResult> {
     const { structureId, commissionRate } = input;
 
-    // Obtener resumen financiero usando el servicio existente
-    const financialResult = await FinancialSummaryService.get(structureId);
-    const financialSummary = financialResult.isOk() ? financialResult.value : null;
+    // Obtener resumen financiero usando FinancialRepository (fuente offline-first)
+    const aggregation = await financialRepository.getAggregation(`structure:${structureId}`);
+    const financialSummary: FinancialSummary | null = aggregation.count > 0 ? {
+      totalCollected: aggregation.credits,
+      premiumsPaid: aggregation.debits,
+      estimatedCommission: aggregation.credits * commissionRate,
+      timestamp: Date.now()
+    } : null;
 
     // Obtener apuestas pendientes del almacenamiento offline
-    const pendingBets = await OfflineStorage.getPendingBets() || [];
+    const pendingBetsRepo = await betRepository.getPendingBets();
+    const pendingBets: PendingBet[] = pendingBetsRepo.map(b => ({
+      id: b.offlineId,
+      amount: Number(b.data.amount) || 0,
+      timestamp: b.timestamp,
+      status: 'pending'
+    }));
 
     // Calcular totales diarios
     let dailyTotals: DailyTotals;

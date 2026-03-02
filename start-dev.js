@@ -14,65 +14,37 @@ if (fs.existsSync(expoCachePath)) {
   }
 }
 
-// Check if ReadableStream is needed
-const needsPolyfill = typeof global.ReadableStream === 'undefined';
+// Check for Metro cache issues in some OS-specific locations if needed
+// For simplicity, we just use --clear when spawning expo
+console.log('Starting Expo with --clear to avoid cache issues...');
 
-if (!needsPolyfill) {
-  console.log('ReadableStream is already defined. Starting Expo directly...');
-  const child = spawn('npx', ['expo', 'start'], {
-    stdio: 'inherit',
-    cwd: __dirname,
-    env: { 
-      ...process.env, 
-      EXPO_ROUTER_APP_ROOT: 'app', 
-      EXPO_PROJECT_ROOT: __dirname
-    }
-  });
-
-  child.on('error', (error) => {
-    console.error('Failed to start Expo:', error);
-    process.exit(1);
-  });
-
-  child.on('exit', (code) => {
-    process.exit(code);
-  });
-} else {
-  console.log('ReadableStream not found. Applying polyfill...');
-  // Create a temporary script with the polyfill
-  const tempScript = `
-global.ReadableStream = global.ReadableStream || require('${path.resolve(__dirname, 'node_modules/web-streams-polyfill')}').ReadableStream;
-require('child_process').spawn('npx', ['expo', 'start'], {
-  stdio: 'inherit',
-  cwd: '${__dirname}',
-  env: { ...process.env, EXPO_ROUTER_APP_ROOT: 'app', EXPO_PROJECT_ROOT: '${__dirname}' }
-});
-`;
-
-  const tempFilePath = path.join(__dirname, 'temp-start.js');
-  fs.writeFileSync(tempFilePath, tempScript);
-
-  // Run the temporary script in a new Node.js process
-  const child = spawn('node', [tempFilePath], {
-    stdio: 'inherit',
-    cwd: __dirname,
-    env: { ...process.env, EXPO_PROJECT_ROOT: __dirname }
-  });
-
-  child.on('error', (error) => {
-    console.error('Failed to start Expo:', error);
-    // Clean up temp file
-    try {
-      fs.unlinkSync(tempFilePath);
-    } catch (e) {}
-    process.exit(1);
-  });
-
-  child.on('exit', (code) => {
-    // Clean up temp file
-    try {
-      fs.unlinkSync(tempFilePath);
-    } catch (e) {}
-    process.exit(code);
-  });
+// Check for ReadableStream is needed for older Node.js versions
+if (typeof global.ReadableStream === 'undefined' && parseInt(process.versions.node.split('.')[0]) < 18) {
+  try {
+    global.ReadableStream = require('web-streams-polyfill').ReadableStream;
+  } catch (e) {
+    console.warn('Could not polyfill ReadableStream, continuing anyway...');
+  }
 }
+
+console.log('Starting Expo directly...');
+const child = spawn('npx', ['expo', 'start', '--clear'], {
+  stdio: 'inherit',
+  cwd: __dirname,
+  env: {
+    ...process.env, 
+    EXPO_ROUTER_APP_ROOT: 'app', 
+    EXPO_PROJECT_ROOT: __dirname,
+    NODE_NO_WARNINGS: '1'
+  },
+  shell: true // Added shell: true for better compatibility with npx on some systems
+});
+
+child.on('error', (error) => {
+  console.error('Failed to start Expo:', error);
+  process.exit(1);
+});
+
+child.on('exit', (code) => {
+  process.exit(code);
+});

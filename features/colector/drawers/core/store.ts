@@ -4,7 +4,7 @@ import { Msg } from './msg';
 import { update } from './update';
 import { RemoteData } from '@/shared/core/remote.data';
 import { RemoteDataHttp } from '@/shared/core/remote.data.http';
-import { StructureService } from '@/shared/services/structure';
+import { structureRepository } from '@/shared/repositories/structure';
 import { Cmd } from '@/shared/core/cmd';
 import { effectHandlers } from '@/shared/core/effect_handlers';
 import { createLoggerMiddleware } from '@/shared/core/middlewares/logger.middleware';
@@ -23,7 +23,7 @@ const formatDateToString = (date: Date) => {
 const fetchDetailsCmd = (id: number, selectedDate: Date): Cmd => {
     if (!id) return null;
     return RemoteDataHttp.fetch(
-        () => StructureService.getListeroDetails(id, formatDateToString(selectedDate)),
+        () => structureRepository.getListeroDetails(id, formatDateToString(selectedDate)),
         (webData) => ({ type: 'DETAILS_RECEIVED', webData })
     );
 };

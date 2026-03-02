@@ -1,17 +1,17 @@
 import { match } from 'ts-pattern';
 import { RewardsModel } from './model';
-import { 
-    RewardsMsg, 
-    FETCH_REWARDS_REQUESTED, 
-    FETCH_REWARDS_SUCCEEDED, 
+import {
+    RewardsMsg,
+    FETCH_REWARDS_REQUESTED,
+    FETCH_REWARDS_SUCCEEDED,
     FETCH_REWARDS_FAILED,
     FETCH_RULES_REQUESTED,
     FETCH_RULES_SUCCEEDED,
     FETCH_RULES_FAILED
 } from './types';
 import { Cmd } from '@/shared/core/cmd';
-import { WinningService } from '@/shared/services/winning';
-import { RulesService } from '@/shared/services/rules';
+import { winningRepository } from '@/shared/repositories/winning';
+import { rulesRepository } from '@/shared/repositories/rules';
 import { Return, ret, singleton } from '@/shared/core/return';
 import { RemoteData } from '@/shared/core/remote.data';
 import { logger } from '@/shared/utils/logger';
@@ -28,7 +28,7 @@ export const updateRewards = (model: RewardsModel, msg: RewardsMsg): Return<Rewa
                     currentDrawId: drawId,
                 },
                 Cmd.task({
-                    task: () => WinningService.getWinningNumber(drawId),
+                    task: () => winningRepository.getWinningNumber(drawId),
                     onSuccess: (rewards) => FETCH_REWARDS_SUCCEEDED(rewards),
                     onFailure: (error) => FETCH_REWARDS_FAILED({ error })
                 })
@@ -62,7 +62,7 @@ export const updateRewards = (model: RewardsModel, msg: RewardsMsg): Return<Rewa
                     currentDrawId: drawId,
                 },
                 Cmd.task({
-                    task: () => RulesService.getAllRulesForDraw(drawId),
+                    task: () => rulesRepository.getAllRulesForDraw(drawId),
                     onSuccess: (rules) => FETCH_RULES_SUCCEEDED(rules),
                     onFailure: (error) => FETCH_RULES_FAILED({ error })
                 })

@@ -4,6 +4,70 @@ import { Text } from '@ui-kitten/components';
 import { Card } from '@/shared/components';
 import { FormattedBet, VoucherMetadata } from '../../core/domain/success.types';
 import { BET_TYPE_KEYS } from '@/shared/types/bet_types';
+import BetCircle from '@/shared/components/bets/bet_circle';
+
+// Helper function to check if a bet is Loteria or Cuaterna type
+const isLoteriaBet = (betType: string): boolean => {
+    const normalized = betType.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return normalized.includes('loteria') || normalized.includes('cuaterna');
+};
+
+// Split a single number string into groups based on schema [1, 2, 2]
+// Example: "25687" -> ["2", "56", "87"]
+const splitLoteriaNumber = (numStr: string): string[] => {
+    // Schema: [1, 2, 2] for Loteria/Cuaterna
+    const schema = [1, 2, 2];
+    const result: string[] = [];
+    let start = 0;
+    
+    for (const len of schema) {
+        if (start < numStr.length) {
+            result.push(numStr.slice(start, start + len));
+            start += len;
+        }
+    }
+    
+    return result;
+};
+
+// Format numbers for Loteria/Cuaterna bets using 3 BetCircles: (X)(XX)(XX)
+const renderLoteriaNumbers = (numbers: string[]) => {
+    // If single number string like "25687", split it into 3 groups
+    const groups = numbers.length === 1 && numbers[0].length === 5 
+        ? splitLoteriaNumber(numbers[0]) 
+        : numbers;
+    
+    return (
+        <View style={styles.loteriaContainer} collapsable={false}>
+            {groups.map((num, idx) => (
+                <React.Fragment key={idx}>
+                    <BetCircle value={num} />
+                    {idx < groups.length - 1 && (
+                        <Text style={styles.loteriaHyphen}></Text>
+                    )}
+                </React.Fragment>
+            ))}
+        </View>
+    );
+};
+
+// Format numbers for standard (non-Loteria) bets with circles
+const renderStandardNumbers = (numbers: string[]) => {
+    return (
+        <View style={styles.numbersContainer} collapsable={false}>
+            {numbers.map((num: string, idx: number) => (
+                <View key={idx} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={styles.circle} collapsable={false}>
+                        <Text category='s1' style={styles.circleText}>{num}</Text>
+                    </View>
+                    {idx < numbers.length - 1 && (
+                        <Text style={styles.hyphen}>-</Text>
+                    )}
+                </View>
+            ))}
+        </View>
+    );
+};
 
 interface SuccessVoucherProps {
     drawId: string | null;
@@ -198,18 +262,10 @@ export const SuccessVoucher: React.FC<SuccessVoucherProps> = ({
             {isBolita ? renderBolitaLayout() : bets.map((bet, index) => (
                 <View key={bet.id || index} style={styles.betRow} collapsable={false}>
                     <View style={styles.betInfo}>
-                        <View style={styles.numbersContainer} collapsable={false}>
-                            {bet.numbers.map((num: string, idx: number) => (
-                                <View key={idx} style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                    <View style={styles.circle} collapsable={false}>
-                                        <Text category='s1' style={styles.circleText}>{num}</Text>
-                                    </View>
-                                    {idx < bet.numbers.length - 1 && (
-                                        <Text style={styles.hyphen}>-</Text>
-                                    )}
-                                </View>
-                            ))}
-                        </View>
+                        {isLoteriaBet(bet.type) 
+                            ? renderLoteriaNumbers(bet.numbers) 
+                            : renderStandardNumbers(bet.numbers)
+                        }
                         <Text category='s2' style={styles.betType}>{bet.type}</Text>
                     </View>
                     <Text category='s1' style={styles.betAmount}>
@@ -344,6 +400,16 @@ const styles = StyleSheet.create({
     circleText: {
         color: '#3366FF',
         fontWeight: 'bold',
+    },
+    loteriaContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 4,
+    },
+    loteriaHyphen: {
+        marginHorizontal: 2,
+        color: '#8F9BB3',
+        fontSize: 16,
     },
     hyphen: {
         marginHorizontal: 4,

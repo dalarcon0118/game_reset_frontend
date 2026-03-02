@@ -1,76 +1,126 @@
 // Auth update function - pure TEA authentication logic
-import { match, P } from 'ts-pattern';
-import { AuthModel, AuthMsg, AuthMsgType, User } from './types';
+import { AuthModel, AuthMsg, AuthMsgType } from './types';
 import { Cmd } from '../../../shared/core/cmd';
-import { AppKernel } from '../../../shared/core/architecture/kernel';
-import { TokenService } from '../../../shared/services/token_service';
+import { RemoteData, WebData } from '../../../shared/core/remote.data';
+import { RemoteDataHttp } from '../../../shared/core/remote.data.http';
+import { AuthRepository, AuthErrorType, User, AuthSession } from '../../../shared/repositories/auth';
 import { logger } from '../../../shared/utils/logger';
+import { match } from 'ts-pattern';
 
 const log = logger.withTag('AUTH_UPDATE');
 
-// Helper to check if two users are effectively equal
-// DEPRECATED: Using simple ID comparison for performance as requested
-// const areUsersEqual = (u1: User | null, u2: User | null): boolean => { ... };
+const mapAuthError = (type: AuthErrorType, defaultMessage: string): string => {
+    return match(type)
+        .with(AuthErrorType.INVALID_CREDENTIALS, () => 'Usuario o PIN incorrectos')
+        .with(AuthErrorType.CONNECTION_ERROR, () => 'Error de conexión. Verifica tu conexión a internet.')
+        .with(AuthErrorType.SESSION_EXPIRED, () => 'Tu sesión ha expirado.')
+        .with(AuthErrorType.SERVER_ERROR, () => 'Error en el servidor. Inténtalo más tarde.')
+        .otherwise(() => defaultMessage);
+};
+
+// Login command using RemoteDataHttp.fetch
+const loginCmd = (username: string, pin: string): Cmd => {
+    return RemoteDataHttp.fetch<AuthSession, AuthMsg>(
+        async () => {
+            const result = await AuthRepository.login(username, pin);
+            if (result.success) {
+                return result.data;
+            } else {
+                throw { type: result.error.type, message: result.error.message };
+            }
+        },
+        (webData) => ({
+            type: AuthMsgType.LOGIN_RESPONSE_RECEIVED,
+            webData
+        } as AuthMsg),
+        'AUTH_LOGIN'
+    );
+};
+
+// Check auth status command
+const checkAuthStatusCmd = (): Cmd => {
+    return RemoteDataHttp.fetch<User | null, AuthMsg>(
+        async () => {
+            const user = await AuthRepository.getUserIdentity();
+            return user;
+        },
+        (webData) => ({
+            type: AuthMsgType.CHECK_AUTH_STATUS_RESPONSE_RECEIVED,
+            webData
+        } as AuthMsg),
+        'CHECK_AUTH_STATUS'
+    );
+};
+
+// Logout command
+const logoutCmd = (): Cmd => {
+    return RemoteDataHttp.fetch<void, AuthMsg>(
+        async () => {
+            await AuthRepository.logout();
+        },
+        (webData) => ({
+            type: AuthMsgType.LOGOUT_RESPONSE_RECEIVED,
+            webData
+        } as AuthMsg),
+        'AUTH_LOGOUT'
+    );
+};
+
+// Save last username command
+const saveLastUsernameCmd = (username: string): Cmd => {
+    return RemoteDataHttp.fetch<void, AuthMsg>(
+        async () => {
+            await AuthRepository.saveLastUsername(username);
+        },
+        (webData) => ({
+            type: AuthMsgType.SAVED_USERNAME_SAVED,
+            webData
+        } as AuthMsg),
+        'SAVE_USERNAME'
+    );
+};
+
+// Load saved username command
+const loadSavedUsernameCmd = (): Cmd => {
+    return RemoteDataHttp.fetch<string | null, AuthMsg>(
+        async () => {
+            return await AuthRepository.getLastUsername();
+        },
+        (webData) => ({
+            type: AuthMsgType.SAVED_USERNAME_LOADED,
+            webData
+        } as AuthMsg),
+        'LOAD_USERNAME'
+    );
+};
 
 // Pure update function for authentication
 export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => {
-    return match(msg)
+    const result = match(msg)
         .with({ type: AuthMsgType.LOGIN_REQUESTED }, ({ username, pin }) => {
-            // Set loading state
-            const loadingModel: AuthModel = {
-                ...model,
-                isLoading: true,
-                isOffline: false,
-                error: null,
-                loginSession: {
-                    ...model.loginSession,
-                    isSubmitting: true,
-                },
-            };
-
-            // Return command to perform authentication via Adapter
             return [
-                loadingModel,
-                Cmd.task({
-                    task: async () => {
-                        log.info('Delegating login to AuthProvider', { username });
-                        const result = await AppKernel.authProvider.login({ username, pin });
-
-                        if (result.success) {
-                            return {
-                                type: AuthMsgType.LOGIN_RESPONSE_RECEIVED,
-                                user: result.data,
-                                isOffline: result.data.isOffline
-                            };
-                        } else {
-                            return {
-                                type: AuthMsgType.LOGIN_FAILED,
-                                error: result.error.message
-                            };
-                        }
+                {
+                    ...model,
+                    loginResponse: RemoteData.loading(),
+                    error: null,
+                    loginSession: {
+                        ...model.loginSession,
+                        isSubmitting: true,
                     },
-                    onSuccess: (msg) => msg as any,
-                    onFailure: (error) => ({
-                        type: AuthMsgType.LOGIN_FAILED,
-                        error: String(error)
-                    } as any)
-                })
-            ] as [AuthModel, Cmd];
+                },
+                loginCmd(username, pin)
+            ];
         })
 
-        .with({ type: AuthMsgType.LOGIN_RESPONSE_RECEIVED }, (payload: any) => {
-            // Adapt to payload structure (might be user or webData depending on legacy types, forcing user here based on task above)
-            const user = payload.user || payload.webData?.data;
-            const isOffline = payload.isOffline || false;
-
-            if (user) {
+        .with({ type: AuthMsgType.LOGIN_RESPONSE_RECEIVED }, ({ webData }) => {
+            if (webData.type === 'Success') {
+                const user = webData.data.user;
                 return [
                     {
                         ...model,
                         user,
                         isAuthenticated: true,
-                        isLoading: false,
-                        isOffline: isOffline,
+                        loginResponse: RemoteData.success(user),
                         error: null,
                         loginSession: {
                             ...model.loginSession,
@@ -80,48 +130,55 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
                     },
                     Cmd.none,
                 ] as [AuthModel, Cmd];
-            } else {
-                // Should ideally not happen if flow is correct, but handling as fallback
+            } else if (webData.type === 'Failure') {
+                const error = webData.error;
+                const errorMessage = mapAuthError(error.type || AuthErrorType.UNKNOWN_ERROR, error.message || 'Error desconocido');
                 return [
                     {
                         ...model,
-                        isLoading: false,
-                        error: 'Error de autenticación desconocido',
+                        user: null,
+                        isAuthenticated: false,
+                        loginResponse: RemoteData.failure({ message: errorMessage }),
+                        error: errorMessage,
+                        loginSession: {
+                            ...model.loginSession,
+                            pin: '',
+                            isSubmitting: false,
+                        },
+                    },
+                    Cmd.none,
+                ] as [AuthModel, Cmd];
+            }
+            // Loading state - already set in LOGIN_REQUESTED
+            return [model, Cmd.none] as [AuthModel, Cmd];
+        })
+
+        .with({ type: AuthMsgType.USER_CHANGED }, ({ user }) => {
+            if (user === null && model.isAuthenticated) {
+                // Logout forced from repository (e.g. session expired or server invalidation)
+                return [
+                    {
+                        ...model,
+                        user: null,
+                        isAuthenticated: false,
+                        loginResponse: RemoteData.notAsked(),
+                    },
+                    Cmd.navigate({ pathname: '/login', method: 'replace' })
+                ] as [AuthModel, Cmd];
+            }
+
+            if (user && model.isAuthenticated) {
+                // Background refresh of user data (e.g. network restored)
+                return [
+                    {
+                        ...model,
+                        user,
                     },
                     Cmd.none
                 ] as [AuthModel, Cmd];
             }
-        })
 
-        .with({ type: AuthMsgType.LOGIN_FAILED }, ({ error }) => {
-            // Mejorar mensajes de error según el tipo
-            let errorMessage = 'Error de autenticación';
-
-            if (error?.includes('ValidationError') || error?.includes('validación')) {
-                errorMessage = 'Error de validación en el servidor. Por favor, intenta nuevamente.';
-            } else if (error?.includes('Network') || error?.includes('red')) {
-                errorMessage = 'Error de conexión. Verifica tu conexión a internet.';
-            } else if (error?.includes('Credenciales') || error?.includes('inválidas')) {
-                errorMessage = 'Usuario o PIN incorrectos';
-            } else if (error) {
-                errorMessage = error;
-            }
-
-            return [
-                {
-                    ...model,
-                    user: null,
-                    isAuthenticated: false,
-                    isLoading: false,
-                    error: errorMessage,
-                    loginSession: {
-                        ...model.loginSession,
-                        pin: '',
-                        isSubmitting: false,
-                    },
-                },
-                Cmd.none,
-            ] as [AuthModel, Cmd];
+            return [model, Cmd.none] as [AuthModel, Cmd];
         })
 
         .with({ type: AuthMsgType.LOGIN_PIN_UPDATED }, ({ pin }) => {
@@ -147,48 +204,36 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
                         pin: '', // Reset PIN when username changes
                     },
                 },
-                Cmd.task({
-                    task: async () => {
-                        if (username) {
-                            await TokenService.saveLastUsername(username);
-                        }
-                    },
-                    onSuccess: () => ({ type: 'NONE' } as any),
-                    onFailure: () => ({ type: 'NONE' } as any),
-                }),
+                username ? saveLastUsernameCmd(username) : Cmd.none,
             ] as [AuthModel, Cmd];
         })
 
         .with({ type: AuthMsgType.LOAD_SAVED_USERNAME_REQUESTED }, () => {
             return [
                 model,
-                Cmd.task({
-                    task: async () => await TokenService.getLastUsername(),
-                    onSuccess: (username: string | null) => ({
-                        type: AuthMsgType.SAVED_USERNAME_LOADED,
-                        username
-                    } as AuthMsg),
-                    onFailure: () => ({
-                        type: AuthMsgType.SAVED_USERNAME_LOADED,
-                        username: null
-                    } as AuthMsg),
-                }),
+                loadSavedUsernameCmd(),
             ] as [AuthModel, Cmd];
         })
 
-        .with({ type: AuthMsgType.SAVED_USERNAME_LOADED }, ({ username }) => {
-            if (!username) return [model, Cmd.none] as [AuthModel, Cmd];
-
-            return [
-                {
-                    ...model,
-                    loginSession: {
-                        ...model.loginSession,
-                        username,
+        .with({ type: AuthMsgType.SAVED_USERNAME_LOADED }, ({ webData }) => {
+            if (webData.type === 'Success' && webData.data) {
+                return [
+                    {
+                        ...model,
+                        loginSession: {
+                            ...model.loginSession,
+                            username: webData.data,
+                        },
                     },
-                },
-                Cmd.none,
-            ] as [AuthModel, Cmd];
+                    Cmd.none,
+                ] as [AuthModel, Cmd];
+            }
+            return [model, Cmd.none] as [AuthModel, Cmd];
+        })
+
+        .with({ type: AuthMsgType.SAVED_USERNAME_SAVED }, () => {
+            // No need to do anything, the save was successful
+            return [model, Cmd.none] as [AuthModel, Cmd];
         })
 
         .with({ type: AuthMsgType.FORGOT_PIN_REQUESTED }, () => {
@@ -205,39 +250,30 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
         .with({ type: AuthMsgType.LOGOUT_REQUESTED }, () => {
             if (model.isLoggingOut) return [model, Cmd.none] as [AuthModel, Cmd];
 
-            const logoutTask = {
-                task: async () => await AppKernel.authProvider.logout(),
-                onSuccess: () => ({ type: AuthMsgType.LOGOUT_SUCCEEDED } as AuthMsg),
-                onFailure: (error: any) => ({
-                    type: AuthMsgType.LOGOUT_FAILED,
-                    error: error.message || 'Error al cerrar sesión'
-                } as AuthMsg)
-            };
             return [
                 { ...model, isLoggingOut: true },
-                Cmd.task(logoutTask),
+                logoutCmd(),
             ] as [AuthModel, Cmd];
         })
 
-        .with({ type: AuthMsgType.LOGOUT_SUCCEEDED }, () => {
+        .with({ type: AuthMsgType.LOGOUT_RESPONSE_RECEIVED }, ({ webData }) => {
+            if (webData.type === 'Success') {
+                return [
+                    {
+                        ...model,
+                        user: null,
+                        isAuthenticated: false,
+                        loginResponse: RemoteData.notAsked(),
+                        isLoggingOut: false,
+                    },
+                    Cmd.navigate({ pathname: '/login', method: 'replace' }),
+                ] as [AuthModel, Cmd];
+            }
             return [
                 {
                     ...model,
-                    user: null,
-                    isAuthenticated: false,
-                    isLoading: false,
                     isLoggingOut: false,
-                },
-                Cmd.navigate({ pathname: '/login', method: 'replace' }),
-            ] as [AuthModel, Cmd];
-        })
-
-        .with({ type: AuthMsgType.LOGOUT_FAILED }, ({ error }) => {
-            return [
-                {
-                    ...model,
-                    isLoggingOut: false,
-                    error,
+                    error: webData.type === 'Failure' ? webData.error?.message || 'Error al cerrar sesión' : undefined,
                 },
                 Cmd.none,
             ] as [AuthModel, Cmd];
@@ -246,104 +282,43 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
         .with({ type: AuthMsgType.CHECK_AUTH_STATUS_REQUESTED }, () => {
             return [
                 model,
-                Cmd.task({
-                    task: async () => {
-                        const user = await AppKernel.authProvider.getUserIdentity();
-                        return {
-                            type: AuthMsgType.CHECK_AUTH_STATUS_RESPONSE_RECEIVED,
-                            user
-                        } as AuthMsg;
-                    },
-                    onSuccess: (msg) => msg,
-                    onFailure: (error) => ({
-                        type: AuthMsgType.CHECK_AUTH_STATUS_FAILED,
-                        error: error.message
-                    } as AuthMsg)
-                }),
+                checkAuthStatusCmd(),
             ] as [AuthModel, Cmd];
         })
 
-        .with({ type: AuthMsgType.CHECK_AUTH_STATUS_RESPONSE_RECEIVED }, ({ user }) => {
-            if (user) {
-                // If user data hasn't changed (same ID), keep the old reference to avoid unnecessary re-renders.
-                // NOTE: This intentionally ignores changes in other fields (role, name, etc) for performance,
-                // as requested by user. Only a full logout/login will refresh updated user data.
-                const isSameUser = model.user && model.user.id === user.id;
-                const finalUser = isSameUser ? model.user! : user;
-
-                if (isSameUser) {
-                    log.info('User identity validated, reference preserved (ID match)');
+        .with({ type: AuthMsgType.CHECK_AUTH_STATUS_RESPONSE_RECEIVED }, ({ webData }) => {
+            if (webData.type === 'Success') {
+                const user = webData.data;
+                if (user) {
+                    return [
+                        {
+                            ...model,
+                            user,
+                            isAuthenticated: true,
+                            error: null
+                        },
+                        Cmd.none,
+                    ] as [AuthModel, Cmd];
                 } else {
-                    log.info('User identity updated', { old: model.user?.id, new: user.id });
+                    return [
+                        {
+                            ...model,
+                            user: null,
+                            isAuthenticated: false,
+                            error: null
+                        },
+                        Cmd.none,
+                    ] as [AuthModel, Cmd];
                 }
-
-                return [
-                    {
-                        ...model,
-                        user: finalUser,
-                        isAuthenticated: true,
-                        isLoading: false,
-                        isOffline: false,
-                        error: null
-                    },
-                    Cmd.none,
-                ] as [AuthModel, Cmd];
-            } else {
-                return [
-                    {
-                        ...model,
-                        user: null,
-                        isAuthenticated: false,
-                        isLoading: false,
-                        isOffline: false,
-                        error: null
-                    },
-                    Cmd.none,
-                ] as [AuthModel, Cmd];
             }
-        })
-
-        .with({ type: AuthMsgType.CHECK_AUTH_STATUS_FAILED }, ({ error }) => {
-            const errorMessage = error || 'Error de conexión';
-
-            // Only logout on 401/403 (token invalid), not on network errors
-            const isAuthError = errorMessage.includes('401') || errorMessage.includes('403') || errorMessage.includes('Unauthorized');
-            const isNetworkError = errorMessage.includes('Network') || errorMessage.includes('timeout') || errorMessage.includes('AbortError');
-
-            if (isAuthError) {
-                // Token invalid: logout
-                return [
-                    {
-                        ...model,
-                        user: null,
-                        isAuthenticated: false,
-                        isLoading: false,
-                        error: errorMessage
-                    },
-                    Cmd.none
-                ] as [AuthModel, Cmd];
-            } else if (isNetworkError) {
-                // Network issue: stay authenticated but mark as offline
-                return [
-                    {
-                        ...model,
-                        isLoading: false,
-                        isOffline: true,
-                        error: errorMessage
-                    },
-                    Cmd.none
-                ] as [AuthModel, Cmd];
-            } else {
-                // Other errors: stay authenticated, no offline flag
-                return [
-                    {
-                        ...model,
-                        isLoading: false,
-                        error: errorMessage
-                    },
-                    Cmd.none
-                ] as [AuthModel, Cmd];
-            }
+            // CHECK_AUTH_STATUS_FAILED is handled by webData.type === 'Failure'
+            return [
+                {
+                    ...model,
+                    error: webData.type === 'Failure' ? webData.error?.message || 'Error al verificar sesión' : undefined
+                },
+                Cmd.none,
+            ] as [AuthModel, Cmd];
         })
 
         .with({ type: AuthMsgType.SESSION_EXPIRED }, () => {
@@ -352,46 +327,15 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
                     ...model,
                     user: null,
                     isAuthenticated: false,
-                    isLoading: false,
                 },
                 Cmd.batch([
-                    Cmd.task({
-                        task: async () => await TokenService.clearAll(),
-                        onSuccess: () => ({ type: 'NONE' } as any),
-                        onFailure: () => ({ type: 'NONE' } as any),
-                    }),
+                    logoutCmd(),
                     Cmd.navigate({ pathname: '/login', method: 'replace' })
                 ]),
             ] as [AuthModel, Cmd];
         })
 
-        .with({ type: AuthMsgType.CONNECTION_STATUS_CHANGED }, ({ isOnline }) => {
-            log.info('Connection status changed message received', { isOnline, modelIsOffline: model.isOffline, isAuthenticated: model.isAuthenticated });
-
-            // Si volvemos a estar online y estábamos en modo offline, disparamos validación
-            if (isOnline && model.isAuthenticated && model.isOffline) {
-                log.info('Network restored, triggering background session validation');
-                return [
-                    model,
-                    Cmd.task({
-                        task: async () => {
-                            const user = await AppKernel.authProvider.getUserIdentity();
-                            return {
-                                type: AuthMsgType.CHECK_AUTH_STATUS_RESPONSE_RECEIVED,
-                                user
-                            } as AuthMsg;
-                        },
-                        onSuccess: (msg) => msg as any,
-                        onFailure: (error: any) => ({
-                            type: AuthMsgType.CHECK_AUTH_STATUS_RESPONSE_RECEIVED,
-                            user: null // If validation fails, user becomes null
-                        } as any)
-                    })
-                ] as [AuthModel, Cmd];
-            }
-
-            return [model, Cmd.none] as [AuthModel, Cmd];
-        })
-
         .otherwise(() => [model, Cmd.none] as [AuthModel, Cmd]);
+
+    return result as [AuthModel, Cmd];
 };

@@ -1,47 +1,37 @@
-import storageClient from '@/shared/services/storage_client';
 import { IBetStorage } from '../bet.ports';
 import { BetDomainModel } from '../bet.types';
-import { OFFLINE_STORAGE_KEYS } from '@/shared/services/offline/types';
+import { BetOfflineAdapter } from './bet.offline.adapter';
+import { logger } from '@/shared/utils/logger';
 
 /**
- * Adapter for Bet Storage using the existing storageClient.
+ * Adapter for Bet Storage using the new BetOfflineAdapter.
  */
 export class BetStorageAdapter implements IBetStorage {
-    private readonly STORAGE_KEY = OFFLINE_STORAGE_KEYS.PENDING_BETS_V2;
+    private offlineAdapter = new BetOfflineAdapter();
+    private log = logger.withTag('BetStorageAdapter');
 
     async save(bet: BetDomainModel): Promise<void> {
-        const bets = await this.getAll();
-        const index = bets.findIndex(b => b.offlineId === bet.offlineId);
-        if (index >= 0) {
-            bets[index] = bet;
-        } else {
-            bets.push(bet);
-        }
-        await storageClient.set(this.STORAGE_KEY, bets);
+        this.log.info('Saving bet offline', { offlineId: bet.offlineId });
+        await this.offlineAdapter.save(bet);
     }
 
     async getAll(): Promise<BetDomainModel[]> {
-        const data = await storageClient.get<BetDomainModel[]>(this.STORAGE_KEY);
-        return data || [];
+        return await this.offlineAdapter.getAll();
     }
 
     async getPending(): Promise<BetDomainModel[]> {
-        const bets = await this.getAll();
-        return bets.filter(b => b.status === 'PENDING' || b.status === 'FAILED');
+        return await this.offlineAdapter.getPending();
+    }
+
+    async getByStatus(status: BetDomainModel['status']): Promise<BetDomainModel[]> {
+        return await this.offlineAdapter.getByStatus(status);
     }
 
     async updateStatus(offlineId: string, status: BetDomainModel['status'], extra?: Partial<BetDomainModel>): Promise<void> {
-        const bets = await this.getAll();
-        const index = bets.findIndex(b => b.offlineId === offlineId);
-        if (index >= 0) {
-            bets[index] = { ...bets[index], status, ...extra };
-            await storageClient.set(this.STORAGE_KEY, bets);
-        }
+        await this.offlineAdapter.updateStatus(offlineId, status, extra);
     }
 
     async delete(offlineId: string): Promise<void> {
-        const bets = await this.getAll();
-        const filtered = bets.filter(b => b.offlineId !== offlineId);
-        await storageClient.set(this.STORAGE_KEY, filtered);
+        await this.offlineAdapter.delete(offlineId);
     }
 }

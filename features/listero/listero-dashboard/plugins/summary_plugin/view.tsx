@@ -16,15 +16,13 @@ interface SummaryComponentProps {
 export const SummaryComponent: React.FC<SummaryComponentProps> = ({ context }) => {
   const { model, dispatch } = useSummaryPluginStore();
 
-  // Estabilizar la inicialización del contexto.
-  // Solo disparamos INIT_CONTEXT si el structureId del host cambia.
-  const hostStructureId = context.state.userStructureId;
-
+  // Inicializar el contexto solo una vez al montar el componente
   React.useEffect(() => {
-    if (model.context?.state.userStructureId !== hostStructureId) {
+    const shouldInit = context && (!model.context || model.context?.hostStore !== context.hostStore);
+    if (shouldInit) {
       dispatch(INIT_CONTEXT(context));
     }
-  }, [hostStructureId, dispatch, context, model.context?.state.userStructureId]);
+  }, [context, dispatch]); // Removed model.context from dependencies
 
   if (model.contextError) {
     return (
@@ -36,8 +34,17 @@ export const SummaryComponent: React.FC<SummaryComponentProps> = ({ context }) =
     );
   }
 
-  // Si no hay contexto aún, podemos mostrar un loader o nada
-  if (!model.context) return null;
+  // Si no hay contexto aún, mostrar un indicador de carga
+  if (!model.context) {
+    return (
+      <Card style={styles.card}>
+        <View style={styles.centered}>
+          <ActivityIndicator size="small" color="#3366FF" />
+          <Text style={[styles.metricLabel, { marginTop: 12 }]}>Inicializando...</Text>
+        </View>
+      </Card>
+    );
+  }
 
   const handleToggleBalance = () => {
     dispatch(TOGGLE_BALANCE_VISIBILITY());

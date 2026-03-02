@@ -23,7 +23,7 @@ function handleInitContext(
   payload: { context: PluginContext; config: FiltersPluginConfig }
 ): Return<Model, Msg.Msg> {
   const { context, config } = payload;
-  const statusFilter = context.state?.[config.stateKey] ?? config.defaultValue;
+  const statusFilter = context.hostStore.getState().model?.[config.stateKey] ?? config.defaultValue;
   return ret({ ...model, context, config, statusFilter }, Cmd.none);
 }
 

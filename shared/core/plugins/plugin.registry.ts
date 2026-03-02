@@ -6,7 +6,7 @@ import {
 import { AppKernel } from '../architecture/kernel';
 import { logger } from '../../utils/logger';
 import { pluginEventBus } from './plugin.event_bus';
-import { storageClient } from '../../services/storage_client';
+import storageClient from '@/shared/core/offline-storage/storage_client';
 import { Registry } from '../utils/registry';
 
 const log = logger.withTag('PLUGIN_REGISTRY');
@@ -67,6 +67,36 @@ class PluginManagerRegistry {
     }
 
     /**
+     * Unregisters a plugin from the system.
+     * This is crucial for memory cleanup and avoiding stale references.
+     * 
+     * @param pluginId The ID of the plugin to unregister
+     */
+    unregister(pluginId: string): void {
+        if (!this.registry.has(pluginId)) {
+            return;
+        }
+
+        try {
+            const entry = this.registry.get(pluginId);
+
+            // Clean up plugin if it has a cleanup method
+            if (entry?.plugin.cleanup) {
+                entry.plugin.cleanup(entry.context);
+            }
+
+            this.registry.unregister(pluginId);
+
+            // Notify about unregistration
+            pluginEventBus.publish('sys:plugin_unregistered', { pluginId });
+
+            log.info(`Plugin ${pluginId} unregistered successfully.`);
+        } catch (error) {
+            log.error(`Failed to unregister plugin ${pluginId}`, error);
+        }
+    }
+
+    /**
      * Obtiene todas las extensiones (componentes) registradas para un Slot específico.
      * Retorna los componentes ordenados por prioridad.
      */
@@ -80,10 +110,10 @@ class PluginManagerRegistry {
 
         // Iterar sobre todos los plugins registrados
         const allPlugins = this.registry.getAll();
-        
+
         allPlugins.forEach((entry) => {
             const { plugin, context } = entry;
-            
+
             // Verificar si el plugin tiene slots y si tiene el slot específico que buscamos
             if (plugin.slots && plugin.slots[slotName]) {
                 const slotConfig = plugin.slots[slotName];

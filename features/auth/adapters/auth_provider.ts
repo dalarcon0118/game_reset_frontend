@@ -1,5 +1,5 @@
 import { AuthProvider, LoginParams } from '@/shared/core/architecture/interfaces';
-import { AuthRepository, AuthResult } from '../../../shared/repositories/auth_repository';
+import { AuthRepository, AuthResult } from '../../../shared/repositories/auth';
 import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('AUTH_PROVIDER');
@@ -53,11 +53,7 @@ export const gameResetAuthProvider: AuthProvider = {
     },
 
     checkAuth: async () => {
-        try {
-            await AuthRepository.getMe();
-        } catch (error) {
-            throw new Error('Not authenticated');
-        }
+        await AuthRepository.checkAuth();
     },
 
     getPermissions: async () => Promise.resolve([]),

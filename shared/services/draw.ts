@@ -5,7 +5,7 @@ import { mapBackendDrawToFrontend, mapStatus } from './draw/mapper';
 import { mapBetTypesToGameTypes } from './draw/mappers/bet_type.mapper';
 import { ExtendedDrawType, DrawClosureConfirmation } from './draw/types';
 import { logger } from '@/shared/utils/logger';
-import { OfflineFirstDrawRepository } from '@/shared/repositories/draw.repository';
+import { drawRepository } from '@/shared/repositories/draw';
 import { retry } from '@/shared/utils/retry';
 import { Result, ok, err } from 'neverthrow';
 
@@ -54,7 +54,7 @@ export class DrawService {
    */
   static async list(params: Record<string, any> = {}): Promise<Result<ExtendedDrawType[], Error>> {
     const startTime = Date.now();
-    const repository = new OfflineFirstDrawRepository();
+    const repository = drawRepository;
 
     const retryResult = await retry(async () => {
       const result = await repository.getDraws(params);

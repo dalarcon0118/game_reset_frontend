@@ -1,4 +1,4 @@
-import { StructureService, ChildStructure } from '@/shared/services/structure';
+import { structureRepository, ChildStructure } from '@/shared/repositories/structure';
 import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('BANKER_DASHBOARD_SERVICE');
@@ -24,8 +24,8 @@ export class BankerDashboardService {
     static async getDashboardData(bankerId: number): Promise<{ children: ChildStructure[], summary: DashboardSummary }> {
         try {
             // Fetch immediate children (level 1 relative to banker)
-            // Reusing StructureService as requested
-            const children = await StructureService.getChildren(bankerId);
+            // Reusing structureRepository as requested
+            const children = await structureRepository.getChildren(bankerId);
 
             // Calculate summary stats from children data
             const summary = BankerDashboardService.calculateSummary(children);

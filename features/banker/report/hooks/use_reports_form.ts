@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Alert } from 'react-native';
 import { IndexPath } from '@ui-kitten/components';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../../auth';
-import { IncidentService } from '@/shared/services/incident';
-import { StructureService, ChildStructure } from '@/shared/services/structure';
+import { incidentRepository } from '@/shared/repositories/incident';
+import { structureRepository, ChildStructure } from '@/shared/repositories/structure';
 import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('USE_BANKER_REPORTS_FORM');
@@ -75,12 +75,12 @@ export function useReportsForm(): ReportsFormState & ReportsFormActions {
 
             try {
                 setLoadingAgencies(true);
-                const children = await StructureService.getChildren(Number(user.structure.id));
+                const children = await structureRepository.getChildren(Number(user.structure.id));
                 setAgencies(children);
 
                 // Pre-select agency if provided in params
                 if (params.agencyId && children.length > 0) {
-                    const index = children.findIndex(c => c.id.toString() === params.agencyId);
+                    const index = children.findIndex((c: ChildStructure) => c.id.toString() === params.agencyId);
                     if (index !== -1) {
                         setSelectedAgencyIndex(new IndexPath(index));
                     }
@@ -116,9 +116,9 @@ export function useReportsForm(): ReportsFormState & ReportsFormActions {
         try {
             setIsSubmitting(true);
 
-            await IncidentService.create({
-                structure: Number(selectedAgency.id),
-                draw: params.drawId ? parseInt(params.drawId, 10) : null,
+            await incidentRepository.create({
+                structure: selectedAgency.id,
+                draw: params.drawId ? Number(params.drawId) : null,
                 incident_type: displayType,
                 description,
             });

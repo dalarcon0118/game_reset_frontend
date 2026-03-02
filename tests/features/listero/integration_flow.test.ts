@@ -1,6 +1,6 @@
 import { Msg } from '@/features/listero/listero-dashboard/core/msg';
 import { createTestEnv } from '@/tests/utils/test-env';
-import { User } from '@/shared/services/auth/types';
+import { User } from '@/shared/repositories/auth';
 
 describe('Feature: Listero Draw Synchronization (Real Backend + BDD)', () => {
 

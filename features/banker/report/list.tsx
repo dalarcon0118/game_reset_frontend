@@ -6,7 +6,7 @@ import { Flex, Label, Card } from '@/shared/components';
 import { Search, Filter } from 'lucide-react-native';
 import { useTheme } from '@/shared/hooks/use_theme';
 import { useAuth } from '../../auth';
-import { IncidentService, Incident } from '@/shared/services/incident';
+import { incidentRepository, Incident } from '@/shared/repositories/incident';
 import { useDataFetch } from '@/shared/hooks/use_data_fetch';
 import { useIsFocused } from '@react-navigation/native';
 import { ReportItem } from './components/report_item';
@@ -24,7 +24,7 @@ export default function BankerReportsListScreen() {
     const [selectedDate, setSelectedDate] = React.useState<Date | null>(null);
     const [showFilters, setShowFilters] = React.useState(false);
 
-    const [fetchIncidents, incidents, loading] = useDataFetch<Incident[], [any]>(IncidentService.list);
+    const [fetchIncidents, incidents, loading] = useDataFetch<Incident[], [any]>(incidentRepository.list.bind(incidentRepository));
 
     const statusOptions = useMemo(() => [
         { label: 'Abierto', value: 'pending' },
@@ -45,7 +45,7 @@ export default function BankerReportsListScreen() {
         const backendStatus = statusMap[status] || 'pending';
 
         try {
-            await IncidentService.updateStatus(id, backendStatus, notes);
+            await incidentRepository.updateStatus(id, backendStatus, notes);
             // Refresh with current filters
             loadData();
         } catch (err) {

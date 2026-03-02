@@ -135,9 +135,9 @@ export default function DrawItem({
     });
   }, [draw]);
   
-  React.useEffect(() => {
-    debugFinancials();
-  }, [debugFinancials]);
+  // React.useEffect(() => {
+  //   debugFinancials();
+  // }, [debugFinancials]);
   const hasOfflineBets = draw._offline && draw._offline.pendingCount > 0;
   const offlineCount = draw._offline?.pendingCount ?? 0;
 

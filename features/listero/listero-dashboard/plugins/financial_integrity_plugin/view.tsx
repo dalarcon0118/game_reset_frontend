@@ -10,8 +10,13 @@ export const FinancialIntegrityView: React.FC<{ context: PluginContext }> = ({ c
   const { model, dispatch } = useFinancialIntegrityStore();
 
   useEffect(() => {
-    dispatch(INIT_CONTEXT(context));
-  }, [context, dispatch]);
+    const shouldInit = !model.context || 
+      model.context?.hostStore !== context.hostStore;
+
+    if (shouldInit) {
+      dispatch(INIT_CONTEXT(context));
+    }
+  }, [context, dispatch]); // Removed model.context from dependencies
 
   // Manejo de suscripciones TEA manual dentro del componente de React
   // (En una app Elm real, esto lo manejaría el runtime)

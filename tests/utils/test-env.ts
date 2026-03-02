@@ -6,8 +6,7 @@ import { Model } from '@/features/listero/listero-dashboard/core/model';
 import { initialState } from '@/features/listero/listero-dashboard/core/initial.types';
 import { effectHandlers } from '@/shared/core/effect_handlers';
 import apiClient from '@/shared/services/api_client';
-import { AuthApi } from '@/shared/services/auth/api';
-import { User } from '@/shared/services/auth/types';
+import { AuthRepository, User } from '@/shared/repositories/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Interface for the extended mock
@@ -76,10 +75,16 @@ export const createTestEnv = async () => {
     const authenticateRealUser = async (username: string, pin: string): Promise<User> => {
         try {
             console.log(`Attempting real login for user: ${username}`);
-            const response = await AuthApi.login(username, pin);
+            const result = await AuthRepository.login(username, pin);
+            if (!result.success) {
+                throw new Error(result.error.message);
+            }
+            if (!result.data) {
+                throw new Error('No session data received');
+            }
             console.log('Login successful');
-            await apiClient.setAuthToken(response.access, response.refresh);
-            return response.user;
+            await apiClient.setAuthToken(result.data.accessToken, result.data.refreshToken);
+            return result.data.user;
         } catch (error) {
             console.error('Real login failed. Make sure backend is running on localhost:8000', error);
             throw error;

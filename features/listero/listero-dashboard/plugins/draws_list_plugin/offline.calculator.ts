@@ -1,4 +1,4 @@
-import { PendingBet } from '@/shared/services/offline_storage';
+import { BetDomainModel as PendingBet } from '@/shared/repositories/bet/bet.types';
 
 export interface OfflineDrawUpdate {
   drawId: string;
@@ -17,18 +17,19 @@ export function calculateOfflineUpdates(pendingBets: PendingBet[]): OfflineDrawU
   if (pendingBets.length > 0) {
     pendingBets.forEach(bet => {
       // Handle different property names for draw ID
-      const drawIdRaw = bet.drawId || bet.draw;
+      const drawIdRaw = bet.data.draw;
       if (!drawIdRaw) return;
 
       const drawId = String(drawIdRaw);
       const current = drawMap.get(drawId) || { localTotalCollected: 0, localNetResult: 0, pendingCount: 0 };
       
       // Calculate amounts
-      const amount = bet.financialImpact?.totalCollected || bet.amount || 0;
+      const amount = Number(bet.data.amount) || 0;
+      const totalCollected = bet.financialImpact?.totalCollected || amount;
       const netAmount = bet.financialImpact?.netAmount || (amount * 0.9); // Default 10% commission if missing
 
       drawMap.set(drawId, {
-        localTotalCollected: current.localTotalCollected + amount,
+        localTotalCollected: current.localTotalCollected + totalCollected,
         localNetResult: current.localNetResult + netAmount,
         pendingCount: current.pendingCount + 1,
       });

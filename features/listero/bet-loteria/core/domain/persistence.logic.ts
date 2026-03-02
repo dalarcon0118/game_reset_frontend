@@ -51,6 +51,10 @@ export const PersistenceLogic = {
 
     /**
      * Generates the payload required for the backend.
+     * 
+     * IMPORTANTE: Usa structureId del usuario (model.structureId) en lugar de owner_structure del draw.
+     * Esto asegura que el registro financiero se asocie correctamente a la estructura del usuario actual,
+     * que es la misma estructura que usa el Dashboard para mostrar los resumenes financieros.
      */
     createSavePayload: (model: LoteriaFeatureModel, drawId: string): any => {
         const receiptCode = model.summary.pendingReceiptCode || CalculationLogic.generateReceiptCode();
@@ -63,10 +67,23 @@ export const PersistenceLogic = {
             drawid: drawId
         }));
 
+        // Obtener detalles del sorteo para extraer la estructura (fallback)
+        const drawDetails = model.managementSession.drawDetails.type === 'Success'
+            ? model.managementSession.drawDetails.data
+            : null;
+
+        // USAR structureId del usuario actual como fuente de verdad
+        // Si no está disponible, caer a owner_structure del draw (fallback)
+        const effectiveStructureId = model.structureId
+            ? String(model.structureId)
+            : String(drawDetails?.owner_structure || '');
+
         return {
             drawId,
             loteria: betsWithId,
-            receiptCode
+            receiptCode,
+            amount: model.summary.loteriaTotal, // Monto total para el Ledger financiero
+            owner_structure: effectiveStructureId // Estructura del usuario actual
         };
     }
 };

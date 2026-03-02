@@ -72,6 +72,7 @@ export interface BetType {
   amount: number;
   draw: string;
   createdAt: string;
+  timestamp?: number;
   isPending?: boolean;
   receiptCode?: string;
   betTypeId?: string | number; // Almacenamos el ID original del backend
@@ -88,6 +89,15 @@ export interface FinancialSummary {
   premiumsPaid: number;
   netResult: number;
   draws?: DrawFinancialInfo[];
+  timestamp?: number;
+  date?: string;
+  id_estructura?: number;
+  nombre_estructura?: string;
+  padre_id?: number | null;
+  colectado_total?: number;
+  pagado_total?: number;
+  neto_total?: number;
+  sorteos?: DrawFinancialInfo[];
 }
 
 export interface DrawFinancialInfo {
@@ -132,6 +142,7 @@ export interface LoteriaBet {
   id: string;
   bet: string;
   amount: number | null;
+  receiptCode?: string;
   betTypeid?: string | number;
   drawid?: string | number;
 }

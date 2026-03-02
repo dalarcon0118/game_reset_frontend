@@ -1,9 +1,3 @@
-/**
- * OfflineSyncPlugin - Subscriptions
- * 
- * Suscripciones a eventos del sync worker y otros efectos secundarios.
- */
-
 import {
   OfflineSyncMsg,
   loadedPendingBets,
@@ -15,8 +9,9 @@ import {
   syncItemError,
   syncError,
 } from './msg';
-import { OfflineFinancialService } from '@/shared/services/offline';
-import type { Unsubscribe } from '@/shared/services/offline';
+import { offlineEventBus, syncWorker } from '@/shared/core/offline-storage/instance';
+import type { Unsubscribe } from '@/shared/core/offline-storage/types';
+import { betRepository } from '@/shared/repositories/bet';
 import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('OFFLINE_SYNC_SUBS');
@@ -31,51 +26,48 @@ const log = logger.withTag('OFFLINE_SYNC_SUBS');
 export function setupSyncWorkerSubscriptions(
   dispatch: (msg: OfflineSyncMsg) => void
 ): () => void {
-  let unsubscribes: Unsubscribe[] = [];
-
-  // Subscribe to sync events
-  const syncUnsubscribe = OfflineFinancialService.onSyncEvent((event) => {
+  // Subscribe to sync events via the global offline event bus
+  const syncUnsubscribe = offlineEventBus.subscribe((event) => {
     switch (event.type) {
-      case 'started':
+      case 'SYNC_STARTED':
         dispatch(syncStarted());
         break;
 
-      case 'completed':
+      case 'SYNC_COMPLETED':
         dispatch(syncCompleted({
-          succeeded: event.result?.succeeded || 0,
-          failed: event.result?.failed || 0,
+          succeeded: event.payload?.succeeded || 0,
+          failed: event.payload?.failed || 0,
         }));
         break;
 
-      case 'item_success':
-        dispatch(syncItemSuccess({ offlineId: event.itemId! }));
+      case 'SYNC_ITEM_SUCCESS':
+        dispatch(syncItemSuccess({ offlineId: event.payload?.entityId || '' }));
         break;
 
-      case 'item_error':
+      case 'SYNC_ITEM_ERROR':
         dispatch(syncItemError({
-          offlineId: event.itemId!,
-          error: event.error || 'Unknown error'
+          offlineId: event.payload?.entityId || '',
+          error: event.payload?.error || 'Unknown error'
         }));
         break;
 
-      case 'error':
-        dispatch(syncError({ error: event.error || 'Sync error' }));
+      case 'SYNC_ERROR':
+        dispatch(syncError({ error: event.payload?.error || 'Sync error' }));
+        break;
+
+      case 'ENTITY_CHANGED':
+      case 'ENTITY_REMOVED':
+        log.debug('Storage state changed', {
+          type: event.type,
+          entity: event.entity
+        });
         break;
     }
   });
 
-  unsubscribes.push(syncUnsubscribe);
-
-  // Subscribe to state changes
-  const stateUnsubscribe = OfflineFinancialService.onAnyStateChange((event) => {
-    log.debug('State changed', { changeType: event.changeType });
-  });
-
-  unsubscribes.push(stateUnsubscribe);
-
   // Return cleanup function
   return () => {
-    unsubscribes.forEach(unsub => unsub());
+    syncUnsubscribe();
   };
 }
 
@@ -84,17 +76,13 @@ export function setupSyncWorkerSubscriptions(
 // ============================================================================
 
 let statsInterval: ReturnType<typeof setInterval> | null = null;
-let syncInterval: ReturnType<typeof setInterval> | null = null;
-
-/** Intervalo de sync automático: 5 minutos */
-const SYNC_INTERVAL_MS = 5 * 60 * 1000; // 300000ms
 
 /**
  * Inicia el polling periódico de estadísticas
  */
 export function startStatsPolling(
   dispatch: (msg: OfflineSyncMsg) => void,
-  intervalMs: number = 5 * 60 * 1000 // 30 segundos para stats
+  intervalMs: number = 30 * 1000 // 30 segundos para stats
 ): void {
   if (statsInterval) {
     clearInterval(statsInterval);
@@ -102,24 +90,36 @@ export function startStatsPolling(
 
   const pollStats = async () => {
     try {
-      const stats = await OfflineFinancialService.getSyncStats();
+      const stats = syncWorker.getStats();
+      const pendingBetsRepo = await betRepository.getPendingBets();
+
+      const pending = pendingBetsRepo.filter(b => b.status === 'pending');
+      const syncing = pendingBetsRepo.filter(b => b.status === 'syncing');
+      const errors = pendingBetsRepo.filter(b => b.status === 'error');
 
       dispatch(loadedSyncStats(
-        stats.pendingBets,
-        stats.syncingBets,
-        stats.errorBets,
-        stats.syncedToday,
-        stats.workerStatus,
-        stats.timeSinceLastSync ? Date.now() - stats.timeSinceLastSync : null
+        pending.length,
+        syncing.length,
+        errors.length,
+        stats.totalSucceeded,
+        stats.status,
+        stats.lastRunAt ? Date.now() - stats.lastRunAt : null
       ));
 
-      // Also load pending/error bets
-      const pendingBets = await OfflineFinancialService.getPendingBets();
-      const pending = pendingBets.filter(b => b.status === 'pending');
-      const errors = pendingBets.filter(b => b.status === 'error');
+      dispatch(loadedPendingBets(pending.map(b => ({
+        id: b.offlineId,
+        amount: Number(b.data.amount) || 0,
+        timestamp: b.timestamp,
+        status: b.status
+      }))));
 
-      dispatch(loadedPendingBets(pending));
-      dispatch(loadedErrorBets(errors));
+      dispatch(loadedErrorBets(errors.map(b => ({
+        id: b.offlineId,
+        amount: Number(b.data.amount) || 0,
+        timestamp: b.timestamp,
+        status: b.status,
+        error: 'Sync error'
+      }))));
 
     } catch (error) {
       log.error('Error polling stats', error);
@@ -141,10 +141,6 @@ export function stopStatsPolling(): void {
     clearInterval(statsInterval);
     statsInterval = null;
   }
-  if (syncInterval) {
-    clearInterval(syncInterval);
-    syncInterval = null;
-  }
 }
 
 // ============================================================================
@@ -153,43 +149,7 @@ export function stopStatsPolling(): void {
 
 export function cleanupSyncSubscriptions(): void {
   stopStatsPolling();
-  OfflineFinancialService.stopSyncWorker();
-}
-
-// ============================================================================
-// Periodic Background Sync (cada 5 minutos)
-// ============================================================================
-
-/**
- * Inicia el sync automático periódico en background.
- */
-export function startPeriodicSync(): () => void {
-  if (syncInterval) {
-    clearInterval(syncInterval);
-  }
-
-  log.info(`Starting periodic sync every ${SYNC_INTERVAL_MS / 1000 / 60} minutes`);
-
-  const initialSync = async () => {
-    try {
-      const stats = await OfflineFinancialService.getSyncStats();
-      if (stats.pendingBets > 0) {
-        await OfflineFinancialService.syncNow();
-      }
-    } catch (error) {
-      log.error('Initial sync error', error);
-    }
-  };
-
-  initialSync();
-  syncInterval = setInterval(initialSync, SYNC_INTERVAL_MS);
-
-  return () => {
-    if (syncInterval) {
-      clearInterval(syncInterval);
-      syncInterval = null;
-    }
-  };
+  syncWorker.stop();
 }
 
 // ============================================================================
@@ -200,12 +160,12 @@ export function startPeriodicSync(): () => void {
  * Inicia el proceso automático periódico (sync worker).
  */
 export async function startSyncWorker(): Promise<void> {
-  await OfflineFinancialService.startSyncWorker();
+  await syncWorker.start();
   startPeriodicSync();
 }
 
 export async function stopSyncWorker(): Promise<void> {
-  await OfflineFinancialService.stopSyncWorker();
+  syncWorker.stop();
   // Detener el sync periódico
   if (syncInterval) {
     clearInterval(syncInterval);
@@ -214,5 +174,5 @@ export async function stopSyncWorker(): Promise<void> {
 }
 
 export async function forceSyncNow(): Promise<void> {
-  await OfflineFinancialService.syncNow();
+  await syncWorker.triggerSync();
 }

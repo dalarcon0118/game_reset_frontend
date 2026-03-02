@@ -19,7 +19,7 @@ import { Icon } from '@ui-kitten/components';
 import { Plugin, SlotProps } from '@/shared/core/plugins/plugin.types';
 import { useOfflineSyncStore } from './offline_sync_plugin/store';
 import type { ToastConfig } from './offline_sync_plugin/types';
-import { OfflineFinancialService } from '@/shared/services/offline';
+import { betRepository } from '@/shared/repositories/bet/bet.repository';
 import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('OFFLINE_SYNC_PLUGIN');
@@ -50,7 +50,7 @@ function scheduleDailyCleanup(): void {
 
   cleanupTimeout = setTimeout(async () => {
     log.info('Running daily maintenance...');
-    await OfflineFinancialService.runMaintenance();
+    await betRepository.applyMaintenance();
     // Re-programar para el siguiente día
     scheduleDailyCleanup();
   }, msUntilMidnight);

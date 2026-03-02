@@ -1,7 +1,7 @@
 import {  StyleSheet, SafeAreaView } from 'react-native';
 import { useColorScheme } from 'react-native';
 import Colors from '@/constants/colors';
-import DashboardScreen from '../../../features/listero-dashboard/views';
+import DashboardScreen from '@/features/listero/listero-dashboard/views';
 
 
 export default function ListeroDashboardTab() {

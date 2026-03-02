@@ -1,28 +1,12 @@
 // Auth state types - core authentication model
-import { UserRole } from '../../../../data/mock_data';
-
-export interface User {
-    id: number | string;
-    username: string;
-    role: UserRole;
-    name?: string;
-    email?: string;
-    structure?: {
-        id: number | string;
-        name?: string;
-        commission_rate?: number;
-        type?: string;
-        role_in_structure?: string;
-    };
-    // Add other user properties as needed
-}
+import { User } from '../../../../shared/repositories/auth';
+import { WebData, RemoteData } from '../../../../shared/core/remote.data';
 
 export interface AuthState {
     user: User | null;
     isAuthenticated: boolean;
-    isLoading: boolean;
+    loginResponse: WebData<User>; // RemoteData for the login result
     isLoggingOut: boolean;
-    isOffline: boolean; // Indicates if currently authenticated locally without server confirmation
     error: string | null;
 }
 

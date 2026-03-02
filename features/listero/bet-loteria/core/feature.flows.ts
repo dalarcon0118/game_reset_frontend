@@ -4,6 +4,7 @@ import { Return, ret } from '@/shared/core/return';
 import { Cmd } from '@/shared/core/cmd';
 import { LoteriaDomain } from './feature.domain';
 import { LoteriaBet, GameType } from '@/types';
+import { initialModel } from './store';
 import {
     CONFIRM_SAVE_BETS,
     SAVE_BETS_RESPONSE,
@@ -20,9 +21,9 @@ import {
 import { RemoteDataHttp } from '@/shared/core/remote.data.http';
 import { WebData, RemoteData } from '@/shared/core/remote.data';
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
-import { DrawRepository } from '@/shared/repositories/draw.repository';
+import { drawRepository } from '@/shared/repositories/draw';
 import { logger } from '@/shared/utils/logger';
-import { BET_TYPE_KEYS } from '@/shared/types/bet_types';
+import { BET_TYPE_KEYS, isLoteriaType } from '@/shared/types/bet_types';
 import { BetType } from '@/types';
 
 const log = logger.withTag('LOTERIA_FLOWS');
@@ -78,18 +79,25 @@ export const FeatureFlows = {
 
     // --- Orchestration Flows ---
 
-    init: (model: LoteriaFeatureModel, drawId: string, isEditing: boolean = true): Return<LoteriaFeatureModel, FeatureMsg> => {
-        const loadingModel: LoteriaFeatureModel = {
-            ...model,
+    init: (model: LoteriaFeatureModel, drawId: string, isEditing: boolean = true, structureId?: string): Return<LoteriaFeatureModel, FeatureMsg> => {
+        // IMPORTANTE: Usar initialModel en lugar de model para reiniciar el estado completamente
+        // Esto asegura que las apuestas anteriores se borren al entrar al screen
+        const baseState = {
+            ...initialModel,
             currentDrawId: drawId,
             isEditing,
+            structureId: structureId || initialModel.structureId,
+        };
+
+        const loadingModel: LoteriaFeatureModel = {
+            ...baseState,
             managementSession: {
-                ...model.managementSession,
+                ...baseState.managementSession,
                 drawDetails: RemoteData.loading(),
-                betTypes: { ...model.managementSession.betTypes, loteria: null }
+                betTypes: { ...baseState.managementSession.betTypes, loteria: null }
             },
             listSession: {
-                ...model.listSession,
+                ...baseState.listSession,
                 // Si estamos anotando, iniciamos con lista limpia (Success([])).
                 // Si es solo lectura, iniciamos en Loading para cargar las existentes desde el servidor.
                 remoteData: isEditing ? RemoteData.success({ loteria: [] }) : RemoteData.loading()
@@ -102,8 +110,9 @@ export const FeatureFlows = {
         ];
 
         // Solo cargamos apuestas existentes si NO estamos en modo anotación (isEditing: false)
+        // Nota: betTypes.loteria se establece como null inicialmente y se completa tras fetchBetTypes
         if (!isEditing) {
-            cmds.push(FeatureFlows.fetchExistingBets(drawId, model.managementSession.betTypes.loteria));
+            cmds.push(FeatureFlows.fetchExistingBets(drawId, null));
         }
 
         return ret(
@@ -124,7 +133,7 @@ export const FeatureFlows = {
     fetchDrawDetails: (drawId: string): Cmd => {
         return RemoteDataHttp.fetch<any, FeatureMsg>(
             async () => {
-                const result = await DrawRepository.getDraw(drawId);
+                const result = await drawRepository.getDraw(drawId);
                 if (result.isErr()) throw result.error;
                 return result.value;
             },
@@ -136,32 +145,75 @@ export const FeatureFlows = {
         log.debug('FETCH_BET_TYPES', { drawId });
         return RemoteDataHttp.fetch<GameType[], FeatureMsg>(
             async () => {
-                const result = await DrawRepository.getBetTypes(drawId);
-                if (result.isErr()) throw result.error;
-                return result.value;
+                const result = await drawRepository.getBetTypes(drawId);
+
+                if (result.isErr()) {
+                    log.error('FETCH_BET_TYPES_ERROR', {
+                        drawId,
+                        error: result.error.message
+                    });
+                    throw result.error;
+                }
+
+                log.debug('FETCH_BET_TYPES_SUCCESS', {
+                    drawId,
+                    count: result.value.length
+                });
+
+                return result.value.map((t): GameType => ({
+                    id: String(t.id),
+                    name: t.name,
+                    code: t.code || '',
+                    description: t.description || ''
+                }));
             },
             (response) => ({ type: 'FETCH_BET_TYPES_RESPONSE', response })
         );
     },
 
     fetchExistingBets: (drawId: string, betTypeId?: string | null): Cmd => {
+        log.debug('FETCH_EXISTING_BETS', { drawId, betTypeId });
         return RemoteDataHttp.fetch<LoteriaBet[], FeatureMsg>(
             async () => {
                 const result = await betRepository.getBets({ drawId });
-                if (result.isErr()) throw result.error;
-                // Filter and cast to LoteriaBet[] - using unknown to satisfy TS
-                // Now we filter by betTypeId if available, or fallback to 'Loteria' for legacy
+
+                if (result.isErr()) {
+                    log.error('FETCH_EXISTING_BETS_ERROR', {
+                        drawId,
+                        error: result.error.message
+                    });
+                    throw result.error;
+                }
+
+                log.debug('FETCH_EXISTING_BETS_SUCCESS', {
+                    drawId,
+                    totalBets: result.value.length
+                });
+
                 return result.value
                     .filter((b: BetType) => {
+                        // DEBUG: Log para entender el filtro isLoteriaType
+                        const isLoteria = isLoteriaType(b.type || '', b.betTypeId);
+                        log.debug('LOTERIA_FILTER_DEBUG', {
+                            betId: b.id,
+                            type: b.type,
+                            betTypeId: b.betTypeId,
+                            draw: b.draw,
+                            numbers: b.numbers,
+                            amount: b.amount,
+                            isLoteria
+                        });
                         if (betTypeId) {
                             return String(b.betTypeId) === String(betTypeId);
                         }
-                        return b.type === BET_TYPE_KEYS.LOTERIA;
+                        // Use isLoteriaType for flexible matching (case, accents, Cuaterna/Semanal fallback)
+                        return isLoteria;
                     })
                     .map((b: BetType) => ({
                         id: b.id,
                         bet: b.numbers, // Mapeo crítico para visualización en Loteria
                         amount: b.amount,
+                        receiptCode: b.receiptCode, // 🛡️ CRITICAL: Mapear el código de recibo para agrupación
                         betTypeid: b.betTypeId,
                         drawid: b.draw
                     })) as unknown as LoteriaBet[];

@@ -1,12 +1,11 @@
 import { match } from 'ts-pattern';
 import { Cmd } from '@/shared/core/cmd';
 import { RemoteDataHttp } from '@/shared/core/remote.data.http';
-import { DrawRepository } from '@/shared/repositories/draw.repository';
-import { BetRepository } from '@/shared/repositories/bet.repository';
-import { OfflineFinancialService } from '@/shared/services/offline';
+import { drawRepository } from '@/shared/repositories/draw';
+import { betRepository } from '@/shared/repositories/bet/bet.repository';
+import { financialRepository, summaryRepository } from '@/shared/repositories/financial';
 import apiClient from '@/shared/services/api_client';
-import { FinancialSummary, DrawType } from '@/types';
-import { FinancialSummaryService } from '@/shared/services/financial_summary';
+import { FinancialSummary, DrawType, BetType } from '@/types';
 import { logger } from '@/shared/utils/logger';
 
 
@@ -44,9 +43,9 @@ export const fetchDrawsCmd = (structureId: string | null): Cmd => {
     return Cmd.task({
         task: async () => {
             try {
-                log.info('Calling DrawRepository.getDraws...');
-                const result = await DrawRepository.getDraws({ owner_structure: structureId, next24h: true });
-                log.info('DrawRepository.getDraws result', { isOk: result.isOk() });
+                log.info('Calling drawRepository.getDraws...');
+                const result = await drawRepository.getDraws({ owner_structure: structureId, today: true });
+                log.info('drawRepository.getDraws result', { isOk: result.isOk() });
 
                 if (result.isOk()) {
                     log.info('Draws fetched successfully', { count: result.value.length });
@@ -77,19 +76,28 @@ export const fetchSummaryCmd = (structureId: string | null): Cmd => {
 
     return Cmd.task({
         task: async () => {
-            // FinancialSummaryService.get returns Result<FinancialSummary, Error>
-            const result = await FinancialSummaryService.get(structureId);
+            // Usar summaryRepository para obtener datos con desglose por sorteo
+            log.debug('fetchSummaryCmd: Calling summaryRepository.getSummary', { structureId });
+            const summaryResult = await summaryRepository.getSummary(structureId);
 
-            if (result.isErr()) {
-                log.error('fetchSummaryCmd task failed', result.error);
-                throw result.error;
+            if (summaryResult.isErr()) {
+                log.error('fetchSummaryCmd: Error getting summary', summaryResult.error);
+                throw summaryResult.error;
             }
 
-            log.info('fetchSummaryCmd task success', {
-                hasData: !!result.value,
-                collected: result.value?.totalCollected
+            const summary = summaryResult.value;
+
+            log.info('fetchSummaryCmd result', {
+                hasData: summary.colectado_total > 0 || summary.sorteos?.length > 0,
+                totalCollected: summary.totalCollected,
+                premiumsPaid: summary.premiumsPaid,
+                netResult: summary.netResult,
+                sorteosCount: summary.sorteos?.length || 0,
+                sorteosSample: summary.sorteos?.[0]
             });
-            return result.value;
+
+            // Devolver el summary completo que incluye los datos por sorteo
+            return summary;
         },
         onSuccess: (data) => {
             log.info('Dispatching SUMMARY_RECEIVED Success');
@@ -108,12 +116,12 @@ export const loadPendingBetsCmd = (): Cmd => {
     return Cmd.task({
         task: async () => {
             try {
-                const result = await BetRepository.getBets();
+                const result = await betRepository.getBets();
                 if (result.isErr()) throw result.error;
 
                 const allBets = result.value;
-                const pending = allBets.filter(b => b.isPending);
-                const synced = allBets.filter(b => !b.isPending);
+                const pending = allBets.filter((b: BetType) => b.isPending);
+                const synced = allBets.filter((b: BetType) => !b.isPending);
 
                 log.info('Loaded dashboard bets', {
                     total: allBets.length,
@@ -135,7 +143,7 @@ export const loadPendingBetsCmd = (): Cmd => {
 export const updateAuthTokenCmd = (): Cmd => {
     return Cmd.task({
         task: async () => {
-            const token = await apiClient.getToken();
+            const token = await apiClient.getAuthToken();
             return token || '';
         },
         onSuccess: (token) => AUTH_TOKEN_UPDATED(token),

@@ -12,9 +12,9 @@ export const BetLogic = {
         let changes = 0;
         const updated = bets.map(bet => {
             const isOld = now - bet.timestamp > 86400000; // 24h
-            if (isOld && bet.status === 'PENDING') {
+            if (isOld && bet.status === 'pending') {
                 changes++;
-                return { ...bet, status: 'BLOCKED' as const };
+                return { ...bet, status: 'blocked' as const };
             }
             return bet;
         });
@@ -27,9 +27,9 @@ export const BetLogic = {
     applyMidnightReset(bets: BetDomainModel[]): { updated: BetDomainModel[], changes: number } {
         let changes = 0;
         const updated = bets.map(bet => {
-            if (bet.status === 'BLOCKED') {
+            if (bet.status === 'blocked') {
                 changes++;
-                return { ...bet, status: 'PENDING' as const };
+                return { ...bet, status: 'pending' as const };
             }
             return bet;
         });
@@ -40,7 +40,7 @@ export const BetLogic = {
      * Checks if the app should be blocked based on pending bets.
      */
     isAppBlocked(bets: BetDomainModel[]): { blocked: boolean; blockedBetsCount: number } {
-        const blockedBets = bets.filter(b => b.status === 'BLOCKED');
+        const blockedBets = bets.filter(b => b.status === 'blocked');
         return {
             blocked: blockedBets.length > 0,
             blockedBetsCount: blockedBets.length

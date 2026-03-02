@@ -32,8 +32,10 @@ import {
   startStatsPolling,
   stopStatsPolling,
   startSyncWorker,
+  stopSyncWorker,
+  forceSyncNow,
 } from './subscriptions';
-import { OfflineFinancialService } from '@/shared/services/offline';
+import { offlineStorage } from '@/shared/core/offline-storage/instance';
 import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('OFFLINE_SYNC_PLUGIN');
@@ -174,9 +176,6 @@ export const useOfflineSyncStore = create<OfflineSyncStore>((set, get) => {
       log.info('Initializing...');
 
       try {
-        // Initialize offline storage
-        await OfflineFinancialService.initialize();
-
         // Start sync worker con periodic sync (cada 5 min)
         await startSyncWorker();
 
@@ -201,7 +200,7 @@ export const useOfflineSyncStore = create<OfflineSyncStore>((set, get) => {
       }
 
       stopStatsPolling();
-      OfflineFinancialService.stopSyncWorker();
+      stopSyncWorker();
 
       log.info('Cleanup complete');
     },

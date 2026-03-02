@@ -63,7 +63,11 @@ export interface Plugin<TProps = any> {
      */
     init?: (context: PluginContext) => void;
     /**
-     * Ciclo de vida: Limpieza del plugin.
+     * Ciclo de vida: Limpieza del plugin al ser desregistrado.
+     */
+    cleanup?: (context: PluginContext) => void;
+    /**
+     * Ciclo de vida: Destrucción (legacy/alternativo).
      */
     destroy?: () => void;
     /** 

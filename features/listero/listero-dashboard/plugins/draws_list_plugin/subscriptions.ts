@@ -1,15 +1,30 @@
 import { Model } from './model';
 import { Sub } from '@/shared/core/sub';
 import { SYNC_STATE, BATCH_OFFLINE_UPDATE } from './msg';
-import { OfflineFinancialService } from '@/shared/services/offline';
 import { logger } from '@/shared/utils/logger';
 import { extractHostState, createDrawsHash, HostStatePayload } from './host.adapter';
-import { calculateOfflineUpdates } from './offline.calculator';
+import { onLedgerChange, financialRepository } from '@/shared/repositories/financial/ledger.repository';
 
 const log = logger.withTag('DRAWS_LIST_PLUGIN_SUBS');
 
 let lastDrawsHash: string | null = null;
 let lastPayload: HostStatePayload | null = null;
+
+/**
+ * Función helper para obtener los datos del Ledger y transformarlos al formato del plugin
+ */
+async function fetchLedgerUpdates() {
+  const grouped = await financialRepository.getDetailedTotalsGroupedByDrawId();
+  const updates = Object.entries(grouped).map(([drawId, data]) => ({
+    drawId,
+    localAmount: data.net,
+    localCredits: data.credits,
+    localDebits: data.debits,
+    localNetResult: data.net,
+    pendingCount: data.count,
+  }));
+  return updates;
+}
 
 export const subscriptions = (model: Model) => {
   // Validación de entradas: Asegurar que el contexto y hostStore existen antes de suscribirse
@@ -37,9 +52,7 @@ export const subscriptions = (model: Model) => {
         const currentHash = createDrawsHash(
           currentPayload.draws,
           currentPayload.filter,
-          currentPayload.summary,
-          currentPayload.pendingBets.length,
-          currentPayload.syncedBets.length
+          currentPayload.summary
         );
 
         log.debug('Host Store Update Check', {
@@ -68,41 +81,27 @@ export const subscriptions = (model: Model) => {
       (payload) => SYNC_STATE(payload),
       'draws-list-plugin-sync'
     ),
-    // Fase 4: Suscripción a cambios offline
-    Sub.custom(
-      (dispatch: (msg: any) => void) => {
-        // 1. Ejecución inicial inmediata para cargar datos tras reinicio
-        const updateOfflineStates = async () => {
-          try {
-            const pendingBets = await OfflineFinancialService.getPendingBets();
 
-            // Use pure calculator logic
-            const updates = calculateOfflineUpdates(pendingBets as any[]);
+    // Nueva suscripción al Ledger Repository
+    // Usamos Sub.custom para integrarnos con el sistema de listeners basado en callbacks del Ledger
+    Sub.custom((dispatch) => {
+      log.info('Subscribing to Ledger changes');
 
-            // Siempre enviamos el dispatch (incluso si está vacío) para asegurar que el estado inicial sea correcto
-            dispatch(BATCH_OFFLINE_UPDATE({ updates }));
-          } catch (error) {
-            log.error('Error updating offline states', error);
-          }
-        };
+      // 1. Carga inicial de datos del Ledger
+      fetchLedgerUpdates().then(updates => {
+        if (updates.length > 0) {
+          dispatch(BATCH_OFFLINE_UPDATE({ updates }));
+        }
+      });
 
-        // Ejecutar inmediatamente al suscribir
-        updateOfflineStates();
+      // 2. Suscripción a cambios futuros
+      const unsubscribe = onLedgerChange(async () => {
+        log.debug('Ledger change detected, refreshing plugin state');
+        const updates = await fetchLedgerUpdates();
+        dispatch(BATCH_OFFLINE_UPDATE({ updates }));
+      });
 
-        // 2. Suscribirse a cambios reales en el servicio para actualizaciones reactivas
-        const unsubscribe = OfflineFinancialService.onAnyStateChange(() => {
-          updateOfflineStates();
-        });
-
-        // 3. Mantener polling de seguridad (por si acaso fallan los eventos) pero más espaciado
-        const intervalId = setInterval(updateOfflineStates, 10000);
-
-        return () => {
-          unsubscribe();
-          clearInterval(intervalId);
-        };
-      },
-      'draws-list-plugin-offline'
-    ),
+      return unsubscribe;
+    }, 'draws-list-plugin-ledger-sync')
   ]);
 };

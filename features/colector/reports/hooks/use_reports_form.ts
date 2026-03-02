@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { Alert } from 'react-native';
 import { IndexPath } from '@ui-kitten/components';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../../auth';
 import { useDataFetch } from '@/shared/hooks/use_data_fetch';
-import { StructureService, ChildStructure, ListeroDetails } from '@/shared/services/structure';
-import { IncidentService } from '@/shared/services/incident';
-import { DrawService } from '@/shared/services/draw';
+import { structureRepository, ChildStructure, ListeroDetails } from '@/shared/repositories/structure';
+import { incidentRepository } from '@/shared/repositories/incident';
+import { drawRepository, Draw, DrawClosureConfirmation, BetType, DrawRule } from '@/shared/repositories/draw';
 import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('USE_REPORTS_FORM');
@@ -36,6 +36,7 @@ export interface ReportsFormState {
   drawsDetail: ListeroDetails | null;
   loadingListeros: boolean;
   loadingDraws: boolean;
+  error: string | null;
 
   // Computed display values
   displayListero: string;
@@ -65,14 +66,15 @@ export function useReportsForm(): ReportsFormState & ReportsFormActions {
   const [description, setDescription] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Refs to track if initial loading is done
   const listerosLoadedRef = useRef(false);
   const drawsLoadedRef = useRef(false);
 
   // Data fetching
-  const [fetchListeros, listeros, loadingListeros] = useDataFetch<ChildStructure[], [number]>(StructureService.getChildren);
-  const [fetchDraws, drawsDetail, loadingDraws] = useDataFetch<ListeroDetails, [number]>(StructureService.getListeroDetails);
+  const [fetchListeros, listeros, loadingListeros] = useDataFetch<ChildStructure[], [number]>(structureRepository.getChildren.bind(structureRepository));
+  const [fetchDraws, drawsDetail, loadingDraws] = useDataFetch<ListeroDetails, [number]>(structureRepository.getListeroDetails.bind(structureRepository));
 
   // Initial load: Fetch Listeros
   useEffect(() => {
@@ -148,7 +150,7 @@ export function useReportsForm(): ReportsFormState & ReportsFormActions {
     try {
       setIsSubmitting(true);
 
-      await IncidentService.create({
+      await incidentRepository.create({
         structure: selectedListero.id,
         draw: selectedDraw?.draw_id || null,
         incident_type: displayType,
@@ -156,7 +158,7 @@ export function useReportsForm(): ReportsFormState & ReportsFormActions {
       });
 
       // Update draw status to reported after incident creation
-      await DrawService.updateStatus(selectedDraw?.draw_id || 0, 'reported');
+      await drawRepository.updateStatus(selectedDraw?.draw_id || 0, 'reported');
 
       setIsSubmitted(true);
     } catch (error) {
@@ -193,6 +195,7 @@ export function useReportsForm(): ReportsFormState & ReportsFormActions {
     displayListero,
     displayDraw,
     displayType,
+    error,
 
     // Actions
     setSelectedListeroIndex,

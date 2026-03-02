@@ -23,7 +23,10 @@ export type Msg =
     | { type: 'NAVIGATE_BACK' }
     | { type: 'CHECK_TOKEN_VALIDITY' }
     | { type: 'NONE' }
-    | { type: 'NOTIFICATION_ERROR'; error: string };
+    | { type: 'NOTIFICATION_ERROR'; error: string }
+    | { type: 'NOTIFICATION_MARKED_READ'; webData: WebData<AppNotification>; notificationId: string }
+    | { type: 'ALL_MARKED_READ'; webData: WebData<void> }
+    | { type: 'NOTIFICATION_DELETED'; webData: WebData<void>; notificationId: string };
 
 // Action creators
 export const FETCH_NOTIFICATIONS_REQUESTED = (): Msg => ({ type: 'FETCH_NOTIFICATIONS_REQUESTED' });
@@ -31,6 +34,20 @@ export const AUTH_TOKEN_UPDATED = (token: string | null): Msg => ({ type: 'AUTH_
 export const NOTIFICATIONS_RECEIVED = (webData: WebData<AppNotification[]>): Msg => ({
     type: 'NOTIFICATIONS_RECEIVED',
     webData
+});
+export const NOTIFICATION_MARKED_READ = (webData: WebData<AppNotification>, notificationId: string): Msg => ({
+    type: 'NOTIFICATION_MARKED_READ',
+    webData,
+    notificationId
+});
+export const ALL_MARKED_READ = (webData: WebData<void>): Msg => ({
+    type: 'ALL_MARKED_READ',
+    webData
+});
+export const NOTIFICATION_DELETED = (webData: WebData<void>, notificationId: string): Msg => ({
+    type: 'NOTIFICATION_DELETED',
+    webData,
+    notificationId
 });
 export const RESET_STATE = (): Msg => ({ type: 'RESET_STATE' });
 export const MARK_AS_READ_REQUESTED = (notificationId: string): Msg => ({

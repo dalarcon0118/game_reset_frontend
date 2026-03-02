@@ -112,8 +112,8 @@ const updateLoteriaOrchestration = (model: LoteriaFeatureModel, loteriaMsg: Lote
         )
 
         // --- Orchestration ---
-        .with(INIT.type(), ({ payload: { drawId, isEditing } }) =>
-            FeatureFlows.init(model, drawId, isEditing)
+        .with(INIT.type(), ({ payload: { drawId, isEditing, structureId } }) =>
+            FeatureFlows.init(model, drawId, isEditing, structureId)
         )
 
         .with(REFRESH_BETS.type(), ({ payload: { drawId } }) =>

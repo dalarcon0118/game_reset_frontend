@@ -1,9 +1,9 @@
 import React, { useCallback } from 'react';
-import { StyleSheet, View, ScrollView, RefreshControl, useColorScheme } from 'react-native';
+import { StyleSheet, View, ScrollView, RefreshControl, useColorScheme, ActivityIndicator } from 'react-native';
 import Colors from '@/constants/colors';
 import LayoutConstants from '@/constants/layout';
 import { SumRowComponent } from '@/shared/components/bets/sum_row_component';
-import { LoteriaColumn } from '../components/loteria_column';
+import { LoteriaColumn } from '../components/loteria/loteria_column';
 import { useLoteria } from '../use_loteria';
 
 interface LoteriaListPlaysProps {
@@ -29,7 +29,18 @@ export const LoteriaListPlays: React.FC<LoteriaListPlaysProps> = ({ drawId, isEd
     }, [drawId, refreshBets]);
 
     // Show list if we have success from server OR if we are in editing mode (local plays)
-    const shouldShowList = listStatus === 'Success' || isEditing;
+    // Also show if we have failure but the list has data (offline mode)
+    const shouldShowList = listStatus === 'Success' || isEditing || (listStatus === 'Failure' && loteriaTotal > 0);
+
+    console.log('LoteriaListPlays debug:', { listStatus, isEditing, loteriaTotal, shouldShowList });
+
+    if (listStatus === 'Loading' && !isEditing) {
+        return (
+            <View style={[styles.container, styles.loadingContainer]}>
+                <ActivityIndicator size="large" color={Colors[colorScheme].primary} />
+            </View>
+        );
+    }
 
     if (!shouldShowList) {
         return null;
@@ -71,6 +82,10 @@ export const LoteriaListPlays: React.FC<LoteriaListPlaysProps> = ({ drawId, isEd
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+    },
+    loadingContainer: {
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     scrollView: {
         flex: 1,

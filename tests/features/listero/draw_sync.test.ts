@@ -1,6 +1,6 @@
 import { DrawService } from '@/shared/services/draw';
 import { DrawApi } from '@/shared/services/draw/api';
-import { OfflineFinancialStorage as OfflineStorage } from '@/shared/services/offline';
+import { offlineStorage } from '@/shared/core/offline-storage/instance';
 import { storageClient } from '@/shared/services/storage_client';
 
 // Mock dependencies
@@ -9,7 +9,6 @@ jest.mock('@/shared/utils/network', () => ({
   isServerReachable: jest.fn().mockResolvedValue(true)
 }));
 // Do NOT mock OfflineStorage, we want to test its integration
-// jest.mock('@/shared/services/offline_storage');
 
 // Mock storageClient
 jest.mock('@/shared/services/storage_client', () => {

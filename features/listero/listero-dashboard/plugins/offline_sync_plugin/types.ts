@@ -4,7 +4,7 @@
  * Tipos para el plugin de UI de sincronización offline.
  */
 
-import type { PendingBetV2 } from '@/shared/services/offline';
+import type { BetDomainModel } from '@/shared/repositories/bet';
 
 // ============================================================================
 // Toast Types
@@ -34,12 +34,12 @@ export interface SyncStatusState {
   syncingCount: number;
   errorCount: number;
   syncedToday: number;
-  
+
   // Estado del worker
   workerStatus: 'idle' | 'running' | 'paused' | 'stopped' | 'error';
   lastSyncAt: number | null;
   timeSinceLastSync: string;
-  
+
   // UI state
   isModalOpen: boolean;
   activeTab: 'stats' | 'pending' | 'errors';
@@ -52,14 +52,14 @@ export interface SyncStatusState {
 export interface OfflineSyncModel {
   // Toasts activos (queue FIFO)
   toasts: ToastConfig[];
-  
+
   // Estado de sync
   syncStatus: SyncStatusState;
-  
+
   // Pending bets para mostrar
-  pendingBets: PendingBetV2[];
-  errorBets: PendingBetV2[];
-  
+  pendingBets: BetDomainModel[];
+  errorBets: BetDomainModel[];
+
   // Loading states
   isLoading: boolean;
 }
@@ -104,17 +104,17 @@ export function getToastIconName(type: ToastType): string {
 
 export function formatTimeSince(timestamp: number | null): string {
   if (!timestamp) return 'Nunca';
-  
+
   const now = Date.now();
   const diff = now - timestamp;
-  
+
   const seconds = Math.floor(diff / 1000);
   const minutes = Math.floor(seconds / 60);
   const hours = Math.floor(minutes / 60);
-  
+
   if (seconds < 60) return 'Ahora mismo';
   if (minutes < 60) return `Hace ${minutes}m`;
   if (hours < 24) return `Hace ${hours}h`;
-  
+
   return new Date(timestamp).toLocaleDateString();
 }

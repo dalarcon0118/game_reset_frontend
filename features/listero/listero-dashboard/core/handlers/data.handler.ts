@@ -6,8 +6,7 @@ import { ret, singleton, Return } from '@/shared/core/return';
 import { shouldFetchData, checkRateLimit, recalculateDashboardState, handleSseUpdate } from '../logic';
 import { fetchDrawsCmd, fetchSummaryCmd, loadPendingBetsCmd } from '../commands';
 import { match, P } from 'ts-pattern';
-import { DrawType, FinancialSummary } from '@/types';
-import { PendingBet } from '@/shared/services/offline_storage';
+import { DrawType, FinancialSummary, BetType } from '@/types';
 import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('DASHBOARD_DATA_HANDLER');
@@ -35,7 +34,7 @@ export const DataHandler = {
         );
     },
 
-    handlePendingBetsLoaded: (model: Model, bets: PendingBet[], syncedBets?: PendingBet[]): Return<Model, Msg> => {
+    handlePendingBetsLoaded: (model: Model, bets: BetType[], syncedBets?: BetType[]): Return<Model, Msg> => {
         const safeBets = Array.isArray(bets) ? bets : [];
         const allSynced = Array.isArray(syncedBets) ? syncedBets : (Array.isArray(model.syncedBets) ? model.syncedBets : []);
 

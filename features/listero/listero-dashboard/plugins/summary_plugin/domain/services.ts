@@ -5,6 +5,10 @@ import { Result } from 'neverthrow';
 /**
  * Interfaz que define los servicios específicos que el SummaryPlugin
  * requiere que el host le proporcione a través del contexto.
+ * 
+ * NOTA: Esta interfaz define el contrato para obtener datos financieros.
+ * La implementación usa FinancialRepository (offline-first) en lugar de
+ * FinancialSummaryService para mantener consistencia con la arquitectura local.
  */
 export interface SummaryPluginServices {
   FinancialSummaryService: {

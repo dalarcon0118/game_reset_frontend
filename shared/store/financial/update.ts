@@ -4,12 +4,21 @@ import { Msg } from './msg';
 import { Cmd } from '@/shared/core/cmd';
 import { RemoteDataHttp } from '@/shared/core/remote.data.http';
 import { RemoteData } from '@/shared/core/remote.data';
-import { FinancialSummaryService } from '@/shared/services/financial_summary';
+import { FinancialRepository, financialRepository } from '@/shared/repositories/financial';
 import { singleton, ret } from '@/shared/core/return';
 
 const fetchSummaryCmd = (nodeId: number): Cmd => {
     return RemoteDataHttp.fetch(
-        () => FinancialSummaryService.getNodeFinancialSummary(nodeId),
+        async () => {
+            const aggregation = await financialRepository.getAggregation(`structure:${nodeId}`);
+            return {
+                nodeId,
+                totalCollected: aggregation.credits,
+                totalPaid: aggregation.debits,
+                netResult: aggregation.total,
+                date: new Date().toISOString().split('T')[0]
+            };
+        },
         (webData) => ({ type: 'SUMMARY_RECEIVED', nodeId, webData })
     );
 };
@@ -17,16 +26,10 @@ const fetchSummaryCmd = (nodeId: number): Cmd => {
 const fetchDrawSummaryCmd = (drawId: number): Cmd => {
     return RemoteDataHttp.fetch(
         async () => {
-            const result = await FinancialSummaryService.list({ draw_id: drawId, level: 'DRAW' });
-            
-            if (result.isErr()) {
-                throw result.error;
-            }
-            
-            const results = result.value;
+            const aggregation = await financialRepository.getAggregation(`structure:0:draw:${drawId}`);
 
-            if (results.length === 0) {
-                // Return a zeroed summary instead of throwing an error
+            // Return a zeroed summary if no data
+            if (aggregation.count === 0) {
                 return {
                     totalCollected: 0,
                     premiumsPaid: 0,
@@ -36,7 +39,15 @@ const fetchDrawSummaryCmd = (drawId: number): Cmd => {
                     level: 'DRAW'
                 };
             }
-            return results[0];
+
+            return {
+                totalCollected: aggregation.credits,
+                premiumsPaid: aggregation.debits,
+                netResult: aggregation.total,
+                draw: { id: drawId } as any,
+                date: new Date().toISOString().split('T')[0],
+                level: 'DRAW'
+            };
         },
         (webData) => ({ type: 'DRAW_SUMMARY_RECEIVED', drawId, webData })
     );

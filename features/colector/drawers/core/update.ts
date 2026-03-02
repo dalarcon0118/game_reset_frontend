@@ -4,7 +4,7 @@ import { Msg } from './msg';
 import { Cmd } from '@/shared/core/cmd';
 import { RemoteDataHttp } from '@/shared/core/remote.data.http';
 import { RemoteData } from '@/shared/core/remote.data';
-import { StructureService } from '@/shared/services/structure';
+import { structureRepository } from '@/shared/repositories/structure';
 import { singleton, ret } from '@/shared/core/return';
 import { logger } from '@/shared/utils/logger';
 
@@ -17,7 +17,7 @@ const formatDateToString = (date: Date) => {
 const fetchDetailsCmd = (id: number, selectedDate: Date): Cmd => {
     if (!id || id === 0) return Cmd.none;
     return RemoteDataHttp.fetch(
-        () => StructureService.getListeroDetails(id, formatDateToString(selectedDate)),
+        () => structureRepository.getListeroDetails(id, formatDateToString(selectedDate)),
         (webData) => ({ type: 'DETAILS_RECEIVED', webData })
     );
 };

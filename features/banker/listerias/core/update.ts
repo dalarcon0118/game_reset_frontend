@@ -5,7 +5,7 @@ import { Cmd } from '@/shared/core/cmd';
 import { Sub, SubDescriptor } from '@/shared/core/sub';
 import { RemoteDataHttp } from '@/shared/core/remote.data.http';
 import { RemoteData } from '@/shared/core/remote.data';
-import { StructureService, ChildStructure } from '@/shared/services/structure';
+import { structureRepository, ChildStructure } from '@/shared/repositories/structure';
 import { singleton, ret, Return } from '@/shared/core/return';
 import { UpdateResult } from '@/shared/core/engine';
 import * as config from '@/config';
@@ -17,7 +17,7 @@ export const subscriptions = (_model: Model): SubDescriptor<Msg> => {
 const fetchDataCmd = (id: number): Cmd => {
     if (!id || id === 0) return Cmd.none;
     return RemoteDataHttp.fetch<ChildStructure[], Msg>(
-        () => StructureService.getChildren(id) as Promise<ChildStructure[]>,
+        () => structureRepository.getChildren(id),
         (webData) => ({ type: 'DATA_RECEIVED', webData })
     );
 };

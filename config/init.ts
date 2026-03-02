@@ -3,8 +3,8 @@ import 'react-native-reanimated';
 import 'react-native-url-polyfill/auto';
 import { EventSourcePolyfill } from 'event-source-polyfill';
 import { logger } from '../shared/utils/logger';
-import { storageClient } from '../shared/services/storage_client';
 import { registerReactNativeEvents } from '../shared/react-native-events';
+import storageClient from '@/shared/core/offline-storage/storage_client';
 
 // Setup EventSource for React Native
 if (typeof window !== 'undefined') {
@@ -12,42 +12,68 @@ if (typeof window !== 'undefined') {
 } else {
     (global as any).EventSource = EventSourcePolyfill;
 }
-
+export const DevTools = {
+    clearStorage: async () => {
+        console.log('🗑️ Clearing storage...');
+        try {
+            await storageClient.clear();
+            console.log('✅ Storage cleared successfully. Please reload the app.');
+        } catch (e) {
+            console.error('❌ Failed to clear storage:', e);
+        }
+    },
+    printStorage: async () => {
+        console.log('🔍 Reading storage keys...');
+        try {
+            const keys = await storageClient.getAllKeys();
+            console.log(`Keys found (${keys.length}):`, keys);
+            for (const key of keys) {
+                const val = await storageClient.get(key);
+                // Use JSON.stringify for easier screenshot and structured view
+                const stringifiedVal = JSON.stringify(val, null, 2);
+                console.log(`📦 [${key}]:\n${stringifiedVal}\n---`);
+            }
+            console.log('✅ Storage dump completed.');
+        } catch (e) {
+            console.error('❌ Failed to read storage:', e);
+        }
+    },
+    printFullStorage: async () => {
+        console.log('🔍 Reading ALL storage data...');
+        try {
+            const keys = await storageClient.getAllKeys();
+            const allData: Record<string, any> = {};
+            for (const key of keys) {
+                allData[key] = await storageClient.get(key);
+            }
+            console.log('📦 FULL STORAGE DUMP:\n', JSON.stringify(allData, null, 2));
+            console.log('✅ Full storage dump completed.');
+        } catch (e) {
+            console.error('❌ Failed to read full storage:', e);
+        }
+    }
+};
 // Initialize global logger capture to ensure all console.error/warn reach the terminal
 if (__DEV__) {
     logger.initGlobalCapture();
 
     // Developer Tools Definition
-    const DevTools = {
-        clearStorage: async () => {
-            console.log('🗑️ Clearing storage...');
-            try {
-                await storageClient.clear();
-                console.log('✅ Storage cleared successfully. Please reload the app.');
-            } catch (e) {
-                console.error('❌ Failed to clear storage:', e);
-            }
-        },
-        printStorage: async () => {
-            console.log('🔍 Reading storage keys...');
-            try {
-                const keys = await storageClient.getAllKeys();
-                console.log('Keys found:', keys);
-                for (const key of keys) {
-                    const val = await storageClient.get(key);
-                    console.log(`📦 [${key}]:`, val);
-                }
-            } catch (e) {
-                console.error('❌ Failed to read storage:', e);
-            }
-        }
-    };
+
 
     // Expose globally as direct functions AND under a namespace
-    Object.assign(global, DevTools);
-    (global as any).Dev = DevTools;
+    const g = (global as any);
+    Object.assign(g, DevTools);
+    g.Dev = DevTools;
+    g.DevTools = DevTools;
 
-    console.log('🔧 DevTools: Call clearStorage() or Dev.clearStorage() in console');
+    // Also attach to window if available (for some debuggers)
+    if (typeof window !== 'undefined') {
+        Object.assign(window, DevTools);
+        (window as any).Dev = DevTools;
+        (window as any).DevTools = DevTools;
+    }
+
+    console.log('🔧 DevTools: Call clearStorage(), Dev.clearStorage() or DevTools.clearStorage() in console');
 }
 
 // Register platform specific events for TEA

@@ -5,7 +5,7 @@ import { updateAuth } from './update';
 import { authSubscriptions } from './subscriptions';
 import { createElmStore } from '@/shared/core/engine';
 import { effectHandlers } from '@/shared/core/effect_handlers';
-import { createLoggerMiddleware } from '@/shared/core/middlewares/logger.middleware';
+import { RemoteData } from '@/shared/core/remote.data';
 
 // Zustand store with TEA integration using the central engine
 export const useAuthStore = createElmStore<AuthModel, AuthMsg>(
@@ -27,4 +27,4 @@ export const selectAuthDispatch = (state: AuthStore) => state.dispatch;
 export const selectIsAuthenticated = (state: AuthStore) => state.model.isAuthenticated;
 export const selectCurrentUser = (state: AuthStore) => state.model.user;
 export const selectAuthError = (state: AuthStore) => state.model.error;
-export const selectAuthLoading = (state: AuthStore) => state.model.isLoading;
+export const selectAuthLoading = (state: AuthStore) => RemoteData.isLoading(state.model.loginResponse);

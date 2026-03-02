@@ -5,15 +5,12 @@ import { WebData } from '@/shared/core/remote.data';
 import { DrawsListPluginConfig } from './model';
 import { Draw } from './core/types';
 import { FinancialSummary } from '@/types';
-import { PendingBet } from '@/shared/services/offline_storage';
 
 export const INIT_CONTEXT = createMsg<'INIT_CONTEXT', { context: PluginContext; config: DrawsListPluginConfig }>('INIT_CONTEXT');
 export const SYNC_STATE = createMsg<'SYNC_STATE', {
   draws: WebData<Draw[]>;
   filter: string;
   summary: FinancialSummary | null;
-  pendingBets: PendingBet[];
-  syncedBets: PendingBet[];
 }>('SYNC_STATE');
 export const FILTER_DRAWS = createMsg<'FILTER_DRAWS', void>('FILTER_DRAWS');
 export const REFRESH_CLICKED = createMsg<'REFRESH_CLICKED', void>('REFRESH_CLICKED');
@@ -33,7 +30,9 @@ export const NOOP = createMsg<'NOOP', void>('NOOP');
  */
 export const OFFLINE_STATE_UPDATED = createMsg<'OFFLINE_STATE_UPDATED', {
   drawId: string;
-  localTotalCollected: number;
+  localAmount: number;
+  localCredits: number;
+  localDebits: number;
   localNetResult: number;
   pendingCount: number;
 }>('OFFLINE_STATE_UPDATED');
@@ -50,7 +49,9 @@ export const SYNC_OFFLINE_STATES = createMsg<'SYNC_OFFLINE_STATES', void>('SYNC_
 export const BATCH_OFFLINE_UPDATE = createMsg<'BATCH_OFFLINE_UPDATE', {
   updates: {
     drawId: string;
-    localTotalCollected: number;
+    localAmount: number;
+    localCredits: number;
+    localDebits: number;
     localNetResult: number;
     pendingCount: number;
   }[];

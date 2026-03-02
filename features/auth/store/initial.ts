@@ -1,13 +1,12 @@
-// Initial auth state
 import { AuthModel } from './types';
+import { RemoteData } from '../../../shared/core/remote.data';
 
 export const initialAuthModel: AuthModel = {
     // Auth state
     user: null,
     isAuthenticated: false,
-    isLoading: false,
+    loginResponse: RemoteData.notAsked(),
     isLoggingOut: false,
-    isOffline: false,
     error: null,
 
     // Login session
