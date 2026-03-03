@@ -1,4 +1,4 @@
-import apiClient from '../api_client';
+import apiClient from '../api_client/api_client';
 import settings from '@/config/settings';
 import { BackendWinningRecord } from './types';
 import { BackendWinningRecordCodec, decodeOrFallback } from './codecs';

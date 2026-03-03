@@ -99,7 +99,6 @@ export const CustomNumericKeyboard = NumericKeyboard;
 // Re-export the separated components for easier imports
 export { BetNumericKeyboard } from './bet_numeric_keyboard';
 export { AmountNumericKeyboard } from './amount_numeric_keyboard';
-export { AmountNumericKeyboard } from './amount_numeric_keyboard';
 
 const styles = StyleSheet.create({
     keyboard: { width: '100%', paddingHorizontal: 8, marginTop: 8 },
@@ -132,5 +131,3 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
     },
 });
-
-export { AmountNumericKeyboard } from './amount_numeric_keyboard';

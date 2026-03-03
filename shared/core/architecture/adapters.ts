@@ -1,7 +1,7 @@
 
 import { AppKernel } from './kernel';
 import { DataProvider, ListParams, CustomParams } from './interfaces';
-import apiClient from '../../services/api_client';
+import apiClient from '../../services/api_client/api_client';
 
 /**
  * REST Data Provider Implementation

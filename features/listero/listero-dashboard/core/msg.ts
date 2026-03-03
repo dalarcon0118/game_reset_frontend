@@ -41,6 +41,7 @@ export type Msg =
     | { type: 'NOTIFICATIONS_CLICKED' }
     | { type: 'SETTINGS_CLICKED' }
     | { type: 'TOGGLE_BALANCE' }
+    | { type: 'DAILY_SESSION_PREPARED'; success: boolean }
     | { type: 'NONE' };
 
 export const FETCH_DATA_REQUESTED = (structureId?: string): Msg => ({ type: 'FETCH_DATA_REQUESTED', structureId });
@@ -62,6 +63,7 @@ export const NOTIFICATIONS_CLICKED = (): Msg => ({ type: 'NOTIFICATIONS_CLICKED'
 export const SETTINGS_CLICKED = (): Msg => ({ type: 'SETTINGS_CLICKED' });
 export const TOGGLE_BALANCE = (): Msg => ({ type: 'TOGGLE_BALANCE' });
 export const NONE = (): Msg => ({ type: 'NONE' });
+export const DAILY_SESSION_PREPARED = (payload: { success: boolean }): Msg => ({ type: 'DAILY_SESSION_PREPARED', success: payload.success });
 
 export const DRAWS_RECEIVED = (webData: WebData<DrawType[]>): Msg => ({ type: 'DRAWS_RECEIVED', webData });
 export const SUMMARY_RECEIVED = (webData: WebData<FinancialSummary>): Msg => ({ type: 'SUMMARY_RECEIVED', webData });

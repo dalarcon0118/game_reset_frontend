@@ -17,3 +17,5 @@ export type RewardsMsg =
     | ReturnType<typeof FETCH_RULES_REQUESTED>
     | ReturnType<typeof FETCH_RULES_SUCCEEDED>
     | ReturnType<typeof FETCH_RULES_FAILED>;
+
+export type RewardsRulesFeatMsg = { type: 'REWARDS_RULES'; payload: RewardsMsg };

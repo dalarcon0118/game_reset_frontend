@@ -1,4 +1,4 @@
-import apiClient from '@/shared/services/api_client';
+import apiClient from '@/shared/services/api_client/api_client';
 import settings from '@/config/settings';
 import { BackendChildStructure, BackendListeroDetails } from '../types/types';
 import { ChildStructureArrayCodec, ListeroDetailsCodec, decodeOrFallback } from '../codecs/codecs';

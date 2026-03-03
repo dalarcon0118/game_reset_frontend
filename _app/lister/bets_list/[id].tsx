@@ -1,5 +1,5 @@
 import React from 'react';
-import { GameLoader } from '@/_legacy/workspace/games/game_loader';
+import { GameLoader } from '@/features/listero/bet-workspace/ui/components/GameLoader';
 import { useLocalSearchParams } from 'expo-router';
 
 export default function BetsListPage() {

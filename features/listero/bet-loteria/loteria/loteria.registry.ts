@@ -1,4 +1,4 @@
-import { BetFeature } from '@/_legacy/workspace/core/registry';
+import { BetFeature } from '@/features/listero/bet-workspace/core/registry';
 import { Model as GlobalModel, ListData } from '@/features/listero/bet-workspace/model';
 import logger from '@/shared/utils/logger';
 import { GameType, BetType, LoteriaBet } from '@/types';
@@ -26,12 +26,12 @@ export const LoteriaRegistryFeature: BetFeature = {
             const tName = (t.name || '').toUpperCase();
 
             // Prioridad al código inmutable del backend
-            if ([
+            if (([
                 BACKEND_BET_CODES.LOTERIA,
                 BACKEND_BET_CODES.CUATERNA,
                 BACKEND_BET_CODES.CUATERNA_SEMANAL,
                 BACKEND_BET_CODES.WEEKLY
-            ].includes(tCode)) return true;
+            ] as string[]).includes(tCode)) return true;
 
             // Fallback a keywords si el código no está estandarizado
             return [
@@ -74,7 +74,7 @@ export const LoteriaRegistryFeature: BetFeature = {
         ].includes(lowerCode);
     },
 
-    isValidInput: (input: string) => /^[0-9]+$/.test(input) && input.length <= 4,
+    isValidInput: (input: string, _gameTypeCode: string) => /^[0-9]+$/.test(input) && input.length <= 4,
 
-    getMaxLength: () => 4
+    getMaxLength: (_gameTypeCode: string) => 4
 };

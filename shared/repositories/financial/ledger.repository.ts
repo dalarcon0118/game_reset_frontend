@@ -23,7 +23,8 @@
  * - getTotalByDrawId(id): Total filtrado por sorteo
  */
 
-import storageClient from '@/shared/core/offline-storage/storage_client';
+import { offlineStorage } from '@/shared/core/offline-storage/instance';
+import { SystemOfflineKeys } from './financial.offline.keys';
 import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('FinancialRepository');
@@ -36,19 +37,41 @@ type Listener = () => void;
 const listeners = new Set<Listener>();
 
 /**
- * Suscribe un listener a cambios en el ledger
- * Retorna función para desuscribirse
- */
-export function onLedgerChange(listener: Listener): () => void {
-    listeners.add(listener);
-    return () => listeners.delete(listener);
-}
-
-/**
  * Notifica a todos los listeners de un cambio
  */
 function notifyListeners(): void {
     listeners.forEach(listener => listener());
+}
+
+// ============================================================================
+// STORAGE HELPERS
+// ============================================================================
+
+/**
+ * Obtiene la llave del ledger para una fecha específica (default: hoy)
+ */
+function getStorageKey(date?: string): string {
+    const d = date || new Date().toISOString().split('T')[0];
+    return SystemOfflineKeys.ledger(d);
+}
+
+/**
+ * Suscribe un listener a cambios en el ledger del día actual
+ */
+export function onLedgerChange(listener: Listener): () => void {
+    listeners.add(listener);
+
+    // Suscribirse a cambios en la llave de hoy
+    const unsubscribe = offlineStorage.subscribe((event) => {
+        if (event.type === 'ENTITY_CHANGED' && event.entity === getStorageKey()) {
+            notifyListeners();
+        }
+    });
+
+    return () => {
+        listeners.delete(listener);
+        unsubscribe();
+    };
 }
 
 // ============================================================================
@@ -110,23 +133,19 @@ export interface FinancialAggregation {
     count: number;
 }
 
-// ============================================================================
-// STORAGE KEYS
-// ============================================================================
-
-const STORAGE_KEY = 'financial_transactions';
-
-// ============================================================================
-// METODOS DE STORAGE (IndexedDB)
-// ============================================================================
-
 /**
- * Obtiene todas las transacciones del storage local
+ * Obtiene todas las transacciones del storage local para una fecha específica
  */
-async function getAllTransactions(): Promise<Transaction[]> {
+async function getAllTransactions(date?: string): Promise<Transaction[]> {
     try {
-        const data = await storageClient.get(STORAGE_KEY);
-        return Array.isArray(data) ? data : [];
+        const key = getStorageKey(date);
+        const data = await offlineStorage.get<Transaction[]>(key);
+
+        if (data && Array.isArray(data)) {
+            return data;
+        }
+
+        return [];
     } catch (error) {
         log.error('Error reading transactions from storage', error);
         return [];
@@ -134,10 +153,11 @@ async function getAllTransactions(): Promise<Transaction[]> {
 }
 
 /**
- * Guarda todas las transacciones en storage local
+ * Guarda todas las transacciones en storage local para una fecha específica
  */
-async function saveAllTransactions(transactions: Transaction[]): Promise<void> {
-    await storageClient.set(STORAGE_KEY, transactions);
+async function saveAllTransactions(transactions: Transaction[], date?: string): Promise<void> {
+    const key = getStorageKey(date);
+    await offlineStorage.set(key, transactions);
 }
 
 // ============================================================================
@@ -179,15 +199,13 @@ export class FinancialRepository {
         transactions.push(newTransaction);
 
         await saveAllTransactions(transactions);
+        notifyListeners();
 
         log.debug('Transaction added', {
             origin: transaction.origin,
             amount: transaction.amount,
             type: transaction.type
         });
-
-        // Notificar a listeners de cambio
-        notifyListeners();
     }
 
     /**
@@ -215,6 +233,7 @@ export class FinancialRepository {
 
         allTransactions.push(...newTransactions);
         await saveAllTransactions(allTransactions);
+        notifyListeners();
 
         log.debug('Transactions batch added', { count: transactions.length });
     }
@@ -232,6 +251,7 @@ export class FinancialRepository {
         const removed = initialCount - filtered.length;
 
         await saveAllTransactions(filtered);
+        notifyListeners();
 
         log.debug('Transactions removed', { prefix: originPrefix, count: removed });
         return removed;
@@ -247,6 +267,7 @@ export class FinancialRepository {
 
         if (filtered.length < allTransactions.length) {
             await saveAllTransactions(filtered);
+            notifyListeners();
             log.debug('Transaction removed', { origin });
             return true;
         }

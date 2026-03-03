@@ -59,18 +59,11 @@ export class BetRepository implements IBetRepository {
 
             // 3. Prepare Domain Model
             const offlineId = this.generateUuid();
-            const commissionRate = betData.commissionRate ?? 0.1;
-            const financialImpact: FinancialImpact = {
-                totalCollected: amount,
-                commission: amount * commissionRate,
-                netAmount: amount * (1 - commissionRate)
-            };
 
             const bet: BetDomainModel = {
                 offlineId,
                 status: 'pending',
                 data: betData,
-                financialImpact,
                 timestamp: Date.now()
             };
 
@@ -98,9 +91,9 @@ export class BetRepository implements IBetRepository {
                     },
                     timestamp: Date.now()
                 });
-            } catch (financialError) {
-                log.warn('Failed to register financial transaction', financialError);
-                // Continue - bet is saved, financial update can be retried
+            } catch (finError) {
+                log.error('Error recording financial impact for bet', finError);
+                // We continue since the bet is already saved in storage
             }
 
             // Fetch bet types for mapping
@@ -139,6 +132,29 @@ export class BetRepository implements IBetRepository {
             log.error('Error in placeBet', error);
             return err(error instanceof Error ? error : new Error(String(error)));
         }
+    }
+
+    /**
+     * Checks if there are critical pending or failed bets before a specific timestamp.
+     */
+    async hasCriticalPendingBets(beforeTimestamp: number): Promise<boolean> {
+        try {
+            const allBets = await this.storage.getAll();
+            return allBets.some(bet =>
+                (bet.status === 'pending' || bet.status === 'error' || bet.status === 'blocked') &&
+                bet.timestamp < beforeTimestamp
+            );
+        } catch (error) {
+            log.error('Error checking critical pending bets', error);
+            return false;
+        }
+    }
+
+    /**
+     * Get all raw bets from local storage.
+     */
+    async getAllRawBets(): Promise<BetDomainModel[]> {
+        return await this.storage.getAll();
     }
 
     /**
@@ -287,23 +303,12 @@ export class BetRepository implements IBetRepository {
             }
 
             // 3. Prepare Domain Models
-            const domainModels: BetDomainModel[] = bets.map(data => {
-                const amount = Number(data.amount) || 0;
-                const commissionRate = data.commissionRate ?? 0.1;
-                const financialImpact: FinancialImpact = {
-                    totalCollected: amount,
-                    commission: amount * commissionRate,
-                    netAmount: amount * (1 - commissionRate)
-                };
-
-                return {
-                    offlineId: this.generateUuid(),
-                    status: 'pending',
-                    data,
-                    financialImpact,
-                    timestamp: Date.now()
-                };
-            });
+            const domainModels: BetDomainModel[] = bets.map(data => ({
+                offlineId: this.generateUuid(),
+                status: 'pending',
+                data,
+                timestamp: Date.now()
+            }));
 
             // 4. Persistent Save (Optimistic)
             for (const bet of domainModels) {
@@ -338,8 +343,9 @@ export class BetRepository implements IBetRepository {
                         timestamp: Date.now()
                     });
                 }
-            } catch (financialError) {
-                log.warn('Failed to register financial transactions for batch', financialError);
+            } catch (finError) {
+                log.error('Error recording financial transactions for batch', finError);
+                // We continue since the bets are already saved in storage
             }
 
             // Fetch bet types for mapping

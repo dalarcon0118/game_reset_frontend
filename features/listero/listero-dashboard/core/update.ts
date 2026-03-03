@@ -90,6 +90,9 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
         .with({ type: 'TOGGLE_BALANCE' }, () =>
             AuthHandler.handleToggleBalance(model)
         )
+        .with({ type: 'DAILY_SESSION_PREPARED' }, ({ success }) =>
+            AuthHandler.handleDailySessionPrepared(model, success)
+        )
 
         // Filter Handling
         .with({ type: 'STATUS_FILTER_CHANGED' }, ({ filter }) =>

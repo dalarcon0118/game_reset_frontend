@@ -1,4 +1,4 @@
-import ApiClient from '@/shared/services/api_client';
+import ApiClient from '@/shared/services/api_client/api_client';
 import { BackendValidationRule, BackendStructureSpecificRule, BackendRuleRepository } from './types';
 import {
     BackendValidationRuleArrayCodec,

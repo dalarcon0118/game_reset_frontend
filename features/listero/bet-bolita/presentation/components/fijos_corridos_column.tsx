@@ -5,7 +5,7 @@ import BetCircle from '@/shared/components/bets/bet_circle';
 import { FijosCorridosBet } from '@/types';
 import BottomDrawer from '@/components/ui/bottom_drawer';
 import Layout from '@/constants/layout';
-import { useFijos } from '../use_fijos';
+import { useFijos } from '../hooks/use_fijos';
 import { BetNumericKeyboard, AmountNumericKeyboard } from '@/shared/components/bets/numeric_keyboard';
 import { logger } from '@/shared/utils/logger';
 

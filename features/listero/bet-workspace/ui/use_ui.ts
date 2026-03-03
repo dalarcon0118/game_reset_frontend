@@ -1,11 +1,11 @@
 import { useCallback } from 'react';
-import { useBetsStore, selectBetsModel, selectDispatch } from '../../../../.trae/_legacy/workspace/core/store';
+import { useBetWorkspaceStore } from '../core/store';
 import { UiMsgType } from './ui.types';
 import { GameType } from '@/types';
 
 export const useUi = () => {
-    const model = useBetsStore(selectBetsModel);
-    const dispatch = useBetsStore(selectDispatch);
+    const model = useBetWorkspaceStore((state: any) => state.model);
+    const dispatch = useBetWorkspaceStore((state: any) => state.dispatch);
 
     const setActiveAnnotationType = useCallback((annotationType: string | null) => {
         dispatch({ type: 'UI', payload: { type: UiMsgType.SET_ACTIVE_ANNOTATION_TYPE, annotationType } });
@@ -25,8 +25,8 @@ export const useUi = () => {
 
     return {
         error: model.error,
-        activeAnnotationType: model.parletSession.activeAnnotationType,
-        activeGameType: model.parletSession.activeGameType,
+        activeAnnotationType: model.centenaSession.activeAnnotationType,
+        activeGameType: model.centenaSession.activeGameType,
         setActiveAnnotationType,
         setActiveGameType,
         clearError,

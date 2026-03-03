@@ -1,10 +1,10 @@
-import ApiClient from '@/shared/services/api_client';
+import ApiClient from '@/shared/services/api_client/api_client';
 import settings from '@/config/settings';
 import { BackendUnifiedRulesResponse, BackendValidationRule } from './types/types';
-import { 
-    BackendUnifiedRulesResponseCodec, 
-    BackendValidationRuleArrayCodec, 
-    decodeOrFallback 
+import {
+    BackendUnifiedRulesResponseCodec,
+    BackendValidationRuleArrayCodec,
+    decodeOrFallback
 } from './codecs/codecs';
 
 export const RulesApi = {

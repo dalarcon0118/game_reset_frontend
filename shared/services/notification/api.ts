@@ -1,4 +1,4 @@
-import apiClient from '../api_client';
+import apiClient from '../api_client/api_client';
 import { BackendNotification } from './types';
 import { BackendNotificationCodec, BackendNotificationArrayCodec, decodeOrFallback } from './codecs';
 

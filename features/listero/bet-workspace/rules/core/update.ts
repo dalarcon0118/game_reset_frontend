@@ -5,14 +5,21 @@ import { Cmd } from '@/shared/core/cmd';
 import { Return, ret, singleton } from '@/shared/core/return';
 import { RemoteData } from '@/shared/core/remote.data';
 
-export const updateRules = (model: RulesModel, msg: RulesMsg): Return<RulesModel, RulesMsg> => {
-    return match<RulesMsg, Return<RulesModel, RulesMsg>>(msg)
+export interface RulesContextModel {
+    rulesSession: RulesModel;
+}
+
+export const updateRules = <M extends RulesContextModel>(model: M, msg: RulesMsg): Return<M, RulesMsg> => {
+    return match<RulesMsg, Return<M, RulesMsg>>(msg)
         .with({ type: FETCH_RULES_REQUESTED.toString() }, ({ payload: { drawId } }) => {
             return ret(
                 {
                     ...model,
-                    rulesList: RemoteData.loading(),
-                    currentDrawId: drawId,
+                    rulesSession: {
+                        ...model.rulesSession,
+                        rulesList: RemoteData.loading(),
+                        currentDrawId: drawId,
+                    }
                 },
                 Cmd.http(
                     { url: `/draw/draws/${drawId}/rules-for-current-user/` },
@@ -30,8 +37,11 @@ export const updateRules = (model: RulesModel, msg: RulesMsg): Return<RulesModel
             return ret(
                 {
                     ...model,
-                    isRefreshing: true,
-                    currentDrawId: drawId,
+                    rulesSession: {
+                        ...model.rulesSession,
+                        isRefreshing: true,
+                        currentDrawId: drawId,
+                    }
                 },
                 Cmd.http(
                     { url: `/draw/draws/${drawId}/rules-for-current-user/` },
@@ -60,45 +70,63 @@ export const updateRules = (model: RulesModel, msg: RulesMsg): Return<RulesModel
 
             return singleton({
                 ...model,
-                rulesList: RemoteData.success(data),
-                allRules,
-                stats,
-                isRefreshing: false,
+                rulesSession: {
+                    ...model.rulesSession,
+                    rulesList: RemoteData.success(data),
+                    allRules,
+                    stats,
+                    isRefreshing: false,
+                }
             });
         })
         .with({ type: FETCH_RULES_FAILED.toString() }, ({ payload: { error } }) => {
             return singleton({
                 ...model,
-                rulesList: RemoteData.failure(error),
-                isRefreshing: false,
+                rulesSession: {
+                    ...model.rulesSession,
+                    rulesList: RemoteData.failure(error),
+                    isRefreshing: false,
+                }
             });
         })
         .with({ type: SHOW_RULES_DRAWER.toString() }, ({ payload: { ruleType, rule } }) => {
             return singleton({
                 ...model,
-                isRulesDrawerVisible: true,
-                selectedRuleType: ruleType,
-                selectedRule: rule,
+                rulesSession: {
+                    ...model.rulesSession,
+                    isRulesDrawerVisible: true,
+                    selectedRuleType: ruleType,
+                    selectedRule: rule,
+                }
             });
         })
         .with({ type: HIDE_RULES_DRAWER.toString() }, () => {
             return singleton({
                 ...model,
-                isRulesDrawerVisible: false,
+                rulesSession: {
+                    ...model.rulesSession,
+                    isRulesDrawerVisible: false,
+                }
             });
         })
         .with({ type: SELECT_RULE.toString() }, ({ payload: { ruleType, rule } }) => {
             return singleton({
                 ...model,
-                selectedRuleType: ruleType,
-                selectedRule: rule,
+                rulesSession: {
+                    ...model.rulesSession,
+                    selectedRuleType: ruleType,
+                    selectedRule: rule,
+                }
             });
         })
         .with({ type: CLEAR_SELECTION.toString() }, () => {
             return singleton({
                 ...model,
-                selectedRuleType: null,
-                selectedRule: null,
+                rulesSession: {
+                    ...model.rulesSession,
+                    selectedRuleType: null,
+                    selectedRule: null,
+                }
             });
         })
         .otherwise(() => singleton(model));

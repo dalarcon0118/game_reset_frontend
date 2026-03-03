@@ -1,6 +1,6 @@
 import { AppKernel } from '@/shared/core/architecture/kernel';
 import { logger } from '../shared/utils/logger';
-import apiClient, { ApiClientError } from '../shared/services/api_client';
+import apiClient, { ApiClientError } from '../shared/services/api_client/api_client';
 import { useAuthStore } from '../features/auth/store/store';
 import { AuthMsgType } from '../features/auth/store/types';
 import { EffectRegistry } from '../shared/core/effect_registry';
@@ -9,6 +9,7 @@ import { bootstrapKernel } from '../shared/core/architecture/bootstrap_kernel';
 import { AppManifest } from './app_manifest';
 import { MiddlewareRegistry } from '../shared/core/middleware_registry';
 import { createLoggerMiddleware } from '../shared/core/middlewares/logger.middleware';
+import { createTimeIntegrityMiddleware } from '../shared/core/middlewares/time_integrity.middleware';
 
 /**
  * Bootstraps the Application Architecture
@@ -22,6 +23,7 @@ export const bootstrapArchitecture = async (): Promise<void> => {
         // 0. Register Global Middlewares
         logger.info('Registering Global Middlewares...', 'BOOTSTRAP');
         MiddlewareRegistry.register(createLoggerMiddleware());
+        MiddlewareRegistry.register(createTimeIntegrityMiddleware());
 
         // 0. Register Core Effects
         logger.info('Verifying Core Effects registration...', 'BOOTSTRAP');

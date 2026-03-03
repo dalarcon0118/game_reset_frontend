@@ -1,7 +1,10 @@
 import { OfflineStorageCore } from './engine';
 import { SyncWorkerCore } from './sync/worker';
+import { StorageJanitor } from './maintenance/janitor';
 import { EventBusPort, DomainEvent, DomainEventCallback, Unsubscribe, SYNC_CONSTANTS } from './types';
 import storageClient from './storage_client';
+
+export { StorageJanitor } from './maintenance/janitor';
 
 /**
  * Implementación del Bus de Eventos para el almacenamiento offline
@@ -28,20 +31,30 @@ class OfflineEventBus implements EventBusPort {
 export const offlineEventBus = new OfflineEventBus();
 
 /**
+ * Puertos compartidos
+ */
+const commonPorts = {
+  storage: storageClient,
+  clock: {
+    now: () => Date.now(),
+    iso: () => new Date().toISOString()
+  },
+  events: offlineEventBus
+};
+
+/**
  * Instancia global del motor de almacenamiento offline configurada.
  * Centralizada en core para ser consumida por adaptadores y el worker.
  */
 export const offlineStorage = new OfflineStorageCore(
-  {
-    storage: storageClient,
-    clock: {
-      now: () => Date.now(),
-      iso: () => new Date().toISOString()
-    },
-    events: offlineEventBus
-  },
+  commonPorts,
   { version: 'v2' }
 );
+
+/**
+ * Instancia global del conserje (Janitor) para mantenimiento.
+ */
+export const offlineJanitor = new StorageJanitor(commonPorts);
 
 /**
  * Instancia global del worker de sincronización.

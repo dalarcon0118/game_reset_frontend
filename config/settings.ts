@@ -1,12 +1,3 @@
-// /Users/davidmartinez/develop/game-reset/demos/Game-Reset/frontend/config/settings.ts
-
-// Utiliza variables de entorno para configuraciones sensibles o que cambian entre entornos.
-// Puedes usar un paquete como 'expo-constants' o 'react-native-dotenv' para manejarlas.
-
-// Ejemplo con expo-constants (si estás usando Expo)
-// import Constants from 'expo-constants';
-
-// const manifest = Constants.manifest;
 
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
@@ -38,7 +29,7 @@ const getDevelopmentBaseUrl = () => {
 };
 
 const API_BASE_URL_DEVELOPMENT = getDevelopmentBaseUrl();
-const API_BASE_URL_PRODUCTION = process.env.EXPO_PUBLIC_API_URL || 'https://game-reset-backend.onrender.com/api'; // URL de Render
+const API_BASE_URL_PRODUCTION = process.env.EXPO_PUBLIC_API_URL || 'https://uk80ggc4c00og4s0ocogckwo.149.130.221.251.ssli.io/api'; // URL de Render
 
 // Determinar si estamos en modo de desarrollo o producción
 // Intentamos obtener APP_ENV de múltiples fuentes para mayor robustez en Expo
@@ -97,6 +88,10 @@ export const settings = {
       dashboardStats: () => '/financial-statement/dashboard-stats/',
       // ...otros endpoints de tu API
     },
+  },
+  timeIntegrity: {
+    maxJumpMs: 5 * 60 * 1000, // 5 minutes threshold for forward jumps
+    maxBackwardMs: 2000,      // 2 seconds tolerance for minor clock drifts/adjustments
   },
   featureFlags: {
     enableNewDashboard: true,

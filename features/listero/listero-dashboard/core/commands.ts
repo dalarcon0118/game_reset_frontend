@@ -1,10 +1,8 @@
-import { match } from 'ts-pattern';
 import { Cmd } from '@/shared/core/cmd';
-import { RemoteDataHttp } from '@/shared/core/remote.data.http';
 import { drawRepository } from '@/shared/repositories/draw';
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
-import { financialRepository, summaryRepository } from '@/shared/repositories/financial';
-import apiClient from '@/shared/services/api_client';
+import { financialRepository, FinancialKeys } from '@/shared/repositories/financial';
+import apiClient from '@/shared/services/api_client/api_client';
 import { FinancialSummary, DrawType, BetType } from '@/types';
 import { logger } from '@/shared/utils/logger';
 
@@ -14,10 +12,31 @@ import {
     DRAWS_RECEIVED,
     SUMMARY_RECEIVED,
     AUTH_TOKEN_UPDATED,
+    DAILY_SESSION_PREPARED,
     NONE
 } from './msg';
+import { prepareDailySessionUseCase } from './use-cases/prepare-daily-session.use-case';
 
 const log = logger.withTag('DASHBOARD_COMMANDS');
+
+export const prepareDailySessionCmd = (): Cmd => {
+    log.info('Preparing daily session (Cmd.task)...');
+    return Cmd.task({
+        task: async () => {
+            const success = await prepareDailySessionUseCase();
+            return success;
+        },
+        onSuccess: (success) => {
+            log.info('Daily session preparation finished', { success });
+            return DAILY_SESSION_PREPARED({ success });
+        },
+        onFailure: (error) => {
+            log.error('Unexpected error in prepareDailySessionCmd', error);
+            // Even if it fails, we signal it's done so the dashboard can try to load
+            return DAILY_SESSION_PREPARED({ success: false });
+        }
+    });
+};
 
 const ensureError = (error: any): Error => {
     if (error instanceof Error) return error;
@@ -72,31 +91,56 @@ export const fetchDrawsCmd = (structureId: string | null): Cmd => {
 export const fetchSummaryCmd = (structureId: string | null): Cmd => {
     if (!structureId || structureId === '0') return Cmd.none;
 
-    log.debug('Starting fetchSummaryCmd', { structureId });
+    log.debug('Starting fetchSummaryCmd (Local SSOT)', { structureId });
 
     return Cmd.task({
         task: async () => {
-            // Usar summaryRepository para obtener datos con desglose por sorteo
-            log.debug('fetchSummaryCmd: Calling summaryRepository.getSummary', { structureId });
-            const summaryResult = await summaryRepository.getSummary(structureId);
+            // SSOT: Usar financialRepository para obtener datos locales (lo que el listero ha hecho)
+            const structureFilter = FinancialKeys.forStructure(structureId);
+            const totalCollected = await financialRepository.getCredits(structureFilter);
+            const premiumsPaid = await financialRepository.getDebits(structureFilter);
 
-            if (summaryResult.isErr()) {
-                log.error('fetchSummaryCmd: Error getting summary', summaryResult.error);
-                throw summaryResult.error;
-            }
+            // Obtener los sorteos actuales para el desglose
+            const drawsResult = await drawRepository.getDraws({ owner_structure: structureId, today: true });
+            const drawsInfo = drawsResult.isOk() ? drawsResult.value : [];
 
-            const summary = summaryResult.value;
+            // Construir el desglose por sorteo desde el Ledger local
+            const sorteos = await Promise.all(drawsInfo.map(async (draw: DrawType) => {
+                const drawFilter = FinancialKeys.forDraw(structureId, draw.id);
+                const drawCollected = await financialRepository.getCredits(drawFilter);
+                const drawPaid = await financialRepository.getDebits(drawFilter);
 
-            log.info('fetchSummaryCmd result', {
-                hasData: summary.colectado_total > 0 || summary.sorteos?.length > 0,
-                totalCollected: summary.totalCollected,
-                premiumsPaid: summary.premiumsPaid,
-                netResult: summary.netResult,
-                sorteosCount: summary.sorteos?.length || 0,
-                sorteosSample: summary.sorteos?.[0]
+                return {
+                    id: draw.id,
+                    name: draw.name,
+                    totalCollected: drawCollected,
+                    premiumsPaid: drawPaid,
+                    netResult: drawCollected - drawPaid,
+                    status: draw.status
+                };
+            }));
+
+            const summary: FinancialSummary = {
+                totalCollected,
+                premiumsPaid,
+                netResult: totalCollected - premiumsPaid,
+                draws: sorteos,
+                timestamp: Date.now(),
+                date: new Date().toISOString().split('T')[0],
+                id_estructura: Number(structureId),
+                nombre_estructura: 'Local (Offline)',
+                colectado_total: totalCollected,
+                pagado_total: premiumsPaid,
+                neto_total: totalCollected - premiumsPaid,
+                sorteos: sorteos
+            };
+
+            log.info('fetchSummaryCmd result (Local SSOT)', {
+                totalCollected,
+                premiumsPaid,
+                sorteosCount: sorteos.length
             });
 
-            // Devolver el summary completo que incluye los datos por sorteo
             return summary;
         },
         onSuccess: (data) => {

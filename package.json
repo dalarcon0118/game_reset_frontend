@@ -59,6 +59,7 @@
     "json-logic-js": "^2.0.5",
     "lucide-react-native": "^0.475.0",
     "metro-transform-plugins": "^0.83.3",
+    "neverthrow": "^8.2.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-hook-form": "^7.56.4",

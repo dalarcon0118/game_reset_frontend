@@ -1,4 +1,4 @@
-import ApiClient from '@/shared/services/api_client';
+import ApiClient from '@/shared/services/api_client/api_client';
 import { BackendRewardRule } from './types';
 import { BackendRewardRuleCodec, BackendRewardRuleArrayCodec, decodeOrFallback } from './codecs';
 

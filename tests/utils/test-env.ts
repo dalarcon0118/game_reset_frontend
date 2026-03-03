@@ -5,7 +5,7 @@ import { Msg } from '@/features/listero/listero-dashboard/core/msg';
 import { Model } from '@/features/listero/listero-dashboard/core/model';
 import { initialState } from '@/features/listero/listero-dashboard/core/initial.types';
 import { effectHandlers } from '@/shared/core/effect_handlers';
-import apiClient from '@/shared/services/api_client';
+import apiClient from '@/shared/services/api_client/api_client';
 import { AuthRepository, User } from '@/shared/repositories/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 

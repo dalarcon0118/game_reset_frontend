@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocalSearchParams } from 'expo-router';
-import { GameLoader } from '@/_legacy/workspace/games/game_loader';
+import { GameLoader } from '@/features/listero/bet-workspace/ui/components/GameLoader';
 
 export default function ListerBetsCreateScreen() {
   const { id, title } = useLocalSearchParams();

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { ApiClientError } from '@/shared/services/api_client';
+import { ApiClientError } from '@/shared/services/api_client/api_client';
 import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('USE_DATA_FETCH');

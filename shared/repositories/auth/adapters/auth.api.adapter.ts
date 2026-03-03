@@ -1,4 +1,4 @@
-import apiClient from '../../../services/api_client';
+import apiClient from '../../../services/api_client/api_client';
 import settings from '../../../../config/settings';
 import { BackendLoginResponseCodec, decodeOrFallback } from '../codecs/codecs';
 import { IAuthApi } from '../auth.ports';

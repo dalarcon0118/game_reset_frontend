@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import BolitaListPlays from '@/features/listero/bet-bolita/ui/screens/bolita_list_plays';
 import { Text, View } from 'react-native';
+import BolitaListPlays from '@/features/listero/bet-bolita/presentation/screens/bolita_list_plays';
 
 export default function BetsListPage() {
   const { id } = useLocalSearchParams();

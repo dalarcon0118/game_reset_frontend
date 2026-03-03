@@ -28,7 +28,6 @@ export interface BetDomainModel {
     offlineId: string;
     status: SyncStatus;
     data: CreateBetDTO & { commissionRate?: number };
-    financialImpact?: FinancialImpact;
     timestamp: number;
     receiptCode?: string;
     backendBets?: BetType[]; // Result from backend after successful sync
@@ -49,6 +48,10 @@ export interface IBetRepository {
     getPendingBets(): Promise<BetDomainModel[]>;
     syncPending(): Promise<{ success: number; failed: number }>;
     applyMaintenance(): Promise<void>;
+
+    // Domain helper methods
+    hasCriticalPendingBets(beforeTimestamp: number): Promise<boolean>;
+    getAllRawBets(): Promise<BetDomainModel[]>;
 
     // Structure related methods
     getChildren(id: number, level?: number): Promise<ChildStructure[]>;

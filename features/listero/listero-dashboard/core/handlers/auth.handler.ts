@@ -3,12 +3,17 @@ import { Msg } from '../msg';
 import { Cmd, CommandDescriptor } from '@/shared/core/cmd';
 import { ret, singleton, Return } from '@/shared/core/return';
 import { handleAuthUserSynced as logicHandleAuthUserSynced } from '../logic';
-import { fetchDrawsCmd, fetchSummaryCmd, updateAuthTokenCmd, loadPendingBetsCmd } from '../commands';
+import { fetchDrawsCmd, fetchSummaryCmd, updateAuthTokenCmd, loadPendingBetsCmd, prepareDailySessionCmd } from '../commands';
 import { logger } from '@/shared/utils/logger';
 import { DashboardUser } from '../user.dto';
 import { RemoteData } from '@/shared/core/remote.data';
 
 const log = logger.withTag('DASHBOARD_AUTH_HANDLER');
+
+const triggerDailyPreparation = (model: Model): Return<Model, Msg> => {
+    log.info('Triggering daily session preparation before load...');
+    return ret(model, prepareDailySessionCmd());
+};
 
 const triggerInitialLoad = (model: Model): Return<Model, Msg> => {
     // 1. Basic Requirement: We need a user structure.
@@ -55,11 +60,22 @@ const triggerInitialLoad = (model: Model): Return<Model, Msg> => {
 export const AuthHandler = {
     handleAuthUserSynced: (model: Model, user: DashboardUser | null): Return<Model, Msg> => {
         // We rely on the logic handler to decide if we need to reset data
-        // It checks for data presence (hasDataOrLoading) and structure changes
         const nextModel = logicHandleAuthUserSynced(model, user);
 
-        // Always try to trigger load if conditions are met
+        if (!nextModel.userStructureId) return singleton(nextModel);
+
+        // If we need to fetch data, we first prepare the daily session
+        const needsFetch = nextModel.draws.type === 'NotAsked' || nextModel.summary.type === 'NotAsked';
+        if (needsFetch) {
+            return triggerDailyPreparation(nextModel);
+        }
+
         return triggerInitialLoad(nextModel);
+    },
+
+    handleDailySessionPrepared: (model: Model, success: boolean): Return<Model, Msg> => {
+        log.info('Daily session prepared, now triggering initial load', { success });
+        return triggerInitialLoad(model);
     },
 
     handleAuthTokenUpdated: (model: Model, token: string): Return<Model, Msg> => {

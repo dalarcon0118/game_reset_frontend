@@ -20,7 +20,8 @@
 
 export {
     FinancialRepository,
-    financialRepository
+    financialRepository,
+    FinancialKeys
 } from './ledger.repository';
 
 export type {

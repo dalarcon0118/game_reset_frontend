@@ -1,9 +1,9 @@
-import ApiClient from '@/shared/services/api_client';
+import ApiClient from '@/shared/services/api_client/api_client';
 import { BackendRewardRule, BackendStructureRewardRule } from './types/types';
-import { 
-    BackendRewardRuleCodec, 
-    BackendRewardRuleArrayCodec, 
-    decodeOrFallback 
+import {
+    BackendRewardRuleCodec,
+    BackendRewardRuleArrayCodec,
+    decodeOrFallback
 } from './codecs/codecs';
 
 export const RewardRuleApi = {

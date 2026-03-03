@@ -13,8 +13,8 @@ export class SummaryOfflineAdapter {
      */
     async saveSummary(summary: FinancialSummary): Promise<void> {
         const key = SystemOfflineKeys.summary('current');
-        // TTL de 24h para el resumen
-        await offlineStorage.set(key, summary, 24 * 60 * 60 * 1000);
+        // El TTL se maneja ahora centralizadamente en el flujo de negocio (prepareDailySessionUseCase)
+        await offlineStorage.set(key, summary);
     }
 
     /**
@@ -23,20 +23,6 @@ export class SummaryOfflineAdapter {
     async getSummary(): Promise<FinancialSummary | null> {
         const key = SystemOfflineKeys.summary('current');
         return await offlineStorage.get<FinancialSummary>(key);
-    }
-
-    /**
-     * Gestiona la fecha del último reset nocturno
-     */
-    async setLastResetDate(date: string): Promise<void> {
-        const key = SystemOfflineKeys.config('maintenance', 'last_reset');
-        await offlineStorage.set(key, { date, timestamp: Date.now() });
-    }
-
-    async getLastResetDate(): Promise<string | null> {
-        const key = SystemOfflineKeys.config('maintenance', 'last_reset');
-        const data = await offlineStorage.get<{ date: string }>(key);
-        return data?.date || null;
     }
 
     /**

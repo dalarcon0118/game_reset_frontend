@@ -1,6 +1,6 @@
 import { DrawRules } from '@/types';
 import { mockRules } from '@/data/mock_data';
-import { ApiClientError } from './api_client';
+import { ApiClientError } from './api_client/api_client';
 import { RulesApi } from './rules/api';
 import {
   BackendUnifiedRulesResponse as UnifiedRulesResponse,

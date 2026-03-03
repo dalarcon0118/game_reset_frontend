@@ -5,10 +5,10 @@ import { OfflineStorageKeyManager } from '@/shared/core/offline-storage/utils';
  */
 export const SystemOfflineKeys = {
     /**
-     * Llave para el resumen financiero actual
+     * Llave para el resumen financiero por fecha
      */
-    summary: (id: string = 'current') => 
-        OfflineStorageKeyManager.generateKey('system', 'summary', id, 'data'),
+    summary: (date: string) => 
+        OfflineStorageKeyManager.generateKey('system', 'summary', date, 'data'),
 
     /**
      * Llave para configuraciones del sistema (ej. mantenimiento)
@@ -21,4 +21,10 @@ export const SystemOfflineKeys = {
      */
     rules: (structureId: string, type: 'validation' | 'reward' = 'validation') => 
         OfflineStorageKeyManager.generateKey('rules', type, structureId, 'data'),
+
+    /**
+     * Llave para el ledger de transacciones financieras por fecha
+     */
+    ledger: (date: string) => 
+        OfflineStorageKeyManager.generateKey('financial', 'ledger', date, 'transactions'),
 };
