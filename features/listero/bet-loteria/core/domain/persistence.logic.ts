@@ -1,8 +1,9 @@
 import { LoteriaFeatureModel } from '../feature.types';
 import { SessionLogic } from './session.logic';
 import { CalculationLogic } from './calculation.logic';
-import logger from '@/shared/utils/logger';
-const log = logger.withTag('[PersistenceLogic]');
+import { Result } from 'neverthrow';
+import { BetMapper } from '@/shared/repositories/bet/bet.mapper';
+import { BetPlacementInput } from '@/shared/repositories/bet/bet.types';
 /**
  * 💾 PERSISTENCE LOGIC
  * Manages the state transitions related to saving data.
@@ -52,20 +53,12 @@ export const PersistenceLogic = {
     /**
      * Generates the payload required for the backend.
      * 
-     * IMPORTANTE: Usa structureId del usuario (model.structureId) en lugar de owner_structure del draw.
-     * Esto asegura que el registro financiero se asocie correctamente a la estructura del usuario actual,
-     * que es la misma estructura que usa el Dashboard para mostrar los resumenes financieros.
+     * IMPORTANTE: Ahora retorna un array de apuestas compatibles con BetDomainModel.
+     * Esto permite usar betRepository.placeBatch para un manejo offline-first consistente.
      */
-    createSavePayload: (model: LoteriaFeatureModel, drawId: string): any => {
+    createSavePayload: (model: LoteriaFeatureModel, drawId: string): Result<BetPlacementInput[], Error> => {
         const receiptCode = model.summary.pendingReceiptCode || CalculationLogic.generateReceiptCode();
         const loteriaBetTypeId = model.managementSession.betTypes.loteria;
-
-        // Inyectamos betTypeid en cada apuesta para cumplir con el nuevo contrato basado en IDs
-        const betsWithId = model.entrySession.loteria.map(bet => ({
-            ...bet,
-            betTypeid: loteriaBetTypeId,
-            drawid: drawId
-        }));
 
         // Obtener detalles del sorteo para extraer la estructura (fallback)
         const drawDetails = model.managementSession.drawDetails.type === 'Success'
@@ -73,17 +66,20 @@ export const PersistenceLogic = {
             : null;
 
         // USAR structureId del usuario actual como fuente de verdad
-        // Si no está disponible, caer a owner_structure del draw (fallback)
         const effectiveStructureId = model.structureId
             ? String(model.structureId)
             : String(drawDetails?.owner_structure || '');
 
-        return {
+        // Retornamos un array de apuestas individuales compatibles con BetDomainModel
+        const candidates = model.entrySession.loteria.map(bet => ({
             drawId,
-            loteria: betsWithId,
+            betTypeId: loteriaBetTypeId || '',
+            numbers: bet.bet,
+            amount: bet.amount,
             receiptCode,
-            amount: model.summary.loteriaTotal, // Monto total para el Ledger financiero
-            owner_structure: effectiveStructureId // Estructura del usuario actual
-        };
+            ownerStructure: effectiveStructureId
+        }));
+
+        return BetMapper.toPlacementBatch(candidates);
     }
 };

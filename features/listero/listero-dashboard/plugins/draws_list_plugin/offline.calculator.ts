@@ -16,17 +16,17 @@ export function calculateOfflineUpdates(pendingBets: PendingBet[]): OfflineDrawU
 
   if (pendingBets.length > 0) {
     pendingBets.forEach(bet => {
-      // Handle different property names for draw ID
-      const drawIdRaw = bet.data.draw;
+      // Handle both new flat structure and legacy nested structure
+      const drawIdRaw = bet.drawId ?? (bet as any).data?.draw;
       if (!drawIdRaw) return;
 
       const drawId = String(drawIdRaw);
       const current = drawMap.get(drawId) || { localTotalCollected: 0, localNetResult: 0, pendingCount: 0 };
-      
-      // Calculate amounts
-      const amount = Number(bet.data.amount) || 0;
-      const totalCollected = bet.financialImpact?.totalCollected || amount;
-      const netAmount = bet.financialImpact?.netAmount || (amount * 0.9); // Default 10% commission if missing
+
+      // Calculate amounts safely from both structures
+      const amount = Number(bet.amount ?? (bet as any).data?.amount) || 0;
+      const totalCollected = (bet as any).financialImpact?.totalCollected || amount;
+      const netAmount = (bet as any).financialImpact?.netAmount || (amount * 0.9); // Default 10% commission if missing
 
       drawMap.set(drawId, {
         localTotalCollected: current.localTotalCollected + totalCollected,

@@ -21,40 +21,19 @@ export const CREATE_BET_CLICKED = createMsg<'CREATE_BET_CLICKED', { id: string |
 export const NOOP = createMsg<'NOOP', void>('NOOP');
 
 // ============================================================================
-// MENSAJES OFFLINE (Fase 4)
+// MENSAJES PARA TOTALES FINANCIEROS (SSOT desde BetRepository)
 // ============================================================================
 
-/**
- * Actualiza el estado financiero offline de un sorteo específico
- * Se dispara cuando cambia el estado offline (apuestas pendientes sincronizadas)
- */
-export const OFFLINE_STATE_UPDATED = createMsg<'OFFLINE_STATE_UPDATED', {
+export type DrawTotalsUpdate = {
   drawId: string;
-  localAmount: number;
-  localCredits: number;
-  localDebits: number;
-  localNetResult: number;
-  pendingCount: number;
-}>('OFFLINE_STATE_UPDATED');
+  totalCollected: number;
+  premiumsPaid: number;
+  netResult: number;
+  betCount: number;
+};
 
-/**
- * Sincroniza todos los estados offline disponibles
- * Se dispara al inicializar o cuando hay cambios globales
- */
-export const SYNC_OFFLINE_STATES = createMsg<'SYNC_OFFLINE_STATES', void>('SYNC_OFFLINE_STATES');
-
-/**
- * Actualización masiva de estados offline (batch)
- */
 export const BATCH_OFFLINE_UPDATE = createMsg<'BATCH_OFFLINE_UPDATE', {
-  updates: {
-    drawId: string;
-    localAmount: number;
-    localCredits: number;
-    localDebits: number;
-    localNetResult: number;
-    pendingCount: number;
-  }[];
+  updates: DrawTotalsUpdate[];
 }>('BATCH_OFFLINE_UPDATE');
 
 export type Msg =
@@ -67,7 +46,5 @@ export type Msg =
   | typeof BETS_LIST_CLICKED._type
   | typeof CREATE_BET_CLICKED._type
   | typeof NOOP._type
-  // Offline messages
-  | typeof OFFLINE_STATE_UPDATED._type
-  | typeof SYNC_OFFLINE_STATES._type
+  // SSOT: Financial totals from BetRepository
   | typeof BATCH_OFFLINE_UPDATE._type;

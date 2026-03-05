@@ -5,20 +5,13 @@ import { Label, Card, Flex, ButtonKit, Badge } from '@/shared/components';
 import { CalendarClock, Clock3, AlarmClock, CloudOff } from 'lucide-react-native';
 import { DRAW_STATUS } from '@/types';
 import { Draw } from '../core/types';
+import { TotalsByDrawIdMap, DrawFinancialTotals } from '../model';
 import SummaryCard from './summary_card';
 
-// Extended Draw type with offline metadata
-interface DrawWithOffline extends Draw {
-  _offline?: {
-    pendingCount: number;
-    localAmount: number;
-    backendAmount: number;
-    hasDiscrepancy: boolean;
-  };
-}
-
+// Props del componente - SSOT: Draw y Totals vienen de fuentes separadas
 interface DrawItemProps {
-  draw: DrawWithOffline;
+  draw: Draw;
+  totalsByDrawId: TotalsByDrawIdMap;
   onRulePress: (id: string | number) => void;
   onRewardsPress: (id: string, title: string) => void;
   onBetsListPress: (id: string, title: string) => void;
@@ -28,6 +21,7 @@ interface DrawItemProps {
 
 export default function DrawItem({
    draw,
+   totalsByDrawId,
    onRulePress,
    onRewardsPress,
    onBetsListPress,
@@ -35,6 +29,16 @@ export default function DrawItem({
    showBalance
 }: DrawItemProps) {
   
+  // SSOT: Obtener totales financieros desde BetRepository (totalsByDrawId)
+  const drawId = draw.id.toString();
+  const totals: DrawFinancialTotals | undefined = totalsByDrawId.get(drawId);
+  
+  // Valores financieros - vienen de BetRepository, no mezclados con Draw
+  const totalCollected = totals?.totalCollected ?? 0;
+  const premiumsPaid = totals?.premiumsPaid ?? 0;
+  const netResult = totals?.netResult ?? 0;
+  const betCount = totals?.betCount ?? 0;
+
   const handleRewardsPress = () => {
     onRewardsPress(draw.id.toString(), draw.source || '');
   }
@@ -128,18 +132,19 @@ export default function DrawItem({
     console.log('[DRAW_ITEM_DEBUG] Financial values:', {
       id: draw.id,
       source: draw.source,
-      totalCollected: draw.totalCollected,
-      premiumsPaid: draw.premiumsPaid,
-      netResult: draw.netResult,
-      _offline: draw._offline,
+      totalCollected,
+      premiumsPaid,
+      netResult,
+      betCount,
     });
-  }, [draw]);
+  }, [draw, totalCollected, premiumsPaid, netResult, betCount]);
   
   // React.useEffect(() => {
   //   debugFinancials();
   // }, [debugFinancials]);
-  const hasOfflineBets = draw._offline && draw._offline.pendingCount > 0;
-  const offlineCount = draw._offline?.pendingCount ?? 0;
+  
+  const hasOfflineBets = betCount > 0;
+  const offlineCount = betCount;
 
   return (
     <Card style={[styles.container, closingInfo?.isCritical && styles.criticalContainer]}>
@@ -148,7 +153,7 @@ export default function DrawItem({
         <View style={styles.titleContainer}>
           <Flex align="center" gap={8}>
             <Label style={styles.drawTitle}>{draw.source}</Label>
-            {/* Fase 4: Indicador de apuestas offline pendientes */}
+            {/* Indicador de apuestas pendientes desde BetRepository */}
             {hasOfflineBets && (
               <View style={styles.offlineBadge}>
                 <CloudOff size={10} color="#fff" />
@@ -174,25 +179,26 @@ export default function DrawItem({
       </Flex>
 
       {/* Financial Row - Compact */}
+      {/* SSOT: Los valores vienen de totalsByDrawId (BetRepository), no del Draw */}
       <View style={styles.financialRow}>
         <SummaryCard
           title="Ventas"
-          amount={draw.totalCollected ?? 0}
+          amount={totalCollected}
           type="collected"
           showBalance={showBalance}
-          hasDiscrepancy={draw._offline?.hasDiscrepancy}
+          hasDiscrepancy={false}
         />
         <View style={styles.verticalDivider} />
         <SummaryCard
           title="Premios"
-          amount={draw.premiumsPaid ?? 0}
+          amount={premiumsPaid}
           type="paid"
           showBalance={showBalance}
         />
         <View style={styles.verticalDivider} />
         <SummaryCard
           title="Ganancia"
-          amount={draw.netResult ?? 0}
+          amount={netResult}
           type="net"
           showBalance={showBalance}
         />
@@ -319,7 +325,7 @@ const styles = StyleSheet.create({
   reglamentoButton: {
     flex: 0.7,
   },
-  // Fase 4: Estilos para indicador offline
+  // Estilos para indicador offline
   offlineBadge: {
     flexDirection: 'row',
     alignItems: 'center',

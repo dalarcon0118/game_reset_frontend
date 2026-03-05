@@ -1,4 +1,4 @@
-import ApiClient from '@/shared/services/api_client/api_client';
+import apiClient from '@/shared/services/api_client';
 import { BackendValidationRule, BackendStructureSpecificRule, BackendRuleRepository } from './types';
 import {
     BackendValidationRuleArrayCodec,
@@ -16,27 +16,27 @@ export const ValidationRuleApi = {
             queryParams.append('is_active', params.is_active.toString());
             endpoint += `?${queryParams.toString()}`;
         }
-        const response = await ApiClient.get<BackendValidationRule[]>(endpoint);
+        const response = await apiClient.get<BackendValidationRule[]>(endpoint);
         return decodeOrFallback(BackendValidationRuleArrayCodec, response, 'list');
     },
 
     getForCurrentUser: async (includeHierarchy: boolean = false): Promise<BackendValidationRule[]> => {
         const queryParams = includeHierarchy ? '?include_hierarchy=true' : '';
-        const response = await ApiClient.get<BackendValidationRule[]>(
+        const response = await apiClient.get<BackendValidationRule[]>(
             `/draw/validation-rules/for-current-user/${queryParams}`
         );
         return decodeOrFallback(BackendValidationRuleArrayCodec, response, 'getForCurrentUser');
     },
 
     getByStructure: async (structureId: string): Promise<BackendStructureSpecificRule[]> => {
-        const response = await ApiClient.get<BackendStructureSpecificRule[]>(
+        const response = await apiClient.get<BackendStructureSpecificRule[]>(
             `/draw/structure-specific-rules/by-structure/${structureId}/`
         );
         return decodeOrFallback(BackendStructureSpecificRuleArrayCodec, response, 'getByStructure');
     },
 
     getAvailableTemplates: async (): Promise<BackendRuleRepository[]> => {
-        const response = await ApiClient.get<BackendRuleRepository[]>('/draw/structure-specific-rules/available-templates/');
+        const response = await apiClient.get<BackendRuleRepository[]>('/draw/structure-specific-rules/available-templates/');
         return decodeOrFallback(BackendRuleRepositoryArrayCodec, response, 'getAvailableTemplates');
     },
 
@@ -45,7 +45,7 @@ export const ValidationRuleApi = {
         structureId: string,
         options?: any
     ): Promise<BackendStructureSpecificRule> => {
-        const response = await ApiClient.post<BackendStructureSpecificRule>(
+        const response = await apiClient.post<BackendStructureSpecificRule>(
             `/draw/rule-repository/${templateId}/copy-to-structure/${structureId}/`,
             options || {}
         );
@@ -56,7 +56,7 @@ export const ValidationRuleApi = {
         ruleId: string,
         updates: Partial<BackendStructureSpecificRule>
     ): Promise<BackendStructureSpecificRule> => {
-        const response = await ApiClient.patch<BackendStructureSpecificRule>(
+        const response = await apiClient.patch<BackendStructureSpecificRule>(
             `/draw/structure-specific-rules/${ruleId}/`,
             updates
         );

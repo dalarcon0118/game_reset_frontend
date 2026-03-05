@@ -1,6 +1,6 @@
 import NetInfo from '@react-native-community/netinfo';
 import { logger } from './logger';
-import apiClient from '../services/api_client/api_client';
+import apiClient from '../services/api_client';
 
 const log = logger.withTag('NETWORK_UTILS');
 

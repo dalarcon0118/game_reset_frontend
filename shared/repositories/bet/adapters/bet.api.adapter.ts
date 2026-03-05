@@ -9,18 +9,22 @@ import { BackendChildStructure, BackendListeroDetails } from '@/shared/services/
  * Now it properly passes the external_id to the backend.
  */
 export class BetApiAdapter implements IBetApi {
-    async create(data: CreateBetDTO, idempotencyKey: string): Promise<BackendBet | BackendBet[]> {
-        // Inject external_id into each bet item for the backend to use as PK
-        const dataWithExternalIds = {
-            ...data,
-            fijosCorridos: data.fijosCorridos?.map(item => ({ ...item, external_id: idempotencyKey })),
-            centenas: data.centenas?.map(item => ({ ...item, external_id: idempotencyKey })),
-            parlets: data.parlets?.map(item => ({ ...item, external_id: idempotencyKey })),
-            loteria: data.loteria?.map(item => ({ ...item, external_id: idempotencyKey })),
-            bets: data.bets?.map(item => ({ ...item, external_id: idempotencyKey }))
+    async create(bet: BetDomainModel, idempotencyKey: string): Promise<BackendBet | BackendBet[]> {
+        // Transform the flat domain model into the flat DTO expected by the backend
+        const dto: CreateBetDTO = {
+            drawId: bet.drawId,
+            bets: [{
+                betTypeId: bet.betTypeId,
+                drawId: bet.drawId,
+                amount: bet.amount,
+                numbers: bet.numbers,
+                external_id: idempotencyKey,
+                owner_structure: bet.ownerStructure
+            }],
+            receiptCode: bet.receiptCode
         };
 
-        return LegacyBetApi.createWithIdempotencyKey(dataWithExternalIds as CreateBetDTO, idempotencyKey);
+        return LegacyBetApi.createWithIdempotencyKey(dto, idempotencyKey);
     }
 
     async checkStatus(idempotencyKey: string): Promise<{ synced: boolean; bets?: BackendBet[] }> {

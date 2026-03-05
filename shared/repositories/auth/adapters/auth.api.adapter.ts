@@ -1,4 +1,4 @@
-import apiClient from '../../../services/api_client/api_client';
+import { apiClient } from '../../../services/api_client';
 import settings from '../../../../config/settings';
 import { BackendLoginResponseCodec, decodeOrFallback } from '../codecs/codecs';
 import { IAuthApi } from '../auth.ports';
@@ -43,9 +43,11 @@ export const authApiAdapter: IAuthApi = {
             log.warn('Online login request failed', { username, error: error.message });
 
             const isNetworkError =
-                error.message?.includes('Network') ||
-                error.message?.includes('timeout') ||
-                !error.response;
+                error.status === 0 ||
+                error.message?.toLowerCase().includes('network') ||
+                error.message?.toLowerCase().includes('timeout') ||
+                error.message?.toLowerCase().includes('abort') ||
+                !error.status;
 
             return {
                 success: false,

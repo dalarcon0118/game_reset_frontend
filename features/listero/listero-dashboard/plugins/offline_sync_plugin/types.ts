@@ -4,7 +4,17 @@
  * Tipos para el plugin de UI de sincronización offline.
  */
 
-import type { BetDomainModel } from '@/shared/repositories/bet';
+// ============================================================================
+// DTOs: UI Data Transfer Objects (Uncoupled from domain)
+// ============================================================================
+
+export interface OfflineSyncBet {
+  id: string;
+  amount: number;
+  timestamp: number;
+  status: string;
+  error?: string;
+}
 
 // ============================================================================
 // Toast Types
@@ -57,8 +67,8 @@ export interface OfflineSyncModel {
   syncStatus: SyncStatusState;
 
   // Pending bets para mostrar
-  pendingBets: BetDomainModel[];
-  errorBets: BetDomainModel[];
+  pendingBets: OfflineSyncBet[];
+  errorBets: OfflineSyncBet[];
 
   // Loading states
   isLoading: boolean;

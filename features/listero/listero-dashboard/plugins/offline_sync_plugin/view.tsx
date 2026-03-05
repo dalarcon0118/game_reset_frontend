@@ -335,10 +335,10 @@ const SyncStatusScreen: React.FC<SyncStatusScreenProps> = ({ model, dispatch }) 
                   <Text style={styles.emptyText}>No hay apuestas pendientes</Text>
                 ) : (
                   model.pendingBets.map((bet) => (
-                    <Card key={bet.offlineId} style={styles.betCard}>
+                    <Card key={bet.id} style={styles.betCard}>
                       <View style={styles.betRow}>
                         <Text style={styles.betLabel}>Sorteo:</Text>
-                        <Text style={styles.betValue}>{bet.drawId}</Text>
+                        <Text style={styles.betValue}>ID: {bet.id.substring(0, 8)}...</Text>
                       </View>
                       <View style={styles.betRow}>
                         <Text style={styles.betLabel}>Monto:</Text>
@@ -364,10 +364,10 @@ const SyncStatusScreen: React.FC<SyncStatusScreenProps> = ({ model, dispatch }) 
                   <Text style={styles.emptyText}>No hay errores</Text>
                 ) : (
                   model.errorBets.map((bet) => (
-                    <Card key={bet.offlineId} style={[styles.betCard, styles.betCardError]}>
+                    <Card key={bet.id} style={[styles.betCard, styles.betCardError]}>
                       <View style={styles.betRow}>
-                        <Text style={styles.betLabel}>Sorteo:</Text>
-                        <Text style={styles.betValue}>{bet.drawId}</Text>
+                        <Text style={styles.betLabel}>ID:</Text>
+                        <Text style={styles.betValue}>{bet.id.substring(0, 8)}...</Text>
                       </View>
                       <View style={styles.betRow}>
                         <Text style={styles.betLabel}>Monto:</Text>
@@ -376,7 +376,7 @@ const SyncStatusScreen: React.FC<SyncStatusScreenProps> = ({ model, dispatch }) 
                       <View style={styles.betRow}>
                         <Text style={styles.betLabel}>Error:</Text>
                         <Text style={[styles.betValue, styles.errorText]}>
-                          {bet.lastError || 'Error desconocido'}
+                          {bet.error || 'Error desconocido'}
                         </Text>
                       </View>
                     </Card>

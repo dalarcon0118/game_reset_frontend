@@ -1,5 +1,6 @@
-import { Model, DrawsListPluginConfig, DrawOfflineState } from './model';
+import { Model, DrawsListPluginConfig, DrawFinancialTotals, financialSelectors } from './model';
 import * as Msg from './msg';
+import { DrawTotalsUpdate } from './msg';
 import { Return, ret } from '@/shared/core/return';
 import { Cmd } from '@/shared/core/cmd';
 import { match } from 'ts-pattern';
@@ -68,13 +69,9 @@ export const update = (model: Model, msg: Msg.Msg): Return<Model, Msg.Msg> => {
       handleNavigateToBetsList(model, m.payload))
     .with(Msg.CREATE_BET_CLICKED.type(), (m) =>
       handleNavigateToCreateBet(model, m.payload))
-    // Fase 4: Mensajes offline
-    .with(Msg.OFFLINE_STATE_UPDATED.type(), (m) =>
-      handleOfflineUpdate(model, m.payload))
-    .with(Msg.SYNC_OFFLINE_STATES.type(), () =>
-      handleSyncOfflineStates(model))
+    // SSOT: Totales financieros desde BetRepository
     .with(Msg.BATCH_OFFLINE_UPDATE.type(), (m) =>
-      handleBatchOfflineUpdate(model, m.payload))
+      handleBatchFinancialUpdate(model, m.payload))
     .with(Msg.NOOP.type(), () =>
       ret(model, Cmd.none))
     .exhaustive();
@@ -132,13 +129,11 @@ function handleFilterDraws(model: Model): Return<Model, Msg.Msg> {
     filter: model.currentFilter as StatusFilter
   });
 
-  // 2. Enriquecer EXCLUSIVAMENTE con datos del Ledger local (SSOT)
-  // Ignoramos completamente los datos financieros del servidor y los de conciliación antigua.
-  const fullyEnrichedDraws = (filteredDraws as any[]).map(draw =>
-    enrichDrawWithOfflineData(draw as Draw, model.offlineStates)
-  );
+  // SSOT: No mezclamos datos - Draw y Totals son fuentes separadas
+  // Los totales financieros están en model.totalsByDrawId
+  // El componente DrawItem consultará ambos usando selectors
 
-  return ret({ ...model, filteredDraws: fullyEnrichedDraws as Draw[] }, Cmd.none);
+  return ret({ ...model, filteredDraws: filteredDraws as Draw[] }, Cmd.none);
 }
 
 function handlePublish(
@@ -162,165 +157,64 @@ function handlePublish(
 }
 
 // ============================================================================
-// HANDLERS OFFLINE (Fase 4)
+// HANDLERS PARA TOTALES FINANCIEROS (SSOT)
 // ============================================================================
 
 /**
- * Maneja la actualización del estado offline de un sorteo
- * Actualiza el mapa de estados offline y recalcula los draws filtrados
+ * Maneja actualizaciones masivas de totales financieros desde BetRepository
+ * SSOT: Los totales vienen de betRepository.getTotalsByDrawId()
  */
-function handleOfflineUpdate(
+function handleBatchFinancialUpdate(
   model: Model,
   payload: {
-    drawId: string;
-    localAmount: number;
-    localCredits: number;
-    localDebits: number;
-    localNetResult: number;
-    pendingCount: number
+    updates: DrawTotalsUpdate[];
   }
 ): Return<Model, Msg.Msg> {
-  const newOfflineStates = new Map(model.offlineStates);
+  log.debug('Batch financial update input', {
+    updates: payload.updates.length,
+    currentMapSize: model.totalsByDrawId.size
+  });
 
-  if (payload.pendingCount === 0) {
-    newOfflineStates.delete(payload.drawId);
-  } else {
-    const offlineState: DrawOfflineState = {
-      drawId: payload.drawId,
-      localAmount: payload.localAmount,
-      localCredits: payload.localCredits,
-      localDebits: payload.localDebits,
-      localNetResult: payload.localNetResult,
-      pendingCount: payload.pendingCount,
-      lastUpdated: Date.now(),
-    };
-    newOfflineStates.set(payload.drawId, offlineState);
-  }
-
-  const hasPendingChanges = newOfflineStates.size > 0;
-
-  const nextModel: Model = {
-    ...model,
-    offlineStates: newOfflineStates,
-    hasPendingOfflineChanges: hasPendingChanges,
-  };
-
-  // Forzar refiltrado de sorteos si ya tenemos datos cargados
-  // Esto asegura que la vista vea los datos enriquecidos inmediatamente
-  if (model.draws.type === 'Success') {
-    return ret(nextModel, Cmd.ofMsg(Msg.FILTER_DRAWS()));
-  }
-
-  return ret(model, Cmd.none);
-}
-
-/**
- * Sincroniza todos los estados offline con el servicio
- * Se ejecuta al inicializar o cuando hay cambios globales
- */
-function handleSyncOfflineStates(model: Model): Return<Model, Msg.Msg> {
-  // Este handler se usa para forzar una sincronización completa
-  // En la práctica, las suscripciones manejan los cambios automáticamente
-  log.debug('Sync offline states requested');
-
-  // Verificar si hay cambios pendientes
-  const hasPendingChanges = model.offlineStates.size > 0;
-
-  if (hasPendingChanges !== model.hasPendingOfflineChanges) {
-    return ret({ ...model, hasPendingOfflineChanges: hasPendingChanges }, Cmd.none);
-  }
-
-  return ret(model, Cmd.none);
-}
-
-/**
- * Maneja actualizaciones masivas de estados offline (batch)
- * Útil para sincronizar múltiples sorteos a la vez
- */
-function handleBatchOfflineUpdate(
-  model: Model,
-  payload: {
-    updates: {
-      drawId: string;
-      localAmount: number;
-      localCredits: number;
-      localDebits: number;
-      localNetResult: number;
-      pendingCount: number
-    }[]
-  }
-): Return<Model, Msg.Msg> {
-  const newOfflineStates = new Map(model.offlineStates);
+  const newTotalsByDrawId = new Map(model.totalsByDrawId);
+  let deleted = 0;
+  let upserted = 0;
 
   payload.updates.forEach(update => {
-    if (update.pendingCount === 0) {
-      newOfflineStates.delete(update.drawId);
+    if (update.betCount === 0) {
+      newTotalsByDrawId.delete(update.drawId);
+      deleted += 1;
     } else {
-      const offlineState: DrawOfflineState = {
+      const totals: DrawFinancialTotals = {
         drawId: update.drawId,
-        localAmount: update.localAmount,
-        localCredits: update.localCredits,
-        localDebits: update.localDebits,
-        localNetResult: update.localNetResult,
-        pendingCount: update.pendingCount,
+        totalCollected: update.totalCollected,
+        premiumsPaid: update.premiumsPaid,
+        netResult: update.netResult,
+        betCount: update.betCount,
         lastUpdated: Date.now(),
       };
-      newOfflineStates.set(update.drawId, offlineState);
+      newTotalsByDrawId.set(update.drawId, totals);
+      upserted += 1;
     }
   });
 
-  const hasPendingChanges = newOfflineStates.size > 0;
+  log.debug('Batch financial update intermediate', {
+    upserted,
+    deleted
+  });
 
   const nextModel: Model = {
     ...model,
-    offlineStates: newOfflineStates,
-    hasPendingOfflineChanges: hasPendingChanges,
+    totalsByDrawId: newTotalsByDrawId,
   };
 
-  // Refiltrar si tenemos datos
+  log.debug('Batch financial update final', {
+    nextMapSize: nextModel.totalsByDrawId.size
+  });
+
+  // Refiltrar para actualizar la vista con los nuevos totales
   if (model.draws.type === 'Success') {
     return ret(nextModel, Cmd.ofMsg(Msg.FILTER_DRAWS()));
   }
 
   return ret(nextModel, Cmd.none);
-}
-
-// ============================================================================
-// HELPERS PARA ENRIQUECER DRAWS CON DATOS OFFLINE
-// ============================================================================
-
-/**
- * Enriquece un draw con los datos offline si existen
- * ESTRATEGIA: Fuente Única de Verdad (SSOT) del Ledger Local.
- * Ignoramos los datos financieros del servidor para este reporte.
- */
-export function enrichDrawWithOfflineData(
-  draw: Draw,
-  offlineStates: Map<string, DrawOfflineState>
-): Draw {
-  const drawId = draw.id.toString();
-  const offlineState = offlineStates.get(drawId);
-
-  // Valores por defecto del Ledger (SSOT)
-  const localCredits = offlineState?.localCredits ?? 0;
-  const localDebits = offlineState?.localDebits ?? 0;
-  const localNet = offlineState?.localNetResult ?? 0;
-  const pendingCount = offlineState?.pendingCount ?? 0;
-
-  // Los montos del backend se guardan solo para referencia/debug si se desea,
-  // pero NO se usan para el totalCollected principal que ve el usuario.
-  const backendAmount = draw.totalCollected ?? 0;
-
-  return {
-    ...draw,
-    totalCollected: localCredits, // SSOT: Usamos créditos del ledger
-    premiumsPaid: localDebits,    // SSOT: Usamos débitos (premios) del ledger
-    netResult: localNet,          // SSOT: Usamos neto del ledger
-    _offline: {
-      pendingCount: pendingCount,
-      localAmount: localCredits,
-      backendAmount: backendAmount,
-      hasDiscrepancy: Math.abs(localCredits - backendAmount) > 0.01,
-    },
-  } as Draw;
 }

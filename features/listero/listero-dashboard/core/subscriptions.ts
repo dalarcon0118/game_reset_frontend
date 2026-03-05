@@ -8,7 +8,15 @@ export const subscriptions = (model: Model): SubDescriptor<Msg> => {
     // Sincronización automática con el store de Auth para cambios de usuario
     const authSub = Sub.watchStore(
         useAuthStore,
-        (state: any) => state?.model?.user ?? state?.user,
+        (state: any) => {
+            const user = state?.model?.user ?? state?.user;
+            // Transformar User a DashboardUser extrayendo structureId del objeto nested
+            return user ? {
+                ...user,
+                structureId: user.structure?.id,
+                commissionRate: user.structure?.commission_rate ?? 0
+            } : null;
+        },
         (user) => ({ type: 'AUTH_USER_SYNCED', user }),
         'listero-dashboard-auth-sync'
     );

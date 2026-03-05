@@ -13,14 +13,17 @@ const log = logger.withTag('DASHBOARD_DATA_HANDLER');
 
 export const DataHandler = {
     handleFetchDataRequested: (model: Model, structureId?: string): Return<Model, Msg> => {
+        console.log('[DEBUG] handleFetchDataRequested: INICIANDO con structureId =', structureId);
         const id = structureId || model.userStructureId;
 
         if (!shouldFetchData(model, id)) {
+            console.log('[DEBUG] handleFetchDataRequested: SALTADO - shouldFetchData retornó false');
             // Even if we don't fetch remote data, we should check local pending bets
             return ret(model, loadPendingBetsCmd());
         }
 
         const validId = id!;
+        console.log('[DEBUG] handleFetchDataRequested: PROCEDIENDO con validId =', validId);
         log.debug('Starting load', { structureId: validId });
 
         return ret(
@@ -62,6 +65,7 @@ export const DataHandler = {
     },
 
     handleDrawsReceived: (model: Model, webData: WebData<DrawType[]>): Return<Model, Msg> => {
+        console.log('[DEBUG] handleDrawsReceived: RECIBIDO', { type: webData.type, count: webData.type === 'Success' ? webData.data.length : 0 });
         log.debug('Draws received', {
             state: webData.type,
             count: webData.type === 'Success' ? webData.data.length : 0,
@@ -125,6 +129,7 @@ export const DataHandler = {
     },
 
     handleSummaryReceived: (model: Model, webData: WebData<FinancialSummary>): Return<Model, Msg> => {
+        console.log('[DEBUG] handleSummaryReceived: RECIBIDO', { type: webData.type });
         log.debug('Summary received', { state: webData.type });
 
         return match(webData)
@@ -165,6 +170,7 @@ export const DataHandler = {
     },
 
     handleRefreshClicked: (model: Model): Return<Model, Msg> => {
+        console.log('[DEBUG] handleRefreshClicked: INICIANDO');
         return ret(model, [
             fetchDrawsCmd(model.userStructureId),
             fetchSummaryCmd(model.userStructureId),

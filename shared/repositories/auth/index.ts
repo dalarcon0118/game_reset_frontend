@@ -5,6 +5,7 @@ import { AuthResult, User, AuthSession, AuthErrorType } from './types/types';
 import { logger } from '../../utils/logger';
 import NetInfo from '@react-native-community/netinfo';
 import { isServerReachable } from '../../utils/network';
+import { setAuthRepository } from '../../services/api_client';
 
 const log = logger.withTag('AUTH_REPOSITORY');
 
@@ -20,6 +21,8 @@ export * from './auth.keys';
  */
 class AuthRepositoryImpl implements IAuthRepository {
     private sessionListeners: ((user: User | null) => void)[] = [];
+    private isLoggingIn = false; // Flag para evitar refresh durante login
+    private isLoggingOut = false; // Flag para evitar race conditions durante logout
 
     constructor(
         private api: IAuthApi = authApiAdapter,
@@ -30,6 +33,12 @@ class AuthRepositoryImpl implements IAuthRepository {
 
     private setupConnectivityMonitor() {
         NetInfo.addEventListener(async (state) => {
+            // No hacer refresh mientras está haciendo login o logout
+            if (this.isLoggingIn || this.isLoggingOut) {
+                log.debug('Skipping connectivity refresh during login/logout');
+                return;
+            }
+
             if (state.isConnected) {
                 const reachable = await isServerReachable();
                 if (reachable) {
@@ -43,18 +52,26 @@ class AuthRepositoryImpl implements IAuthRepository {
     private async refreshSession() {
         try {
             const hasSession = await this.hasSession();
-            if (hasSession) {
-                const user = await this.api.getMe();
-                if (user) {
-                    const session = await this.storage.getSession();
-                    await this.storage.saveSession({
-                        user,
-                        accessToken: session.access!,
-                        refreshToken: session.refresh!,
-                        isOffline: false
-                    });
-                    this.notifySessionListeners(user);
-                }
+            if (!hasSession) return;
+
+            const session = await this.storage.getSession();
+
+            // No hacer refresh si es sesión offline
+            if (session.isOffline) {
+                log.info('Offline session detected, skipping session refresh');
+                return;
+            }
+
+            const user = await this.api.getMe();
+            if (user) {
+                const session = await this.storage.getSession();
+                await this.storage.saveSession({
+                    user,
+                    accessToken: session.access!,
+                    refreshToken: session.refresh!,
+                    isOffline: false
+                });
+                this.notifySessionListeners(user);
             }
         } catch (error) {
             log.warn('Background session refresh failed', error);
@@ -95,7 +112,19 @@ class AuthRepositoryImpl implements IAuthRepository {
      * Siempre intenta online primero para mantener los datos frescos.
      */
     async login(username: string, pin: string): Promise<AuthResult> {
+        this.isLoggingIn = true;
         try {
+            // 0. Pre-check de conectividad para evitar timeouts largos
+            const reachable = await isServerReachable();
+            if (!reachable) {
+                log.info('Server unreachable (fast-check), jumping to offline validation', { username });
+                const offlineResult = await this.storage.validateOffline(username, pin);
+                if (offlineResult.success && offlineResult.data) {
+                    this.notifySessionListeners(offlineResult.data.user);
+                }
+                return offlineResult;
+            }
+
             // 1. Intento Online
             const onlineResult = await this.api.login(username, pin);
 
@@ -133,10 +162,13 @@ class AuthRepositoryImpl implements IAuthRepository {
                     message: error.message || 'Error inesperado en el sistema'
                 }
             };
+        } finally {
+            this.isLoggingIn = false;
         }
     }
 
     async logout(): Promise<void> {
+        this.isLoggingOut = true;
         try {
             log.info('Performing logout');
             this.api.logout().catch(err => log.warn('Remote logout failed', err));
@@ -145,6 +177,8 @@ class AuthRepositoryImpl implements IAuthRepository {
             log.info('Local logout completed');
         } catch (error) {
             log.error('Error during logout', error);
+        } finally {
+            this.isLoggingOut = false;
         }
     }
 
@@ -180,3 +214,6 @@ class AuthRepositoryImpl implements IAuthRepository {
 
 // Exportamos una instancia única por defecto
 export const AuthRepository = new AuthRepositoryImpl();
+
+// Inyectamos la dependencia circular
+setAuthRepository(AuthRepository);

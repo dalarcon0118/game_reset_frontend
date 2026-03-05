@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { 
     StyleSheet, 
     ScrollView, 
@@ -6,6 +6,7 @@ import {
     View,
 } from 'react-native';
 import { match } from 'ts-pattern';
+import { useShallow } from 'zustand/shallow';
 import { RemoteData } from '@/shared/core/remote.data';
 import { Label } from '@/shared/components';
 import Header from '../views/header';
@@ -16,28 +17,34 @@ import { Slot } from '@/shared/core/plugins';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../../auth/hooks/use_auth';
 import { useDashboardLifecycle } from '../core/lifecycle';
-import { DevTools } from '@/config/init';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('DASHBOARD_SCREEN');
 
 export default function DashboardScreen() {
     const { user } = useAuth();
+    const lastSyncedUser = useRef<string | null>(null);
     
-    // Using the whole model to pass to slots, making the host agnostic
-    const model = useDashboardStore((state) => state.model);
+    // Using useShallow to only re-render if the model properties actually change.
+    // This helps avoid re-renders from the 1s TICK if those specific fields don't change.
+    const model = useDashboardStore(useShallow((state) => state.model));
     const dispatch = useDashboardStore((state) => state.dispatch);
-    useEffect(() => {
-       DevTools.printFullStorage();
-    }, [dispatch]);
+
     // Manage Dashboard Lifecycle (Initialization & Cleanup)
     useDashboardLifecycle(useDashboardStore);
 
     // Synchronize auth user state with dashboard store
-    // This ensures the dashboard and its plugins have the latest user data
-    // even before the background subscription triggers.
+    // We use a ref and ID check to break any potential infinite re-render loops
     React.useEffect(() => {
         if (user) {
             const adapted = adaptAuthUser(user);
             if (adapted) {
-                dispatch(AUTH_USER_SYNCED(adapted));
+                const userKey = `${adapted.id}-${adapted.structureId}`;
+                if (lastSyncedUser.current !== userKey) {
+                    log.info('Syncing user with dashboard store', { userKey });
+                    lastSyncedUser.current = userKey;
+                    dispatch(AUTH_USER_SYNCED(adapted));
+                }
             }
         }
     }, [user, dispatch]);

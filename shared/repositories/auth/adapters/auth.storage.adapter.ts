@@ -6,7 +6,8 @@ import { AuthResult, AuthSession, User, AuthErrorType } from '../types/types';
 import { hashString } from '../../../utils/crypto';
 import { logger } from '../../../utils/logger';
 import { offlineStorage } from '../../../core/offline-storage/instance';
-import storageClient from '../../../core/offline-storage/storage_client';
+import { STORAGE_TTL } from '@/shared/core/offline-storage/types';
+import storageClient from '@/shared/core/offline-storage/storage_client';
 
 const log = logger.withTag('AUTH_STORAGE_ADAPTER');
 const isWeb = Platform.OS === 'web';
@@ -47,7 +48,8 @@ export const authStorageAdapter: IAuthStorage = {
             if (session.refreshToken) {
                 await setSecureItem(SECURE_KEYS.REFRESH_TOKEN, session.refreshToken);
             }
-            await offlineStorage.set(AuthOfflineKeys.userProfile(), session.user);
+            // Guardar perfil con TTL - se renovará en cada login
+            await offlineStorage.set(AuthOfflineKeys.userProfile(), session.user, { ttl: STORAGE_TTL.USER_PROFILE });
             log.info('Session persisted successfully');
         } catch (error) {
             log.error('Error persisting session', error);
@@ -55,14 +57,18 @@ export const authStorageAdapter: IAuthStorage = {
         }
     },
 
-    async getSession(): Promise<{ access: string | null; refresh: string | null }> {
+    async getSession(): Promise<{ access: string | null; refresh: string | null; isOffline?: boolean }> {
         try {
             const access = await getSecureItem(SECURE_KEYS.ACCESS_TOKEN);
             const refresh = await getSecureItem(SECURE_KEYS.REFRESH_TOKEN);
-            return { access, refresh };
+
+            // Verificar si es una sesión offline
+            const isOffline = access === 'offline-token';
+
+            return { access, refresh, isOffline };
         } catch (error) {
             log.error('Error reading session', error);
-            return { access: null, refresh: null };
+            return { access: null, refresh: null, isOffline: false };
         }
     },
 
@@ -83,7 +89,7 @@ export const authStorageAdapter: IAuthStorage = {
             const pinHash = await hashString(pin);
             await offlineStorage.set(AuthOfflineKeys.pinHash(), pinHash);
             await offlineStorage.set(AuthOfflineKeys.lastUsername(), username);
-            await offlineStorage.set(AuthOfflineKeys.userProfile(), profile);
+            await offlineStorage.set(AuthOfflineKeys.offlineProfile(), profile);
             log.info('Offline credentials updated', { username });
         } catch (error) {
             log.error('Failed to save offline credentials', error);
@@ -94,10 +100,16 @@ export const authStorageAdapter: IAuthStorage = {
         try {
             const lastUser = await this.getLastUsername();
             const savedHash = await offlineStorage.get<string>(AuthOfflineKeys.pinHash());
-            const profile = await this.getUserProfile();
+            const offlineProfile = await offlineStorage.get<User>(AuthOfflineKeys.offlineProfile());
+            const activeSessionProfile = await this.getUserProfile();
+            const profile = offlineProfile ?? activeSessionProfile;
             const currentHash = await hashString(pin);
 
-            if (username === lastUser && currentHash === savedHash && profile) {
+            // Normalización para evitar fallos por mayúsculas o espacios accidentales
+            const normalizedInput = username.trim().toLowerCase();
+            const normalizedStored = lastUser?.trim().toLowerCase();
+
+            if (normalizedInput === normalizedStored && currentHash === savedHash && profile) {
                 log.info('Offline validation successful', { username });
                 return {
                     success: true,

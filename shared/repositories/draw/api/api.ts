@@ -1,4 +1,3 @@
-import { apiClient } from '@/shared/services/api_client/api_client';
 import settings from '@/config/settings';
 import { BackendDraw, DrawClosureConfirmation, BetType, DrawRule } from './types/types';
 import {
@@ -9,6 +8,7 @@ import {
   decodeOrFallback
 } from './codecs/codecs';
 import logger from '@/shared/utils/logger';
+import apiClient from '@/shared/services/api_client';
 
 const log = logger.withTag('DRAW_API');
 

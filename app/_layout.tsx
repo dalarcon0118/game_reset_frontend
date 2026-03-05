@@ -1,10 +1,13 @@
 import '../config/init'; // Global side effects first
 import { Stack } from 'expo-router';
+import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { DevTools } from '../config/init';
 import { AppProviders } from '../providers/AppProviders';
 import { useAppBootstrap } from '../hooks/useAppBootstrap';
 import { GlobalErrorBoundary } from '../components/GlobalErrorBoundary';
 import { ErrorBoundary as SharedErrorBoundary } from '../shared/components/error_boundary';
 import { useAuthNavigation } from '../hooks/useAuthNavigation';
+import { useNavigationLogger } from '../hooks/useNavigationLogger';
 import { routes } from '../config/routes';
 
 // Export ErrorBoundary for Expo Router
@@ -30,19 +33,69 @@ export default function RootLayout() {
 
 function RootLayoutInner() {
   const { BackButton } = useAuthNavigation();
+  
+  // Logger para capturar todas las navegaciones (incluyendo router.push directo)
+  useNavigationLogger();
 
   return (
-    <Stack
-      screenOptions={{
-        headerShown: true,
-        headerLeft: () => BackButton,
-        freezeOnBlur: true,
-      }}>
-      <Stack.Screen name="login" options={routes.login.options} />
-      {/* <Stack.Screen name="(admin)" options={routes.admin.options} /> */}
-      <Stack.Screen name="lister" options={{ headerShown: false }} />
-      <Stack.Screen name="colector" options={{ headerShown: false }} />
-      <Stack.Screen name="banker" options={{ headerShown: false }} />
-    </Stack>
+    <View style={{ flex: 1 }}>
+      {__DEV__ && <DevToolbar />}
+      <Stack
+        screenOptions={{
+          headerShown: true,
+          headerLeft: () => BackButton,
+          freezeOnBlur: true,
+        }}>
+        <Stack.Screen name="login" options={routes.login.options} />
+        {/* <Stack.Screen name="(admin)" options={routes.admin.options} /> */}
+        <Stack.Screen name="lister" options={{ headerShown: false }} />
+        <Stack.Screen name="colector" options={{ headerShown: false }} />
+        <Stack.Screen name="banker" options={{ headerShown: false }} />
+      </Stack>
+      
+    </View>
   );
 }
+
+function DevToolbar() {
+  return (
+    <View style={styles.devBar}>
+      <TouchableOpacity onPress={() => DevTools.clearStorage()} style={styles.devButton}>
+        <Text style={styles.devText}>Clear</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => DevTools.printStorage()} style={styles.devButton}>
+        <Text style={styles.devText}>Keys</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => DevTools.printFullStorage()} style={styles.devButton}>
+        <Text style={styles.devText}>Full</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  devBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#333',
+    zIndex: 9999,
+  },
+  devButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 4,
+    backgroundColor: '#444',
+  },
+  devText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+});

@@ -1,5 +1,5 @@
+import apiClient from '@/shared/services/api_client';
 import { logger } from '../../utils/logger';
-import apiClient from '../../services/api_client/api_client';
 
 const log = logger.withTag('HTTP_EFFECT');
 

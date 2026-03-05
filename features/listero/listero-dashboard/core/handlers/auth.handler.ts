@@ -11,19 +11,26 @@ import { RemoteData } from '@/shared/core/remote.data';
 const log = logger.withTag('DASHBOARD_AUTH_HANDLER');
 
 const triggerDailyPreparation = (model: Model): Return<Model, Msg> => {
+    console.log('[DEBUG] triggerDailyPreparation: INICIANDO...');
     log.info('Triggering daily session preparation before load...');
     return ret(model, prepareDailySessionCmd());
 };
 
 const triggerInitialLoad = (model: Model): Return<Model, Msg> => {
+    console.log('[DEBUG] triggerInitialLoad: INICIANDO...');
+    console.log('[DEBUG] triggerInitialLoad: model.userStructureId =', model.userStructureId);
+    console.log('[DEBUG] triggerInitialLoad: model.draws.type =', model.draws.type);
+    console.log('[DEBUG] triggerInitialLoad: model.summary.type =', model.summary.type);
     // 1. Basic Requirement: We need a user structure.
     if (!model.userStructureId) {
+        console.log('[DEBUG] triggerInitialLoad: SALTADO - No userStructureId');
         log.debug('triggerInitialLoad skipped: No userStructureId');
         return singleton(model);
     }
 
     // 2. Data Status: Check if we need to fetch
     const needsFetch = model.draws.type === 'NotAsked' || model.summary.type === 'NotAsked';
+    console.log('[DEBUG] triggerInitialLoad: needsFetch =', needsFetch);
 
     log.debug('triggerInitialLoad check', {
         userStructureId: model.userStructureId,
@@ -33,9 +40,13 @@ const triggerInitialLoad = (model: Model): Return<Model, Msg> => {
         needsFetch
     });
 
-    if (!needsFetch) return singleton(model);
+    if (!needsFetch) {
+        console.log('[DEBUG] triggerInitialLoad: SALTADO - No needsFetch');
+        return singleton(model);
+    }
 
     // 3. Ready to Fetch:
+    console.log('[DEBUG] triggerInitialLoad: PROCEDIENDO A FETCH - Structure ready');
     log.info('Structure ready. Triggering initial fetch (parallel with token update).');
 
     // Set to loading immediately to prevent duplicate fetches
@@ -59,21 +70,31 @@ const triggerInitialLoad = (model: Model): Return<Model, Msg> => {
 
 export const AuthHandler = {
     handleAuthUserSynced: (model: Model, user: DashboardUser | null): Return<Model, Msg> => {
+        console.log('[DEBUG] handleAuthUserSynced: INICIANDO con user =', user ? user.id : 'null');
+        console.log('[DEBUG] handleAuthUserSynced: user.structureId =', user?.structureId);
         // We rely on the logic handler to decide if we need to reset data
         const nextModel = logicHandleAuthUserSynced(model, user);
+        console.log('[DEBUG] handleAuthUserSynced: nextModel.userStructureId =', nextModel.userStructureId);
 
-        if (!nextModel.userStructureId) return singleton(nextModel);
+        if (!nextModel.userStructureId) {
+            console.log('[DEBUG] handleAuthUserSynced: RETORNANDO sin fetch - No userStructureId');
+            return singleton(nextModel);
+        }
 
         // If we need to fetch data, we first prepare the daily session
         const needsFetch = nextModel.draws.type === 'NotAsked' || nextModel.summary.type === 'NotAsked';
+        console.log('[DEBUG] handleAuthUserSynced: needsFetch =', needsFetch);
         if (needsFetch) {
+            console.log('[DEBUG] handleAuthUserSynced: LLAMANDO triggerDailyPreparation');
             return triggerDailyPreparation(nextModel);
         }
 
+        console.log('[DEBUG] handleAuthUserSynced: LLAMANDO triggerInitialLoad');
         return triggerInitialLoad(nextModel);
     },
 
     handleDailySessionPrepared: (model: Model, success: boolean): Return<Model, Msg> => {
+        console.log('[DEBUG] handleDailySessionPrepared: success =', success);
         log.info('Daily session prepared, now triggering initial load', { success });
         return triggerInitialLoad(model);
     },

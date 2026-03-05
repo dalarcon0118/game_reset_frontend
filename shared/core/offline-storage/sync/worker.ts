@@ -12,7 +12,7 @@ import { logger } from '../../../utils/logger';
 import { SyncAdapter } from './adapter';
 import { workerState, WorkerStateManager } from './worker.state';
 import { isServerReachable } from '../../../utils/network';
-import { offlineEventBus } from '../instance';
+import { offlineEventBus } from '../event_bus';
 
 const log = logger.withTag('SYNC_WORKER_CORE');
 

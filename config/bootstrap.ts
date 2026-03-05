@@ -1,6 +1,7 @@
 import { AppKernel } from '@/shared/core/architecture/kernel';
 import { logger } from '../shared/utils/logger';
-import apiClient, { ApiClientError } from '../shared/services/api_client/api_client';
+import { apiClient } from '../shared/services/api_client';
+import { ApiClientError } from '../shared/services/api_client/api_client.errors';
 import { useAuthStore } from '../features/auth/store/store';
 import { AuthMsgType } from '../features/auth/store/types';
 import { EffectRegistry } from '../shared/core/effect_registry';

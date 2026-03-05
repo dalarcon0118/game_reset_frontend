@@ -26,6 +26,8 @@
 import { offlineStorage } from '@/shared/core/offline-storage/instance';
 import { SystemOfflineKeys } from './financial.offline.keys';
 import { logger } from '@/shared/utils/logger';
+import { TimerRepository } from '../system/time/timer.repository';
+import { toLocalISODate } from '@/shared/utils/formatters';
 
 const log = logger.withTag('FinancialRepository');
 
@@ -48,10 +50,13 @@ function notifyListeners(): void {
 // ============================================================================
 
 /**
- * Obtiene la llave del ledger para una fecha específica (default: hoy)
+ * Obtiene la llave del ledger para una fecha específica (default: hoy confiable)
  */
-function getStorageKey(date?: string): string {
-    const d = date || new Date().toISOString().split('T')[0];
+async function getStorageKey(date?: string): Promise<string> {
+    if (date) return SystemOfflineKeys.ledger(date);
+    
+    const trustedNow = await TimerRepository.getTrustedNow(Date.now());
+    const d = toLocalISODate(trustedNow);
     return SystemOfflineKeys.ledger(d);
 }
 
@@ -61,9 +66,16 @@ function getStorageKey(date?: string): string {
 export function onLedgerChange(listener: Listener): () => void {
     listeners.add(listener);
 
+    let currentKey = '';
+    
+    // Inicializar la llave actual de forma asíncrona
+    getStorageKey().then(key => {
+        currentKey = key;
+    });
+
     // Suscribirse a cambios en la llave de hoy
     const unsubscribe = offlineStorage.subscribe((event) => {
-        if (event.type === 'ENTITY_CHANGED' && event.entity === getStorageKey()) {
+        if (event.type === 'ENTITY_CHANGED' && event.entity === currentKey) {
             notifyListeners();
         }
     });
@@ -138,7 +150,7 @@ export interface FinancialAggregation {
  */
 async function getAllTransactions(date?: string): Promise<Transaction[]> {
     try {
-        const key = getStorageKey(date);
+        const key = await getStorageKey(date);
         const data = await offlineStorage.get<Transaction[]>(key);
 
         if (data && Array.isArray(data)) {
@@ -156,7 +168,7 @@ async function getAllTransactions(date?: string): Promise<Transaction[]> {
  * Guarda todas las transacciones en storage local para una fecha específica
  */
 async function saveAllTransactions(transactions: Transaction[], date?: string): Promise<void> {
-    const key = getStorageKey(date);
+    const key = await getStorageKey(date);
     await offlineStorage.set(key, transactions);
 }
 
@@ -190,10 +202,11 @@ export class FinancialRepository {
         }
 
         const transactions = await getAllTransactions();
+        const trustedNow = await TimerRepository.getTrustedNow(Date.now());
 
         const newTransaction: Transaction = {
             ...transaction,
-            timestamp: Date.now()
+            timestamp: trustedNow
         };
 
         transactions.push(newTransaction);
@@ -483,6 +496,55 @@ export class FinancialRepository {
     async getCount(): Promise<number> {
         const transactions = await getAllTransactions();
         return transactions.length;
+    }
+
+    // ============================================================================
+    // OPERACIONES DE LIMPIEZA (MANTENIMIENTO)
+    // ============================================================================
+
+    /**
+     * Limpia datos financieros de días anteriores.
+     * Conoce la estructura de sus keys y puede limpiar por fecha.
+     * 
+     * @param today - Fecha actual del servidor (YYYY-MM-DD)
+     * @returns Número de keys eliminadas
+     */
+    async cleanup(today: string): Promise<number> {
+        log.info('Starting FinancialRepository cleanup', { today });
+
+        try {
+            // Patrón: @v2:financial:ledger:YYYY-MM-DD:transactions
+            const allKeys = await offlineStorage.query('@v2:financial:ledger:*').keys();
+
+            const keysToDelete: string[] = [];
+
+            for (const key of allKeys) {
+                // Extraer la fecha de la clave: @v2:financial:ledger:2026-03-03:transactions
+                const match = key.match(/@v2:financial:ledger:(\d{4}-\d{2}-\d{2})/);
+                if (match) {
+                    const keyDate = match[1];
+                    if (keyDate < today) {
+                        keysToDelete.push(key);
+                    }
+                }
+            }
+
+            if (keysToDelete.length > 0) {
+                log.info('FinancialRepository cleanup: removing old ledger keys', {
+                    count: keysToDelete.length,
+                    keys: keysToDelete
+                });
+
+                await Promise.all(keysToDelete.map(key => offlineStorage.remove(key)));
+            }
+
+            log.info('FinancialRepository cleanup completed', { removed: keysToDelete.length });
+            return keysToDelete.length;
+
+        } catch (error) {
+            log.error('FinancialRepository cleanup failed', error);
+            throw error;
+        }
     }
 
     // ============================================================================

@@ -1,10 +1,11 @@
 import { match } from 'ts-pattern';
+import { okAsync, ResultAsync, err } from 'neverthrow';
 import { LoteriaFeatureModel, FeatureMsg } from './feature.types';
 import { Return, ret } from '@/shared/core/return';
 import { Cmd } from '@/shared/core/cmd';
 import { LoteriaDomain } from './feature.domain';
 import { LoteriaBet, GameType } from '@/types';
-import { initialModel } from './store';
+import { initialModel } from './feature.initial';
 import {
     CONFIRM_SAVE_BETS,
     SAVE_BETS_RESPONSE,
@@ -21,6 +22,8 @@ import {
 import { RemoteDataHttp } from '@/shared/core/remote.data.http';
 import { WebData, RemoteData } from '@/shared/core/remote.data';
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
+import { BetQuery } from '@/shared/repositories/bet/bet.query';
+import { TimerRepository } from '@/shared/repositories/system/time/timer.repository';
 import { drawRepository } from '@/shared/repositories/draw';
 import { logger } from '@/shared/utils/logger';
 import { BET_TYPE_KEYS, isLoteriaType } from '@/shared/types/bet_types';
@@ -124,7 +127,7 @@ export const FeatureFlows = {
     refreshBets: (model: LoteriaFeatureModel, drawId: string): Return<LoteriaFeatureModel, FeatureMsg> => {
         return ret(
             { ...model, listSession: { ...model.listSession, isRefreshing: true } },
-            FeatureFlows.fetchExistingBets(drawId)
+            FeatureFlows.fetchExistingBets(drawId, null)
         );
     },
 
@@ -144,28 +147,30 @@ export const FeatureFlows = {
     fetchBetTypes: (drawId: string): Cmd => {
         log.debug('FETCH_BET_TYPES', { drawId });
         return RemoteDataHttp.fetch<GameType[], FeatureMsg>(
-            async () => {
-                const result = await drawRepository.getBetTypes(drawId);
-
-                if (result.isErr()) {
-                    log.error('FETCH_BET_TYPES_ERROR', {
-                        drawId,
-                        error: result.error.message
-                    });
-                    throw result.error;
-                }
-
-                log.debug('FETCH_BET_TYPES_SUCCESS', {
-                    drawId,
-                    count: result.value.length
-                });
-
-                return result.value.map((t): GameType => ({
-                    id: String(t.id),
-                    name: t.name,
-                    code: t.code || '',
-                    description: t.description || ''
-                }));
+            () => {
+                return ResultAsync.fromPromise(
+                    drawRepository.getBetTypes(drawId),
+                    (e) => e instanceof Error ? e : new Error(String(e))
+                )
+                    .andThen(result => result) // drawRepository returns Result
+                    .map((types) => {
+                        return types.map((t): GameType => ({
+                            id: String(t.id),
+                            name: t.name,
+                            code: t.code || '',
+                            description: t.description || ''
+                        }));
+                    })
+                    .match(
+                        (data) => {
+                            log.debug('FETCH_BET_TYPES_SUCCESS', { drawId, count: data.length });
+                            return data;
+                        },
+                        (error) => {
+                            log.error('FETCH_BET_TYPES_ERROR', { drawId, error: error.message });
+                            throw error;
+                        }
+                    );
             },
             (response) => ({ type: 'FETCH_BET_TYPES_RESPONSE', response })
         );
@@ -174,49 +179,50 @@ export const FeatureFlows = {
     fetchExistingBets: (drawId: string, betTypeId?: string | null): Cmd => {
         log.debug('FETCH_EXISTING_BETS', { drawId, betTypeId });
         return RemoteDataHttp.fetch<LoteriaBet[], FeatureMsg>(
-            async () => {
-                const result = await betRepository.getBets({ drawId });
+            () => {
+                return ResultAsync.fromPromise(
+                    TimerRepository.getTrustedNow(Date.now()),
+                    (e) => e instanceof Error ? e : new Error('Time sync failed')
+                )
+                    .andThen((trustedNow) => {
+                        const query = BetQuery.create()
+                            .forDraw(drawId)
+                            .onDate(trustedNow)
+                            .build();
 
-                if (result.isErr()) {
-                    log.error('FETCH_EXISTING_BETS_ERROR', {
-                        drawId,
-                        error: result.error.message
-                    });
-                    throw result.error;
-                }
-
-                log.debug('FETCH_EXISTING_BETS_SUCCESS', {
-                    drawId,
-                    totalBets: result.value.length
-                });
-
-                return result.value
-                    .filter((b: BetType) => {
-                        // DEBUG: Log para entender el filtro isLoteriaType
-                        const isLoteria = isLoteriaType(b.type || '', b.betTypeId);
-                        log.debug('LOTERIA_FILTER_DEBUG', {
-                            betId: b.id,
-                            type: b.type,
-                            betTypeId: b.betTypeId,
-                            draw: b.draw,
-                            numbers: b.numbers,
-                            amount: b.amount,
-                            isLoteria
-                        });
-                        if (betTypeId) {
-                            return String(b.betTypeId) === String(betTypeId);
-                        }
-                        // Use isLoteriaType for flexible matching (case, accents, Cuaterna/Semanal fallback)
-                        return isLoteria;
+                        return ResultAsync.fromPromise(
+                            betRepository.getBets(query),
+                            (e) => e instanceof Error ? e : new Error(String(e))
+                        ).andThen(result => result); // betRepository.getBets already returns a Result
                     })
-                    .map((b: BetType) => ({
-                        id: b.id,
-                        bet: b.numbers, // Mapeo crítico para visualización en Loteria
-                        amount: b.amount,
-                        receiptCode: b.receiptCode, // 🛡️ CRITICAL: Mapear el código de recibo para agrupación
-                        betTypeid: b.betTypeId,
-                        drawid: b.draw
-                    })) as unknown as LoteriaBet[];
+                    .map((bets) => {
+                        return bets
+                            .filter((b: BetType) => {
+                                const isLoteria = isLoteriaType(b.type || '', b.betTypeId);
+                                if (betTypeId) {
+                                    return String(b.betTypeId) === String(betTypeId);
+                                }
+                                return isLoteria;
+                            })
+                            .map((b: BetType) => ({
+                                id: b.id,
+                                bet: b.numbers,
+                                amount: b.amount,
+                                receiptCode: b.receiptCode,
+                                betTypeid: b.betTypeId,
+                                drawid: b.draw
+                            })) as unknown as LoteriaBet[];
+                    })
+                    .match(
+                        (data) => {
+                            log.debug('FETCH_EXISTING_BETS_SUCCESS', { drawId, totalBets: data.length });
+                            return data;
+                        },
+                        (error) => {
+                            log.error('FETCH_EXISTING_BETS_ERROR', { drawId, error: error.message });
+                            throw error;
+                        }
+                    );
             },
             (response) => ({ type: 'FETCH_EXISTING_BETS_RESPONSE', response })
         );
@@ -291,12 +297,30 @@ export const FeatureFlows = {
             summary: { ...model.summary, isSaving: true, error: null }
         };
 
-        // 2. Create HTTP Command via RemoteDataHttp.fetch
+        // 2. Create HTTP Command via RemoteDataHttp.fetch with Chain Pattern
         const saveCmd = RemoteDataHttp.fetch<any, FeatureMsg>(
-            async () => {
-                const payload = LoteriaDomain.createSavePayload(model, drawId);
-                // Use Repository instead of Service to support offline-first
-                return await betRepository.placeBet(payload);
+            () => {
+                return okAsync(model)
+                    .andThen((m) => {
+                        const payloadResult = LoteriaDomain.createSavePayload(m, drawId);
+                        return payloadResult.isErr()
+                            ? err(payloadResult.error)
+                            : okAsync(payloadResult.value);
+                    })
+                    .andThen((payload) => {
+                        // Use placeBatch for multiple bets in one flow
+                        return ResultAsync.fromPromise(
+                            betRepository.placeBatch(payload),
+                            (e) => e instanceof Error ? e : new Error(String(e))
+                        ).andThen(result => result); // betRepository returns Result
+                    })
+                    .match(
+                        (data) => data,
+                        (error) => {
+                            log.error('SAVE_BETS_ERROR', { drawId, error: error.message });
+                            throw error;
+                        }
+                    );
             },
             (response: WebData<any>) => LoteriaFeatMsg(SAVE_BETS_RESPONSE({ response }))
         );

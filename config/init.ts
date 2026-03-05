@@ -53,28 +53,23 @@ export const DevTools = {
         }
     }
 };
-// Initialize global logger capture to ensure all console.error/warn reach the terminal
-if (__DEV__) {
-    logger.initGlobalCapture();
-
-    // Developer Tools Definition
 
 
-    // Expose globally as direct functions AND under a namespace
-    const g = (global as any);
-    Object.assign(g, DevTools);
-    g.Dev = DevTools;
-    g.DevTools = DevTools;
 
-    // Also attach to window if available (for some debuggers)
-    if (typeof window !== 'undefined') {
-        Object.assign(window, DevTools);
-        (window as any).Dev = DevTools;
-        (window as any).DevTools = DevTools;
-    }
+// Expose globally as direct functions AND under a namespace
+const g = (global as any);
+Object.assign(g, DevTools);
+g.Dev = DevTools;
+g.DevTools = DevTools;
 
-    console.log('🔧 DevTools: Call clearStorage(), Dev.clearStorage() or DevTools.clearStorage() in console');
+// Also attach to window if available (for some debuggers)
+if (typeof window !== 'undefined') {
+    Object.assign(window, DevTools);
+    (window as any).Dev = DevTools;
+    (window as any).DevTools = DevTools;
 }
+
+console.log('🔧 DevTools: Call clearStorage(), Dev.clearStorage() or DevTools.clearStorage() in console');
 
 // Register platform specific events for TEA
 registerReactNativeEvents();

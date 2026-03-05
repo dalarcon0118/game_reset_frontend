@@ -163,6 +163,37 @@ export const SYNC_CONSTANTS = {
 };
 
 /**
+ * Constantes de TTL (Time To Live) para el cache offline
+ * Define cuánto tiempo persistirán los datos en el almacenamiento local
+ */
+export const STORAGE_TTL = {
+  /** Sorteos (Draws): 4 horas - suficiente para el día actual */
+  DRAW: 4 * 60 * 60 * 1000,
+
+  /** Tipos de apuesta (Bet Types): 24 horas */
+  BET_TYPE: 24 * 60 * 60 * 1000,
+
+  /** Resumen financiero: 30 minutos */
+  SUMMARY: 30 * 60 * 1000,
+
+  /** Configuración del sistema: 1 hora */
+  CONFIG: 60 * 60 * 1000,
+
+  /** Metadatos de tiempo: 5 minutos */
+  TIME_METADATA: 5 * 60 * 1000,
+
+  /** Perfil de usuario: 24 horas */
+  USER_PROFILE: 24 * 60 * 60 * 1000,
+
+  /**
+   * Apuestas (Bets): Sin TTL por defecto
+   * Las apuestas pendientes persisten hasta sincronización manual
+   * o hasta el cleanup diario
+   */
+  BET: undefined as undefined,
+};
+
+/**
  * Impacto financiero de una apuesta individual
  */
 export interface FinancialImpact {

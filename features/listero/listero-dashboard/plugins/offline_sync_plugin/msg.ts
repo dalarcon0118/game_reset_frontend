@@ -1,6 +1,5 @@
 import { createMsg } from '@/shared/core/msg';
-import type { ToastConfig } from './types';
-import type { BetDomainModel } from '@/shared/repositories/bet';
+import type { ToastConfig, OfflineSyncBet } from './types';
 
 // ============================================================================
 // Toast Messages
@@ -35,8 +34,8 @@ export const CLEAR_ERROR = createMsg<'CLEAR_ERROR', { offlineId: string }>('CLEA
 // Data Loaded Messages
 // ============================================================================
 
-export const LOADED_PENDING_BETS = createMsg<'LOADED_PENDING_BETS', BetDomainModel[]>('LOADED_PENDING_BETS');
-export const LOADED_ERROR_BETS = createMsg<'LOADED_ERROR_BETS', BetDomainModel[]>('LOADED_ERROR_BETS');
+export const LOADED_PENDING_BETS = createMsg<'LOADED_PENDING_BETS', OfflineSyncBet[]>('LOADED_PENDING_BETS');
+export const LOADED_ERROR_BETS = createMsg<'LOADED_ERROR_BETS', OfflineSyncBet[]>('LOADED_ERROR_BETS');
 export const LOADED_SYNC_STATS = createMsg<'LOADED_SYNC_STATS', {
   pendingCount: number;
   syncingCount: number;
@@ -128,4 +127,3 @@ export const syncItemSuccess = (payload: { offlineId: string }) => SYNC_ITEM_SUC
 export const syncItemError = (payload: { offlineId: string; error: string }) => SYNC_ITEM_ERROR(payload);
 export const syncError = (payload: { error: string }) => SYNC_ERROR(payload);
 export const workerStatusChanged = WORKER_STATUS_CHANGED;
-

@@ -2,6 +2,9 @@ import { logger } from '../../utils/logger';
 
 const log = logger.withTag('NAV_EFFECT');
 
+// Keep track of current view for logging transitions
+let currentView = '';
+
 export interface NavigationPayload {
   pathname?: string;
   path?: string;
@@ -17,6 +20,34 @@ let lastNavigation = {
 };
 
 const NAVIGATION_THRESHOLD_MS = 500;
+
+/**
+ * Extracts the view name from a pathname
+ * e.g., '/lister/dashboard' -> 'DASHBOARD', '/lister/profile' -> 'PROFILE'
+ */
+function extractViewName(pathname: string): string {
+  if (!pathname) return 'UNKNOWN';
+
+  // Remove leading slash and get the last segment
+  const segments = pathname.replace(/^\//, '').split('/');
+  const lastSegment = segments[segments.length - 1] || segments[segments.length - 2] || 'ROOT';
+
+  // Convert to uppercase for consistency
+  return lastSegment.toUpperCase();
+}
+
+/**
+ * Logs a view transition separator
+ */
+function logViewTransition(newView: string) {
+  if (newView !== currentView) {
+    const separator = '\n' + '='.repeat(40);
+    const viewLog = `${separator}\n 🔄 VIEW: ${newView}\n${separator}`;
+
+    log.info(viewLog);
+    currentView = newView;
+  }
+}
 
 export async function handleNavigation(
   payload: NavigationPayload,
@@ -54,6 +85,10 @@ export async function handleNavigation(
     log.warn('Duplicate navigation prevented', { path: targetPath, params });
     return;
   }
+
+  // Log view transition BEFORE updating state
+  const newView = extractViewName(targetPath);
+  logViewTransition(newView);
 
   // Update last navigation state
   lastNavigation = {

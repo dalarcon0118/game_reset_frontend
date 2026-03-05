@@ -2,45 +2,16 @@ import { createElmStore } from '@/shared/core/engine';
 import { effectHandlers } from '@/shared/core/effect_handlers';
 import { createLoggerMiddleware } from '@/shared/core/middlewares/logger.middleware';
 import { updateFeature } from './feature.update';
-import {
-    LoteriaFeatureModel,
-    FeatureMsg,
-    initialEditSession,
-    initialListSession,
-    initialEntrySession,
-    initialManagementSession,
-    initialRulesSession,
-    initialRulesCache,
-} from './feature.types';
-import { initialLoteriaState } from '../loteria/loteria.types';
-import { RemoteData } from '@/shared/core/remote.data';
+import { LoteriaFeatureModel, FeatureMsg } from './feature.types';
+import { initialModel } from './feature.initial';
 import { Cmd } from '@/shared/core/cmd';
 import { Sub } from '@/shared/core/sub';
 
 // ============================================================================
-// Initial Model (Fully Internalized)
+// Initial Model (Re-exported from feature.initial to break circular dependency)
 // ============================================================================
 
-export const initialModel: LoteriaFeatureModel = {
-    currentDrawId: null,
-    drawTypeCode: RemoteData.notAsked(),
-    isEditing: false,
-    structureId: null, // Se establecerá desde el contexto de autenticación
-    summary: {
-        loteriaTotal: 0,
-        hasBets: false,
-        isSaving: false,
-        error: null,
-        pendingReceiptCode: null,
-    },
-    loteriaSession: initialLoteriaState,
-    editSession: initialEditSession,
-    listSession: initialListSession,
-    entrySession: initialEntrySession,
-    managementSession: initialManagementSession,
-    rulesSession: initialRulesSession,
-    rules: initialRulesCache,
-};
+export { initialModel } from './feature.initial';
 
 const init = (params?: Partial<LoteriaFeatureModel>): [LoteriaFeatureModel, Cmd] => {
     return [

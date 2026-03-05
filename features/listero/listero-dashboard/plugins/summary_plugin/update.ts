@@ -9,7 +9,7 @@ import { FinancialSummary as DomainFinancialSummary, PendingBet as DomainPending
 
 // Importar casos de usos limpios (sin dependencias de infraestructura global)
 import { LoadPreferencesUseCase, LoadPreferencesResult } from './application/useCases/load-preferences-simple.use-case';
-import { GetFinancialDataUseCase } from './application/useCases/get-financial-data-simple.use-case';
+import { GetFinancialDataUseCase } from './application/useCases/get-financial-data.use-case';
 import { FinancialCalculatorService } from './domain/services/financial-calculator.service';
 import { TimeRangeService } from './domain/services/time-range.service';
 
@@ -123,7 +123,6 @@ function handleFetchFinancialSummary(model: Model): Return<Model, Msg.Msg> {
           commissionRate: model.commissionRate,
           context: model.context!
         });
-        log.debug('Financial summary fetched', { result });
         // El caso de uso ahora garantiza que financialSummary nunca es null (retorna 0s por defecto)
         // por lo que podemos retornar directamente.
         return result.financialSummary!;

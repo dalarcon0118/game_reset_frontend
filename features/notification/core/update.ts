@@ -10,7 +10,7 @@ import { singleton, ret } from '../../../shared/core/return';
 import { useAuthStore } from '../../auth/store/store';
 import { logger } from '../../../shared/utils/logger';
 import { notificationRepository } from '@/shared/repositories/notification';
-
+import apiClient from '@/shared/services/api_client';
 const log = logger.withTag('NOTIFICATION_CORE');
 
 // Subscriptions
@@ -23,16 +23,9 @@ export const subscriptions = (model: Model) => {
         'notification-auth-sync'
     );
 
-    // Periodic token validity check (every 30 seconds)
-    const tokenCheckSub = Sub.every(
-        30000,
-        { type: 'CHECK_TOKEN_VALIDITY' },
-        'notification-token-check'
-    );
-
     // SSE Subscription for real-time notifications
     // We only enable it if we have an authToken and a currentUser
-    const subs = [authSub, tokenCheckSub];
+    const subs = [authSub];
 
     if (model.authToken && model.currentUser) {
         // Use repository to get the stream URL

@@ -1,10 +1,14 @@
 import { BackendDraw, BetType } from '../api/types';
 import { offlineStorage } from '@/shared/core/offline-storage/instance';
 import { DrawOfflineKeys } from '../draw.offline.keys';
+import { STORAGE_TTL } from '@/shared/core/offline-storage/types';
 
 /**
  * Adaptador de almacenamiento offline para Sorteos (Draws)
  * Utiliza el motor agnóstico con patrones tipo Redis.
+ * 
+ * Los datos se cachean con TTL para permitir operación offline
+ * mientras se mantiene el almacenamiento limpio.
  */
 export class DrawOfflineAdapter {
 
@@ -14,12 +18,12 @@ export class DrawOfflineAdapter {
     async saveDraws(draws: BackendDraw[]): Promise<void> {
         // Guardamos la lista completa para acceso rápido
         const key = DrawOfflineKeys.drawList();
-        await offlineStorage.set(key, draws);
+        await offlineStorage.set(key, draws, { ttl: STORAGE_TTL.DRAW });
 
         // También guardamos cada sorteo individualmente para permitir consultas por ID (Redis-style)
         for (const draw of draws) {
             const individualKey = DrawOfflineKeys.draw(String(draw.id), 'data');
-            await offlineStorage.set(individualKey, draw);
+            await offlineStorage.set(individualKey, draw, { ttl: STORAGE_TTL.DRAW });
         }
     }
 
@@ -50,7 +54,7 @@ export class DrawOfflineAdapter {
      */
     async saveBetTypes(drawId: string | number, betTypes: BetType[]): Promise<void> {
         const key = DrawOfflineKeys.betType(String(drawId), 'list');
-        await offlineStorage.set(key, betTypes);
+        await offlineStorage.set(key, betTypes, { ttl: STORAGE_TTL.BET_TYPE });
     }
 
     /**

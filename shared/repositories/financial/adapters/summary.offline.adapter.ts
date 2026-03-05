@@ -1,10 +1,13 @@
 import { FinancialSummary } from '@/types';
 import { offlineStorage } from '@/shared/core/offline-storage/instance';
 import { SystemOfflineKeys } from '../financial.offline.keys';
+import { STORAGE_TTL } from '@/shared/core/offline-storage/types';
 
 /**
  * Adaptador de almacenamiento offline para el resumen financiero
- * Utiliza el motor agnóstico para persistir datos financieros temporales (24h).
+ * Utiliza el motor agnóstico para persistir datos financieros temporales.
+ * 
+ * Los datos se cachean con TTL para mantenerlos frescos.
  */
 export class SummaryOfflineAdapter {
 
@@ -13,8 +16,7 @@ export class SummaryOfflineAdapter {
      */
     async saveSummary(summary: FinancialSummary): Promise<void> {
         const key = SystemOfflineKeys.summary('current');
-        // El TTL se maneja ahora centralizadamente en el flujo de negocio (prepareDailySessionUseCase)
-        await offlineStorage.set(key, summary);
+        await offlineStorage.set(key, summary, { ttl: STORAGE_TTL.SUMMARY });
     }
 
     /**

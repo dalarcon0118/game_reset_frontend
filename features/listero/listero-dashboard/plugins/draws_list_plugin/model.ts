@@ -29,26 +29,27 @@ export const defaultConfig: DrawsListPluginConfig = {
 };
 
 // ============================================================================
-// TIPOS OFFLINE (Fase 4)
+// TIPOS PARA TOTALES FINANCIEROS POR SORTEO (SSOT: BetRepository)
 // ============================================================================
 
 /**
- * Estado financiero offline para un sorteo específico
+ * Totales financieros calculados on-demand desde BetRepository
+ * SSOT: Esta es la única fuente de verdad para datos financieros
  */
-export interface DrawOfflineState {
+export interface DrawFinancialTotals {
   drawId: string;
-  localAmount: number; // Esto es el neto (credits - debits)
-  localCredits: number;
-  localDebits: number;
-  localNetResult: number;
-  pendingCount: number;
+  totalCollected: number;  // Créditos (ventas)
+  premiumsPaid: number;   // Débitos (premios pagados)
+  netResult: number;      // Neto (totalCollected - premiumsPaid)
+  betCount: number;       // Cantidad de apuestas
   lastUpdated: number;
 }
 
 /**
- * Mapa de estados offline por drawId
+ * Mapa de totales financieros por drawId
+ * SSOT: Datos vienen de BetRepository.getTotalsByDrawId()
  */
-export type OfflineStatesMap = Map<string, DrawOfflineState>;
+export type TotalsByDrawIdMap = Map<string, DrawFinancialTotals>;
 
 export interface Model {
   context: PluginContext | null;
@@ -59,10 +60,8 @@ export interface Model {
   syncedBets: PendingBet[];
   filteredDraws: Draw[];
   currentFilter: string;
-  // Fase 4: Estados offline por sorteo
-  offlineStates: OfflineStatesMap;
-  // Fase 4: Flag para indicar si hay cambios pendientes de sync
-  hasPendingOfflineChanges: boolean;
+  // SSOT: Totales financieros por drawId (desde BetRepository)
+  totalsByDrawId: TotalsByDrawIdMap;
 }
 
 export const initialModel = (params?: { context: PluginContext; config: DrawsListPluginConfig }): Model => {
@@ -78,55 +77,49 @@ export const initialModel = (params?: { context: PluginContext; config: DrawsLis
     syncedBets: [],
     filteredDraws: [],
     currentFilter: DRAW_FILTER.ALL,
-    offlineStates: new Map(),
-    hasPendingOfflineChanges: false,
+    totalsByDrawId: new Map(),
   };
 };
 
 // ============================================================================
-// SELECTORS OFFLINE (Fase 4)
+// SELECTORS PARA TOTALES FINANCIEROS (SSOT)
 // ============================================================================
 
-export const offlineSelectors = {
-  /**
-   * Obtiene el estado offline de un sorteo específico
-   */
-  getOfflineState: (model: Model, drawId: string): DrawOfflineState | undefined => {
-    return model.offlineStates.get(drawId);
+/**
+ * Obtiene los totales financieros de un sorteo específico
+ * SSOT: Viene de BetRepository, no mezclado con Draw
+ */
+export const financialSelectors = {
+  getTotals: (model: Model, drawId: string): DrawFinancialTotals | undefined => {
+    return model.totalsByDrawId.get(drawId);
   },
 
   /**
-   * Verifica si un sorteo tiene apuestas pendientes offline
+   * Obtiene el totalCollected para un sorteo
    */
-  hasPendingOfflineBets: (model: Model, drawId: string): boolean => {
-    const state = model.offlineStates.get(drawId);
-    return !!state && state.pendingCount > 0;
-  },
-
-  /**
-   * Obtiene el monto total local recolectado para un sorteo
-   */
-  getLocalAmount: (model: Model, drawId: string): number => {
-    const state = model.offlineStates.get(drawId);
-    return state?.localAmount ?? 0;
-  },
-
-  /**
-   * Calcula el total combinado (servidor + local) para un sorteo
-   */
-  getCombinedTotalCollected: (model: Model, draw: Draw): number => {
-    const serverTotal = draw.totalCollected ?? 0;
-    const localTotal = offlineSelectors.getLocalAmount(model, draw.id.toString());
-    return serverTotal + localTotal;
+  getTotalCollected: (model: Model, drawId: string): number => {
+    const totals = model.totalsByDrawId.get(drawId);
+    return totals?.totalCollected ?? 0;
   },
 
   /**
    * Obtiene el total de apuestas pendientes en todos los sorteos
    */
-  getTotalPendingCount: (model: Model): number => {
+  getTotalBetCount: (model: Model): number => {
     let total = 0;
-    model.offlineStates.forEach(state => {
-      total += state.pendingCount;
+    model.totalsByDrawId.forEach(t => {
+      total += t.betCount;
+    });
+    return total;
+  },
+
+  /**
+   * Obtiene el monto total recolectado (suma de todos los sorteos)
+   */
+  getGrandTotalCollected: (model: Model): number => {
+    let total = 0;
+    model.totalsByDrawId.forEach(t => {
+      total += t.totalCollected;
     });
     return total;
   },

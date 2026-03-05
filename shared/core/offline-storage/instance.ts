@@ -1,34 +1,13 @@
 import { OfflineStorageCore } from './engine';
 import { SyncWorkerCore } from './sync/worker';
 import { StorageJanitor } from './maintenance/janitor';
-import { EventBusPort, DomainEvent, DomainEventCallback, Unsubscribe, SYNC_CONSTANTS } from './types';
+import { EventBusPort, DomainEvent, DomainEventCallback, Unsubscribe, SYNC_CONSTANTS, STORAGE_TTL } from './types';
 import storageClient from './storage_client';
+import { offlineEventBus } from './event_bus';
 
 export { StorageJanitor } from './maintenance/janitor';
-
-/**
- * Implementación del Bus de Eventos para el almacenamiento offline
- */
-class OfflineEventBus implements EventBusPort {
-  private subscribers = new Set<DomainEventCallback>();
-
-  publish<T>(event: DomainEvent<T>): void {
-    this.subscribers.forEach(cb => {
-      try {
-        cb(event);
-      } catch (e) {
-        console.error('Error in offline event subscriber', e);
-      }
-    });
-  }
-
-  subscribe(callback: DomainEventCallback): Unsubscribe {
-    this.subscribers.add(callback);
-    return () => this.subscribers.delete(callback);
-  }
-}
-
-export const offlineEventBus = new OfflineEventBus();
+export { offlineEventBus };
+export { SYNC_CONSTANTS, STORAGE_TTL };
 
 /**
  * Puertos compartidos

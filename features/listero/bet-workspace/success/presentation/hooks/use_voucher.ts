@@ -70,6 +70,10 @@ export const useVoucher = () => {
         dispatch({ type: VoucherMsgType.GO_HOME_REQUESTED });
     }, [dispatch]);
 
+    useEffect(() => {
+        log.info('📝 Voucher data updated', { voucherData: model.voucherData });
+    }, []);
+
     return {
         // Expose data mapped from model
         data: model.voucherData.type === 'Success' ? model.voucherData.data : null,

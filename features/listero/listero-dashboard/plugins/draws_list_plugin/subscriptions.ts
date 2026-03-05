@@ -1,9 +1,11 @@
 import { Model } from './model';
 import { Sub } from '@/shared/core/sub';
-import { SYNC_STATE, BATCH_OFFLINE_UPDATE } from './msg';
+import { SYNC_STATE, BATCH_OFFLINE_UPDATE, DrawTotalsUpdate } from './msg';
 import { logger } from '@/shared/utils/logger';
 import { extractHostState, createDrawsHash, HostStatePayload } from './host.adapter';
-import { onLedgerChange, financialRepository } from '@/shared/repositories/financial/ledger.repository';
+import { betRepository } from '@/shared/repositories/bet/bet.repository';
+import { TimerRepository } from '@/shared/repositories/system/time/timer.repository';
+import { offlineEventBus } from '@/shared/core/offline-storage/instance';
 
 const log = logger.withTag('DRAWS_LIST_PLUGIN_SUBS');
 
@@ -11,19 +13,55 @@ let lastDrawsHash: string | null = null;
 let lastPayload: HostStatePayload | null = null;
 
 /**
- * Función helper para obtener los datos del Ledger y transformarlos al formato del plugin
+ * Función helper para obtener los datos financieros de las apuestas y transformarlos al formato del plugin
+ * Ahora usa cálculo on-demand desde BetRepository en lugar del Ledger
  */
-async function fetchLedgerUpdates() {
-  const grouped = await financialRepository.getDetailedTotalsGroupedByDrawId();
-  const updates = Object.entries(grouped).map(([drawId, data]) => ({
+async function fetchBetTotalsByDrawId(): Promise<DrawTotalsUpdate[]> {
+  // Obtener hora confiable del servidor
+  const trustedNow = await TimerRepository.getTrustedNow(Date.now());
+  const trustedDate = new Date(trustedNow);
+  const todayStart = new Date(
+    trustedDate.getFullYear(),
+    trustedDate.getMonth(),
+    trustedDate.getDate()
+  ).getTime();
+
+  log.debug('Financial totals input', {
+    trustedNow,
+    todayStart
+  });
+
+  // Obtener totales por drawId desde BetRepository (cálculo on-demand)
+  const totalsByDrawId = await betRepository.getTotalsByDrawId(todayStart);
+
+  const entries = Object.entries(totalsByDrawId);
+  log.debug('Financial totals intermediate', {
+    drawsRead: entries.length
+  });
+
+  const updates = entries.map(([drawId, data]) => ({
     drawId,
-    localAmount: data.net,
-    localCredits: data.credits,
-    localDebits: data.debits,
-    localNetResult: data.net,
-    pendingCount: data.count,
+    totalCollected: data.totalCollected,
+    premiumsPaid: data.premiumsPaid,
+    netResult: data.netResult,
+    betCount: data.betCount,
   }));
+
+  log.debug('Financial totals final', {
+    drawCount: updates.length,
+    totalsCount: updates.reduce((acc, item) => acc + item.betCount, 0)
+  });
+
   return updates;
+}
+
+async function recomputeAndDispatchFinancialTotals(dispatch: (msg: ReturnType<typeof BATCH_OFFLINE_UPDATE>) => void): Promise<void> {
+  try {
+    const updates = await fetchBetTotalsByDrawId();
+    dispatch(BATCH_OFFLINE_UPDATE({ updates }));
+  } catch (error) {
+    log.error('Failed to recalculate financial totals', error);
+  }
 }
 
 export const subscriptions = (model: Model) => {
@@ -82,26 +120,32 @@ export const subscriptions = (model: Model) => {
       'draws-list-plugin-sync'
     ),
 
-    // Nueva suscripción al Ledger Repository
-    // Usamos Sub.custom para integrarnos con el sistema de listeners basado en callbacks del Ledger
+    // Nueva suscripción para calcular totales financieros on-demand desde BetRepository
+    // Reemplaza la suscripción anterior al Ledger
     Sub.custom((dispatch) => {
-      log.info('Subscribing to Ledger changes');
+      log.info('Subscribing to Bet totals (on-demand calculation)');
 
-      // 1. Carga inicial de datos del Ledger
-      fetchLedgerUpdates().then(updates => {
-        if (updates.length > 0) {
-          dispatch(BATCH_OFFLINE_UPDATE({ updates }));
+      recomputeAndDispatchFinancialTotals(dispatch);
+
+      const unsubscribe = offlineEventBus.subscribe((event) => {
+        const isBetSyncSuccess = event.type === 'SYNC_ITEM_SUCCESS' && event.entity === 'bet';
+        const isBetEntityChanged = event.type === 'ENTITY_CHANGED' && event.entity?.includes('bet');
+        if (!isBetSyncSuccess && !isBetEntityChanged) {
+          return;
         }
+
+        log.debug('Financial totals trigger event', {
+          type: event.type,
+          entity: event.entity
+        });
+
+        recomputeAndDispatchFinancialTotals(dispatch);
       });
 
-      // 2. Suscripción a cambios futuros
-      const unsubscribe = onLedgerChange(async () => {
-        log.debug('Ledger change detected, refreshing plugin state');
-        const updates = await fetchLedgerUpdates();
-        dispatch(BATCH_OFFLINE_UPDATE({ updates }));
-      });
-
-      return unsubscribe;
-    }, 'draws-list-plugin-ledger-sync')
+      return () => {
+        unsubscribe();
+        log.debug('Bet totals subscription cleanup');
+      };
+    }, 'draws-list-plugin-bet-totals-sync')
   ]);
 };

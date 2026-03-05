@@ -11,6 +11,7 @@ import { syncWorker } from '@/shared/core/offline-storage/instance';
 import { Cmd } from '@/shared/core/cmd';
 import { Return, ret, singleton } from '@/shared/core/return';
 import { match } from 'ts-pattern';
+import type { OfflineSyncBet } from './types';
 
 // ============================================================================
 // Helper: Format time since
@@ -102,7 +103,7 @@ function handleSyncCompleted(
 }
 
 function handleSyncItemSuccess(model: OfflineSyncModel, offlineId: string): Return<OfflineSyncModel, OfflineSyncMsg> {
-  const pendingBets = model.pendingBets.filter(b => b.offlineId !== offlineId);
+  const pendingBets = model.pendingBets.filter(b => b.id !== offlineId);
   return singleton({
     ...model,
     pendingBets,
@@ -118,11 +119,11 @@ function handleSyncItemError(
   model: OfflineSyncModel,
   payload: { offlineId: string; error: string }
 ): Return<OfflineSyncModel, OfflineSyncMsg> {
-  const bet = model.pendingBets.find(b => b.offlineId === payload.offlineId);
-  const pendingBets = model.pendingBets.filter(b => b.offlineId !== payload.offlineId);
+  const bet = model.pendingBets.find(b => b.id === payload.offlineId);
+  const pendingBets = model.pendingBets.filter(b => b.id !== payload.offlineId);
 
   if (bet) {
-    const errorBet = { ...bet, lastError: payload.error };
+    const errorBet = { ...bet, error: payload.error };
     return singleton({
       ...model,
       pendingBets,
@@ -217,7 +218,7 @@ function handleClearErrors(model: OfflineSyncModel): Return<OfflineSyncModel, Of
 }
 
 function handleClearError(model: OfflineSyncModel, offlineId: string): Return<OfflineSyncModel, OfflineSyncMsg> {
-  const errorBets = model.errorBets.filter(b => b.offlineId !== offlineId);
+  const errorBets = model.errorBets.filter(b => b.id !== offlineId);
   return singleton({
     ...model,
     errorBets,
@@ -232,7 +233,7 @@ function handleClearError(model: OfflineSyncModel, offlineId: string): Return<Of
 // Handlers: Data Loaded
 // ============================================================================
 
-function handleLoadedPendingBets(model: OfflineSyncModel, bets: any[]): Return<OfflineSyncModel, OfflineSyncMsg> {
+function handleLoadedPendingBets(model: OfflineSyncModel, bets: OfflineSyncBet[]): Return<OfflineSyncModel, OfflineSyncMsg> {
   return singleton({
     ...model,
     pendingBets: bets,
@@ -243,7 +244,7 @@ function handleLoadedPendingBets(model: OfflineSyncModel, bets: any[]): Return<O
   });
 }
 
-function handleLoadedErrorBets(model: OfflineSyncModel, bets: any[]): Return<OfflineSyncModel, OfflineSyncMsg> {
+function handleLoadedErrorBets(model: OfflineSyncModel, bets: OfflineSyncBet[]): Return<OfflineSyncModel, OfflineSyncMsg> {
   return singleton({
     ...model,
     errorBets: bets,
@@ -254,7 +255,17 @@ function handleLoadedErrorBets(model: OfflineSyncModel, bets: any[]): Return<Off
   });
 }
 
-function handleLoadedSyncStats(model: OfflineSyncModel, stats: any): Return<OfflineSyncModel, OfflineSyncMsg> {
+function handleLoadedSyncStats(
+  model: OfflineSyncModel,
+  stats: {
+    pendingCount: number;
+    syncingCount: number;
+    errorCount: number;
+    syncedToday: number;
+    workerStatus: 'idle' | 'running' | 'paused' | 'stopped' | 'error';
+    lastSyncAt: number | null;
+  }
+): Return<OfflineSyncModel, OfflineSyncMsg> {
   return singleton({
     ...model,
     syncStatus: {
@@ -265,7 +276,10 @@ function handleLoadedSyncStats(model: OfflineSyncModel, stats: any): Return<Offl
   });
 }
 
-function handleWorkerStatusChanged(model: OfflineSyncModel, status: any): Return<OfflineSyncModel, OfflineSyncMsg> {
+function handleWorkerStatusChanged(
+  model: OfflineSyncModel,
+  status: 'idle' | 'running' | 'paused' | 'stopped' | 'error'
+): Return<OfflineSyncModel, OfflineSyncMsg> {
   return singleton({
     ...model,
     syncStatus: {

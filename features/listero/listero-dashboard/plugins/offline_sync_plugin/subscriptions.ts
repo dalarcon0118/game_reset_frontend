@@ -11,10 +11,26 @@ import {
 } from './msg';
 import { offlineEventBus, syncWorker } from '@/shared/core/offline-storage/instance';
 import type { Unsubscribe } from '@/shared/core/offline-storage/types';
+import { SYNC_CONSTANTS } from '@/shared/core/offline-storage/types';
 import { betRepository } from '@/shared/repositories/bet';
+import { OfflineSyncReadModelService, OfflineSyncBetView } from '@/shared/repositories/bet/offline-sync.read-model.service';
 import { logger } from '@/shared/utils/logger';
+import type { OfflineSyncBet } from './types';
 
 const log = logger.withTag('OFFLINE_SYNC_SUBS');
+
+/**
+ * Maps repository view to local UI DTO
+ */
+function mapToUIDTO(view: OfflineSyncBetView): OfflineSyncBet {
+  return {
+    id: view.offlineId,
+    amount: view.amount,
+    timestamp: view.timestamp,
+    status: view.status,
+    error: view.lastError,
+  };
+}
 
 // ============================================================================
 // Sync Worker Event Handlers
@@ -91,35 +107,21 @@ export function startStatsPolling(
   const pollStats = async () => {
     try {
       const stats = syncWorker.getStats();
-      const pendingBetsRepo = await betRepository.getPendingBets();
+      const rawBets = await betRepository.getPendingBets();
+      const splitBets = OfflineSyncReadModelService.splitBets(rawBets);
+      const statsView = OfflineSyncReadModelService.buildStats(rawBets);
 
-      const pending = pendingBetsRepo.filter(b => b.status === 'pending');
-      const syncing = pendingBetsRepo.filter(b => b.status === 'syncing');
-      const errors = pendingBetsRepo.filter(b => b.status === 'error');
+      dispatch(loadedSyncStats({
+        pendingCount: statsView.pendingCount,
+        syncingCount: statsView.syncingCount,
+        errorCount: statsView.errorCount,
+        syncedToday: stats.totalSucceeded,
+        workerStatus: OfflineSyncReadModelService.normalizeWorkerStatus(stats.status),
+        lastSyncAt: stats.lastRunAt
+      }));
 
-      dispatch(loadedSyncStats(
-        pending.length,
-        syncing.length,
-        errors.length,
-        stats.totalSucceeded,
-        stats.status,
-        stats.lastRunAt ? Date.now() - stats.lastRunAt : null
-      ));
-
-      dispatch(loadedPendingBets(pending.map(b => ({
-        id: b.offlineId,
-        amount: Number(b.data.amount) || 0,
-        timestamp: b.timestamp,
-        status: b.status
-      }))));
-
-      dispatch(loadedErrorBets(errors.map(b => ({
-        id: b.offlineId,
-        amount: Number(b.data.amount) || 0,
-        timestamp: b.timestamp,
-        status: b.status,
-        error: 'Sync error'
-      }))));
+      dispatch(loadedPendingBets(splitBets.pending.map(mapToUIDTO)));
+      dispatch(loadedErrorBets(splitBets.error.map(mapToUIDTO)));
 
     } catch (error) {
       log.error('Error polling stats', error);
@@ -144,12 +146,44 @@ export function stopStatsPolling(): void {
 }
 
 // ============================================================================
+// Periodic Sync
+// ============================================================================
+
+let syncInterval: ReturnType<typeof setInterval> | null = null;
+
+/**
+ * Inicia el proceso de sincronización periódica
+ */
+export function startPeriodicSync(): void {
+  if (syncInterval) {
+    clearInterval(syncInterval);
+  }
+
+  const intervalMs = SYNC_CONSTANTS?.DEFAULT_INTERVAL || 60 * 1000; // Default 1 minuto
+
+  // Función de sincronización
+  const runPeriodicSync = async () => {
+    try {
+      await syncWorker.triggerSync();
+    } catch (error) {
+      log.error('Periodic sync failed', error);
+    }
+  };
+
+  // Ejecutar inmediatamente y luego periódicamente
+  runPeriodicSync();
+  syncInterval = setInterval(runPeriodicSync, intervalMs);
+
+  log.info(`Periodic sync started with interval: ${intervalMs}ms`);
+}
+
+// ============================================================================
 // Cleanup
 // ============================================================================
 
 export function cleanupSyncSubscriptions(): void {
   stopStatsPolling();
-  syncWorker.stop();
+  stopSyncWorker();
 }
 
 // ============================================================================

@@ -18,7 +18,7 @@ export interface IBetStorage {
  * Port for Bet API (Network)
  */
 export interface IBetApi {
-    create(data: CreateBetDTO, idempotencyKey: string): Promise<BackendBet | BackendBet[]>;
+    create(bet: BetDomainModel, idempotencyKey: string): Promise<BackendBet | BackendBet[]>;
     checkStatus(idempotencyKey: string): Promise<{ synced: boolean; bets?: BackendBet[] }>;
     list(filters?: ListBetsFilters): Promise<BackendBet[]>;
 

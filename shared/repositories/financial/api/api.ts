@@ -1,4 +1,3 @@
-import { apiClient } from '@/shared/services/api_client/api_client';
 import settings from '@/config/settings';
 import {
     BackendFinancialSummary,
@@ -14,6 +13,7 @@ import {
     decodeOrFallback
 } from './codecs';
 import { logger } from '@/shared/utils/logger';
+import apiClient from '@/shared/services/api_client';
 
 const log = logger.withTag('FINANCIAL_SUMMARY_API');
 

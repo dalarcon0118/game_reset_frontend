@@ -8,7 +8,6 @@ import DrawItem from './views/draw_item';
 import { useDrawsListPluginStore, selectModel, selectDispatch, selectInit } from './store';
 import { REFRESH_CLICKED, RULES_CLICKED, REWARDS_CLICKED, BETS_LIST_CLICKED, CREATE_BET_CLICKED, INIT_CONTEXT } from './msg';
 import { styles } from './styles';
-import { enrichDrawWithOfflineData } from './update';
 import { logger } from '@/shared/utils/logger';
 
 import { DrawsListPluginConfig } from './model';
@@ -83,12 +82,13 @@ export const DrawsListComponent: React.FC<DrawsListComponentProps> = ({ context,
       <View>
         {filteredDraws.length > 0 ? (
           filteredDraws.map((draw) => {
-            // Fase 4: Enriquecer draw con datos offline de forma estable
-            // Enriquecemos en el update para evitar crear nuevos objetos en el render
+            // SSOT: Draw viene de DrawRepository, los totales vienen de BetRepository
+            // Pass both separately to avoid mixing sources
             return (
               <DrawItem
                 key={draw.id}
-                draw={draw} // Ahora pasamos el draw ya enriquecido desde el update (o al menos más estable)
+                draw={draw}
+                totalsByDrawId={model.totalsByDrawId}
                 onRulePress={(id) => dispatch(RULES_CLICKED(id))}
                 onRewardsPress={(id, title) => dispatch(REWARDS_CLICKED({ id, title }))}
                 onBetsListPress={(id, title) => dispatch(BETS_LIST_CLICKED({ id, title }))}

@@ -2,12 +2,18 @@
 import { FinancialSummary, PendingBet, DailyTotals } from '../../domain/models';
 import { FinancialCalculatorService } from '../../domain/services/financial-calculator.service';
 import { TimeRangeService } from '../../domain/services/time-range.service';
-import { financialRepository } from '@/shared/repositories/financial';
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
+import { TimerRepository } from '@/shared/repositories/system/time/timer.repository';
+import { logger } from '@/shared/utils/logger';
+
+import { SummaryPluginContext } from '../../domain/services';
+
+const log = logger.withTag('GET_FINANCIAL_DATA');
 
 export interface GetFinancialDataInput {
   structureId: string;
   commissionRate: number;
+  context: SummaryPluginContext;
 }
 
 export interface GetFinancialDataResult {
@@ -23,22 +29,35 @@ export class GetFinancialDataUseCase {
   ) { }
 
   async execute(input: GetFinancialDataInput): Promise<GetFinancialDataResult> {
-    const { structureId, commissionRate } = input;
+    const { structureId, commissionRate, context } = input;
 
-    // Obtener resumen financiero usando FinancialRepository (fuente offline-first)
-    const aggregation = await financialRepository.getAggregation(`structure:${structureId}`);
-    const financialSummary: FinancialSummary | null = aggregation.count > 0 ? {
-      totalCollected: aggregation.credits,
-      premiumsPaid: aggregation.debits,
-      estimatedCommission: aggregation.credits * commissionRate,
+    // Obtener hora confiable del servidor para el cálculo on-demand
+    const trustedNow = await TimerRepository.getTrustedNow(Date.now());
+    const trustedDate = new Date(trustedNow);
+    const todayStart = new Date(
+      trustedDate.getFullYear(),
+      trustedDate.getMonth(),
+      trustedDate.getDate()
+    ).getTime();
+
+    log.info('Calculating financial data on-demand', { structureId, todayStart });
+
+    // Obtener resumen financiero calculado on-demand desde BetRepository
+    const summary = await betRepository.getFinancialSummary(todayStart, structureId);
+
+    // Mapear al formato esperado por la UI
+    const financialSummary: FinancialSummary | null = summary.totalCollected > 0 ? {
+      totalCollected: summary.totalCollected,
+      premiumsPaid: summary.premiumsPaid,
+      estimatedCommission: summary.totalCollected * commissionRate,
       timestamp: Date.now()
     } : null;
 
     // Obtener apuestas pendientes del almacenamiento offline
     const pendingBetsRepo = await betRepository.getPendingBets();
     const pendingBets: PendingBet[] = pendingBetsRepo.map(b => ({
-      id: b.offlineId,
-      amount: Number(b.data.amount) || 0,
+      id: b.externalId || (b as any).offlineId,
+      amount: Number(b.amount ?? (b as any).data?.amount) || 0,
       timestamp: b.timestamp,
       status: 'pending'
     }));
@@ -52,7 +71,7 @@ export class GetFinancialDataUseCase {
 
       // Agregar impacto de apuestas pendientes
       if (pendingBets.length > 0) {
-        const todayRange = this.timeRangeService.getTodayRange();
+        const todayRange = this.timeRangeService.getTodayRange(trustedNow);
         const pendingImpact = this.financialCalculator.calculatePendingImpact(
           pendingBets,
           commissionRate,
@@ -66,7 +85,7 @@ export class GetFinancialDataUseCase {
     } else {
       // Sin datos financieros, usar solo apuestas pendientes o valores vacíos
       if (pendingBets.length > 0) {
-        const todayRange = this.timeRangeService.getTodayRange();
+        const todayRange = this.timeRangeService.getTodayRange(trustedNow);
         dailyTotals = this.financialCalculator.calculatePendingImpact(
           pendingBets,
           commissionRate,

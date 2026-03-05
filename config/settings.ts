@@ -29,7 +29,7 @@ const getDevelopmentBaseUrl = () => {
 };
 
 const API_BASE_URL_DEVELOPMENT = getDevelopmentBaseUrl();
-const API_BASE_URL_PRODUCTION = process.env.EXPO_PUBLIC_API_URL || 'https://uk80ggc4c00og4s0ocogckwo.149.130.221.251.ssli.io/api'; // URL de Render
+const API_BASE_URL_PRODUCTION = process.env.EXPO_PUBLIC_API_URL || 'https://uk80ggc4c00og4s0ocogckwo.149.130.221.251.sslip.io/api'; // URL de Render
 
 // Determinar si estamos en modo de desarrollo o producción
 // Intentamos obtener APP_ENV de múltiples fuentes para mayor robustez en Expo

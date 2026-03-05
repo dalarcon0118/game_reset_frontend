@@ -1,9 +1,10 @@
 import { TeaMiddleware } from '../middleware.types';
-import { logger, LogContext } from '@/shared/utils/logger';
+import { logger } from '@/shared/utils/logger';
+import { LogCategory } from '@/shared/utils/logger.types';
 
 const baseLog = logger.withTag('TEA');
 
-const getCategory = (msgType: string): LogContext['category'] => {
+const getCategory = (msgType: string): LogCategory => {
     if (msgType.includes('TICK') || msgType.includes('HEARTBEAT') || msgType.includes('POLLING')) return 'INFRA';
     if (msgType.includes('FETCH') || msgType.includes('RECEIVE') || msgType.includes('API')) return 'NETWORK';
     if (msgType.includes('UI') || msgType.includes('CLICK') || msgType.includes('PRESS')) return 'UI';
@@ -15,7 +16,6 @@ export const createLoggerMiddleware = <Model, Msg>(storeId?: string): TeaMiddlew
         id: 'logger-middleware',
         beforeUpdate: (model, msg, meta) => {
             // Generar traceId lo antes posible para que esté disponible en toda la cadena
-            // Incluso si es un mensaje de INFRA que no logueamos, sus comandos hijos heredarán este ID
             if (!meta.traceId) {
                 meta.traceId = Math.random().toString(36).substring(2, 8).toUpperCase();
             }
@@ -30,20 +30,25 @@ export const createLoggerMiddleware = <Model, Msg>(storeId?: string): TeaMiddlew
                 const log = baseLog.withContext({
                     category,
                     traceId: meta.traceId,
+                    storeId: storeId || 'GLOBAL',
                     importance: msgType.includes('ERROR') || msgType.includes('SUBMIT') ? 'HIGH' : 'LOW'
                 });
 
-                log.groupCollapsed(`⚡ ${msgType} [${storeId || 'GLOBAL'}]`, msg);
+                log.groupCollapsed(`⚡ ${msgType}`, msg);
                 log.debug('⏪ Prev State:', model);
             }
         },
-        afterUpdate: (prevModel, msg, nextModel, cmd, meta) => {
+        afterUpdate: (_prevModel, msg, nextModel, cmd, meta) => {
             if (__DEV__) {
                 const msgType = (msg as any)?.type || 'UNKNOWN';
                 const category = getCategory(msgType);
                 if (category === 'INFRA') return;
 
-                const log = baseLog.withContext({ category, traceId: meta.traceId });
+                const log = baseLog.withContext({ 
+                    category, 
+                    traceId: meta.traceId, 
+                    storeId: storeId || 'GLOBAL' 
+                });
 
                 log.debug('⏩ Next State:', nextModel);
 
@@ -68,7 +73,8 @@ export const createLoggerMiddleware = <Model, Msg>(storeId?: string): TeaMiddlew
                 const log = baseLog.withContext({
                     category: 'BUSINESS',
                     importance: 'HIGH',
-                    traceId: meta.traceId
+                    traceId: meta.traceId,
+                    storeId: storeId || 'GLOBAL'
                 });
 
                 log.error(`❌ UPDATE FAILED: ${msgType}`, error);
@@ -81,11 +87,11 @@ export const createLoggerMiddleware = <Model, Msg>(storeId?: string): TeaMiddlew
             if (__DEV__) {
                 const log = baseLog.withContext({
                     category: 'INFRA',
-                    traceId: meta.traceId
+                    traceId: meta.traceId,
+                    storeId: storeId || 'GLOBAL'
                 });
                 log.debug(`⚙️ Executing Cmd: ${cmd.type}`, cmd.payload);
             }
         }
     };
 };
-

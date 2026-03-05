@@ -1,13 +1,12 @@
 // Casos de uso - Orquestan la lógica de negocio sin efectos secundarios
-import { 
-  FinancialSummary, 
-  PendingBet, 
-  UserProfile, 
-  UserPreferences, 
-  DailyTotals 
+import {
+  FinancialSummary,
+  PendingBet,
+  DailyTotals
 } from '../../domain/models';
 import { FinancialCalculatorService } from '../../domain/services/financial-calculator.service';
 import { TimeRangeService } from '../../domain/services/time-range.service';
+import { TimerRepository } from '@/shared/repositories/system/time/timer.repository';
 
 export interface CalculateDailyTotalsInput {
   financialSummary: FinancialSummary | null;
@@ -19,11 +18,11 @@ export class CalculateDailyTotalsUseCase {
   constructor(
     private financialCalculator: FinancialCalculatorService,
     private timeRangeService: TimeRangeService
-  ) {}
+  ) { }
 
-  execute(input: CalculateDailyTotalsInput): DailyTotals {
+  async execute(input: CalculateDailyTotalsInput): Promise<DailyTotals> {
     const { financialSummary, pendingBets, commissionRate } = input;
-    
+
     let totals: DailyTotals;
 
     // Calcular totales del resumen financiero
@@ -35,13 +34,14 @@ export class CalculateDailyTotalsUseCase {
 
     // Agregar impacto de apuestas pendientes
     if (pendingBets && pendingBets.length > 0) {
-      const todayRange = this.timeRangeService.getTodayRange();
+      const trustedNow = await TimerRepository.getTrustedNow(Date.now());
+      const todayRange = this.timeRangeService.getTodayRange(trustedNow);
       const pendingImpact = this.financialCalculator.calculatePendingImpact(
         pendingBets,
         commissionRate,
         todayRange
       );
-      
+
       totals = this.financialCalculator.combineTotals(totals, pendingImpact);
     }
 

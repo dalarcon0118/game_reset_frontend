@@ -3,8 +3,8 @@ export class TimeRangeService {
   /**
    * Obtiene el rango de tiempo para el día actual
    */
-  getTodayRange(): { start: number; end: number } {
-    const now = new Date();
+  getTodayRange(nowMs?: number): { start: number; end: number } {
+    const now = nowMs ? new Date(nowMs) : new Date();
     const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     const end = start + 24 * 60 * 60 * 1000;
     

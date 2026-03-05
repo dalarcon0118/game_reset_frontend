@@ -9,34 +9,68 @@ import { Result, ok, err } from 'neverthrow';
 import { isServerReachable } from '@/shared/utils/network';
 import { IDrawRepository, DrawFinancialState } from './draw.ports';
 
-// Reutilizamos el tipo del logger con tag para el constructor
-type TaggedLogger = ReturnType<typeof logger.withTag>;
+// Simple logger interface for type safety
+interface SafeLogger {
+    debug: (message: string, ...args: any[]) => void;
+    info: (message: string, ...args: any[]) => void;
+    warn: (message: string, ...args: any[]) => void;
+    error: (message: string, error?: any, ...args: any[]) => void;
+    withTag: (tag: string) => SafeLogger;
+    withContext: (context: any) => SafeLogger;
+    withStore: (storeId: string) => SafeLogger;
+}
 
 export class DrawRepository implements IDrawRepository {
-    private log: TaggedLogger;
+    private log: SafeLogger;
     private offlineAdapter = new DrawOfflineAdapter();
     private betOfflineAdapter = new BetOfflineAdapter();
 
     constructor(
         private api: typeof DrawApi,
-        loggerInstance?: TaggedLogger
+        loggerInstance?: SafeLogger
     ) {
-        this.log = loggerInstance || logger.withTag('DrawRepository');
+        // Safe logger initialization - always use a valid logger instance
+        if (loggerInstance) {
+            this.log = loggerInstance;
+        } else {
+            // Use the safe logger from the module
+            try {
+                this.log = logger.withTag('DrawRepository') as SafeLogger;
+            } catch (e) {
+                // Final fallback to console
+                this.log = {
+                    debug: console.debug.bind(console),
+                    info: console.info.bind(console),
+                    warn: console.warn.bind(console),
+                    error: console.error.bind(console),
+                    withContext: () => this.log,
+                    withTag: () => this.log,
+                    withStore: () => this.log,
+                };
+            }
+        }
     }
 
     // Legacy-compatible methods
     async getDraws(params: Record<string, any> = {}): Promise<Result<ExtendedDrawType[], Error>> {
+        console.log('[DEBUG] drawRepository.getDraws: INICIANDO params =', params);
         try {
             this.log.debug('Getting draws', params);
             const isOnline = await isServerReachable();
+            console.log('[DEBUG] drawRepository.getDraws: isOnline =', isOnline);
             this.log.debug('Server reachable:', isOnline);
             // 1. Obtener datos (Remoto -> Local)
             let backendDraws: BackendDraw[] | null = null;
 
             if (isOnline) {
+                console.log('[DEBUG] drawRepository.getDraws: HACIENDO PETICION AL SERVIDOR...');
                 backendDraws = await this.api.list(params)
-                    .then(res => Array.isArray(res) ? res : null)
+                    .then(res => {
+                        console.log('[DEBUG] drawRepository.getDraws: RESPUESTA =', res);
+                        return Array.isArray(res) ? res : null;
+                    })
                     .catch(error => {
+                        console.log('[DEBUG] drawRepository.getDraws: ERROR en peticion =', error);
                         this.log.warn('Online fetch failed, falling back to cache', error);
                         return null;
                     });
@@ -45,15 +79,27 @@ export class DrawRepository implements IDrawRepository {
             }
 
             if (!backendDraws) {
+                console.log('[DEBUG] drawRepository.getDraws: Sin datos remotos, buscando cache...');
                 const cached = await this.getCachedDraws();
                 if (cached.length > 0) {
-                    this.log.info('Returning cached draws from local storage');
+                    this.log.info('Returning cached draws from local storage', { count: cached.length });
                     backendDraws = cached;
+                } else {
+                    this.log.warn('No cached draws available for offline mode');
                 }
             }
 
             // 2. Retornar resultado
             if (backendDraws) {
+                console.log('[DEBUG] drawRepository.getDraws: RETORNANDO', backendDraws.length, 'sorteos');
+                // En modo offline, retornamos todos los sorteos cacheados
+                // sin filtrar por estructura (el usuario puede necesitar ver sorteos
+                // de estructuras relacionadas o dados de alta previamente)
+                const isOffline = !isOnline;
+                if (isOffline && params.owner_structure) {
+                    this.log.info('Offline mode: returning all cached draws without structure filter',
+                        { total: backendDraws.length, requestedStructure: params.owner_structure });
+                }
                 return ok(backendDraws.map(mapBackendDrawToFrontend));
             }
 
@@ -64,6 +110,7 @@ export class DrawRepository implements IDrawRepository {
             return ok([]);
 
         } catch (error: any) {
+            console.log('[DEBUG] drawRepository.getDraws: ERROR GENERAL =', error);
             this.log.error('Error getting draws', error);
             return err(error instanceof Error ? error : new Error(String(error)));
         }
@@ -143,5 +190,35 @@ export class DrawRepository implements IDrawRepository {
 
     private async getCachedDraws(): Promise<BackendDraw[]> {
         return this.offlineAdapter.getAll();
+    }
+
+    // ============================================================================
+    // OPERACIONES DE LIMPIEZA (MANTENIMIENTO)
+    // ============================================================================
+
+    /**
+     * Cleanup method for prepareDailySessionUseCase.
+     * Cleans up old cached draws and lists.
+     * 
+     * @param today - Fecha actual del servidor (YYYY-MM-DD)
+     * @returns Número de keys eliminadas
+     */
+    async cleanup(today: string): Promise<number> {
+        this.log.info('Starting DrawRepository cleanup', { today });
+
+        try {
+            let removed = 0;
+
+            // 1. Clear the draw list cache (will be refetched from server)
+            await this.offlineAdapter.clear();
+            removed++;
+
+            this.log.info('DrawRepository cleanup completed', { removed });
+            return removed;
+
+        } catch (error: any) {
+            this.log.error('DrawRepository cleanup failed', error);
+            throw error;
+        }
     }
 }

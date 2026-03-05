@@ -1,4 +1,4 @@
-import ApiClient from '@/shared/services/api_client/api_client';
+import apiClient from '@/shared/services/api_client';
 import settings from '@/config/settings';
 import { BackendUnifiedRulesResponse, BackendValidationRule } from './types';
 import {
@@ -9,7 +9,7 @@ import {
 
 export const RulesApi = {
     getAllRulesForDraw: async (drawId: string): Promise<BackendUnifiedRulesResponse | null> => {
-        const response = await ApiClient.get<BackendUnifiedRulesResponse>(
+        const response = await apiClient.get<BackendUnifiedRulesResponse>(
             `${settings.api.endpoints.draws()}${drawId}/rules-for-current-user/`
         );
         if (!response) return null;
@@ -17,14 +17,14 @@ export const RulesApi = {
     },
 
     getValidationRulesForCurrentUser: async (): Promise<BackendValidationRule[]> => {
-        const response = await ApiClient.get<BackendValidationRule[]>(
+        const response = await apiClient.get<BackendValidationRule[]>(
             '/draw/validation-rules/for-current-user/'
         );
         return decodeOrFallback(BackendValidationRuleArrayCodec, response, 'getValidationRulesForCurrentUser');
     },
 
     getValidationRulesByStructure: async (structureId: string): Promise<BackendValidationRule[]> => {
-        const response = await ApiClient.get<BackendValidationRule[]>(
+        const response = await apiClient.get<BackendValidationRule[]>(
             `/draw/validation-rules/by-structure/${structureId}/`
         );
         return decodeOrFallback(BackendValidationRuleArrayCodec, response, 'getValidationRulesByStructure');

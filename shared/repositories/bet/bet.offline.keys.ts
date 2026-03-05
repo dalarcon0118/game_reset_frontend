@@ -8,12 +8,12 @@ export const BetOfflineKeys = {
     /**
      * Llave para los datos de una apuesta pendiente
      */
-    bet: (id: string, subresource: 'data' | 'status' | 'sync' = 'data') => 
-        OfflineStorageKeyManager.generateKey('bet', 'pending', id, subresource),
+    bet: (id: string) =>
+        OfflineStorageKeyManager.generateKey('bet', 'pending', id, 'data'),
 
     /**
-     * Patrón para buscar todas las apuestas de un tipo/estado
+     * Patrón para buscar todas las apuestas
      */
-    getPattern: (entity: string = 'pending', id: string = '*', subresource: string = 'data') =>
-        OfflineStorageKeyManager.getPattern('bet', entity, id, subresource),
+    getPattern: (entity: string = 'pending', id: string = '*') =>
+        OfflineStorageKeyManager.getPattern('bet', entity, id, 'data'),
 };

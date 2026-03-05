@@ -13,7 +13,7 @@ export interface IAuthRepository {
     checkAuth(): Promise<void>;
     // Token management
     saveToken(access: string, refresh?: string): Promise<void>;
-    getToken(): Promise<{ access: string | null; refresh: string | null }>;
+    getToken(): Promise<{ access: string | null; refresh: string | null; isOffline?: boolean }>;
     clearToken(): Promise<void>;
 
     onSessionChange(callback: (user: User | null) => void): () => void;
@@ -23,7 +23,7 @@ export interface IAuthRepository {
 export interface IAuthStorage {
     // Session management
     saveSession(session: AuthSession): Promise<void>;
-    getSession(): Promise<{ access: string | null; refresh: string | null }>;
+    getSession(): Promise<{ access: string | null; refresh: string | null; isOffline?: boolean }>;
     clearSession(): Promise<void>;
 
     // Offline fallback management

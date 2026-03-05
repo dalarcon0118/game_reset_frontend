@@ -11,6 +11,12 @@ export const AuthOfflineKeys = {
         OfflineStorageKeyManager.generateKey('auth', 'user', 'profile', 'data'),
 
     /**
+     * Llave para el perfil usado en validación offline persistente
+     */
+    offlineProfile: () =>
+        OfflineStorageKeyManager.generateKey('auth', 'user', 'offline_profile', 'data'),
+
+    /**
      * Llave para el hash del PIN (usado en login offline)
      */
     pinHash: () =>

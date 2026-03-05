@@ -1,6 +1,6 @@
-import { ApiClientError } from './api_client/api_client';
 import { createStream } from '../utils/generators';
 import { transformTemplatesWithStatus, generatorToArray } from '../utils/generators';
+import { ApiClientError } from './api_client';
 import { ValidationRuleApi } from './validation_rule/api';
 import {
     BackendValidationRule as ValidationRule,
