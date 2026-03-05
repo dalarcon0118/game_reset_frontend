@@ -70,7 +70,7 @@ jobs:
           NODE_OPTIONS: '--max-old-space-size=1536'
           EXPO_PUBLIC_APP_ENV: production
           # Hardcoding Render URL to ensure connectivity if secret is missing/incorrect
-          EXPO_PUBLIC_API_URL: https://game-reset-backend.onrender.com/api
+          EXPO_PUBLIC_API_URL: https://uk80ggc4c00og4s0ocogckwo.149.130.221.251.sslip.io/api
 
       - name: 📦 Prepare APK for Release
         run: |
