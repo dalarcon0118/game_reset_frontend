@@ -49,7 +49,7 @@ jobs:
           echo "EXPO_PUBLIC_API_URL: $EXPO_PUBLIC_API_URL"
         env:
           EXPO_PUBLIC_APP_ENV: production
-          EXPO_PUBLIC_API_URL: https://uk80ggc4c00og4s0ocogckwo.149.130.221.251.sslip.io/api'
+          EXPO_PUBLIC_API_URL: https://uk80ggc4c00og4s0ocogckwo.149.130.221.251.sslip.io/api
 
       - name: Build Android APK
         run: |
