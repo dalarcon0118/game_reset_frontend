@@ -27,5 +27,5 @@ export const useLoteriaStore = createElmStore<LoteriaFeatureModel, FeatureMsg>({
     subscriptions
 });
 
-export const selectLoteriaModel = (state: any) => state.model;
+export const selectLoteriaModel = (state: { model: LoteriaFeatureModel }) => state.model;
 export const selectDispatch = (state: { dispatch: (msg: FeatureMsg) => void }) => state.dispatch;

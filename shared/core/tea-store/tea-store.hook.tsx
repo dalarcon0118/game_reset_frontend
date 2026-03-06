@@ -36,27 +36,26 @@ export const useTEAStore = <T extends Entity>(
         });
     }, [config]);
 
-    const { model, dispatch, actions } = useMemo(() => {
-        const state = store.getState();
-        
+    // Use store as a hook to get reactive state
+    const model = store(s => s.model);
+    const dispatch = store(s => s.dispatch);
+
+    // Memoize actions
+    const actions = useMemo(() => {
         return {
-            model: state.model,
-            dispatch: state.dispatch,
-            actions: {
-                fetchAll: () => state.dispatch({ type: TEAStoreMsgType.FETCH_ALL_REQUESTED }),
-                fetchOne: (id: string) => state.dispatch({ type: TEAStoreMsgType.FETCH_ONE_REQUESTED, id }),
-                create: (data: Omit<T, 'id'>) => state.dispatch({ type: TEAStoreMsgType.CREATE_REQUESTED, data }),
-                update: (id: string, data: Partial<T>) => state.dispatch({ type: TEAStoreMsgType.UPDATE_REQUESTED, id, data }),
-                delete: (id: string) => state.dispatch({ type: TEAStoreMsgType.DELETE_REQUESTED, id }),
-                selectItem: (id: string | null) => state.dispatch({ type: TEAStoreMsgType.SELECT_ITEM, id }),
-                startCreate: () => state.dispatch({ type: TEAStoreMsgType.START_CREATE }),
-                startEdit: (id: string) => state.dispatch({ type: TEAStoreMsgType.START_EDIT, id }),
-                cancelEdit: () => state.dispatch({ type: TEAStoreMsgType.CANCEL_EDIT }),
-                clearError: () => state.dispatch({ type: TEAStoreMsgType.CLEAR_ERROR }),
-                reset: () => state.dispatch({ type: TEAStoreMsgType.RESET }),
-            }
+            fetchAll: () => dispatch({ type: TEAStoreMsgType.FETCH_ALL_REQUESTED }),
+            fetchOne: (id: string) => dispatch({ type: TEAStoreMsgType.FETCH_ONE_REQUESTED, id }),
+            create: (data: Omit<T, 'id'>) => dispatch({ type: TEAStoreMsgType.CREATE_REQUESTED, data }),
+            update: (id: string, data: Partial<T>) => dispatch({ type: TEAStoreMsgType.UPDATE_REQUESTED, id, data }),
+            delete: (id: string) => dispatch({ type: TEAStoreMsgType.DELETE_REQUESTED, id }),
+            selectItem: (id: string | null) => dispatch({ type: TEAStoreMsgType.SELECT_ITEM, id }),
+            startCreate: () => dispatch({ type: TEAStoreMsgType.START_CREATE }),
+            startEdit: (id: string) => dispatch({ type: TEAStoreMsgType.START_EDIT, id }),
+            cancelEdit: () => dispatch({ type: TEAStoreMsgType.CANCEL_EDIT }),
+            clearError: () => dispatch({ type: TEAStoreMsgType.CLEAR_ERROR }),
+            reset: () => dispatch({ type: TEAStoreMsgType.RESET }),
         };
-    }, [store]);
+    }, [dispatch]);
 
     // Auto-fetch on mount if enabled
     useEffect(() => {

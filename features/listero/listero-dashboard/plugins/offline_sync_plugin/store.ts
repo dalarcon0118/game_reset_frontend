@@ -8,7 +8,7 @@ import { createElmStore } from '@/shared/core/engine/engine';
 import {
   offlineSyncUpdate
 } from './update';
-import { type OfflineSyncModel } from './types';
+import { type OfflineSyncModel, type ToastConfig } from './types';
 import { Cmd } from '@/shared/core/tea-utils';
 import {
   OfflineSyncMsg,
@@ -114,13 +114,15 @@ export function useOfflineSyncInitialization() {
 // Selectors
 // ============================================================================
 
-export const selectToasts = (state: any) => state.model.toasts;
-export const selectSyncStatus = (state: any) => state.model.syncStatus;
-export const selectPendingCount = (state: any) => state.model.syncStatus.pendingCount;
-export const selectIsModalOpen = (state: any) => state.model.syncStatus.isModalOpen;
-export const selectPendingBets = (state: any) => state.model.pendingBets;
-export const selectErrorBets = (state: any) => state.model.errorBets;
-export const selectWorkerStatus = (state: any) => state.model.syncStatus.workerStatus;
+type StoreState = { model: OfflineSyncModel; dispatch: (msg: OfflineSyncMsg) => void };
+
+export const selectToasts = (state: StoreState) => state.model.toasts;
+export const selectSyncStatus = (state: StoreState) => state.model.syncStatus;
+export const selectPendingCount = (state: StoreState) => state.model.syncStatus.pendingCount;
+export const selectIsModalOpen = (state: StoreState) => state.model.syncStatus.isModalOpen;
+export const selectPendingBets = (state: StoreState) => state.model.pendingBets;
+export const selectErrorBets = (state: StoreState) => state.model.errorBets;
+export const selectWorkerStatus = (state: StoreState) => state.model.syncStatus.workerStatus;
 
 // ============================================================================
 // Hook para uso en componentes
@@ -139,7 +141,7 @@ export function useOfflineSync() {
     errorBets: model.errorBets,
 
     // Actions
-    showToast: (toast: any) => dispatch(SHOW_TOAST(toast)),
+    showToast: (toast: ToastConfig) => dispatch(SHOW_TOAST(toast)),
     hideToast: (id: string) => dispatch(HIDE_TOAST({ id })),
     openStatusModal: () => dispatch(OPEN_STATUS_MODAL()),
     closeStatusModal: () => dispatch(CLOSE_STATUS_MODAL()),

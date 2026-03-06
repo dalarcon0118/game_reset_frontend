@@ -30,5 +30,5 @@ export const useBolitaStore = createElmStore<BolitaModel, BolitaMsg>(
     }
 );
 
-export const selectBolitaModel = (state: any) => state.model;
+export const selectBolitaModel = (state: { model: BolitaModel }) => state.model;
 export const selectDispatch = (state: { dispatch: (msg: BolitaMsg) => void }) => state.dispatch;

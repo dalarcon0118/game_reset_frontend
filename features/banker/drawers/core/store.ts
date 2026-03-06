@@ -10,5 +10,5 @@ export const useDrawersStore = createElmStore<Model, Msg>({
     subscriptions
 });
 
-export const selectDrawersModel = (state: any) => state.model;
-export const selectDrawersDispatch = (state: any) => state.dispatch;
+export const selectDrawersModel = (state: { model: Model }) => state.model;
+export const selectDrawersDispatch = (state: { dispatch: (msg: Msg) => void }) => state.dispatch;

@@ -9,5 +9,5 @@ export const useListeriasStore = createElmStore<Model, Msg>({
     subscriptions
 });
 
-export const selectListeriasModel = (state: any) => state.model;
-export const selectListeriasDispatch = (state: any) => state.dispatch;
+export const selectListeriasModel = (state: { model: Model }) => state.model;
+export const selectListeriasDispatch = (state: { dispatch: (msg: Msg) => void }) => state.dispatch;
