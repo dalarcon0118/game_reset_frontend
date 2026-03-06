@@ -98,7 +98,7 @@ export interface TEAStoreState<T extends Entity> {
      * Status of the last CRUD operation.
      * Used to show success/error messages after operations.
      */
-    operationStatus: WebData<T>;
+    operationStatus: WebData<T | void>;
 
     /**
      * Whether the store is in create mode.

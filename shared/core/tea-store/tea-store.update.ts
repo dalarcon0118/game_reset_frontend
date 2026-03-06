@@ -62,24 +62,21 @@ export const createTEAStoreUpdate = <T extends Entity>(
                 )
             )
             .with({ type: TEAStoreMsgType.FETCH_ALL_RESPONSE }, ({ response }) =>
-                RemoteData.fold(
-                    {
-                        notAsked: () => singleton(model),
-                        loading: () => singleton(model),
-                        failure: (error) => {
-                            config.onError?.(error);
-                            return singleton({
-                                ...model,
-                                items: RemoteData.failure(error)
-                            });
-                        },
-                        success: (items) => singleton({
+                match<WebData<T[]>, Return<TEAStoreState<T>, TEAStoreMsg<T>>>(response)
+                    .with({ type: 'NotAsked' }, () => singleton(model))
+                    .with({ type: 'Loading' }, () => singleton(model))
+                    .with({ type: 'Failure' }, ({ error }) => {
+                        config.onError?.(error);
+                        return singleton({
                             ...model,
-                            items: RemoteData.success(items)
-                        })
-                    },
-                    response
-                )
+                            items: RemoteData.failure(error)
+                        });
+                    })
+                    .with({ type: 'Success' }, ({ data: items }) => singleton({
+                        ...model,
+                        items: RemoteData.success(items)
+                    }))
+                    .exhaustive()
             )
 
             // Fetch One
@@ -96,24 +93,21 @@ export const createTEAStoreUpdate = <T extends Entity>(
                 )
             )
             .with({ type: TEAStoreMsgType.FETCH_ONE_RESPONSE }, ({ response }) =>
-                RemoteData.fold(
-                    {
-                        notAsked: () => singleton(model),
-                        loading: () => singleton(model),
-                        failure: (error) => {
-                            config.onError?.(error);
-                            return singleton({
-                                ...model,
-                                selectedItem: RemoteData.failure(error)
-                            });
-                        },
-                        success: (item) => singleton({
+                match<WebData<T>, Return<TEAStoreState<T>, TEAStoreMsg<T>>>(response)
+                    .with({ type: 'NotAsked' }, () => singleton(model))
+                    .with({ type: 'Loading' }, () => singleton(model))
+                    .with({ type: 'Failure' }, ({ error }) => {
+                        config.onError?.(error);
+                        return singleton({
                             ...model,
-                            selectedItem: RemoteData.success(item)
-                        })
-                    },
-                    response
-                )
+                            selectedItem: RemoteData.failure(error)
+                        });
+                    })
+                    .with({ type: 'Success' }, ({ data: item }) => singleton({
+                        ...model,
+                        selectedItem: RemoteData.success(item)
+                    }))
+                    .exhaustive()
             )
 
             // Create
@@ -130,34 +124,28 @@ export const createTEAStoreUpdate = <T extends Entity>(
                 )
             )
             .with({ type: TEAStoreMsgType.CREATE_RESPONSE }, ({ response }) =>
-                RemoteData.fold(
-                    {
-                        notAsked: () => singleton(model),
-                        loading: () => singleton(model),
-                        failure: (error) => {
-                            config.onError?.(error);
-                            return singleton({
-                                ...model,
-                                operationStatus: RemoteData.failure(error),
-                                isCreating: false
-                            });
-                        },
-                        success: (newItem) => {
-                            // Add new item to items list if it's loaded
-                            const nextItems = RemoteData.map(
-                                (items: T[]) => [...items, newItem],
-                                model.items
-                            );
-                            return singleton({
-                                ...model,
-                                items: nextItems,
-                                operationStatus: RemoteData.success(newItem),
-                                isCreating: false
-                            });
-                        }
-                    },
-                    response
-                )
+                match<WebData<T>, Return<TEAStoreState<T>, TEAStoreMsg<T>>>(response)
+                    .with({ type: 'NotAsked' }, () => singleton(model))
+                    .with({ type: 'Loading' }, () => singleton(model))
+                    .with({ type: 'Failure' }, ({ error }) => {
+                        config.onError?.(error);
+                        return singleton({
+                            ...model,
+                            operationStatus: RemoteData.failure(error),
+                            isCreating: false
+                        });
+                    })
+                    .with({ type: 'Success' }, ({ data: newItem }) => {
+                        // Add new item to items list if it's loaded
+                        const nextItems = RemoteData.map((items: T[]) => [...items, newItem], model.items);
+                        return singleton({
+                            ...model,
+                            items: nextItems,
+                            operationStatus: RemoteData.success(newItem),
+                            isCreating: false
+                        });
+                    })
+                    .exhaustive()
             )
 
             // Update
@@ -174,50 +162,47 @@ export const createTEAStoreUpdate = <T extends Entity>(
                 )
             )
             .with({ type: TEAStoreMsgType.UPDATE_RESPONSE }, ({ response }) =>
-                RemoteData.fold(
-                    {
-                        notAsked: () => singleton(model),
-                        loading: () => singleton(model),
-                        failure: (error) => {
-                            config.onError?.(error);
-                            return singleton({
-                                ...model,
-                                operationStatus: RemoteData.failure(error),
-                                isEditing: false,
-                                editingId: null
-                            });
-                        },
-                        success: (updatedItem) => {
-                            // Update item in items list
-                            const nextItems = RemoteData.map(
-                                (items: T[]) => items.map(item =>
-                                    item.id === updatedItem.id ? updatedItem : item
-                                ),
-                                model.items
-                            );
-                            // Update selected item if it matches
-                            const nextSelected = RemoteData.map(
-                                (item: T) => item.id === updatedItem.id ? updatedItem : item,
-                                model.selectedItem
-                            );
-                            return singleton({
-                                ...model,
-                                items: nextItems,
-                                selectedItem: nextSelected,
-                                operationStatus: RemoteData.success(updatedItem),
-                                isEditing: false,
-                                editingId: null
-                            });
-                        }
-                    },
-                    response
-                )
+                match<WebData<T>, Return<TEAStoreState<T>, TEAStoreMsg<T>>>(response)
+                    .with({ type: 'NotAsked' }, () => singleton(model))
+                    .with({ type: 'Loading' }, () => singleton(model))
+                    .with({ type: 'Failure' }, ({ error }) => {
+                        config.onError?.(error);
+                        return singleton({
+                            ...model,
+                            operationStatus: RemoteData.failure(error),
+                            isEditing: false,
+                            editingId: null
+                        });
+                    })
+                    .with({ type: 'Success' }, ({ data: updatedItem }) => {
+                        // Update item in items list
+                        const nextItems = RemoteData.map(
+                            (items: T[]) => items.map(item =>
+                                item.id === updatedItem.id ? updatedItem : item
+                            ),
+                            model.items
+                        );
+                        // Update selected item if it matches
+                        const nextSelected = RemoteData.map(
+                            (item: T) => item.id === updatedItem.id ? updatedItem : item,
+                            model.selectedItem
+                        );
+                        return singleton({
+                            ...model,
+                            items: nextItems,
+                            selectedItem: nextSelected,
+                            operationStatus: RemoteData.success(updatedItem),
+                            isEditing: false,
+                            editingId: null
+                        });
+                    })
+                    .exhaustive()
             )
 
             // Delete
             .with({ type: TEAStoreMsgType.DELETE_REQUESTED }, ({ id }) =>
                 ret(
-                    { ...model, operationStatus: RemoteData.loading() },
+                    { ...model, operationStatus: RemoteData.loading(), editingId: id },
                     RemoteDataHttp.fetch(
                         () => config.delete(id),
                         (response: WebData<void>) => ({
@@ -228,47 +213,41 @@ export const createTEAStoreUpdate = <T extends Entity>(
                 )
             )
             .with({ type: TEAStoreMsgType.DELETE_RESPONSE }, ({ response }) =>
-                RemoteData.fold<any, void, Return<TEAStoreState<T>, TEAStoreMsg<T>>>(
-                    {
-                        notAsked: () => singleton(model),
-                        loading: () => singleton(model),
-                        failure: (error) => {
-                            config.onError?.(error);
-                            return singleton({
-                                ...model,
-                                operationStatus: RemoteData.failure(error)
-                            });
-                        },
-                        success: () => {
-                            // Remove item from items list
-                            const nextItems = RemoteData.map(
-                                (items: T[]) => items.filter(item => item.id !== model.editingId),
-                                model.items
-                            );
-                            // Clear selected item if it was deleted
-                            const nextSelected = RemoteData.fold<any, T, WebData<T>>(
-                                {
-                                    notAsked: () => model.selectedItem,
-                                    loading: () => model.selectedItem,
-                                    failure: () => model.selectedItem,
-                                    success: (item: T) =>
-                                        item.id === model.editingId
-                                            ? RemoteData.notAsked()
-                                            : model.selectedItem
-                                },
-                                model.selectedItem
-                            );
-                            return singleton({
-                                ...model,
-                                items: nextItems,
-                                selectedItem: nextSelected,
-                                operationStatus: RemoteData.success(null as unknown as T),
-                                editingId: null
-                            });
-                        }
-                    },
-                    response
-                )
+                match<WebData<void>, Return<TEAStoreState<T>, TEAStoreMsg<T>>>(response)
+                    .with({ type: 'NotAsked' }, () => singleton(model))
+                    .with({ type: 'Loading' }, () => singleton(model))
+                    .with({ type: 'Failure' }, ({ error }) => {
+                        config.onError?.(error);
+                        return singleton({
+                            ...model,
+                            operationStatus: RemoteData.failure(error),
+                            editingId: null
+                        });
+                    })
+                    .with({ type: 'Success' }, () => {
+                        // Remove item from items list
+                        const nextItems = RemoteData.map(
+                            (items: T[]) => items.filter(item => item.id !== model.editingId),
+                            model.items
+                        );
+                        // Clear selected item if it was deleted
+                        const nextSelected = match<WebData<T>, WebData<T>>(model.selectedItem)
+                            .with({ type: 'Success' }, ({ data: item }) =>
+                                item.id === model.editingId
+                                    ? RemoteData.notAsked()
+                                    : model.selectedItem
+                            )
+                            .otherwise(() => model.selectedItem);
+
+                        return singleton({
+                            ...model,
+                            items: nextItems,
+                            selectedItem: nextSelected,
+                            operationStatus: RemoteData.success(undefined),
+                            editingId: null
+                        });
+                    })
+                    .exhaustive()
             )
 
             // Select Item
@@ -281,15 +260,9 @@ export const createTEAStoreUpdate = <T extends Entity>(
                 }
 
                 // Find item in loaded items
-                const item = RemoteData.fold(
-                    {
-                        notAsked: () => null,
-                        loading: () => null,
-                        failure: () => null,
-                        success: (items: T[]) => items.find(i => i.id === id) || null
-                    },
-                    model.items
-                );
+                const item = match(model.items)
+                    .with({ type: 'Success' }, ({ data: items }) => items.find(i => i.id === id) || null)
+                    .otherwise(() => null);
 
                 if (item) {
                     return singleton({

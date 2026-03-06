@@ -4,12 +4,12 @@
  * Store de Zustand + Engine TEA para el plugin de sincronización offline.
  */
 
-import { create } from 'zustand';
+import { createElmStore } from '@/shared/core/engine/engine';
 import {
   offlineSyncUpdate
 } from './update';
 import { type OfflineSyncModel } from './types';
-import { Cmd, CommandDescriptor } from '@/shared/core/tea-utils';
+import { Cmd } from '@/shared/core/tea-utils';
 import {
   OfflineSyncMsg,
   SHOW_TOAST,
@@ -24,7 +24,7 @@ import {
   SYNC_COMPLETED,
   SYNC_ITEM_SUCCESS,
   SYNC_ITEM_ERROR,
-  SYNC_ERROR
+  SYNC_ERROR,
 } from './msg';
 import { initialOfflineSyncModel } from './model';
 import {
@@ -33,218 +33,118 @@ import {
   stopStatsPolling,
   startSyncWorker,
   stopSyncWorker,
-  forceSyncNow,
 } from './subscriptions';
-import { offlineStorage } from '@/shared/core/offline-storage/instance';
 import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('OFFLINE_SYNC_PLUGIN');
 
 // ============================================================================
-// Engine: Conecta Zustand con TEA Update
+// Store de Zustand usando createElmStore
 // ============================================================================
 
-function createEngine(dispatch: (msg: OfflineSyncMsg) => void) {
-  const executeCmds = (cmd: Cmd) => {
-    const flattenCmds = (c: Cmd): CommandDescriptor[] => {
-      if (!c) return [];
-      if (Array.isArray(c)) {
-        return c.flatMap(flattenCmds);
-      }
-      return [c];
-    };
-
-    const cmdsToExecute = flattenCmds(cmd);
-    cmdsToExecute.forEach(async (singleCmd: any) => {
-      // Basic support for TASK commands used in plugins
-      if (singleCmd && singleCmd.type === 'TASK' && singleCmd.payload?.task) {
+export const useOfflineSyncStore = createElmStore<OfflineSyncModel, OfflineSyncMsg>({
+  initial: initialOfflineSyncModel,
+  update: (model, msg) => offlineSyncUpdate(msg, model),
+  effectHandlers: {
+    // Basic support for TASK commands used in plugins
+    'TASK': async (payload, dispatch) => {
+      if (payload?.task) {
         try {
-          const result = await singleCmd.payload.task();
-          if (singleCmd.payload.onSuccess) {
-            const nextMsg = singleCmd.payload.onSuccess(result);
+          const result = await payload.task();
+          if (payload.onSuccess) {
+            const nextMsg = payload.onSuccess(result);
             if (nextMsg) dispatch(nextMsg);
           }
         } catch (error) {
-          if (singleCmd.payload.onFailure) {
-            const nextMsg = singleCmd.payload.onFailure(error);
+          if (payload.onFailure) {
+            const nextMsg = payload.onFailure(error);
             if (nextMsg) dispatch(nextMsg);
           }
         }
       }
-    });
-  };
-
-  return {
-    /**
-     * Ejecuta el update de TEA y retorna el nuevo modelo
-     */
-    update: (msg: OfflineSyncMsg, currentModel: OfflineSyncModel): OfflineSyncModel => {
-      const result = offlineSyncUpdate(msg, currentModel);
-      if (result.cmd) executeCmds(result.cmd);
-      return result.model;
-    },
-  };
-}
-
-// ============================================================================
-// Store de Zustand
-// ============================================================================
-
-interface OfflineSyncStore {
-  // Estado del modelo
-  model: OfflineSyncModel;
-
-  // Engine reference
-  engine: ReturnType<typeof createEngine>;
-  dispatch: (msg: OfflineSyncMsg) => void;
-
-  // Actions (dispatches messages)
-  showToast: (toast: any) => void;
-  hideToast: (id: string) => void;
-  dismissAllToasts: () => void;
-
-  openStatusModal: () => void;
-  closeStatusModal: () => void;
-  setActiveTab: (tab: 'stats' | 'pending' | 'errors') => void;
-  forceSync: () => void;
-  clearErrors: () => void;
-
-  // Inicialización
-  initialize: () => Promise<void>;
-  cleanup: () => void;
-}
-
-export const useOfflineSyncStore = create<OfflineSyncStore>((set, get) => {
-  let engine: ReturnType<typeof createEngine> | null = null;
-  let cleanupSubscriptions: (() => void) | null = null;
-
-  const dispatch = (msg: OfflineSyncMsg) => {
-    const currentModel = get().model;
-    const nextModel = get().engine.update(msg, currentModel);
-    set({ model: nextModel });
-  };
-
-  engine = createEngine(dispatch);
-
-  return {
-    // Initial state
-    model: initialOfflineSyncModel,
-    engine,
-    dispatch,
-
-    // Toast actions
-    showToast: (toast) => {
-      dispatch(SHOW_TOAST(toast));
-    },
-
-    hideToast: (id) => {
-      dispatch(HIDE_TOAST({ id }));
-    },
-
-    dismissAllToasts: () => {
-      dispatch(DISMISS_ALL_TOASTS());
-    },
-
-    // Modal actions
-    openStatusModal: () => {
-      dispatch(OPEN_STATUS_MODAL());
-    },
-
-    closeStatusModal: () => {
-      dispatch(CLOSE_STATUS_MODAL());
-    },
-
-    setActiveTab: (tab) => {
-      dispatch(SET_ACTIVE_TAB(tab));
-    },
-
-    forceSync: () => {
-      dispatch(FORCE_SYNC());
-    },
-
-    clearErrors: () => {
-      dispatch(CLEAR_ERRORS());
-    },
-
-    // Initialization
-    initialize: async () => {
-      if (get().model.syncStatus.workerStatus === 'running') {
-        log.debug('Already initialized, skipping...');
-        return;
-      }
-
-      log.info('Initializing...');
-
-      try {
-        // Start sync worker con periodic sync (cada 5 min)
-        await startSyncWorker();
-
-        // Setup subscriptions
-        cleanupSubscriptions = setupSyncWorkerSubscriptions(dispatch);
-
-        // Start stats polling
-        startStatsPolling(dispatch);
-
-        log.info('Initialized successfully');
-      } catch (error) {
-        log.error('Initialization error', error);
-      }
-    },
-
-    cleanup: () => {
-      log.info('Cleaning up...');
-
-      if (cleanupSubscriptions) {
-        cleanupSubscriptions();
-        cleanupSubscriptions = null;
-      }
-
-      stopStatsPolling();
-      stopSyncWorker();
-
-      log.info('Cleanup complete');
-    },
-  };
+    }
+  }
 });
+
+/**
+ * Hook para inicialización y limpieza del store.
+ * Reemplaza la lógica de inicialización manual que estaba en el store anterior.
+ */
+export function useOfflineSyncInitialization() {
+  const dispatch = useOfflineSyncStore(s => s.dispatch);
+  const workerStatus = useOfflineSyncStore(s => s.model.syncStatus.workerStatus);
+
+  const initialize = async () => {
+    if (workerStatus === 'running') {
+      log.debug('Already initialized, skipping...');
+      return;
+    }
+
+    log.info('Initializing...');
+
+    try {
+      // Start sync worker con periodic sync (cada 5 min)
+      await startSyncWorker();
+
+      // Setup subscriptions
+      const cleanupSubs = setupSyncWorkerSubscriptions(dispatch);
+
+      // Start stats polling
+      startStatsPolling(dispatch);
+
+      log.info('Initialized successfully');
+      return cleanupSubs;
+    } catch (error) {
+      log.error('Initialization error', error);
+    }
+  };
+
+  const cleanup = () => {
+    log.info('Cleaning up...');
+    stopStatsPolling();
+    stopSyncWorker();
+    log.info('Cleanup complete');
+  };
+
+  return { initialize, cleanup };
+}
+
 
 // ============================================================================
 // Selectors
 // ============================================================================
 
-export const selectToasts = (state: OfflineSyncStore) => state.model.toasts;
-export const selectSyncStatus = (state: OfflineSyncStore) => state.model.syncStatus;
-export const selectPendingCount = (state: OfflineSyncStore) => state.model.syncStatus.pendingCount;
-export const selectIsModalOpen = (state: OfflineSyncStore) => state.model.syncStatus.isModalOpen;
-export const selectPendingBets = (state: OfflineSyncStore) => state.model.pendingBets;
-export const selectErrorBets = (state: OfflineSyncStore) => state.model.errorBets;
-export const selectWorkerStatus = (state: OfflineSyncStore) => state.model.syncStatus.workerStatus;
+export const selectToasts = (state: any) => state.model.toasts;
+export const selectSyncStatus = (state: any) => state.model.syncStatus;
+export const selectPendingCount = (state: any) => state.model.syncStatus.pendingCount;
+export const selectIsModalOpen = (state: any) => state.model.syncStatus.isModalOpen;
+export const selectPendingBets = (state: any) => state.model.pendingBets;
+export const selectErrorBets = (state: any) => state.model.errorBets;
+export const selectWorkerStatus = (state: any) => state.model.syncStatus.workerStatus;
 
 // ============================================================================
 // Hook para uso en componentes
 // ============================================================================
 
 export function useOfflineSync() {
-  const store = useOfflineSyncStore();
+  const model = useOfflineSyncStore(s => s.model);
+  const dispatch = useOfflineSyncStore(s => s.dispatch);
 
   return {
     // Model state
-    toasts: store.model.toasts,
-    syncStatus: store.model.syncStatus,
-    pendingCount: store.model.syncStatus.pendingCount,
-    pendingBets: store.model.pendingBets,
-    errorBets: store.model.errorBets,
+    toasts: model.toasts,
+    syncStatus: model.syncStatus,
+    pendingCount: model.syncStatus.pendingCount,
+    pendingBets: model.pendingBets,
+    errorBets: model.errorBets,
 
     // Actions
-    showToast: store.showToast,
-    hideToast: store.hideToast,
-    openStatusModal: store.openStatusModal,
-    closeStatusModal: store.closeStatusModal,
-    forceSync: store.forceSync,
-    clearErrors: store.clearErrors,
-
-    // Lifecycle
-    initialize: store.initialize,
-    cleanup: store.cleanup,
+    showToast: (toast: any) => dispatch(SHOW_TOAST(toast)),
+    hideToast: (id: string) => dispatch(HIDE_TOAST({ id })),
+    openStatusModal: () => dispatch(OPEN_STATUS_MODAL()),
+    closeStatusModal: () => dispatch(CLOSE_STATUS_MODAL()),
+    forceSync: () => dispatch(FORCE_SYNC()),
+    clearErrors: () => dispatch(CLEAR_ERRORS()),
   };
 }
 

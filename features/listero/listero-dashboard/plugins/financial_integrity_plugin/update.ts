@@ -17,11 +17,11 @@ export function update(msg: Msg.Msg, model: Model): Return<Model, Msg.Msg> {
       const localTotals = calculateLocalTotals(allLocalBets, commissionRate);
 
       const backendTotals = {
-        totalCollected: backendSummary?.total_colectado || 0,
-        premiumsPaid: backendSummary?.total_pagado || 0,
-        netResult: backendSummary?.total_neto || 0,
-        estimatedCommission: (backendSummary?.total_colectado || 0) * commissionRate,
-        amountToRemit: (backendSummary?.total_neto || 0) - ((backendSummary?.total_colectado || 0) * commissionRate),
+        totalCollected: backendSummary?.totalCollected || backendSummary?.colectado_total || 0,
+        premiumsPaid: backendSummary?.premiumsPaid || backendSummary?.pagado_total || 0,
+        netResult: backendSummary?.netResult || backendSummary?.neto_total || 0,
+        estimatedCommission: (backendSummary?.totalCollected || backendSummary?.colectado_total || 0) * commissionRate,
+        amountToRemit: (backendSummary?.netResult || backendSummary?.neto_total || 0) - ((backendSummary?.totalCollected || backendSummary?.colectado_total || 0) * commissionRate),
       };
 
       return ret(
