@@ -1,6 +1,6 @@
 import '../config/init'; // Global side effects first
 import { Stack } from 'expo-router';
-import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, Text, StyleSheet, Alert } from 'react-native';
 import { DevTools } from '../config/init';
 import { AppProviders } from '../providers/AppProviders';
 import { useAppBootstrap } from '../hooks/useAppBootstrap';
@@ -9,6 +9,7 @@ import { ErrorBoundary as SharedErrorBoundary } from '../shared/components/error
 import { useAuthNavigation } from '../hooks/useAuthNavigation';
 import { useNavigationLogger } from '../hooks/useNavigationLogger';
 import { routes } from '../config/routes';
+import setings from '../config/settings';
 
 // Export ErrorBoundary for Expo Router
 export { GlobalErrorBoundary as ErrorBoundary };
@@ -33,7 +34,8 @@ export default function RootLayout() {
 
 function RootLayoutInner() {
   const { BackButton } = useAuthNavigation();
-  
+  //add an alert with the backend url
+  Alert.alert('Backend URL', setings.api.baseUrl);
   // Logger para capturar todas las navegaciones (incluyendo router.push directo)
   useNavigationLogger();
 

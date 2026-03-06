@@ -21,6 +21,7 @@ export const bootstrapArchitecture = async (): Promise<void> => {
     logger.info('Starting Architecture Bootstrap...', 'BOOTSTRAP');
 
     try {
+
         // 0. Register Global Middlewares
         logger.info('Registering Global Middlewares...', 'BOOTSTRAP');
         MiddlewareRegistry.register(createLoggerMiddleware());
