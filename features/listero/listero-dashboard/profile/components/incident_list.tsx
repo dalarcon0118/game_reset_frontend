@@ -4,7 +4,7 @@ import { Text, Card, Spinner, Button } from '@ui-kitten/components';
 import { AlertTriangle, Clock, CheckCircle, XCircle, RefreshCw } from 'lucide-react-native';
 import { useProfileStore, selectProfileModel, selectDispatch } from '../store';
 import { ProfileMsgType } from '../profile.types';
-import { RemoteData } from '@/shared/core/remote.data';
+import { RemoteData } from '@/shared/core/tea-utils/remote.data';
 import LayoutConstants from '@/constants/layout';
 
 const styles = StyleSheet.create({

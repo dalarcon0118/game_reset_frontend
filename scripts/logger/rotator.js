@@ -54,7 +54,28 @@ function createLogStream(logFile) {
   return fs.createWriteStream(logFile, { flags: 'a' });
 }
 
+/**
+ * Clears all log files in the directory
+ */
+function clearDirectory(logDir) {
+  if (fs.existsSync(logDir)) {
+    console.log(`[Rotator] Clearing all logs in ${logDir}...`);
+    const files = fs.readdirSync(logDir);
+    files.forEach(file => {
+      const filePath = path.join(logDir, file);
+      try {
+        if (fs.statSync(filePath).isFile()) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (e) {
+        console.error(`[Rotator] Failed to delete ${file}: ${e.message}`);
+      }
+    });
+  }
+}
+
 module.exports = {
   init,
-  createLogStream
+  createLogStream,
+  clearDirectory
 };

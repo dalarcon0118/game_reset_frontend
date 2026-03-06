@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { ActivityIndicator, View, TouchableOpacity } from 'react-native';
 import { match } from 'ts-pattern';
-import { RemoteData } from '@/shared/core/remote.data';
+import { RemoteData } from '@/shared/core/tea-utils/remote.data';
 import { Label, Flex } from '@/shared/components';
 import { PluginContext } from '@/shared/core/plugins/plugin.types';
 import DrawItem from './views/draw_item';

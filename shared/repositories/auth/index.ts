@@ -1,10 +1,9 @@
+import { Result, ResultAsync } from 'neverthrow';
 import { authApiAdapter } from './adapters/auth.api.adapter';
 import { authStorageAdapter } from './adapters/auth.storage.adapter';
 import { IAuthApi, IAuthStorage, IAuthRepository } from './auth.ports';
 import { AuthResult, User, AuthSession, AuthErrorType } from './types/types';
 import { logger } from '../../utils/logger';
-import NetInfo from '@react-native-community/netinfo';
-import { isServerReachable } from '../../utils/network';
 import { setAuthRepository } from '../../services/api_client';
 
 const log = logger.withTag('AUTH_REPOSITORY');
@@ -18,6 +17,7 @@ export * from './auth.keys';
 /**
  * AuthRepository - Orquestador agnóstico de autenticación y autorización.
  * Maneja flujos online, fallback offline y persistencia.
+ * Refactored to follow SRP: No longer manages network connectivity.
  */
 class AuthRepositoryImpl implements IAuthRepository {
     private sessionListeners: ((user: User | null) => void)[] = [];
@@ -28,42 +28,21 @@ class AuthRepositoryImpl implements IAuthRepository {
         private api: IAuthApi = authApiAdapter,
         private storage: IAuthStorage = authStorageAdapter
     ) {
-        this.setupConnectivityMonitor();
+        // SRP: Connectivity monitor removed from constructor.
     }
 
-    private setupConnectivityMonitor() {
-        NetInfo.addEventListener(async (state) => {
-            // No hacer refresh mientras está haciendo login o logout
-            if (this.isLoggingIn || this.isLoggingOut) {
-                log.debug('Skipping connectivity refresh during login/logout');
-                return;
-            }
+    /**
+     * Declarative session refresh. 
+     * Can be called by an external coordinator when network is restored.
+     */
+    async refreshUserProfile(): Promise<Result<User, Error>> {
+        log.debug('[AuthRepository] Manually refreshing user profile...');
 
-            if (state.isConnected) {
-                const reachable = await isServerReachable();
-                if (reachable) {
-                    log.info('Network restored, refreshing session in background...');
-                    this.refreshSession();
-                }
-            }
-        });
-    }
+        return ResultAsync.fromPromise(
+            (async () => {
+                const user = await this.api.getMe();
+                if (!user) throw new Error('FAILED_TO_GET_USER_PROFILE');
 
-    private async refreshSession() {
-        try {
-            const hasSession = await this.hasSession();
-            if (!hasSession) return;
-
-            const session = await this.storage.getSession();
-
-            // No hacer refresh si es sesión offline
-            if (session.isOffline) {
-                log.info('Offline session detected, skipping session refresh');
-                return;
-            }
-
-            const user = await this.api.getMe();
-            if (user) {
                 const session = await this.storage.getSession();
                 await this.storage.saveSession({
                     user,
@@ -71,12 +50,12 @@ class AuthRepositoryImpl implements IAuthRepository {
                     refreshToken: session.refresh!,
                     isOffline: false
                 });
+
                 this.notifySessionListeners(user);
-            }
-        } catch (error) {
-            log.warn('Background session refresh failed', error);
-            // If it's a 401/403, the api_client will handle it and eventually we might get a logout
-        }
+                return user;
+            })(),
+            (e: any) => e instanceof Error ? e : new Error(String(e))
+        );
     }
 
     private notifySessionListeners(user: User | null) {
@@ -91,20 +70,25 @@ class AuthRepositoryImpl implements IAuthRepository {
     }
 
     async saveToken(access: string, refresh?: string): Promise<void> {
+        const user = (await this.storage.getUserProfile()) || ({} as User);
         await this.storage.saveSession({
             accessToken: access,
             refreshToken: refresh,
-            user: (await this.storage.getUserProfile()) || ({} as User),
+            user,
             isOffline: false
         });
     }
 
-    async getToken(): Promise<{ access: string | null; refresh: string | null }> {
-        return await this.storage.getSession();
-    }
-
     async clearToken(): Promise<void> {
         await this.storage.clearSession();
+    }
+
+    async getToken(): Promise<{ access: string | null; refresh: string | null }> {
+        const session = await this.storage.getSession();
+        return {
+            access: session.access || null,
+            refresh: session.refresh || null
+        };
     }
 
     /**

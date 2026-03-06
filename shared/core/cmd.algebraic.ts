@@ -6,7 +6,7 @@
  * utilizando tipos algebraicos para mayor seguridad de tipos.
  */
 
-import { Cmd as CoreCmd, CommandDescriptor } from './cmd';
+import { Cmd as CoreCmd, CommandDescriptor } from './tea-utils/cmd';
 import { Maybe, Either, Result } from './algebraic-types';
 import { logger } from '../utils/logger';
 import { ListParams } from './architecture/interfaces';

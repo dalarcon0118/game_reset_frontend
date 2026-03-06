@@ -8,11 +8,13 @@ const path = require('path');
 const fs = require('fs');
 const { sanitize } = require('./sanitizer');
 const { LogProcessor } = require('./processor');
+const rotator = require('./rotator');
 
 class LogManager {
-  constructor(logStream, logDir) {
+  constructor(logStream, logDir, logFile) {
     this.logStream = logStream;
     this.logDir = logDir;
+    this.logFile = logFile;
     this.processor = new LogProcessor();
     this.buffer = ''; // Accumulator for log lines
   }
@@ -59,7 +61,25 @@ class LogManager {
       // 1. Output original to stdout AS IS (preserving PTY behavior, colors, progress bars)
       process.stdout.write(str);
       
-      // 2. Buffer processing for the log file
+      // 2. Detect Reloading apps to clear logs
+      if (str.includes('Reloading apps')) {
+        console.log('\n[Manager] "Reloading apps" detected. Clearing logs directory...');
+        try {
+          // 1. Close current stream
+          this.logStream.end();
+          
+          // 2. Clear directory
+          rotator.clearDirectory(this.logDir);
+          
+          // 3. Re-initiate stream
+          this.logStream = rotator.createLogStream(this.logFile);
+          console.log('[Manager] Log stream restarted successfully.');
+        } catch (e) {
+          console.error(`[Manager] Error during log reset: ${e.message}`);
+        }
+      }
+
+      // 3. Buffer processing for the log file
       this.buffer += str;
       let lastNewlineIndex;
       

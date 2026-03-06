@@ -11,7 +11,7 @@ rotator.init(LOG_DIR, LOG_FILE);
 
 // --- 2. Initialize Port Management & Log Stream ---
 const logStream = rotator.createLogStream(LOG_FILE);
-const manager = new LogManager(logStream, LOG_DIR);
+const manager = new LogManager(logStream, LOG_DIR, LOG_FILE);
 
 // Clean port 8081 before starting
 manager.clearPort(8081);

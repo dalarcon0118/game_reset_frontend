@@ -1,11 +1,11 @@
-import { RemoteData } from '@/shared/core/remote.data';
-import { 
-    BolitaModel, 
-    ParletModel, 
-    CentenaModel, 
-    EditModel, 
-    BolitaListState, 
-    BolitaListData 
+import { RemoteData } from '@/shared/core/tea-utils/remote.data';
+import {
+    BolitaModel,
+    ParletModel,
+    CentenaModel,
+    EditModel,
+    BolitaListState,
+    BolitaListData
 } from './bolita.types';
 
 export const initialParletState: ParletModel = {

@@ -1,4 +1,4 @@
-import { EventDescriptor, EventHandler, globalEventRegistry } from './core/events';
+import { EventDescriptor, EventHandler, globalEventRegistry } from './core/tea-utils/events';
 import { logger } from './utils/logger';
 
 const log = logger.withTag('RN_EVENTS');

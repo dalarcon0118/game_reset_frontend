@@ -1,4 +1,4 @@
-import { Sub, SubDescriptor } from '@/shared/core/sub';
+import { Sub, SubDescriptor } from '@/shared/core/tea-utils/sub';
 import { useAuthStore } from './store/store';
 import { SubscriptionHandler } from '@/shared/core/architecture/kernel';
 import { logger } from '@/shared/utils/logger';

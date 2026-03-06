@@ -1,11 +1,11 @@
-import { createElmStore } from '@/shared/core/engine';
-import { effectHandlers } from '@/shared/core/effect_handlers';
+import { createElmStore } from '@/shared/core/engine/engine';
+import { effectHandlers } from '@/shared/core/tea-utils/effect_handlers';
 import { createLoggerMiddleware } from '@/shared/core/middlewares/logger.middleware';
 import { BolitaModel } from '../domain/models/bolita.types';
 import { initialBolitaModel } from '../domain/models/bolita.initial';
 import { update } from '../application/bolita';
-import { Cmd } from '@/shared/core/cmd';
-import { Sub } from '@/shared/core/sub';
+import { Cmd } from '@/shared/core/tea-utils/cmd';
+import { Sub } from '@/shared/core/tea-utils/sub';
 import { BolitaMsg } from '../domain/models/bolita.messages';
 
 /**

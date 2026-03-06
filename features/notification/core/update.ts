@@ -2,13 +2,16 @@ import { match } from 'ts-pattern';
 import { Model, AppNotification } from './model';
 import { Msg } from './msg';
 import { initialNotificationModel } from './store';
-import { Cmd } from '../../../shared/core/cmd';
-import { Sub } from '../../../shared/core/sub';
-import { RemoteDataHttp } from '../../../shared/core/remote.data.http';
-import { RemoteData } from '../../../shared/core/remote.data';
-import { singleton, ret } from '../../../shared/core/return';
-import { useAuthStore } from '../../auth/store/store';
-import { logger } from '../../../shared/utils/logger';
+import {
+    Cmd,
+    Sub,
+    RemoteDataHttp,
+    RemoteData,
+    singleton,
+    ret
+} from '@/shared/core/tea-utils';
+import { useAuthStore } from '@/features/auth/store/store';
+import { logger } from '@/shared/utils/logger';
 import { notificationRepository } from '@/shared/repositories/notification';
 import apiClient from '@/shared/services/api_client';
 const log = logger.withTag('NOTIFICATION_CORE');

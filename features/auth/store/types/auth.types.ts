@@ -1,12 +1,24 @@
 // Auth state types - core authentication model
 import { User } from '../../../../shared/repositories/auth';
-import { WebData, RemoteData } from '../../../../shared/core/remote.data';
+import { WebData } from '../../../../shared/core/tea-utils/remote.data';
+
+/**
+ * Single Source of Truth for Session Status.
+ * Follows a formal state machine pattern.
+ */
+export type SessionStatus =
+    | 'IDLE'           // Initial state before hydration
+    | 'HYDRATING'      // Loading session from storage
+    | 'ANONYMOUS'      // No session found
+    | 'AUTHENTICATED'  // Session is valid and active
+    | 'REFRESHING'     // Token expired, attempting background refresh
+    | 'EXPIRED'        // Session expired and cannot be refreshed
+    | 'LOGGING_OUT';   // Cleanup in progress
 
 export interface AuthState {
     user: User | null;
-    isAuthenticated: boolean;
-    loginResponse: WebData<User>; // RemoteData for the login result
-    isLoggingOut: boolean;
+    status: SessionStatus;
+    loginResponse: WebData<User>;
     error: string | null;
 }
 

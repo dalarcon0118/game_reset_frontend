@@ -1,4 +1,4 @@
-import { WebData } from '@/shared/core/remote.data';
+import { WebData } from '@/shared/core/tea-utils/remote.data';
 
 export interface UserProfile {
     id: string;

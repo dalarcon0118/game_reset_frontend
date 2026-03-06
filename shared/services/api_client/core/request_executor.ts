@@ -6,7 +6,10 @@ import {
   ITimerRepository,
   RequestOptions
 } from '../api_client.types';
-import { AuthManager } from './auth_manager';
+import { CredentialProvider } from './credential_provider';
+import { SessionCoordinator } from '@/shared/auth/session/session.coordinator';
+import { SessionPolicy } from '@/shared/auth/session/session.policy';
+import { SessionPolicyContext } from '@/shared/auth/session/session.types';
 import { CacheManager } from './cache_manager';
 import { ErrorManager } from './error_manager';
 import { Transport } from '../infra/transport';
@@ -36,7 +39,8 @@ type RetryRequestFn = <T>(endpoint: string, options: RequestOptions) => Promise<
 
 export class RequestExecutor {
   constructor(
-    private authManager: AuthManager,
+    private credentialProvider: CredentialProvider,
+    private coordinatorGetter: () => SessionCoordinator,
     private cacheManager: CacheManager,
     private errorManager: ErrorManager,
     private transport: Transport,
@@ -51,7 +55,13 @@ export class RequestExecutor {
     const context = this.buildRequestContext(endpoint, options);
     const cached = this.getCachedResponse<T>(context);
     if (cached !== null) return cached;
-    await this.ensureValidAuth(context.endpoint, context.fetchOptions);
+
+    // Validación proactiva via coordinator
+    if (this.shouldAttemptAuth(endpoint, context.fetchOptions)) {
+      const coordinator = this.coordinatorGetter();
+      await coordinator.onRequestAuthCheck(endpoint, false, true); // Public check already in shouldAttemptAuth
+    }
+
     return this.executeWithRetry<T>(context);
   }
 
@@ -99,13 +109,13 @@ export class RequestExecutor {
 
   private async executeAttempt<T>(context: RequestContext, attempt: number): Promise<AttemptOutcome<T>> {
     try {
-      const { response, config } = await this.performFetch(context, attempt);
+      const { response } = await this.performFetch(context, attempt);
 
       if (response.ok) {
         return { type: 'success', data: await this.handleSuccess<T>(response, context) };
       }
 
-      return this.handleFailure<T>(response, context, config, attempt);
+      return this.handleFailure<T>(response, context, attempt);
     } catch (error) {
       return this.handleNetworkError<T>(error, context, attempt);
     }
@@ -143,12 +153,11 @@ export class RequestExecutor {
   private async handleFailure<T>(
     response: Response,
     context: RequestContext,
-    config: RequestInit,
     attempt: number
   ): Promise<AttemptOutcome<T>> {
     const error = await this.errorManager.handleResponseError(response, context.endpoint, context.options);
 
-    const authOutcome = await this.tryHandleAuthError<T>(response.status, error, context, config);
+    const authOutcome = await this.tryHandleAuthError<T>(response.status, error, context);
     if (authOutcome) return authOutcome;
 
     if (this.shouldRetryServerError(response.status, attempt, context.retryCount)) {
@@ -183,19 +192,6 @@ export class RequestExecutor {
     return !method || method === 'GET';
   }
 
-  private async ensureValidAuth(endpoint: string, options: RequestExecutionOptions): Promise<void> {
-    if (!this.authManager) {
-      this.log.warn('authManager not available, skipping auth validation');
-      return;
-    }
-    if (!this.shouldAttemptAuth(endpoint, options)) return;
-    this.log.debug('[Ensuring valid auth token...]', this.authManager);
-    const token = await this.authManager.getAuthToken();
-    if (!token || !this.authManager.isTokenExpired(token)) return;
-    this.log.debug('Token expired, refreshing...');
-    await this.authManager.refreshAccessToken();
-  }
-
   private shouldAttemptAuth(endpoint: string, options: RequestExecutionOptions): boolean {
     if (options.skipAuth) return false;
     if (this.isPublicEndpoint(endpoint)) return false;
@@ -227,13 +223,25 @@ export class RequestExecutor {
 
   private async prepareRequestConfig(options: RequestExecutionOptions): Promise<RequestInit> {
     this.log.debug('[Preparing request config...]', options);
-    const token = this.authManager ? await this.authManager.getAuthToken() : null;
+
+    const token = await this.credentialProvider.getAccessToken();
+    const tokenState = SessionPolicy.resolveTokenState(token);
+
+    const context: SessionPolicyContext = {
+      status: this.coordinatorGetter().getCurrentStatus(),
+      tokenState,
+      networkConnected: true, // TODO: Inyectar monitor de red
+      isPublicEndpoint: options.skipAuth
+    };
+
+    const shouldAttach = SessionPolicy.shouldAttachAuthorization(context);
+
     return {
       ...options,
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        ...(!options.skipAuth && token ? { 'Authorization': `Bearer ${token}` } : {}),
+        ...(shouldAttach && token ? { 'Authorization': `Bearer ${token}` } : {}),
         ...options.headers,
       },
     };
@@ -266,25 +274,27 @@ export class RequestExecutor {
   private async tryHandleAuthError<T>(
     status: number,
     error: ApiClientError,
-    context: RequestContext,
-    config: RequestInit
+    context: RequestContext
   ): Promise<AttemptOutcome<T> | null> {
-    const errorHandler = this.getErrorHandler();
-    const isAuthError = status === 401 || status === 403;
+    if (status !== 401 && status !== 403) return null;
+    if (context.options.skipAuthHandler) return null;
 
-    if (!errorHandler || context.options.skipAuthHandler || !isAuthError) {
-      return null;
+    this.log.warn(`Auth error ${status} on ${context.endpoint}`);
+
+    const coordinator = this.coordinatorGetter();
+    const authOutcome = await coordinator.onAuthError(error, context.endpoint);
+
+    if (authOutcome.retry) {
+      this.log.info(`Retrying request after auth error handling`, { endpoint: context.endpoint });
+      try {
+        const data = await this.retryRequest<T>(context.endpoint, context.options);
+        return { type: 'success', data };
+      } catch (retryError) {
+        return { type: 'throw', error: retryError };
+      }
     }
 
-    const handlerRes = await errorHandler(error, context.endpoint, config);
-    if (!handlerRes?.retry) return null;
-
-    const data = await this.retryRequest<T>(context.endpoint, {
-      ...context.options,
-      skipAuthHandler: true
-    });
-
-    return { type: 'success', data };
+    return null;
   }
 
   private shouldRetryServerError(status: number, attempt: number, retryCount: number): boolean {

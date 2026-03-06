@@ -1,5 +1,5 @@
 import { Model } from './model';
-import { Sub } from '@/shared/core/sub';
+import { Sub } from '@/shared/core/tea-utils/sub';
 import { SYNC_STATE, BATCH_OFFLINE_UPDATE, DrawTotalsUpdate } from './msg';
 import { logger } from '@/shared/utils/logger';
 import { extractHostState, createDrawsHash, HostStatePayload } from './host.adapter';

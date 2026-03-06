@@ -1,13 +1,13 @@
 // @ts-ignore
 import { router } from 'expo-router';
 import { Alert } from 'react-native';
-import { handleHttp, HttpPayload } from './effects/http.effect';
-import { handleNavigation, NavigationPayload } from './effects/navigation.effect';
-import { handleTask, TaskPayload } from './effects/task.effect';
+import { handleHttp, HttpPayload } from '../effects/http.effect';
+import { handleNavigation, NavigationPayload } from '../effects/navigation.effect';
+import { handleTask, TaskPayload } from '../effects/task.effect';
 import {
     handleResource,
     ResourcePayload,
-} from './effects/resource.effect';
+} from '../effects/resource.effect';
 import { EffectRegistry, EffectModule } from './effect_registry';
 
 /**
@@ -74,14 +74,15 @@ export const effectHandlers = new Proxy(
             return async (payload: any, dispatch: (msg: any) => void) => {
                 const handler = EffectRegistry.get(key);
                 if (handler) {
-                    console.log(`[EFFECT_HANDLER] ✅ Found handler for: ${key}`);
-                    await handler(payload, dispatch);
+                    // Log minimalista pero informativo para depuración
+                    console.log(`[EFFECT_HANDLER] ⚙️ Executing: ${key}`, {
+                        label: payload?.label || 'unlabeled',
+                        hasTask: typeof payload?.task === 'function'
+                    });
+                    return await handler(payload, dispatch);
                 } else {
-                    console.error(`[EFFECT_HANDLER] ❌ Handler not found for key: ${key}`);
-                    // @ts-ignore
-                    const registryId = EffectRegistry.instanceId;
-                    console.error(`Current Registry ID: ${registryId}`);
-                    console.error('Available keys:', EffectRegistry.keys());
+                    console.error(`[EFFECT_HANDLER] ❌ Handler not found: ${key}`);
+                    return Promise.reject(new Error(`Effect handler not found: ${key}`));
                 }
             };
         },

@@ -1,14 +1,15 @@
 import { create } from 'zustand';
-import { SubDescriptor } from './sub';
-import { logger } from '../utils/logger';
-import { globalEventRegistry } from './events';
-import { AppKernel } from './architecture/kernel';
-import { Return } from './return';
-import { TeaMiddleware, TeaMiddlewareCodec } from './middleware.types';
-import { MiddlewareRegistry } from './middleware_registry';
+import { SubDescriptor } from '../tea-utils/sub';
+import { logger } from '../../utils/logger';
+import { globalEventRegistry } from '../tea-utils/events';
+import { AppKernel } from '../architecture/kernel';
+import { Return } from '../tea-utils/return';
+import { TeaMiddleware, TeaMiddlewareCodec } from '../tea-utils/middleware.types';
+import { MiddlewareRegistry } from '../tea-utils/middleware_registry';
 import { isLeft } from 'fp-ts/Either';
 import { PathReporter } from 'io-ts/PathReporter';
-import { Cmd, CommandDescriptor } from './cmd';
+import { Cmd, CommandDescriptor } from '../tea-utils/cmd';
+import { elmEngine } from './engine_config';
 
 // La estructura que debe devolver cualquier función 'update'
 export type UpdateResult<TModel, TMsg> = [TModel, Cmd] | Return<TModel, TMsg>;
@@ -16,12 +17,30 @@ export type UpdateResult<TModel, TMsg> = [TModel, Cmd] | Return<TModel, TMsg>;
 export const createElmStore = <TModel, TMsg>(
     initial: TModel | ((params?: any) => UpdateResult<TModel, TMsg>),
     update: (model: TModel, msg: TMsg) => UpdateResult<TModel, TMsg>,
-    effectHandlers: Record<string, (payload: any, dispatch: (msg: TMsg) => void) => Promise<any>>,
     subscriptions?: (model: TModel) => SubDescriptor<TMsg>,
-    middlewares: TeaMiddleware<TModel, TMsg>[] = []
+    // Effect handlers: si no se pasa, usa los globales configurados con elmEngine.configure()
+    effectHandlers?: Record<string, (payload: any, dispatch: (msg: TMsg) => void) => Promise<any>>,
+    // Middlewares: si no se pasa, usa los globales de MiddlewareRegistry + los globales de elmEngine
+    middlewares?: TeaMiddleware<TModel, TMsg>[]
 ) => {
+    // Obtener effectHandlers globales si no se proporcionan
+    const globalEffectHandlers = elmEngine.getEffectHandlers();
+    const finalEffectHandlers = effectHandlers ?? globalEffectHandlers;
+
+    if (!finalEffectHandlers || Object.keys(finalEffectHandlers).length === 0) {
+        throw new Error(
+            '[TEA_ENGINE] ERROR: No effectHandlers provided. ' +
+            'Either pass them directly to createElmStore() or configure them globally with elmEngine.configure() in your app root.'
+        );
+    }
+
+    // Obtener middlewares globales de elmEngine
+    const globalMiddlewares = elmEngine.getMiddlewares();
+    // Combinar: global de elmEngine + local (si se pasa)
+    const middlewaresToCombine = middlewares ?? [];
     // Combine global and local middlewares, filtering duplicates by ID
-    const combined = [...MiddlewareRegistry.getGlobals(), ...middlewares];
+    // Priority: MiddlewareRegistry.getGlobals() -> elmEngine.getMiddlewares() -> local middlewares
+    const combined = [...MiddlewareRegistry.getGlobals(), ...globalMiddlewares, ...middlewaresToCombine];
     const allMiddlewares: TeaMiddleware<TModel, TMsg>[] = [];
     const seenIds = new Set<string>();
 
@@ -97,10 +116,20 @@ export const createElmStore = <TModel, TMsg>(
 
         const executeCmds = (cmd: Cmd, parentMeta?: Record<string, any>) => {
             const dispatchWithMeta = (nextMsg: TMsg) => {
-                if (parentMeta) {
+                // Validate message before using as WeakMap key
+                if (nextMsg && typeof nextMsg === 'object') {
                     metaRegistry.set(nextMsg, { ...parentMeta });
                 }
-                get().dispatch(nextMsg);
+                // Only dispatch valid messages (objects), skip primitives like undefined/null
+                // This handles the case where Cmd.task's default onSuccess: (x) => x returns undefined
+                if (nextMsg && typeof nextMsg === 'object') {
+                    get().dispatch(nextMsg);
+                } else if (nextMsg !== undefined) {
+                    // Log non-object but valid messages (e.g., strings)
+                    logger.warn('Dispatch received non-object message', 'ENGINE', { msg: nextMsg });
+                    get().dispatch(nextMsg);
+                }
+                // Silent skip for undefined - this is expected when tasks return nothing
             };
 
             const flattenCmds = (c: Cmd): CommandDescriptor[] => {
@@ -132,13 +161,13 @@ export const createElmStore = <TModel, TMsg>(
                     return;
                 }
 
-                if (singleCmd && effectHandlers[singleCmd.type]) {
+                if (singleCmd && finalEffectHandlers[singleCmd.type]) {
                     try {
                         // Middleware: Before Command
                         const currentMeta = parentMeta || {};
                         allMiddlewares.forEach(m => m.beforeCmd?.(singleCmd, currentMeta));
 
-                        const result = await effectHandlers[singleCmd.type](singleCmd.payload, dispatchWithMeta);
+                        const result = await finalEffectHandlers[singleCmd.type](singleCmd.payload, dispatchWithMeta);
                         if (singleCmd.payload && singleCmd.payload.msgCreator) {
                             dispatchWithMeta(singleCmd.payload.msgCreator(result));
                         }
@@ -187,8 +216,8 @@ export const createElmStore = <TModel, TMsg>(
                 if (checkStorm(msgType)) return;
 
                 // --- Retrieve/Initialize Metadata ---
-                let meta = metaRegistry.get(msg);
-                if (!meta) {
+                let meta = (msg && typeof msg === 'object') ? metaRegistry.get(msg) : null;
+                if (!meta && msg && typeof msg === 'object') {
                     meta = {};
                     metaRegistry.set(msg, meta);
                 }
@@ -236,7 +265,7 @@ export const createElmStore = <TModel, TMsg>(
                 }
 
 
-                if (cmdToRun) executeCmds(cmdToRun, meta);
+                if (cmdToRun) executeCmds(cmdToRun, meta || undefined);
             },
         };
     });

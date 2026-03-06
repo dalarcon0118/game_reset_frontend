@@ -18,7 +18,7 @@ const getDevelopmentBaseUrl = () => {
 
   if (host) {
     log.debug('Detected Host IP from Expo', { host });
-    return `http://${host}:8000/api`;
+    return `https://uk80ggc4c00og4s0ocogckwo.149.130.221.251.sslip.io/api`; //`http://${host}:8000/api`;
   }
 
   if (Platform.OS === 'android') {

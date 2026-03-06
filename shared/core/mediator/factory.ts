@@ -7,7 +7,7 @@
  * - Proper routing with originStoreId
  */
 
-import { Cmd } from '../cmd';
+import { Cmd } from '../tea-utils/cmd';
 import { logger } from '../../utils/logger';
 import {
     TeaResolver,

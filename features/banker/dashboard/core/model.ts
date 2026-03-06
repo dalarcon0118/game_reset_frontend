@@ -1,4 +1,4 @@
-import { WebData } from '@/shared/core/remote.data';
+import { WebData } from '@/shared/core/tea-utils/remote.data';
 import { ChildStructure } from '@/shared/services/structure';
 
 export interface DashboardSummary {

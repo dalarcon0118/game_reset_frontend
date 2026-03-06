@@ -1,6 +1,6 @@
 import { AuthHandler } from '@/features/listero/listero-dashboard/core/handlers/auth.handler';
 import { Model } from '@/features/listero/listero-dashboard/core/model';
-import { RemoteData } from '@/shared/core/remote.data';
+import { RemoteData } from '@/shared/core/tea-utils/remote.data';
 import { DashboardUser } from '@/features/listero/listero-dashboard/core/user.dto';
 import { DrawType, FinancialSummary } from '@/types';
 

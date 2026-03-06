@@ -1,5 +1,5 @@
 import { Return, singleton } from './return';
-import { Cmd } from './cmd';
+import { Cmd } from './tea-utils/cmd';
 
 // --- Mock Types & Actions for Demonstration ---
 interface VehicleTableModel { count: number }

@@ -8,7 +8,7 @@ import { SuccessHeader } from '../components/success_header';
 import { SuccessVoucher } from '../components/success_voucher';
 import { SuccessActions } from '../components/success_actions';
 import { VoucherData } from '../../core/domain/success.types';
-import { WebData } from '@/shared/core/remote.data';
+import { WebData } from '@/shared/core/tea-utils/remote.data';
 
 interface SuccessViewProps {
     data: VoucherData;

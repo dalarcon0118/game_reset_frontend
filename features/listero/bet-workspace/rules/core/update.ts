@@ -1,9 +1,9 @@
 import { match } from 'ts-pattern';
 import { RulesModel } from './model';
 import { RulesMsg, FETCH_RULES_REQUESTED, REFRESH_RULES_REQUESTED, FETCH_RULES_SUCCEEDED, FETCH_RULES_FAILED, SHOW_RULES_DRAWER, HIDE_RULES_DRAWER, SELECT_RULE, CLEAR_SELECTION } from './types';
-import { Cmd } from '@/shared/core/cmd';
+import { Cmd } from '@/shared/core/tea-utils/cmd';
 import { Return, ret, singleton } from '@/shared/core/return';
-import { RemoteData } from '@/shared/core/remote.data';
+import { RemoteData } from '@/shared/core/tea-utils/remote.data';
 
 export interface RulesContextModel {
     rulesSession: RulesModel;

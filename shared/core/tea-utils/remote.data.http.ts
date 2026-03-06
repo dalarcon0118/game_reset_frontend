@@ -1,6 +1,6 @@
 import { logger } from '../utils/logger';
 import { RemoteData, WebData } from './remote.data';
-import { Cmd } from './cmd';
+import { Cmd } from './tea-utils/cmd';
 import { Result } from 'neverthrow';
 
 const log = logger.withTag('REMOTE_DATA_HTTP');
@@ -121,73 +121,54 @@ export const RemoteDataHttp = {
     if (typeof task !== 'function') {
       log.error('Invalid task parameter - expected function', {
         type: typeof task,
-        task
+        task,
+        label
       });
       return Cmd.task({
-        task: async () => { throw new Error('Invalid task function provided to RemoteDataHttp.fetch'); },
+        task: async () => { throw new Error(`Invalid task function provided to RemoteDataHttp.fetch ${label ? `(${label})` : ''}`); },
         onSuccess: (data: T) => msgCreator(RemoteData.success(data)),
         onFailure: (error: any) => msgCreator(RemoteData.failure(error)),
         label: label ? `${label}_ERROR` : 'UNKNOWN_ERROR'
       });
     }
 
-    return Cmd.task({
-      task: async () => {
-        // DIAGNOSTIC LOG: Verificar RemoteData en el scope del task
-        log.debug('RemoteDataHttp.fetch task executing', {
-          hasRemoteData: typeof RemoteData !== 'undefined',
-          remoteDataKeys: typeof RemoteData !== 'undefined' ? Object.keys(RemoteData) : 'N/A',
-          label: label || 'REMOTE_DATA_HTTP_FETCH'
-        });
+    const wrappedTask = async () => {
+      // DIAGNOSTIC LOG: Verificar RemoteData en el scope del task
+      log.debug('RemoteDataHttp.fetch task executing', {
+        hasRemoteData: typeof RemoteData !== 'undefined',
+        label: label || 'REMOTE_DATA_HTTP_FETCH'
+      });
 
-        try {
-          const result = await task();
+      try {
+        const result = await task();
 
-          // Check for Result pattern (neverthrow)
-          if (result && typeof (result as any).isOk === 'function' && typeof (result as any).isErr === 'function') {
-            if ((result as any).isErr()) {
-              throw (result as any).error;
-            }
-            return (result as any).value;
+        // Check for Result pattern (neverthrow)
+        if (result && typeof (result as any).isOk === 'function' && typeof (result as any).isErr === 'function') {
+          if ((result as any).isErr()) {
+            throw (result as any).error;
           }
-
-          // If it's the [error, data] tuple from our to() helper
-          if (Array.isArray(result) && result.length === 2) {
-            const [error, data] = result;
-
-            // Pattern [Error, null] or [null, Data]
-            const isResultPattern = (error === null) || (error instanceof Error);
-
-            if (isResultPattern) {
-              if (error) throw error;
-              return data;
-            }
-          }
-          return result as T;
-        } catch (error) {
-          log.error('RemoteDataHttp task execution failed', { label: label || 'REMOTE_DATA_HTTP_FETCH', error });
-          throw error;
+          return (result as any).value;
         }
-      },
-      onSuccess: (data: T) => {
-        // DIAGNOSTIC LOG: Verificar RemoteData en onSuccess
-        log.debug('RemoteDataHttp.fetch onSuccess', {
-          hasRemoteData: typeof RemoteData !== 'undefined',
-          dataType: typeof data,
-          label: label || 'REMOTE_DATA_HTTP_FETCH'
-        });
-        return msgCreator(RemoteData.success(data));
-      },
-      onFailure: (error: any) => {
-        // DIAGNOSTIC LOG: Verificar RemoteData en onFailure
-        log.debug('RemoteDataHttp.fetch onFailure', {
-          hasRemoteData: typeof RemoteData !== 'undefined',
-          errorType: typeof error,
-          label: label || 'REMOTE_DATA_HTTP_FETCH'
-        });
-        return msgCreator(RemoteData.failure(error));
-      },
-      label: label || 'REMOTE_DATA_HTTP_FETCH'
+
+        // Check for [error, data] pattern (Golang style)
+        if (Array.isArray(result) && result.length === 2) {
+          const [error, data] = result;
+          if (error) throw error;
+          return data;
+        }
+
+        return result as T;
+      } catch (error) {
+        log.error(`Fetch task failed: ${label || 'unlabeled'}`, error);
+        throw error;
+      }
+    };
+
+    return Cmd.task({
+      task: wrappedTask,
+      onSuccess: (data: T) => msgCreator(RemoteData.success(data)),
+      onFailure: (error: any) => msgCreator(RemoteData.failure(error)),
+      label: label
     });
   }
 };

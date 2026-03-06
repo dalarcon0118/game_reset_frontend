@@ -1,12 +1,15 @@
 import { match } from 'ts-pattern';
 import { Model, DashboardSummary } from './model';
 import { Msg } from './msg';
-import { Cmd } from '@/shared/core/cmd';
-import { Sub } from '@/shared/core/sub';
-import { RemoteDataHttp } from '@/shared/core/remote.data.http';
-import { RemoteData } from '@/shared/core/remote.data';
+import {
+    Cmd,
+    Sub,
+    RemoteDataHttp,
+    RemoteData,
+    singleton,
+    ret
+} from '@/shared/core/tea-utils';
 import { BankerDashboardService } from '../../services/banker_dashboard_service';
-import { singleton, ret } from '@/shared/core/return';
 import { useAuthStore } from '@/features/auth/store/store';
 import * as config from '@/config';
 

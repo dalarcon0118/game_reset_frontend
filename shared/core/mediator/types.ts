@@ -2,7 +2,7 @@
  * Mediator Types - Improved with proper context for onRegister
  */
 
-import { Cmd } from '../cmd';
+import { Cmd } from '../tea-utils/cmd';
 
 /**
  * Store registration info - passed to onRegister

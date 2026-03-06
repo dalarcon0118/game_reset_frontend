@@ -6,7 +6,7 @@
  */
 
 import { Maybe, Either, Result, TEAAlgebraicUtils } from './algebraic-types';
-import { RemoteData } from './remote.data';
+import { RemoteData } from './tea-utils/remote.data';
 
 /**
  * Extensión de RemoteData para incluir tipos algebraicos
@@ -67,9 +67,9 @@ export const AlgebraicRemoteData = {
     return { type: 'Failure', error: either.left };
   },
 
- /**
-   * Mapea un RemoteData a través de una función que puede fallar (devolviendo un Either)
-   */
+  /**
+    * Mapea un RemoteData a través de una función que puede fallar (devolviendo un Either)
+    */
   andThen: <E, A, B>(
     f: (data: A) => Either<E, B>,
     rd: AlgebraicRemoteData<E, A>
@@ -102,7 +102,7 @@ export const AlgebraicRemoteData = {
 };
 
 // Extendemos la interfaz RemoteData existente para mantener compatibilidad
-export { RemoteData } from './remote.data';
+export { RemoteData } from './tea-utils/remote.data';
 
 // Exportamos también una versión que integra ambos enfoques
 export const ExtendedRemoteData = {

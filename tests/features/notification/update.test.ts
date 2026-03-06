@@ -9,7 +9,7 @@ import {
     NOTIFICATION_SELECTED
 } from '../../../features/notification/core/msg';
 import { AppNotification, Model } from '../../../features/notification/core/model';
-import { RemoteData } from '../../../shared/core/remote.data';
+import { RemoteData } from '../../../shared/core/tea-utils/remote.data';
 
 describe('Notification Update Logic', () => {
     it('should handle FETCH_NOTIFICATIONS_REQUESTED', () => {

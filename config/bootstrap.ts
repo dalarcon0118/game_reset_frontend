@@ -2,21 +2,27 @@ import { AppKernel } from '@/shared/core/architecture/kernel';
 import { logger } from '../shared/utils/logger';
 import { apiClient } from '../shared/services/api_client';
 import { ApiClientError } from '../shared/services/api_client/api_client.errors';
-import { useAuthStore } from '../features/auth/store/store';
+import { useAuthStore, selectIsAuthenticated } from '../features/auth/store/store';
 import { AuthMsgType } from '../features/auth/store/types';
-import { EffectRegistry } from '../shared/core/effect_registry';
+import { EffectRegistry } from '../shared/core/tea-utils/effect_registry';
 import { AuthSubscriptionHandler } from '../features/auth/subscription_handler';
 import { bootstrapKernel } from '../shared/core/architecture/bootstrap_kernel';
 import { AppManifest } from './app_manifest';
-import { MiddlewareRegistry } from '../shared/core/middleware_registry';
 import { createLoggerMiddleware } from '../shared/core/middlewares/logger.middleware';
 import { createTimeIntegrityMiddleware } from '../shared/core/middlewares/time_integrity.middleware';
-
+import { MiddlewareRegistry } from '@/shared/core/tea-utils/middleware_registry';
+import { elmEngine } from '@/shared/core/engine/engine_config';
+import { effectHandlers } from '@/shared/core/tea-utils/effect_handlers';
 /**
  * Bootstraps the Application Architecture
  * This function should be called before the React application mounts.
  * It initializes the Kernel with the concrete implementations of our providers.
  */
+elmEngine.configure({
+    effectHandlers,
+    middlewares: MiddlewareRegistry.getGlobals()
+});
+
 export const bootstrapArchitecture = async (): Promise<void> => {
     logger.info('Starting Architecture Bootstrap...', 'BOOTSTRAP');
 
@@ -64,7 +70,7 @@ export const bootstrapArchitecture = async (): Promise<void> => {
         apiClient.setSessionExpiredHandler(() => {
             const state = useAuthStore.getState();
             // Solo hacer logout si el usuario está autenticado
-            if (state.model?.isAuthenticated) {
+            if (selectIsAuthenticated(state)) {
                 logger.warn('Session expired signal received - Logging out', 'BOOTSTRAP');
                 useAuthStore.getState().dispatch({ type: AuthMsgType.LOGOUT_REQUESTED });
             } else {

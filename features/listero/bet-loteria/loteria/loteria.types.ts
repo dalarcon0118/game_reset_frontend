@@ -1,4 +1,4 @@
-import { createMsg } from '@/shared/core/msg';
+import { createMsg } from '@/shared/core/tea-utils/msg';
 import { LoteriaBet } from '@/types';
 
 // ============================================================================

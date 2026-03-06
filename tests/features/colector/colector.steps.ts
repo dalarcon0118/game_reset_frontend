@@ -5,7 +5,7 @@ import { AuthMsgType } from '@/features/auth/store/types';
 import { update as updateDashboard } from '@/features/colector/dashboard/core/update';
 import { Model as DashboardModel, DashboardStats } from '@/features/colector/dashboard/core/model';
 import { Msg as DashboardMsg } from '@/features/colector/dashboard/core/msg';
-import { RemoteData } from '@/shared/core/remote.data';
+import { RemoteData } from '@/shared/core/tea-utils/remote.data';
 
 const feature = loadFeature('./tests/features/colector/colector.feature');
 
@@ -15,7 +15,9 @@ defineFeature(feature, (test) => {
         stats: { type: 'NotAsked' },
         children: { type: 'NotAsked' },
         currentDate: new Date().toISOString().split('T')[0],
-        userStructureId: null
+        userStructureId: null,
+        showBalance: false,
+        user: null
     };
 
     test('Autenticación exitosa como colector', ({ when, then, and }) => {
@@ -37,7 +39,7 @@ defineFeature(feature, (test) => {
         });
 
         then('la autenticación debe ser exitosa', () => {
-            expect(authModel.isAuthenticated).toBe(true);
+            expect(authModel.status).toBe('AUTHENTICATED');
         });
 
         and(/^el rol del usuario debe ser "([^"]*)"$/, (role) => {
@@ -49,7 +51,7 @@ defineFeature(feature, (test) => {
         given(/^que estoy autenticado como "([^"]*)"$/, (role) => {
             authModel = {
                 ...initialAuthModel,
-                isAuthenticated: true,
+                status: 'AUTHENTICATED',
                 user: { username: 'colector_test', role, token: 'mock-token' } as any
             };
         });
@@ -84,7 +86,7 @@ defineFeature(feature, (test) => {
         given(/^que estoy autenticado como "([^"]*)"$/, (role) => {
             authModel = {
                 ...initialAuthModel,
-                isAuthenticated: true,
+                status: 'AUTHENTICATED',
                 user: { username: 'colector_test', role, token: 'mock-token' } as any
             };
         });

@@ -1,10 +1,10 @@
 import React, { createContext, useContext, useMemo, useEffect } from 'react';
-import { createElmStore } from '@/shared/core/engine';
+import { createElmStore } from '@/shared/core/engine/engine';
 import { Model } from './model';
 import { Msg } from './msg';
 import { update, subscriptions } from './update';
-import { RemoteData } from '@/shared/core/remote.data';
-import { effectHandlers } from '@/shared/core/effect_handlers';
+import { RemoteData } from '@/shared/core/tea-utils/remote.data';
+import { effectHandlers } from '@/shared/core/tea-utils/effect_handlers';
 
 // Tipo para el store de Zustand interno
 type StoreType = ReturnType<typeof createElmStore<Model, Msg>>;

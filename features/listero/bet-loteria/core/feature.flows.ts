@@ -2,7 +2,7 @@ import { match } from 'ts-pattern';
 import { okAsync, ResultAsync, err } from 'neverthrow';
 import { LoteriaFeatureModel, FeatureMsg } from './feature.types';
 import { Return, ret } from '@/shared/core/return';
-import { Cmd } from '@/shared/core/cmd';
+import { Cmd } from '@/shared/core/tea-utils/cmd';
 import { LoteriaDomain } from './feature.domain';
 import { LoteriaBet, GameType } from '@/types';
 import { initialModel } from './feature.initial';
@@ -20,7 +20,7 @@ import {
     LoteriaFeatMsg
 } from '../loteria/loteria.types';
 import { RemoteDataHttp } from '@/shared/core/remote.data.http';
-import { WebData, RemoteData } from '@/shared/core/remote.data';
+import { WebData, RemoteData } from '@/shared/core/tea-utils/remote.data';
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
 import { BetQuery } from '@/shared/repositories/bet/bet.query';
 import { TimerRepository } from '@/shared/repositories/system/time/timer.repository';

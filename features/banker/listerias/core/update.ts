@@ -1,13 +1,18 @@
 import { match } from 'ts-pattern';
 import { Model } from './model';
 import { Msg } from './msg';
-import { Cmd } from '@/shared/core/cmd';
-import { Sub, SubDescriptor } from '@/shared/core/sub';
-import { RemoteDataHttp } from '@/shared/core/remote.data.http';
-import { RemoteData } from '@/shared/core/remote.data';
+import {
+    Cmd,
+    Sub,
+    SubDescriptor,
+    RemoteDataHttp,
+    RemoteData,
+    singleton,
+    ret,
+    Return
+} from '@/shared/core/tea-utils';
 import { structureRepository, ChildStructure } from '@/shared/repositories/structure';
-import { singleton, ret, Return } from '@/shared/core/return';
-import { UpdateResult } from '@/shared/core/engine';
+import { UpdateResult } from '@/shared/core/engine/engine';
 import * as config from '@/config';
 
 export const subscriptions = (_model: Model): SubDescriptor<Msg> => {

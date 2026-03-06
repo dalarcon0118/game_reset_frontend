@@ -1,6 +1,6 @@
 import { Return } from './return';
-import { Cmd } from './cmd';
-import { RemoteData, WebData } from './remote.data';
+import { Cmd } from './tea-utils/cmd';
+import { RemoteData, WebData } from './tea-utils/remote.data';
 
 // --- Model ---
 // Imaginemos que cargamos una lista de vehículos.

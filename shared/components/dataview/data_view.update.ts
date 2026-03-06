@@ -1,7 +1,7 @@
 import { match } from 'ts-pattern';
 import { Model, Msg } from './data_view.types';
 import { Return, ret, singleton } from '../../core/return';
-import { RemoteData } from '../../core/remote.data';
+import { RemoteData } from '../../core/tea-utils/remote.data';
 import { RemoteDataHttp } from '../../core/remote.data.http';
 
 export const update = <T, E>(

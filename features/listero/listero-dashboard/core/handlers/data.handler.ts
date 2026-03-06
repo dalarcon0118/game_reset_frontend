@@ -1,7 +1,7 @@
 import { Model } from '../model';
 import { Msg, FinancialUpdate } from '../msg';
-import { Cmd } from '@/shared/core/cmd';
-import { RemoteData, WebData } from '@/shared/core/remote.data';
+import { Cmd } from '@/shared/core/tea-utils/cmd';
+import { RemoteData, WebData } from '@/shared/core/tea-utils/remote.data';
 import { ret, singleton, Return } from '@/shared/core/return';
 import { shouldFetchData, checkRateLimit, recalculateDashboardState, handleSseUpdate } from '../logic';
 import { fetchDrawsCmd, fetchSummaryCmd, loadPendingBetsCmd } from '../commands';

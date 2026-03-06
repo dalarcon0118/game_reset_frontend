@@ -8,7 +8,10 @@ import {
   ISettings
 } from './api_client.types';
 import { ApiClientError } from './api_client.errors';
-import { AuthManager } from './core/auth_manager';
+import { CredentialProvider } from './core/credential_provider';
+import { SessionCoordinator } from '@/shared/auth/session/session.coordinator';
+import { SessionPolicy } from '@/shared/auth/session/session.policy';
+import { TokenState } from '@/shared/auth/session/session.types';
 import { CacheManager } from './core/cache_manager';
 import { ErrorManager } from './core/error_manager';
 import { RequestExecutor } from './core/request_executor';
@@ -17,7 +20,7 @@ import { Transport } from './infra/transport';
 // --- API Client Class ---
 
 export class ApiClient {
-  private authManager: AuthManager;
+  private credentialProvider: CredentialProvider;
   private cacheManager = new CacheManager();
   private errorManager: ErrorManager;
   private transport = new Transport();
@@ -27,14 +30,16 @@ export class ApiClient {
 
   constructor(
     authRepoGetter: () => IAuthRepository,
+    coordinatorGetter: () => SessionCoordinator,
     timerRepo: ITimerRepository,
     settings: ISettings,
     private log: ILogger
   ) {
-    this.authManager = new AuthManager(authRepoGetter, settings, log);
+    this.credentialProvider = new CredentialProvider(authRepoGetter, settings, log);
     this.errorManager = new ErrorManager(log);
     this.requestExecutor = new RequestExecutor(
-      this.authManager,
+      this.credentialProvider,
+      coordinatorGetter,
       this.cacheManager,
       this.errorManager,
       this.transport,
@@ -65,11 +70,11 @@ export class ApiClient {
   }
 
   setSessionExpiredHandler(handler: () => void) {
-    if (!this.authManager) {
-      this.log.error('authManager is undefined in setSessionExpiredHandler');
+    if (!this.credentialProvider) {
+      this.log.error('credentialProvider is undefined in setSessionExpiredHandler');
       return;
     }
-    this.authManager.setSessionExpiredHandler(handler);
+    this.credentialProvider.setSessionExpiredHandler(handler);
   }
 
   setupAuthErrorHandler(logoutCallback: () => Promise<void>) {
@@ -122,27 +127,28 @@ export class ApiClient {
   // --- Auth Management ---
 
   async refreshAccessToken(): Promise<string | null> {
-    return this.authManager.refreshAccessToken();
+    const result = await this.credentialProvider.refreshCredentials();
+    return result.isOk() ? result.value : null;
   }
 
   async getAuthToken(): Promise<string | null> {
-    if (!this.authManager) {
-      this.log.warn('authManager is undefined in getAuthToken');
+    if (!this.credentialProvider) {
+      this.log.warn('credentialProvider is undefined in getAuthToken');
       return null;
     }
-    return this.authManager.getAuthToken();
+    return this.credentialProvider.getAccessToken();
   }
 
   isTokenExpired(token: string): boolean {
-    return this.authManager.isTokenExpired(token);
+    return SessionPolicy.resolveTokenState(token) === TokenState.EXPIRED;
   }
 
   async setAuthToken(token: string | null, refreshToken: string | null = null) {
-    return this.authManager.setAuthToken(token, refreshToken);
+    return this.credentialProvider.persistCredentials(token || '', refreshToken || '');
   }
 
   async clearAuthToken() {
-    await this.authManager.clearAuthToken();
+    await this.credentialProvider.clearCredentials();
     this.cacheManager.clear();
   }
 }

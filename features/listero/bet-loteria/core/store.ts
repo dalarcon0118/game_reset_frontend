@@ -1,11 +1,11 @@
-import { createElmStore } from '@/shared/core/engine';
-import { effectHandlers } from '@/shared/core/effect_handlers';
+import { createElmStore } from '@/shared/core/engine/engine';
+import { effectHandlers } from '@/shared/core/tea-utils/effect_handlers';
 import { createLoggerMiddleware } from '@/shared/core/middlewares/logger.middleware';
 import { updateFeature } from './feature.update';
 import { LoteriaFeatureModel, FeatureMsg } from './feature.types';
 import { initialModel } from './feature.initial';
-import { Cmd } from '@/shared/core/cmd';
-import { Sub } from '@/shared/core/sub';
+import { Cmd } from '@/shared/core/tea-utils/cmd';
+import { Sub } from '@/shared/core/tea-utils/sub';
 
 // ============================================================================
 // Initial Model (Re-exported from feature.initial to break circular dependency)

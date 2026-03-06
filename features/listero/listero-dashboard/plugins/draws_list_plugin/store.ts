@@ -1,5 +1,5 @@
-import { createElmStore } from '@/shared/core/engine';
-import { effectHandlers } from '@/shared/core/effect_handlers';
+import { createElmStore } from '@/shared/core/engine/engine';
+import { effectHandlers } from '@/shared/core/tea-utils/effect_handlers';
 import { initialModel, Model } from './model';
 import { update } from './update';
 import { subscriptions } from './subscriptions';

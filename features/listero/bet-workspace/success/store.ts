@@ -1,7 +1,7 @@
-import { createElmStore } from '@/shared/core/engine';
+import { createElmStore } from '@/shared/core/engine/engine';
 import { VoucherModel, VoucherMsg, initialVoucherModel } from './core/domain/success.types';
 import { updateVoucher } from './core/application/success';
-import { effectHandlers as coreEffectHandlers } from '@/shared/core/effect_handlers';
+import { effectHandlers as coreEffectHandlers } from '@/shared/core/tea-utils/effect_handlers';
 import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('VOUCHER_STORE');

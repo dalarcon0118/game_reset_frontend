@@ -1,4 +1,4 @@
-import { WebData } from '../remote.data';
+import { WebData } from '../tea-utils/remote.data';
 
 /**
  * Base entity interface that all entities must implement.

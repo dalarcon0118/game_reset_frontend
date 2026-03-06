@@ -1,4 +1,4 @@
-import { Registry } from './utils/registry';
+import { Registry } from '../utils/registry';
 
 export interface EventDescriptor {
     readonly type: string;

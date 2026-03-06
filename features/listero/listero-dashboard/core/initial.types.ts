@@ -1,4 +1,4 @@
-import { RemoteData } from '@/shared/core/remote.data';
+import { RemoteData } from '@/shared/core/tea-utils/remote.data';
 import { Model } from './model';
 
 export const initialState: Model = {

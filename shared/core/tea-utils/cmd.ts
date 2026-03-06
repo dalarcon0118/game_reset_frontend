@@ -1,4 +1,4 @@
-import { logger } from '../utils/logger';
+import { logger } from '../../utils/logger';
 import { WebData } from './remote.data';
 import {
   ResourceListPayload,
@@ -7,7 +7,7 @@ import {
   ResourceUpdatePayload,
   ResourceDeletePayload,
   ResourcePayload
-} from './effects/resource.effect';
+} from '../effects/resource.effect';
 
 const log = logger.withTag('CMD_CORE');
 
@@ -106,20 +106,34 @@ export const Cmd = {
     },
   }),
 
-  task: (config: TaskConfig): CommandDescriptor => {
+  task: (taskOrConfig: TaskConfig | ((...args: any[]) => Promise<any>), label?: string): CommandDescriptor => {
+    let config: TaskConfig;
+
+    if (typeof taskOrConfig === 'function') {
+      config = {
+        task: taskOrConfig,
+        onSuccess: (x) => x,
+        onFailure: (e) => ({ type: 'TASK_ERROR', error: e }),
+        label: label
+      };
+    } else {
+      config = taskOrConfig;
+    }
+
     // Validate that the task is actually a function
     if (typeof config.task !== 'function') {
       log.error('Invalid task function - expected function', {
         got: typeof config.task,
         task: config.task,
+        label: config.label
       });
       // Replace with a safe error-throwing function
       const safeTask = async () => {
-        throw new Error('Invalid task function provided to Cmd.task');
+        throw new Error(`Invalid task function provided to Cmd.task ${config.label ? `(${config.label})` : ''}`);
       };
       return {
         type: 'TASK',
-        payload: { ...config, task: safeTask },
+        payload: { ...config, task: safeTask, label: config.label || 'safeTask' },
       };
     }
     return {

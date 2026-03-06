@@ -1,10 +1,10 @@
 import { match } from 'ts-pattern';
 import { ListMsgType, ListMsg, ListState } from './types';
 import { ListData } from '../../core/types';
-import { Cmd } from '@/shared/core/cmd';
+import { Cmd } from '@/shared/core/tea-utils/cmd';
 import { BetType } from '@/types';
 import { Return, ret, singleton } from '@/shared/core/return';
-import { RemoteData } from '@/shared/core/remote.data';
+import { RemoteData } from '@/shared/core/tea-utils/remote.data';
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
 import { logger } from '@/shared/utils/logger';
 import { BetRegistry } from '../../core/registry';

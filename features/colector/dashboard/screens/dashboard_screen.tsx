@@ -5,7 +5,7 @@ import { COLORS } from '@/shared/components/constants';
 import { Flex } from '@/shared/components/flex';
 import { useDashboardStore } from '../core';
 import { REFRESH_CLICKED } from '../core/msg';
-import { RemoteData } from '@/shared/core/remote.data';
+import { RemoteData } from '@/shared/core/tea-utils/remote.data';
 import { DashboardHeader, DashboardStats, DashboardOperations } from '../components';
 import { useTheme } from '@ui-kitten/components';
 

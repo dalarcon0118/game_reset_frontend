@@ -1,5 +1,5 @@
 import { Model } from './model';
-import { Sub } from '@/shared/core/sub';
+import { Sub } from '@/shared/core/tea-utils/sub';
 import { SYNC_STATUS_FILTER } from './msg';
 
 export const subscriptions = (model: Model) => {

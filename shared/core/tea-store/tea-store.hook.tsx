@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { createElmStore } from '../engine';
-import { effectHandlers } from '../effect_handlers';
+import { createElmStore } from '../engine/engine';
+import { effectHandlers } from '../tea-utils/effect_handlers';
 import { createTEAStoreUpdate } from './tea-store.update';
 import { TEAStoreConfig, TEAStoreState, TEAStoreMsg, Entity } from './tea-store.types';
 

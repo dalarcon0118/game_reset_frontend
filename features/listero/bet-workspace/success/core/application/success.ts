@@ -1,5 +1,5 @@
 import { singleton, ret, Return } from '@/shared/core/return';
-import { Cmd } from '@/shared/core/cmd';
+import { Cmd } from '@/shared/core/tea-utils/cmd';
 import { VoucherMsg, VoucherMsgType, VoucherModel, initialVoucherModel } from '../domain/success.types';
 import { SuccessFlows } from './success.flows';
 import { match } from 'ts-pattern';
@@ -16,19 +16,19 @@ export const initVoucher = (): [VoucherModel, Cmd] => [initialVoucherModel, null
  */
 export function updateVoucher(model: VoucherModel, msg: VoucherMsg): Return<VoucherModel, VoucherMsg> {
     return match<VoucherMsg, Return<VoucherModel, VoucherMsg>>(msg)
-        .with({ type: VoucherMsgType.LOAD_DATA_REQUESTED }, ({ drawId, receiptCode }) => 
+        .with({ type: VoucherMsgType.LOAD_DATA_REQUESTED }, ({ drawId, receiptCode }) =>
             SuccessFlows.startLoadingVoucher(model, drawId, receiptCode)
         )
-        .with({ type: VoucherMsgType.DATA_RECEIVED }, ({ data }) => 
+        .with({ type: VoucherMsgType.DATA_RECEIVED }, ({ data }) =>
             SuccessFlows.processDataReceived(model, data)
         )
-        .with({ type: VoucherMsgType.SHARE_REQUESTED }, ({ uri }) => 
+        .with({ type: VoucherMsgType.SHARE_REQUESTED }, ({ uri }) =>
             SuccessFlows.requestShare(model, uri)
         )
-        .with({ type: VoucherMsgType.SHARE_RESPONSE }, ({ webData }) => 
+        .with({ type: VoucherMsgType.SHARE_RESPONSE }, ({ webData }) =>
             SuccessFlows.finalizeSharing(model, webData)
         )
-        .with({ type: VoucherMsgType.GO_HOME_REQUESTED }, () => 
+        .with({ type: VoucherMsgType.GO_HOME_REQUESTED }, () =>
             SuccessFlows.handleNavigateHome(model)
         )
         .exhaustive();

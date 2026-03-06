@@ -1,5 +1,5 @@
-import { logger } from '../utils/logger';
-import { Registry } from './utils/registry';
+import { logger } from '../../utils/logger';
+import { Registry } from '../utils/registry';
 
 const log = logger.withTag('EFFECT_REGISTRY');
 

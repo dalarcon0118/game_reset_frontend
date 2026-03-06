@@ -1,5 +1,5 @@
 import { PluginContext } from '@/shared/core/plugins/plugin.types';
-import { WebData, RemoteData } from '@/shared/core/remote.data';
+import { WebData, RemoteData } from '@/shared/core/tea-utils/remote.data';
 import { DRAW_FILTER, Draw } from './core/types';
 import { FinancialSummary } from '@/types';
 import { BetDomainModel as PendingBet } from '@/shared/repositories/bet/bet.types';

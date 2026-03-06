@@ -8,9 +8,9 @@
  */
 
 import { create } from 'zustand';
-import { SubDescriptor } from '../sub';
+import { SubDescriptor } from '../tea-utils/sub';
 import { logger } from '../../utils/logger';
-import { Cmd, CommandDescriptor } from '../cmd';
+import { Cmd, CommandDescriptor } from '../tea-utils/cmd';
 import { TeaMiddleware } from '../middleware.types';
 import { StoreRegistry } from './store_registry';
 import { ElmStore, ElmStoreConfig, UpdateResult, StoreState, EffectHandler } from './types';

@@ -1,5 +1,5 @@
 import { GameType, DrawType } from '@/types';
-import { WebData, RemoteData } from '@/shared/core/remote.data';
+import { WebData, RemoteData } from '@/shared/core/tea-utils/remote.data';
 
 export interface Model {
     selectedDrawId: string | null;

@@ -1,20 +1,32 @@
 // Auth hooks - TEA-based auth functionality for components
-import { useAuthStore, selectAuthModel, selectAuthDispatch } from '../store/store';
+import { 
+    useAuthStore, 
+    selectAuthModel, 
+    selectAuthDispatch,
+    selectIsAuthenticated,
+    selectIsLoading,
+    selectIsLoggingOut,
+    selectSessionStatus
+} from '../store/store';
 import { AuthMsgType } from '../store/types';
 import { User } from '../../../shared/repositories/auth';
-import { RemoteData } from '../../../shared/core/remote.data';
 
 export const useAuth = () => {
     const model = useAuthStore(selectAuthModel);
     const dispatch = useAuthStore(selectAuthDispatch);
+    const isAuthenticated = useAuthStore(selectIsAuthenticated);
+    const isLoading = useAuthStore(selectIsLoading);
+    const isLoggingOut = useAuthStore(selectIsLoggingOut);
+    const sessionStatus = useAuthStore(selectSessionStatus);
 
     return {
         // State
         user: model.user,
-        isAuthenticated: model.isAuthenticated,
+        status: sessionStatus,
+        isAuthenticated,
         loginResponse: model.loginResponse,
-        isLoading: RemoteData.isLoading(model.loginResponse),
-        isLoggingOut: model.isLoggingOut,
+        isLoading,
+        isLoggingOut,
         error: model.error,
         loginSession: model.loginSession,
 

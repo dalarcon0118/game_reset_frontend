@@ -5,6 +5,7 @@ import { EventSourcePolyfill } from 'event-source-polyfill';
 import { logger } from '../shared/utils/logger';
 import { registerReactNativeEvents } from '../shared/react-native-events';
 import storageClient from '@/shared/core/offline-storage/storage_client';
+import { authStorageAdapter } from '../shared/repositories/auth/adapters/auth.storage.adapter';
 
 // Setup EventSource for React Native
 if (typeof window !== 'undefined') {
@@ -20,6 +21,15 @@ export const DevTools = {
             console.log('✅ Storage cleared successfully. Please reload the app.');
         } catch (e) {
             console.error('❌ Failed to clear storage:', e);
+        }
+    },
+    clearSession: async () => {
+        console.log('🔐 Clearing session (secure store)...');
+        try {
+            await authStorageAdapter.clearSession();
+            console.log('✅ Session cleared successfully. Please reload the app.');
+        } catch (e) {
+            console.error('❌ Failed to clear session:', e);
         }
     },
     printStorage: async () => {
@@ -51,7 +61,7 @@ export const DevTools = {
         } catch (e) {
             console.error('❌ Failed to read full storage:', e);
         }
-    }
+    },
 };
 
 

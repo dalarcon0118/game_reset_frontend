@@ -1,5 +1,5 @@
 import { Return, ret, singleton } from '@/shared/core/return';
-import { Cmd } from '@/shared/core/cmd';
+import { Cmd } from '@/shared/core/tea-utils/cmd';
 import { Model } from './model';
 import * as Msg from './msg';
 import { calculateLocalTotals, reconcile } from './core/reconciler';
@@ -14,9 +14,9 @@ export function update(msg: Msg.Msg, model: Model): Return<Model, Msg.Msg> {
 
     case 'SYNC_DATA': {
       const { allLocalBets, backendSummary, commissionRate } = msg.payload;
-      
+
       const localTotals = calculateLocalTotals(allLocalBets, commissionRate);
-      
+
       const backendTotals = {
         totalCollected: backendSummary?.total_colectado || 0,
         premiumsPaid: backendSummary?.total_pagado || 0,
@@ -26,33 +26,33 @@ export function update(msg: Msg.Msg, model: Model): Return<Model, Msg.Msg> {
       };
 
       return ret(
-        { 
-          ...model, 
-          localTotals, 
-          backendTotals, 
+        {
+          ...model,
+          localTotals,
+          backendTotals,
           commissionRate,
           lastSyncTimestamp: Date.now(),
           integrityStatus: 'SYNCING'
-        }, 
+        },
         Cmd.ofMsg(Msg.PERFORM_RECONCILIATION())
       );
     }
 
     case 'PERFORM_RECONCILIATION': {
       const result = reconcile(model.localTotals, model.backendTotals);
-      
+
       const nextModel = {
         ...model,
         integrityStatus: result.status,
-        discrepancies: result.discrepancy 
-          ? [result.discrepancy, ...model.discrepancies].slice(0, 10) 
+        discrepancies: result.discrepancy
+          ? [result.discrepancy, ...model.discrepancies].slice(0, 10)
           : model.discrepancies
       };
 
       if (result.status === 'MISMATCH' && result.discrepancy) {
         log.error('Financial Mismatch Detected!', result.discrepancy);
         return ret(
-          nextModel, 
+          nextModel,
           Cmd.ofMsg(Msg.REPORT_DISCREPANCY({
             localValue: result.discrepancy.localValue,
             backendValue: result.discrepancy.backendValue,

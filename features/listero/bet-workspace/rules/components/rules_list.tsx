@@ -4,7 +4,7 @@ import { Text, Card, Spinner } from '@ui-kitten/components';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Shield, Trophy, FileText, RefreshCw } from 'lucide-react-native';
 import { useRules } from '../use_rules';
-import { RemoteData } from '@/shared/core/remote.data';
+import { RemoteData } from '@/shared/core/tea-utils/remote.data';
 import { RuleItem } from './rule_item';
 import LayoutConstants from '@/constants/layout';
 import { logger } from '@/shared/utils/logger';

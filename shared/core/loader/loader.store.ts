@@ -1,13 +1,13 @@
 import { match } from 'ts-pattern';
-import { createElmStore, UpdateResult } from '../engine';
-import { Cmd } from '../cmd';
+import { createElmStore, UpdateResult } from '../engine/engine';
+import { Cmd } from '../tea-utils/cmd';
 import { ret, singleton } from '../return';
-import { RemoteData } from '../remote.data';
+import { RemoteData } from '../tea-utils/remote.data';
 import { ModuleLoader } from './module_loader';
 import { ModuleManifest } from '../architecture/manifest';
 import { logger } from '../../utils/logger';
 import { createLoggerMiddleware } from '../middlewares/logger.middleware';
-import { effectHandlers } from '../effect_handlers';
+import { effectHandlers } from '../tea-utils/effect_handlers';
 
 // --- Model ---
 

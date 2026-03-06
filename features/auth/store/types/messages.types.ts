@@ -1,5 +1,5 @@
 import { AuthSession, User, AuthErrorType } from '../../../../shared/repositories/auth';
-import { WebData } from '@/shared/core/remote.data';
+import { WebData } from '@/shared/core/tea-utils/remote.data';
 
 export enum AuthMsgType {
     // Login flow
@@ -34,6 +34,11 @@ export enum AuthMsgType {
     // Connectivity and Sync
     CONNECTION_STATUS_CHANGED = 'CONNECTION_STATUS_CHANGED',
     USER_CHANGED = 'USER_CHANGED',
+
+    // New Signal-based Messages (Coordinator)
+    SESSION_HYDRATED = 'SESSION_HYDRATED',
+    TOKEN_REFRESH_STARTED = 'TOKEN_REFRESH_STARTED',
+    TOKEN_REFRESHED = 'TOKEN_REFRESHED',
 }
 
 export type AuthMsg =
@@ -50,11 +55,14 @@ export type AuthMsg =
     | { type: AuthMsgType.CHECK_AUTH_STATUS_REQUESTED }
     | { type: AuthMsgType.CHECK_AUTH_STATUS_RESPONSE_RECEIVED; webData: WebData<User | null> }
     | { type: AuthMsgType.CHECK_AUTH_STATUS_FAILED; error: string }
-    | { type: AuthMsgType.SESSION_EXPIRED }
+    | { type: AuthMsgType.SESSION_EXPIRED; reason?: string }
     | { type: AuthMsgType.ROLE_CHECK_REQUESTED }
     | { type: AuthMsgType.LOAD_SAVED_USERNAME_REQUESTED }
     | { type: AuthMsgType.SAVED_USERNAME_LOADED; webData: WebData<string | null> }
     | { type: AuthMsgType.SAVED_USERNAME_SAVED; webData: WebData<void> }
     | { type: AuthMsgType.FORGOT_PIN_REQUESTED }
     | { type: AuthMsgType.CONNECTION_STATUS_CHANGED; isOnline: boolean }
-    | { type: AuthMsgType.USER_CHANGED; user: User | null };
+    | { type: AuthMsgType.USER_CHANGED; user: User | null }
+    | { type: AuthMsgType.SESSION_HYDRATED; user: User | null; tokenState: string }
+    | { type: AuthMsgType.TOKEN_REFRESH_STARTED }
+    | { type: AuthMsgType.TOKEN_REFRESHED; token: string };

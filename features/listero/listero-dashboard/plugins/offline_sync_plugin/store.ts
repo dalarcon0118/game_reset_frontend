@@ -9,7 +9,7 @@ import {
   offlineSyncUpdate
 } from './update';
 import { type OfflineSyncModel } from './types';
-import { Cmd, CommandDescriptor } from '@/shared/core/cmd';
+import { Cmd, CommandDescriptor } from '@/shared/core/tea-utils/cmd';
 import {
   OfflineSyncMsg,
   SHOW_TOAST,

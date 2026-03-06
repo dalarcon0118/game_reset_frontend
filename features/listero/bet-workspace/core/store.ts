@@ -1,4 +1,4 @@
-import { createElmStore } from '@/shared/core/engine';
+import { createElmStore } from '@/shared/core/engine/engine';
 import { Model, BetSummary, ListData } from '../model';
 import { update, Msg } from './update';
 import { initialCreateState } from '../create/core/types';
@@ -9,7 +9,7 @@ import { initialManagementState } from '../management/core/types';
 import { initialLoteriaState } from '../../bet-loteria/loteria/loteria.types';
 import { initialVoucherModel } from '../success/core/domain/success.types';
 import { initialParletState, initialCentenaState } from '../../bet-bolita/domain/models/bolita.initial';
-import { RemoteData } from '@/shared/core/remote.data';
+import { RemoteData } from '@/shared/core/tea-utils/remote.data';
 import { Return } from '@/shared/core/return';
 
 const initialSummary: BetSummary = {

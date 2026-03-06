@@ -1,12 +1,11 @@
 import { AuthModel } from './types';
-import { RemoteData } from '../../../shared/core/remote.data';
+import { RemoteData } from '../../../shared/core/tea-utils/remote.data';
 
 export const initialAuthModel: AuthModel = {
     // Auth state
     user: null,
-    isAuthenticated: false,
+    status: 'IDLE',
     loginResponse: RemoteData.notAsked(),
-    isLoggingOut: false,
     error: null,
 
     // Login session

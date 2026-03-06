@@ -1,12 +1,12 @@
-import { createElmStore } from '@/shared/core/engine';
+import { createElmStore } from '@/shared/core/engine/engine';
 import { Model } from './model';
 import { Msg } from './msg';
 import { update } from './update';
-import { RemoteData } from '@/shared/core/remote.data';
+import { RemoteData } from '@/shared/core/tea-utils/remote.data';
 import { RemoteDataHttp } from '@/shared/core/remote.data.http';
 import { structureRepository } from '@/shared/repositories/structure';
-import { Cmd } from '@/shared/core/cmd';
-import { effectHandlers } from '@/shared/core/effect_handlers';
+import { Cmd } from '@/shared/core/tea-utils/cmd';
+import { effectHandlers } from '@/shared/core/tea-utils/effect_handlers';
 import { createLoggerMiddleware } from '@/shared/core/middlewares/logger.middleware';
 
 

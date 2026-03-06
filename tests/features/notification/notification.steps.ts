@@ -1,6 +1,6 @@
 import { loadFeature, defineFeature } from 'jest-cucumber';
 import { useNotificationStore } from '../../../features/notification/core/store';
-import { useAuthStore } from '../../../features/auth/store/store';
+import { useAuthStore, selectIsAuthenticated } from '../../../features/auth/store/store';
 import { AuthMsgType } from '../../../features/auth/store/types';
 import {
     FETCH_NOTIFICATIONS_REQUESTED,
@@ -18,8 +18,8 @@ defineFeature(feature, (test) => {
     test('Flujo completo de integración de notificaciones', ({ given, when, then, and }) => {
         given('un usuario autenticado en el sistema', async () => {
             log.info('--- Attempting login for juan ---');
-            const { dispatch, model } = useAuthStore.getState();
-            if (model.isAuthenticated) {
+            const { dispatch } = useAuthStore.getState();
+            if (selectIsAuthenticated(useAuthStore.getState())) {
                 log.info('Already authenticated');
                 return;
             }
@@ -33,7 +33,7 @@ defineFeature(feature, (test) => {
             log.debug('--- Auth Store State BEFORE login dispatch ---', { model: useAuthStore.getState().model });
 
             let attempts = 0;
-            while (!useAuthStore.getState().model.isAuthenticated && attempts < 100) {
+            while (!selectIsAuthenticated(useAuthStore.getState()) && attempts < 100) {
                 if (attempts % 10 === 0) {
                     log.debug(`Waiting for auth... attempt ${attempts}`, { state: useAuthStore.getState().model });
                 }
@@ -41,12 +41,12 @@ defineFeature(feature, (test) => {
                 attempts++;
             }
 
-            if (!useAuthStore.getState().model.isAuthenticated) {
+            if (!selectIsAuthenticated(useAuthStore.getState())) {
                 const error = useAuthStore.getState().model.error;
                 log.error('Authentication failed', 'AUTH_ERROR', error);
             }
 
-            expect(useAuthStore.getState().model.isAuthenticated).toBe(true);
+            expect(selectIsAuthenticated(useAuthStore.getState())).toBe(true);
             log.info('Authentication successful for juan');
 
             // Wait a bit for tokens to sync to other stores
@@ -124,8 +124,8 @@ defineFeature(feature, (test) => {
 
     test('Recepción de notificaciones en tiempo real vía SSE', ({ given, when, then, and }) => {
         given('un usuario autenticado en el sistema', async () => {
-            const { dispatch, model } = useAuthStore.getState();
-            if (model.isAuthenticated) return;
+            const { dispatch } = useAuthStore.getState();
+            if (selectIsAuthenticated(useAuthStore.getState())) return;
 
             dispatch({
                 type: AuthMsgType.LOGIN_REQUESTED,
@@ -134,11 +134,11 @@ defineFeature(feature, (test) => {
             });
 
             let attempts = 0;
-            while (!useAuthStore.getState().model.isAuthenticated && attempts < 100) {
+            while (!selectIsAuthenticated(useAuthStore.getState()) && attempts < 100) {
                 await new Promise(resolve => setTimeout(resolve, 200));
                 attempts++;
             }
-            expect(useAuthStore.getState().model.isAuthenticated).toBe(true);
+            expect(selectIsAuthenticated(useAuthStore.getState())).toBe(true);
         });
 
         and('el sistema de notificaciones está suscrito al stream de eventos en tiempo real', () => {

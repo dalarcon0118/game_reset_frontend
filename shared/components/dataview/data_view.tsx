@@ -1,6 +1,6 @@
 import React, { useEffect, useReducer } from 'react';
 import { View, ActivityIndicator, Text, StyleSheet, Button } from 'react-native';
-import { RemoteData } from '../../core/remote.data';
+import { RemoteData } from '../../core/tea-utils/remote.data';
 import { Model, Msg, init } from './data_view.types';
 import { update } from './data_view.update';
 

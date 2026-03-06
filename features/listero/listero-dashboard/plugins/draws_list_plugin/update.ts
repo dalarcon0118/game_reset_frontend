@@ -2,11 +2,11 @@ import { Model, DrawsListPluginConfig, DrawFinancialTotals, financialSelectors }
 import * as Msg from './msg';
 import { DrawTotalsUpdate } from './msg';
 import { Return, ret } from '@/shared/core/return';
-import { Cmd } from '@/shared/core/cmd';
+import { Cmd } from '@/shared/core/tea-utils/cmd';
 import { match } from 'ts-pattern';
 import { FilterDrawsUseCase } from './application/useCases/filter-draws.use-case';
 import { StatusFilter, Draw } from './core/types';
-import { RemoteData } from '@/shared/core/remote.data';
+import { RemoteData } from '@/shared/core/tea-utils/remote.data';
 import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('DRAWS_LIST_PLUGIN');

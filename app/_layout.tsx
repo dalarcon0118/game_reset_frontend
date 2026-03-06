@@ -35,7 +35,7 @@ export default function RootLayout() {
 function RootLayoutInner() {
   const { BackButton } = useAuthNavigation();
   //add an alert with the backend url
-  Alert.alert('Backend URL', setings.api.baseUrl);
+  
   // Logger para capturar todas las navegaciones (incluyendo router.push directo)
   useNavigationLogger();
 
@@ -70,6 +70,9 @@ function DevToolbar() {
       </TouchableOpacity>
       <TouchableOpacity onPress={() => DevTools.printFullStorage()} style={styles.devButton}>
         <Text style={styles.devText}>Full</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => DevTools.clearSession()} style={styles.devButton}>
+        <Text style={styles.devText}>Clear Session</Text>
       </TouchableOpacity>
     </View>
   );

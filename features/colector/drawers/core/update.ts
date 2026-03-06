@@ -1,11 +1,14 @@
 import { match } from 'ts-pattern';
 import { Model } from './model';
 import { Msg } from './msg';
-import { Cmd } from '@/shared/core/cmd';
-import { RemoteDataHttp } from '@/shared/core/remote.data.http';
-import { RemoteData } from '@/shared/core/remote.data';
+import {
+    Cmd,
+    RemoteDataHttp,
+    RemoteData,
+    singleton,
+    ret
+} from '@/shared/core/tea-utils';
 import { structureRepository } from '@/shared/repositories/structure';
-import { singleton, ret } from '@/shared/core/return';
 import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('COLECTOR_DRAWERS_UPDATE');

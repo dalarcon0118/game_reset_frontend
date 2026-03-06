@@ -1,5 +1,12 @@
 import React, { createContext, useContext, useEffect, useMemo } from 'react';
-import { useAuthStore, selectAuthDispatch } from '@/features/auth/store/store';
+import { 
+  useAuthStore, 
+  selectAuthDispatch, 
+  selectIsAuthenticated, 
+  selectIsLoading, 
+  selectCurrentUser, 
+  selectAuthError 
+} from '@/features/auth/store/store';
 import { useShallow } from 'zustand/react/shallow';
 import { AuthMsgType } from '@/features/auth/store/types/messages.types';
 import { logger } from '../utils/logger';
@@ -26,15 +33,11 @@ export const useAuth = () => {
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  // 🧩 Integración Directa con el Store de TEA usando shallow comparison
-  const { isAuthenticated, isLoading, user, error } = useAuthStore(
-    useShallow((state) => ({
-      isAuthenticated: state.model.isAuthenticated,
-      isLoading: state.model.isLoading,
-      user: state.model.user,
-      error: state.model.error,
-    }))
-  );
+  // 🧩 Integración Directa con el Store de TEA usando selectores canónicos
+  const isAuthenticated = useAuthStore(selectIsAuthenticated);
+  const isLoading = useAuthStore(selectIsLoading);
+  const user = useAuthStore(selectCurrentUser);
+  const error = useAuthStore(selectAuthError);
   
   const dispatch = useAuthStore(selectAuthDispatch);
 

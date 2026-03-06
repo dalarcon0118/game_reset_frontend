@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, ActivityIndicator, Button, StyleSheet } from 'react-native';
 import { match } from 'ts-pattern';
-import { WebData } from './remote.data';
+import { WebData } from './tea-utils/remote.data';
 
 // --- Types ---
 interface Vehicle { id: string; name: string }

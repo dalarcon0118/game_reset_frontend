@@ -2,8 +2,8 @@
  * TEA Types - Shared types for the new TEA engine
  */
 
-import { Cmd, CommandDescriptor } from '../cmd';
-import { SubDescriptor } from '../sub';
+import { Cmd, CommandDescriptor } from '../tea-utils/cmd';
+import { SubDescriptor } from '../tea-utils/sub';
 import { TeaMiddleware } from '../middleware.types';
 
 /**

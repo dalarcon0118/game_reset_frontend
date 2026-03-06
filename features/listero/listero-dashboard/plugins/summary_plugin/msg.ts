@@ -1,9 +1,9 @@
-import { createMsg } from '@/shared/core/msg';
+import { createMsg } from '@/shared/core/tea-utils/msg';
 import { FinancialSummary, PendingBet } from './domain/models';
 import { SummaryPluginContext } from './domain/services';
 import { DailyTotals } from './model';
 
-import { WebData } from '@/shared/core/remote.data';
+import { WebData } from '@/shared/core/tea-utils/remote.data';
 
 export const INIT_CONTEXT = createMsg<'INIT_CONTEXT', SummaryPluginContext>('INIT_CONTEXT');
 export const FETCH_FINANCIAL_SUMMARY = createMsg<'FETCH_FINANCIAL_SUMMARY', void>('FETCH_FINANCIAL_SUMMARY');

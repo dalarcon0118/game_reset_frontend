@@ -4,7 +4,7 @@ import { Card, Button } from '@ui-kitten/components';
 import { Eye, EyeOff, PiggyBank, Wallet, FileText, TrendingUp, BarChart3 } from 'lucide-react-native';
 import { INIT_CONTEXT, FETCH_FINANCIAL_SUMMARY, TOGGLE_BALANCE_VISIBILITY } from './msg';
 import { useSummaryPluginStore } from './store';
-import { RemoteData } from '@/shared/core/remote.data';
+import { RemoteData } from '@/shared/core/tea-utils/remote.data';
 import { formatCurrency } from '@/shared/utils/formatters';
 import { styles } from './styles';
 import { SummaryPluginContext } from './domain/services';

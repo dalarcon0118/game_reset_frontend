@@ -1,4 +1,4 @@
-import { RemoteData } from '../../core/remote.data';
+import { RemoteData } from '../../core/tea-utils/remote.data';
 
 export interface Model<T, E = any> {
   remoteData: RemoteData<E, T>;

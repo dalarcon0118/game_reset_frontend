@@ -1,13 +1,16 @@
 import { match } from 'ts-pattern';
 import { Model, DashboardStats } from './model';
 import { Msg, AUTH_USER_SYNCED } from './msg';
-import { Cmd } from '@/shared/core/cmd';
-import { Sub } from '@/shared/core/sub';
-import { RemoteDataHttp } from '@/shared/core/remote.data.http';
-import { RemoteData } from '@/shared/core/remote.data';
+import {
+    Cmd,
+    Sub,
+    RemoteDataHttp,
+    RemoteData,
+    singleton,
+    ret
+} from '@/shared/core/tea-utils';
 import { structureRepository, ChildStructure } from '@/shared/repositories/structure';
 import { financialRepository, FinancialKeys } from '@/shared/repositories/financial/ledger.repository';
-import { singleton, ret } from '@/shared/core/return';
 
 import { useAuthStore } from '@/features/auth/store/store';
 

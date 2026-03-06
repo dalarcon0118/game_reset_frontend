@@ -1,10 +1,10 @@
-import { createElmStore } from '@/shared/core/engine';
-import { effectHandlers } from '@/shared/core/effect_handlers';
+import { createElmStore } from '@/shared/core/engine/engine';
+import { effectHandlers } from '@/shared/core/tea-utils/effect_handlers';
 import { createLoggerMiddleware } from '@/shared/core/middlewares/logger.middleware';
 import { RewardsModel, initialRewardsModel } from './model';
 import { RewardsMsg } from './types';
 import { updateRewards } from './update';
-import { Sub } from '@/shared/core/sub';
+import { Sub } from '@/shared/core/tea-utils/sub';
 
 const init = () => [initialRewardsModel, null];
 

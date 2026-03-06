@@ -7,7 +7,7 @@
 
 import { createMediator } from './factory';
 import { TeaResolver, TeaMediator, MsgWithCorrelation, StoreRegistration, ResolverContext } from './types';
-import { Cmd } from '../cmd';
+import { Cmd } from '../tea-utils/cmd';
 import { ElmStore } from '../tea/types';
 
 // ============================================

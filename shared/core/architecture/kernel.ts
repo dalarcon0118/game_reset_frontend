@@ -1,7 +1,7 @@
 
 import { DataProvider, AuthProvider, NotificationProvider, ResourceDefinition, Feature, Plugin, NavigationStrategy } from './interfaces';
 import { logger } from '../../utils/logger';
-import { SubDescriptor } from '../sub';
+import { SubDescriptor } from '../tea-utils/sub';
 import { Registry } from '../utils/registry';
 
 /**

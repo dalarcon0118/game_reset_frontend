@@ -1,8 +1,8 @@
 import { updateAuth } from './update';
 import { AuthModel, AuthMsgType } from './types';
 import { User } from '../../../shared/repositories/auth';
-import { RemoteData } from '../../../shared/core/remote.data';
-import { Cmd } from '../../../shared/core/cmd';
+import { RemoteData } from '../../../shared/core/tea-utils/remote.data';
+import { Cmd } from '../../../shared/core/tea-utils/cmd';
 
 describe('Auth Update Optimization', () => {
     const mockUser: User = {
@@ -16,9 +16,8 @@ describe('Auth Update Optimization', () => {
 
     const initialState: AuthModel = {
         user: mockUser,
-        isAuthenticated: true,
+        status: 'AUTHENTICATED',
         loginResponse: RemoteData.notAsked(),
-        isLoggingOut: false,
         error: null,
         loginSession: {
             username: '',
@@ -37,7 +36,7 @@ describe('Auth Update Optimization', () => {
         // When: CHECK_AUTH_STATUS_RESPONSE_RECEIVED
         const [newState] = updateAuth(initialState, {
             type: AuthMsgType.CHECK_AUTH_STATUS_RESPONSE_RECEIVED,
-            user: updatedUser
+            webData: { type: 'Success', data: updatedUser }
         });
 
         // Then: The reference MUST be the OLD one (optimization applied)
@@ -62,7 +61,7 @@ describe('Auth Update Optimization', () => {
         // When: CHECK_AUTH_STATUS_RESPONSE_RECEIVED
         const [newState] = updateAuth(initialState, {
             type: AuthMsgType.CHECK_AUTH_STATUS_RESPONSE_RECEIVED,
-            user: newUser
+            webData: { type: 'Success', data: newUser }
         });
 
         // Then: The reference MUST be the NEW one

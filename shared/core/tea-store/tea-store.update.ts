@@ -1,7 +1,7 @@
 import { match } from 'ts-pattern';
 import { Return, singleton, ret } from '../return';
-import { Cmd } from '../cmd';
-import { RemoteData, WebData } from '../remote.data';
+import { Cmd } from '../tea-utils/cmd';
+import { RemoteData, WebData } from '../tea-utils/remote.data';
 import { RemoteDataHttp } from '../remote.data.http';
 import {
     TEAStoreState,

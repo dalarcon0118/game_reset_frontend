@@ -1,5 +1,5 @@
-import { Cmd } from '@/shared/core/cmd';
-import { UpdateResult } from '@/shared/core/engine';
+import { Cmd } from '@/shared/core/tea-utils/cmd';
+import { UpdateResult } from '@/shared/core/engine/engine';
 import { Model, Msg, MsgType } from './types';
 import { match, P } from 'ts-pattern';
 

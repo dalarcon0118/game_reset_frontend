@@ -5,7 +5,7 @@ import { BolitaListData } from '../../domain/models/bolita.types';
 import { ListMsgType, LIST } from '../../domain/models/bolita.messages';
 import { groupBetsByReceipt, GroupedBets } from '../utils/list_grouping';
 import { logger } from '@/shared/utils/logger';
-import { RemoteData, WebData } from '@/shared/core/remote.data';
+import { RemoteData, WebData } from '@/shared/core/tea-utils/remote.data';
 
 const log = logger.withTag('BolitaListProvider');
 

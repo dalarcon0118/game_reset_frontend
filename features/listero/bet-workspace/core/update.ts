@@ -1,7 +1,7 @@
 import { match } from 'ts-pattern';
 import { Model } from '../model';
 import { Return, singleton, ret } from '@/shared/core/return';
-import { Cmd } from '@/shared/core/cmd';
+import { Cmd } from '@/shared/core/tea-utils/cmd';
 import { updateCreate } from '../create/core/update';
 import { updateEdit } from '../edit/core/update';
 import { updateList } from '../list/core/update';

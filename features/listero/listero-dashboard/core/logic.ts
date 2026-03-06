@@ -1,7 +1,7 @@
 import { FinancialSummary, DrawType, DRAW_STATUS, BetType } from '@/types';
 import { DailyTotals, isExpired, isClosingSoon, StatusFilter, DRAW_FILTER } from './core.types';
 import { Model } from './model';
-import { RemoteData, WebData } from '@/shared/core/remote.data';
+import { RemoteData, WebData } from '@/shared/core/tea-utils/remote.data';
 import { logger } from '@/shared/utils/logger';
 import { DashboardUser } from './user.dto';
 

@@ -1,12 +1,12 @@
 import { Model } from '../model';
 import { Msg } from '../msg';
-import { Cmd, CommandDescriptor } from '@/shared/core/cmd';
+import { Cmd, CommandDescriptor } from '@/shared/core/tea-utils/cmd';
 import { ret, singleton, Return } from '@/shared/core/return';
 import { handleAuthUserSynced as logicHandleAuthUserSynced } from '../logic';
 import { fetchDrawsCmd, fetchSummaryCmd, updateAuthTokenCmd, loadPendingBetsCmd, prepareDailySessionCmd } from '../commands';
 import { logger } from '@/shared/utils/logger';
 import { DashboardUser } from '../user.dto';
-import { RemoteData } from '@/shared/core/remote.data';
+import { RemoteData } from '@/shared/core/tea-utils/remote.data';
 
 const log = logger.withTag('DASHBOARD_AUTH_HANDLER');
 

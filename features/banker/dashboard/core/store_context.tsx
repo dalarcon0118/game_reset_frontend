@@ -1,11 +1,9 @@
 import React, { createContext, useContext, useMemo, useEffect } from 'react';
-import { createElmStore } from '@/shared/core/engine';
+import { createElmStore, UpdateResult } from '@/shared/core/engine/engine';
 import { Model } from './model';
 import { Msg } from './msg';
 import { update, subscriptions } from './update';
-import { RemoteData } from '@/shared/core/remote.data';
-import { effectHandlers } from '@/shared/core/effect_handlers';
-import { createLoggerMiddleware } from '@/shared/core/middlewares/logger.middleware';
+import { RemoteData, singleton } from '@/shared/core/tea-utils';
 
 // Tipo para el store de Zustand interno
 type StoreType = ReturnType<typeof createElmStore<Model, Msg>>;
@@ -15,19 +13,20 @@ const BankerDashboardContext = createContext<StoreType | undefined>(undefined);
 
 // Función para crear el store (será usada por el Provider)
 const createDashboardStore = () => {
-    const initialModel: Model = {
-        agencies: RemoteData.notAsked(),
-        summary: RemoteData.notAsked(),
-        userStructureId: null,
-        selectedAgencyId: null,
+    const initialModel = (): UpdateResult<Model, Msg> => {
+        const model: Model = {
+            agencies: RemoteData.notAsked(),
+            summary: RemoteData.notAsked(),
+            userStructureId: null,
+            selectedAgencyId: null,
+        };
+        return singleton(model);
     };
 
     return createElmStore<Model, Msg>(
         initialModel,
         update,
-        effectHandlers as any,
-        subscriptions,
-        [createLoggerMiddleware()]
+        subscriptions
     );
 };
 

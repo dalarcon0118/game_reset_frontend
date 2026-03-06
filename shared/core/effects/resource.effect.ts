@@ -1,6 +1,6 @@
 import { logger } from '../../utils/logger';
 import { AppKernel } from '../architecture/kernel';
-import { RemoteData, WebData } from '../remote.data';
+import { RemoteData, WebData } from '../tea-utils/remote.data';
 
 const log = logger.withTag('RESOURCE_EFFECT');
 

@@ -1,7 +1,7 @@
-import { Sub } from '@/shared/core/sub';
+import { Sub } from '@/shared/core/tea-utils/sub';
 import { Model } from './model';
 import { SYNC_DATA } from './msg';
-import { RemoteData } from '@/shared/core/remote.data';
+import { RemoteData } from '@/shared/core/tea-utils/remote.data';
 
 export function subscriptions(model: Model): Sub<typeof SYNC_DATA> {
   if (!model.context) return Sub.none();

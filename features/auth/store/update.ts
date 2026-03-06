@@ -1,9 +1,8 @@
 // Auth update function - pure TEA authentication logic
 import { AuthModel, AuthMsg, AuthMsgType } from './types';
-import { Cmd } from '../../../shared/core/cmd';
-import { RemoteData, WebData } from '../../../shared/core/remote.data';
-import { RemoteDataHttp } from '../../../shared/core/remote.data.http';
-import { AuthRepository, AuthErrorType, User, AuthSession } from '../../../shared/repositories/auth';
+import { Cmd, RemoteData, RemoteDataHttp } from '@/shared/core/tea-utils';
+import { AuthRepository, AuthErrorType, User, AuthSession } from '@/shared/repositories/auth';
+import { SessionCoordinator } from '@/shared/auth/session/session.coordinator';
 import { logger } from '../../../shared/utils/logger';
 import { match } from 'ts-pattern';
 
@@ -37,19 +36,12 @@ const loginCmd = (username: string, pin: string): Cmd => {
     );
 };
 
-// Check auth status command
+// Check auth status command using Coordinator
 const checkAuthStatusCmd = (): Cmd => {
-    return RemoteDataHttp.fetch<User | null, AuthMsg>(
-        async () => {
-            const user = await AuthRepository.getUserIdentity();
-            return user;
-        },
-        (webData) => ({
-            type: AuthMsgType.CHECK_AUTH_STATUS_RESPONSE_RECEIVED,
-            webData
-        } as AuthMsg),
-        'CHECK_AUTH_STATUS'
-    );
+    return Cmd.task(async () => {
+        const coordinator = SessionCoordinator.getInstance();
+        await coordinator.hydrate();
+    }, 'CHECK_AUTH_STATUS_COORDINATOR');
 };
 
 // Logout command
@@ -96,7 +88,60 @@ const loadSavedUsernameCmd = (): Cmd => {
 
 // Pure update function for authentication
 export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => {
-    const result = match(msg)
+    return match(msg)
+        .with({ type: AuthMsgType.SESSION_HYDRATED }, ({ user, tokenState }) => {
+            log.debug('Session hydrated from coordinator', { user: user?.username, tokenState });
+            const status = user ? 'AUTHENTICATED' : 'ANONYMOUS';
+            return [
+                {
+                    ...model,
+                    user,
+                    status,
+                    error: null
+                },
+                Cmd.none
+            ] as [AuthModel, Cmd];
+        })
+
+        .with({ type: AuthMsgType.TOKEN_REFRESH_STARTED }, () => {
+            log.debug('Token refresh started');
+            return [
+                { ...model, status: 'REFRESHING' },
+                Cmd.none
+            ] as [AuthModel, Cmd];
+        })
+
+        .with({ type: AuthMsgType.TOKEN_REFRESHED }, ({ token }) => {
+            log.debug('Token refreshed successfully');
+            return [
+                { ...model, status: 'AUTHENTICATED' },
+                Cmd.none
+            ] as [AuthModel, Cmd];
+        })
+
+        .with({ type: AuthMsgType.SESSION_EXPIRED }, ({ reason }) => {
+            log.warn('Session expired', { reason });
+            return [
+                {
+                    ...model,
+                    user: null,
+                    status: 'EXPIRED',
+                    error: reason || 'La sesión ha expirado'
+                },
+                Cmd.batch([
+                    logoutCmd(),
+                    Cmd.navigate({ pathname: '/login', method: 'replace' })
+                ])
+            ] as [AuthModel, Cmd];
+        })
+
+        .with({ type: AuthMsgType.CHECK_AUTH_STATUS_REQUESTED }, () => {
+            return [
+                { ...model, status: 'HYDRATING' },
+                checkAuthStatusCmd()
+            ] as [AuthModel, Cmd];
+        })
+
         .with({ type: AuthMsgType.LOGIN_REQUESTED }, ({ username, pin }) => {
             return [
                 {
@@ -109,7 +154,7 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
                     },
                 },
                 loginCmd(username, pin)
-            ];
+            ] as [AuthModel, Cmd];
         })
 
         .with({ type: AuthMsgType.LOGIN_RESPONSE_RECEIVED }, ({ webData }) => {
@@ -119,7 +164,7 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
                     {
                         ...model,
                         user,
-                        isAuthenticated: true,
+                        status: 'AUTHENTICATED',
                         loginResponse: RemoteData.success(user),
                         error: null,
                         loginSession: {
@@ -137,7 +182,7 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
                     {
                         ...model,
                         user: null,
-                        isAuthenticated: false,
+                        status: 'ANONYMOUS',
                         loginResponse: RemoteData.failure({ message: errorMessage }),
                         error: errorMessage,
                         loginSession: {
@@ -149,26 +194,23 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
                     Cmd.none,
                 ] as [AuthModel, Cmd];
             }
-            // Loading state - already set in LOGIN_REQUESTED
             return [model, Cmd.none] as [AuthModel, Cmd];
         })
 
         .with({ type: AuthMsgType.USER_CHANGED }, ({ user }) => {
-            if (user === null && model.isAuthenticated) {
-                // Logout forced from repository (e.g. session expired or server invalidation)
+            if (user === null && (model.status === 'AUTHENTICATED' || model.status === 'REFRESHING')) {
                 return [
                     {
                         ...model,
                         user: null,
-                        isAuthenticated: false,
+                        status: 'ANONYMOUS',
                         loginResponse: RemoteData.notAsked(),
                     },
                     Cmd.navigate({ pathname: '/login', method: 'replace' })
                 ] as [AuthModel, Cmd];
             }
 
-            if (user && model.isAuthenticated) {
-                // Background refresh of user data (e.g. network restored)
+            if (user) {
                 return [
                     {
                         ...model,
@@ -201,7 +243,7 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
                     loginSession: {
                         ...model.loginSession,
                         username,
-                        pin: '', // Reset PIN when username changes
+                        pin: '',
                     },
                 },
                 username ? saveLastUsernameCmd(username) : Cmd.none,
@@ -232,7 +274,6 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
         })
 
         .with({ type: AuthMsgType.SAVED_USERNAME_SAVED }, () => {
-            // No need to do anything, the save was successful
             return [model, Cmd.none] as [AuthModel, Cmd];
         })
 
@@ -248,10 +289,10 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
         })
 
         .with({ type: AuthMsgType.LOGOUT_REQUESTED }, () => {
-            if (model.isLoggingOut) return [model, Cmd.none] as [AuthModel, Cmd];
+            if (model.status === 'LOGGING_OUT') return [model, Cmd.none] as [AuthModel, Cmd];
 
             return [
-                { ...model, isLoggingOut: true },
+                { ...model, status: 'LOGGING_OUT' },
                 logoutCmd(),
             ] as [AuthModel, Cmd];
         })
@@ -262,9 +303,8 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
                     {
                         ...model,
                         user: null,
-                        isAuthenticated: false,
+                        status: 'ANONYMOUS',
                         loginResponse: RemoteData.notAsked(),
-                        isLoggingOut: false,
                     },
                     Cmd.navigate({ pathname: '/login', method: 'replace' }),
                 ] as [AuthModel, Cmd];
@@ -272,70 +312,35 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
             return [
                 {
                     ...model,
-                    isLoggingOut: false,
+                    status: 'AUTHENTICATED',
                     error: webData.type === 'Failure' ? webData.error?.message || 'Error al cerrar sesión' : undefined,
                 },
                 Cmd.none,
             ] as [AuthModel, Cmd];
         })
 
-        .with({ type: AuthMsgType.CHECK_AUTH_STATUS_REQUESTED }, () => {
-            return [
-                model,
-                checkAuthStatusCmd(),
-            ] as [AuthModel, Cmd];
-        })
-
         .with({ type: AuthMsgType.CHECK_AUTH_STATUS_RESPONSE_RECEIVED }, ({ webData }) => {
             if (webData.type === 'Success') {
                 const user = webData.data;
-                if (user) {
-                    return [
-                        {
-                            ...model,
-                            user,
-                            isAuthenticated: true,
-                            error: null
-                        },
-                        Cmd.none,
-                    ] as [AuthModel, Cmd];
-                } else {
-                    return [
-                        {
-                            ...model,
-                            user: null,
-                            isAuthenticated: false,
-                            error: null
-                        },
-                        Cmd.none,
-                    ] as [AuthModel, Cmd];
-                }
+                return [
+                    {
+                        ...model,
+                        user,
+                        status: user ? 'AUTHENTICATED' : 'ANONYMOUS',
+                        error: null
+                    },
+                    Cmd.none,
+                ] as [AuthModel, Cmd];
             }
-            // CHECK_AUTH_STATUS_FAILED is handled by webData.type === 'Failure'
             return [
                 {
                     ...model,
+                    status: 'ANONYMOUS',
                     error: webData.type === 'Failure' ? webData.error?.message || 'Error al verificar sesión' : undefined
                 },
                 Cmd.none,
             ] as [AuthModel, Cmd];
         })
 
-        .with({ type: AuthMsgType.SESSION_EXPIRED }, () => {
-            return [
-                {
-                    ...model,
-                    user: null,
-                    isAuthenticated: false,
-                },
-                Cmd.batch([
-                    logoutCmd(),
-                    Cmd.navigate({ pathname: '/login', method: 'replace' })
-                ]),
-            ] as [AuthModel, Cmd];
-        })
-
-        .otherwise(() => [model, Cmd.none] as [AuthModel, Cmd]);
-
-    return result as [AuthModel, Cmd];
+        .exhaustive();
 };

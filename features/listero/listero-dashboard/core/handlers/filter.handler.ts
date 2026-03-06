@@ -1,6 +1,6 @@
 import { Model } from '../model';
 import { Msg } from '../msg';
-import { Cmd } from '@/shared/core/cmd';
+import { Cmd } from '@/shared/core/tea-utils/cmd';
 import { ret, singleton, Return } from '@/shared/core/return';
 import { recalculateDashboardState } from '../logic';
 import { StatusFilter } from '../core.types';

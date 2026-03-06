@@ -1,7 +1,7 @@
-import { createElmStore } from '../../../../shared/core/engine';
+import { createElmStore } from '../../../../shared/core/engine/engine';
 import { Model, Msg } from './types';
 import { update, init, subscriptions } from './update';
-import { effectHandlers } from '../../../../shared/core/effect_handlers';
+import { effectHandlers } from '../../../../shared/core/tea-utils/effect_handlers';
 import { createLoggerMiddleware } from '../../../../shared/core/middlewares/logger.middleware';
 
 export const useRuleStore = createElmStore<Model, Msg>(
