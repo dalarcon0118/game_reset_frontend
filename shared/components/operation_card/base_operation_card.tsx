@@ -3,7 +3,7 @@ import { View, StyleSheet, TouchableOpacity, GestureResponderEvent, ActivityIndi
 import { Briefcase } from 'lucide-react-native';
 import { COLORS } from '@/shared/components/constants';
 import { Flex, Card, IconBox, Label, ButtonKit } from '@/shared/components';
-import { WebData } from '@/shared/core/tea-utils/remote.data';
+import { WebData } from '@/shared/core/tea-utils';
 import { NodeFinancialSummary } from '@/shared/repositories/financial';
 import { match } from 'ts-pattern';
 

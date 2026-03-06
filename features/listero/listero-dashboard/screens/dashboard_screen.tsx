@@ -7,7 +7,7 @@ import {
 } from 'react-native';
 import { match } from 'ts-pattern';
 import { useShallow } from 'zustand/shallow';
-import { RemoteData } from '@/shared/core/tea-utils/remote.data';
+import { RemoteData } from '@/shared/core/tea-utils';
 import { Label } from '@/shared/components';
 import Header from '../views/header';
 import { useDashboardStore } from '../store';

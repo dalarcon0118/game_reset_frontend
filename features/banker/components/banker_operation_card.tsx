@@ -1,7 +1,7 @@
 import React from 'react';
 import { BaseOperationCard } from '@/shared/components/operation_card/base_operation_card';
 import { useFinancialStore, selectNodeFinancialSummary } from '@/shared/store/financial/store';
-import { RemoteData } from '@/shared/core/tea-utils/remote.data';
+import { RemoteData } from '@/shared/core/tea-utils';
 
 interface BankerOperationCardProps {
   nodeId: number;

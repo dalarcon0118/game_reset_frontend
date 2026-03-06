@@ -1,4 +1,4 @@
-import { createMsg } from '@/shared/core/tea-utils/msg';
+import { createMsg } from '@/shared/core/tea-utils';
 import { PluginContext } from '@/shared/core/plugins/plugin.types';
 import { BetType as PendingBet } from '@/types';
 import { FinancialSummary } from '@/types';
@@ -20,3 +20,10 @@ export const REPORT_DISCREPANCY = createMsg<'REPORT_DISCREPANCY', {
 }>('REPORT_DISCREPANCY');
 
 export const NOOP = createMsg<'NOOP', void>('NOOP');
+
+export type Msg =
+  | ReturnType<typeof INIT_CONTEXT>
+  | ReturnType<typeof SYNC_DATA>
+  | ReturnType<typeof PERFORM_RECONCILIATION>
+  | ReturnType<typeof REPORT_DISCREPANCY>
+  | ReturnType<typeof NOOP>;

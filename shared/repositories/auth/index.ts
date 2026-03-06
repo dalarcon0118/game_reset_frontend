@@ -1,4 +1,5 @@
 import { Result, ResultAsync } from 'neverthrow';
+import { isServerReachable } from '@/shared/utils/network';
 import { authApiAdapter } from './adapters/auth.api.adapter';
 import { authStorageAdapter } from './adapters/auth.storage.adapter';
 import { IAuthApi, IAuthStorage, IAuthRepository } from './auth.ports';

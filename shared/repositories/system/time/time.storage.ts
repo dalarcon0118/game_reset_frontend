@@ -1,5 +1,5 @@
 import { TimeMetadata } from './time.types';
-import { offlineStorage } from '@/shared/core/offline-storage/instance';
+import { offlineStorage } from '@/shared/core/offline-storage/storage';
 import { SystemOfflineKeys } from '@/shared/repositories/financial/financial.offline.keys';
 import { logger } from '@/shared/utils/logger';
 

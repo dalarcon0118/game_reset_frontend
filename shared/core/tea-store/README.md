@@ -207,7 +207,7 @@ import { createElmStore } from '@/shared/core/engine';
 import { effectHandlers } from '@/shared/core/effect_handlers';
 
 const { initial, update } = createTEAStoreUpdate<User>(userConfig);
-const store = createElmStore(initial, update, effectHandlers);
+const store = createElmStore(initial, update);
 
 // Use store directly
 store.getState().dispatch({ type: 'FETCH_ALL_REQUESTED' });

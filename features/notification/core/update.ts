@@ -1,7 +1,6 @@
 import { match } from 'ts-pattern';
 import { Model, AppNotification } from './model';
 import { Msg } from './msg';
-import { initialNotificationModel } from './store';
 import {
     Cmd,
     Sub,

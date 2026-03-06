@@ -1,5 +1,5 @@
 import { Model } from './model';
-import { SubDescriptor, Sub } from '@/shared/core/tea-utils/sub';
+import { SubDescriptor, Sub } from '@/shared/core/tea-utils';
 import { Msg } from './msg';
 import { useAuthStore } from '@features/auth';
 import { pluginEventBus } from '@/shared/core/plugins/plugin.event_bus';

@@ -3,7 +3,7 @@ import { View, ActivityIndicator, Text } from 'react-native';
 import { useBetWorkspaceStore } from '../../core/store';
 import { ManagementMsgType } from '../../management/core/types';
 import { renderGameComponent, getGameListComponent } from './game_registry';
-import { RemoteData } from '@/shared/core/tea-utils/remote.data';
+import { RemoteData } from '@/shared/core/tea-utils';
 
 interface GameLoaderProps {
     drawId: string;

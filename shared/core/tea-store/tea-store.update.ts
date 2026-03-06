@@ -1,8 +1,7 @@
 import { match } from 'ts-pattern';
-import { Return, singleton, ret } from '../return';
+import { Return, singleton, ret, RemoteDataHttp, RemoteData, WebData } from '../tea-utils';
 import { Cmd } from '../tea-utils/cmd';
-import { RemoteData, WebData } from '../tea-utils/remote.data';
-import { RemoteDataHttp } from '../remote.data.http';
+import { } from '../tea-utils/remote.data';
 import {
     TEAStoreState,
     TEAStoreMsg,
@@ -229,7 +228,7 @@ export const createTEAStoreUpdate = <T extends Entity>(
                 )
             )
             .with({ type: TEAStoreMsgType.DELETE_RESPONSE }, ({ response }) =>
-                RemoteData.fold(
+                RemoteData.fold<any, void, Return<TEAStoreState<T>, TEAStoreMsg<T>>>(
                     {
                         notAsked: () => singleton(model),
                         loading: () => singleton(model),
@@ -247,7 +246,7 @@ export const createTEAStoreUpdate = <T extends Entity>(
                                 model.items
                             );
                             // Clear selected item if it was deleted
-                            const nextSelected = RemoteData.fold(
+                            const nextSelected = RemoteData.fold<any, T, WebData<T>>(
                                 {
                                     notAsked: () => model.selectedItem,
                                     loading: () => model.selectedItem,
@@ -263,7 +262,7 @@ export const createTEAStoreUpdate = <T extends Entity>(
                                 ...model,
                                 items: nextItems,
                                 selectedItem: nextSelected,
-                                operationStatus: RemoteData.success(undefined as T),
+                                operationStatus: RemoteData.success(null as unknown as T),
                                 editingId: null
                             });
                         }

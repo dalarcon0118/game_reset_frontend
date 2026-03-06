@@ -1,5 +1,4 @@
-import { Return, ret, singleton } from '@/shared/core/return';
-import { Cmd } from '@/shared/core/tea-utils/cmd';
+import { Return, ret, singleton, Cmd } from '@/shared/core/tea-utils';
 import { Model } from './model';
 import * as Msg from './msg';
 import { calculateLocalTotals, reconcile } from './core/reconciler';

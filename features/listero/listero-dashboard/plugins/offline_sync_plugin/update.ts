@@ -8,8 +8,7 @@ import type { OfflineSyncModel } from './types';
 import { OfflineSyncMsg } from './msg';
 import { MAX_TOASTS, formatTimeSince } from './types';
 import { syncWorker } from '@/shared/core/offline-storage/instance';
-import { Cmd } from '@/shared/core/tea-utils/cmd';
-import { Return, ret, singleton } from '@/shared/core/return';
+import { Cmd, Return, ret, singleton } from '@/shared/core/tea-utils';
 import { match } from 'ts-pattern';
 import type { OfflineSyncBet } from './types';
 

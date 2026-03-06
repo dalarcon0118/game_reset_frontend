@@ -1,11 +1,8 @@
 import { createElmStore } from '@/shared/core/engine/engine';
-import { effectHandlers } from '@/shared/core/tea-utils/effect_handlers';
-import { createLoggerMiddleware } from '@/shared/core/middlewares/logger.middleware';
+import { Cmd, Sub } from '@/shared/core/tea-utils';
 import { updateFeature } from './feature.update';
 import { LoteriaFeatureModel, FeatureMsg } from './feature.types';
 import { initialModel } from './feature.initial';
-import { Cmd } from '@/shared/core/tea-utils/cmd';
-import { Sub } from '@/shared/core/tea-utils/sub';
 
 // ============================================================================
 // Initial Model (Re-exported from feature.initial to break circular dependency)
@@ -24,14 +21,11 @@ const update = (model: LoteriaFeatureModel, msg: FeatureMsg) => updateFeature(mo
 
 const subscriptions = (_model: LoteriaFeatureModel) => Sub.none();
 
-export const useLoteriaStore = createElmStore<LoteriaFeatureModel, FeatureMsg>(
-    init,
+export const useLoteriaStore = createElmStore<LoteriaFeatureModel, FeatureMsg>({
+    initial: init,
     update,
-    effectHandlers as any,
-    // @ts-ignore
-    subscriptions,
-    [createLoggerMiddleware("BET_LOTERIA")]
-);
+    subscriptions
+});
 
 export const selectLoteriaModel = (state: any) => state.model;
 export const selectDispatch = (state: { dispatch: (msg: FeatureMsg) => void }) => state.dispatch;

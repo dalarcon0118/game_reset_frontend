@@ -1,6 +1,4 @@
-import { createMsg } from '@/shared/core/tea-utils/msg';
-import { PluginContext } from '@/shared/core/plugins/plugin.types';
-import { WebData } from '@/shared/core/tea-utils/remote.data';
+import { createMsg, WebData } from '@/shared/core/tea-utils';
 
 import { DrawsListPluginConfig } from './model';
 import { Draw } from './core/types';

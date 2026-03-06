@@ -1,6 +1,6 @@
 import { LoteriaFeatureModel } from './feature.types';
 import { initialLoteriaState } from '../loteria/loteria.types';
-import { RemoteData } from '@/shared/core/tea-utils/remote.data';
+import { RemoteData } from '@/shared/core/tea-utils';
 
 // ============================================================================
 // Initial Model - Extracción para romper ciclo de dependencias

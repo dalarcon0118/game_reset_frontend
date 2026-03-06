@@ -1,4 +1,4 @@
-import { createMsg } from '@/shared/core/tea-utils/msg';
+import { createMsg } from '@/shared/core/tea-utils';
 import type { ToastConfig, OfflineSyncBet } from './types';
 
 // ============================================================================

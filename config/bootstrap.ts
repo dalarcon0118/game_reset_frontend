@@ -2,22 +2,22 @@ import { AppKernel } from '@/shared/core/architecture/kernel';
 import { logger } from '../shared/utils/logger';
 import { apiClient } from '../shared/services/api_client';
 import { ApiClientError } from '../shared/services/api_client/api_client.errors';
-import { useAuthStore, selectIsAuthenticated } from '../features/auth/store/store';
+import type { useAuthStore as useAuthStoreType, selectIsAuthenticated as selectIsAuthenticatedType } from '../features/auth/store/store';
 import { AuthMsgType } from '../features/auth/store/types';
-import { EffectRegistry } from '../shared/core/tea-utils/effect_registry';
+import { EffectRegistry, MiddlewareRegistry, effectHandlers } from '../shared/core/tea-utils';
 import { AuthSubscriptionHandler } from '../features/auth/subscription_handler';
 import { bootstrapKernel } from '../shared/core/architecture/bootstrap_kernel';
 import { AppManifest } from './app_manifest';
 import { createLoggerMiddleware } from '../shared/core/middlewares/logger.middleware';
 import { createTimeIntegrityMiddleware } from '../shared/core/middlewares/time_integrity.middleware';
-import { MiddlewareRegistry } from '@/shared/core/tea-utils/middleware_registry';
 import { elmEngine } from '@/shared/core/engine/engine_config';
-import { effectHandlers } from '@/shared/core/tea-utils/effect_handlers';
 /**
  * Bootstraps the Application Architecture
  * This function should be called before the React application mounts.
  * It initializes the Kernel with the concrete implementations of our providers.
  */
+MiddlewareRegistry.register(createLoggerMiddleware());
+MiddlewareRegistry.register(createTimeIntegrityMiddleware());
 elmEngine.configure({
     effectHandlers,
     middlewares: MiddlewareRegistry.getGlobals()
@@ -30,8 +30,7 @@ export const bootstrapArchitecture = async (): Promise<void> => {
 
         // 0. Register Global Middlewares
         logger.info('Registering Global Middlewares...', 'BOOTSTRAP');
-        MiddlewareRegistry.register(createLoggerMiddleware());
-        MiddlewareRegistry.register(createTimeIntegrityMiddleware());
+
 
         // 0. Register Core Effects
         logger.info('Verifying Core Effects registration...', 'BOOTSTRAP');
@@ -68,6 +67,10 @@ export const bootstrapArchitecture = async (): Promise<void> => {
         // 2. Configure Global Session Expiration Handler
         // This handles critical failures in token refresh logic (e.g. preventive refresh failure)
         apiClient.setSessionExpiredHandler(() => {
+            const { useAuthStore, selectIsAuthenticated } = require('../features/auth/store/store') as {
+                useAuthStore: typeof useAuthStoreType;
+                selectIsAuthenticated: typeof selectIsAuthenticatedType;
+            };
             const state = useAuthStore.getState();
             // Solo hacer logout si el usuario está autenticado
             if (selectIsAuthenticated(state)) {

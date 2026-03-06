@@ -1,11 +1,9 @@
 import { createElmStore } from '@/shared/core/engine/engine';
-import { effectHandlers } from '@/shared/core/tea-utils/effect_handlers';
+import { effectHandlers, Cmd, Sub } from '@/shared/core/tea-utils';
 import { createLoggerMiddleware } from '@/shared/core/middlewares/logger.middleware';
 import { BolitaModel } from '../domain/models/bolita.types';
 import { initialBolitaModel } from '../domain/models/bolita.initial';
 import { update } from '../application/bolita';
-import { Cmd } from '@/shared/core/tea-utils/cmd';
-import { Sub } from '@/shared/core/tea-utils/sub';
 import { BolitaMsg } from '../domain/models/bolita.messages';
 
 /**
@@ -25,12 +23,11 @@ const init = (params?: Partial<BolitaModel>): [BolitaModel, Cmd] => {
 const subscriptions = (model: BolitaModel) => Sub.none();
 
 export const useBolitaStore = createElmStore<BolitaModel, BolitaMsg>(
-    init,
-    update as any,
-    effectHandlers as any,
-    // @ts-ignore
-    subscriptions,
-    [createLoggerMiddleware("BET_BOLITA")]
+    {
+        initial: init,
+        update: update,
+        subscriptions
+    }
 );
 
 export const selectBolitaModel = (state: any) => state.model;

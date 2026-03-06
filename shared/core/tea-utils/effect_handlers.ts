@@ -20,29 +20,33 @@ export const CoreEffectsModule: EffectModule = {
     handlers: {
         MSG: (payload: any, dispatch: (msg: any) => void) => {
             dispatch(payload);
+            return payload;
         },
         HTTP: async (payload: HttpPayload) => {
-            await handleHttp(payload);
+            return await handleHttp(payload);
         },
         TASK: (payload: TaskPayload, dispatch: (cmd: any) => void) => handleTask(payload, dispatch),
         NAVIGATE: (payload: NavigationPayload, dispatch: (cmd: any) => void) =>
             handleNavigation(payload, dispatch, router),
         ALERT: (payload: any, dispatch: (msg: any) => void) => {
             const { title, message, buttons, options } = payload;
-            Alert.alert(
-                title,
-                message,
-                buttons?.map((btn: any) => ({
-                    text: btn.text,
-                    style: btn.style,
-                    onPress: () => {
-                        if (btn.onPressMsg) {
-                            dispatch(btn.onPressMsg);
-                        }
-                    },
-                })),
-                options
-            );
+            return new Promise((resolve) => {
+                Alert.alert(
+                    title,
+                    message,
+                    buttons?.map((btn: any) => ({
+                        text: btn.text,
+                        style: btn.style,
+                        onPress: () => {
+                            if (btn.onPressMsg) {
+                                dispatch(btn.onPressMsg);
+                            }
+                            resolve(btn.text);
+                        },
+                    })),
+                    options
+                );
+            });
         },
     },
 };

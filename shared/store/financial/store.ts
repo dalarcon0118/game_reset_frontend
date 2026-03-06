@@ -2,9 +2,7 @@ import { createElmStore } from '@/shared/core/engine/engine';
 import { Model, initialModel } from './model';
 import { Msg } from './msg';
 import { update } from './update';
-import { effectHandlers } from '@/shared/core/tea-utils/effect_handlers';
-import { Sub } from '@/shared/core/tea-utils/sub';
-import { createLoggerMiddleware } from '@/shared/core/middlewares/logger.middleware';
+import { Sub } from '@/shared/core/tea-utils';
 // import { useDashboardStore } from '@/features/colector/dashboard/core/store'; // TODO: This store is context-based, cannot be watched globally
 import { useDrawersStore } from '@/features/colector/drawers/core/store';
 import { useListeriasStore } from '@/features/banker/listerias/core/store';
@@ -95,13 +93,11 @@ export const subscriptions = (model: Model) => {
     ]);
 };
 
-export const useFinancialStore = createElmStore<Model, Msg>(
-    initialModel,
+export const useFinancialStore = createElmStore<Model, Msg>({
+    initial: initialModel,
     update,
-    effectHandlers as any,
     subscriptions,
-    [createLoggerMiddleware()]
-);
+});
 
 // Selectors
 export const selectFinancialModel = (state: { model: Model }) => state.model;

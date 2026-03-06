@@ -3,7 +3,7 @@ import { useLocalSearchParams } from 'expo-router';
 import ViewShot from 'react-native-view-shot';
 import { VoucherMsgType } from '../../core/domain/success.types';
 import { makeVoucherStore } from '../../store';
-import { RemoteData } from '@/shared/core/tea-utils/remote.data';
+import { RemoteData } from '@/shared/core/tea-utils';
 import logger from '@/shared/utils/logger';
 
 const log = logger.withTag('useVoucher');

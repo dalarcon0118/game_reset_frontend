@@ -1,19 +1,16 @@
 import { createElmStore } from '@/shared/core/engine/engine';
-import { effectHandlers } from '@/shared/core/tea-utils/effect_handlers';
+import { effectHandlers } from '@/shared/core/tea-utils';
 import { initialState } from './initial.types';
 import { update } from './update';
 import { subscriptions } from './subscriptions';
 import { Model } from './model';
 import { Msg } from './msg';
-import { createLoggerMiddleware } from '@/shared/core/middlewares/logger.middleware';
-import { registerDashboardPlugins } from '../plugins/plugin-registrar';
 
-export const useDashboardStore = createElmStore<Model, Msg>(
-    initialState,
+
+export const useDashboardStore = createElmStore<Model, Msg>({
+    initial: initialState,
     update,
-    effectHandlers as any,
-    subscriptions,
-    [createLoggerMiddleware()]
-);
+    subscriptions
+});
 
 export const dispatch = (msg: Msg) => useDashboardStore.getState().dispatch(msg);

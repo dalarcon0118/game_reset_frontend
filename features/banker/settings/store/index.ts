@@ -1,16 +1,12 @@
 import { createElmStore } from '@/shared/core/engine/engine';
-import { effectHandlers } from '@/shared/core/tea-utils/effect_handlers';
-import { createLoggerMiddleware } from '@/shared/core/middlewares/logger.middleware';
+
 import { Model, Msg } from './types';
 import { update, initialState } from './update';
 
-export const useSettingsStore = createElmStore<Model, Msg>(
-    initialState,
-    update,
-    effectHandlers as any,
-    undefined,
-    [createLoggerMiddleware()]
-);
+export const useSettingsStore = createElmStore<Model, Msg>({
+    initial: initialState,
+    update
+});
 
 // Selectores
 export const selectUser = (state: { model: Model }) => state.model.user;

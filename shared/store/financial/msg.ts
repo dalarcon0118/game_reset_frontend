@@ -1,4 +1,4 @@
-import { WebData } from '@/shared/core/tea-utils/remote.data';
+import { WebData } from '@/shared/core/tea-utils';
 import { NodeFinancialSummary } from '@/shared/repositories/financial';
 import { FinancialSummary } from '@/types';
 

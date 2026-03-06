@@ -1,16 +1,12 @@
-import { createElmStore } from '../../../../shared/core/engine/engine';
+import { createElmStore } from '@/shared/core/engine/engine';
 import { Model, Msg } from './types';
 import { update, init, subscriptions } from './update';
-import { effectHandlers } from '../../../../shared/core/tea-utils/effect_handlers';
-import { createLoggerMiddleware } from '../../../../shared/core/middlewares/logger.middleware';
 
-export const useRuleStore = createElmStore<Model, Msg>(
-    init,
+export const useRuleStore = createElmStore<Model, Msg>({
+    initial: init,
     update,
-    effectHandlers as any,
-    subscriptions,
-    [createLoggerMiddleware()]
-);
+    subscriptions
+});
 
 // Selectores útiles
 export const selectRules = (state: { model: Model }) => state.model.rules;

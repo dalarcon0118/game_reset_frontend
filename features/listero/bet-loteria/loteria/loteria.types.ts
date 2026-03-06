@@ -1,5 +1,4 @@
-import { createMsg } from '@/shared/core/tea-utils/msg';
-import { LoteriaBet } from '@/types';
+import { createMsg } from '@/shared/core/tea-utils';
 
 // ============================================================================
 // Message Constructors

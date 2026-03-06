@@ -9,11 +9,9 @@ import {
     CENTENA,
     PARLET
 } from '../domain/models/bolita.messages';
-import { Return, ret, singleton } from '@/shared/core/return';
-import { Cmd } from '@/shared/core/tea-utils/cmd';
+import { Return, ret, singleton, Cmd, RemoteData } from '@/shared/core/tea-utils';
 import { BolitaImpl } from '../domain/bolita.impl';
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
-import { RemoteData } from '@/shared/core/tea-utils/remote.data';
 import { logger } from '@/shared/utils/logger';
 
 // Message imports for orchestration

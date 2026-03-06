@@ -1,4 +1,4 @@
-import { WebData } from '@/shared/core/tea-utils/remote.data';
+import { WebData } from '@/shared/core/tea-utils';
 import { ListeroDetails } from '@/shared/services/structure';
 
 export interface Model {

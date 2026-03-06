@@ -23,11 +23,11 @@ const createDashboardStore = () => {
         return singleton(model);
     };
 
-    return createElmStore<Model, Msg>(
-        initialModel,
+    return createElmStore<Model, Msg>({
+        initial: initialModel,
         update,
         subscriptions
-    );
+    });
 };
 
 // Provider del Dashboard

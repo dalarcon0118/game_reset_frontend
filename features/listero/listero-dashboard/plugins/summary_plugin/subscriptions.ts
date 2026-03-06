@@ -1,4 +1,4 @@
-import { Sub } from '@/shared/core/tea-utils/sub';
+import { Sub } from '@/shared/core/tea-utils';
 import { Model } from './model';
 import { Msg, FETCH_FINANCIAL_SUMMARY } from './msg';
 import { offlineEventBus } from '@/shared/core/offline-storage/instance';

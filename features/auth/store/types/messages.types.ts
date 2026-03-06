@@ -1,5 +1,5 @@
 import { AuthSession, User, AuthErrorType } from '../../../../shared/repositories/auth';
-import { WebData } from '@/shared/core/tea-utils/remote.data';
+import { WebData } from '@/shared/core/tea-utils';
 
 export enum AuthMsgType {
     // Login flow

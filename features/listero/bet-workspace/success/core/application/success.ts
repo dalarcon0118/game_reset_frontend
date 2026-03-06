@@ -1,5 +1,4 @@
-import { singleton, ret, Return } from '@/shared/core/return';
-import { Cmd } from '@/shared/core/tea-utils/cmd';
+import { singleton, ret, Return, Cmd } from '@/shared/core/tea-utils';
 import { VoucherMsg, VoucherMsgType, VoucherModel, initialVoucherModel } from '../domain/success.types';
 import { SuccessFlows } from './success.flows';
 import { match } from 'ts-pattern';

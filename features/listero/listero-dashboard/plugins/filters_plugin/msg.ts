@@ -1,4 +1,4 @@
-import { createMsg } from '@/shared/core/tea-utils/msg';
+import { createMsg } from '@/shared/core/tea-utils';
 import { PluginContext } from '@/shared/core/plugins/plugin.types';
 
 import { FiltersPluginConfig } from './model';

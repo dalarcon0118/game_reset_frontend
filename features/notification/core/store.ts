@@ -1,7 +1,7 @@
 import { createElmStore } from '@/shared/core/engine/engine';
 import { Model } from './model';
 import { update, subscriptions } from './update';
-import { effectHandlers } from '@/shared/core/tea-utils/effect_handlers';
+import { effectHandlers } from '@/shared/core/tea-utils';
 import { createLoggerMiddleware } from '@/shared/core/middlewares/logger.middleware';
 import { FETCH_NOTIFICATIONS_REQUESTED } from './msg';
 
@@ -23,11 +23,11 @@ export const initialNotificationModel: Model = {
 
 // Create the store
 export const useNotificationStore = createElmStore<Model, import('./msg').Msg>(
-    initialNotificationModel,
-    update,
-    effectHandlers as any,
-    (model) => subscriptions(model),
-    [createLoggerMiddleware()]
+    {
+        initial: initialNotificationModel,
+        update,
+        subscriptions: (model) => subscriptions(model),
+    }
 );
 
 // Selectors

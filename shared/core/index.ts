@@ -1,9 +1,10 @@
-export * from './events';
+export * from './tea-utils/events';
 export * from './tea-utils/msg';
 export * from './tea-utils/cmd';
 export * from './tea-utils/sub';
 export * from './tea-utils/remote.data';
 export * from './tea-utils/return';
+export * from './tea-utils/effect_registry';
 export * from './engine/engine';
 export * from './tea-utils/effect_handlers';
 

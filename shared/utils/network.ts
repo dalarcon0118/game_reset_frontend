@@ -1,6 +1,6 @@
 import NetInfo from '@react-native-community/netinfo';
 import { logger } from './logger';
-import apiClient from '../services/api_client';
+import { settings } from '@/config/settings';
 
 const log = logger.withTag('NETWORK_UTILS');
 
@@ -23,22 +23,21 @@ export async function isServerReachable(): Promise<boolean> {
         // We perform a lightweight "ping" to our own backend.
         log.debug(`Checking server reachability...`);
 
-        // We use apiClient to make the request, which handles base URL,
-        // headers, authentication, and timeout automatically.
-        // silentErrors: true suppresses logging for expected failures (server down)
-        const response = await apiClient.get<any>('/', {
-            silentErrors: true,
-            timeoutProfile: 'FAST',
+        // We use native fetch to avoid circular dependencies with apiClient
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), settings.api.timeoutProfiles.FAST);
+
+        const response = await fetch(settings.api.baseUrl + '/', {
+            method: 'GET',
+            signal: controller.signal,
         });
 
-        // If we get here without throwing, the server is reachable
-        // Note: apiClient.get() will throw on non-OK responses, but since we used
-        // silentErrors, we just need to check if we got a response
-        log.debug(`Server reachability result: true`);
+        clearTimeout(timeoutId);
+
+        // If we get any response, the server is reachable
+        log.debug(`Server reachability result: ${response.ok}`);
         return true;
     } catch (error) {
-        // apiClient throws ApiClientError on network failures or non-OK responses
-        // If we're here, the server is not reachable
         log.debug('Server ping failed', error);
         return false;
     }

@@ -1,4 +1,4 @@
-import { Sub, SubDescriptor } from '../../../shared/core/tea-utils/sub';
+import { Sub, SubDescriptor } from '@/shared/core/tea-utils';
 import { AuthModel, AuthMsg, AuthMsgType } from './types';
 import { AuthRepository } from '../../../shared/repositories/auth';
 import { SessionSignalBus } from '@/shared/auth/session/session.signal.bus';

@@ -3,8 +3,7 @@ import { createElmStore } from '@/shared/core/engine/engine';
 import { Model } from './model';
 import { Msg } from './msg';
 import { update, subscriptions } from './update';
-import { RemoteData } from '@/shared/core/tea-utils/remote.data';
-import { effectHandlers } from '@/shared/core/tea-utils/effect_handlers';
+import { RemoteData, effectHandlers } from '@/shared/core/tea-utils';
 
 // Tipo para el store de Zustand interno
 type StoreType = ReturnType<typeof createElmStore<Model, Msg>>;
@@ -23,13 +22,11 @@ const createDashboardStore = () => {
         user: null,
     };
 
-    return createElmStore<Model, Msg>(
-        initialModel,
+    return createElmStore<Model, Msg>({
+        initial: initialModel,
         update,
-        effectHandlers as any,
-        subscriptions,
-        [createLoggerMiddleware()]
-    );
+        subscriptions
+    });
 };
 
 // Provider del Dashboard

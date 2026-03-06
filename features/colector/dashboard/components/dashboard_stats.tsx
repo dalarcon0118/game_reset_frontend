@@ -7,7 +7,7 @@ import { Flex } from '@/shared/components/flex';
 import { Label } from '@/shared/components/label';
 import { GridStatCard } from '../../common/grid_stat_card';
 import { useDashboardStore, selectDashboardModel } from '../core';
-import { RemoteData } from '@/shared/core/tea-utils/remote.data';
+import { RemoteData } from '@/shared/core/tea-utils';
 import { Model } from '../core/model';
 
 const { width } = Dimensions.get('window');

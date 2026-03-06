@@ -4,16 +4,18 @@ import { initAuth } from './init';
 import { updateAuth } from './update';
 import { authSubscriptions } from './subscriptions';
 import { createElmStore } from '@/shared/core/engine/engine';
-import { RemoteData } from '@/shared/core/tea-utils/remote.data';
+import { RemoteData } from '@/shared/core/tea-utils';
 import { SessionCoordinator } from '@/shared/auth/session/session.coordinator';
 import { AuthRepository } from '@/shared/repositories/auth';
 import { logger } from '@/shared/utils/logger';
 
 // Zustand store with TEA integration using the central engine
-export const useAuthStore = createElmStore<AuthModel, AuthMsg>(
-    initAuth, // Use init function instead of static initial model
-    updateAuth,
-    authSubscriptions
+export const useAuthStore = createElmStore<AuthModel, AuthMsg>({
+    initial: initAuth,
+    update: updateAuth,
+    subscriptions: authSubscriptions,
+}
+
 );
 
 // Initialize SessionCoordinator after store creation

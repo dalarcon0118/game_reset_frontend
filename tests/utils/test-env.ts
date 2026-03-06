@@ -4,7 +4,7 @@ import { update } from '@/features/listero/listero-dashboard/core/update';
 import { Msg } from '@/features/listero/listero-dashboard/core/msg';
 import { Model } from '@/features/listero/listero-dashboard/core/model';
 import { initialState } from '@/features/listero/listero-dashboard/core/initial.types';
-import { effectHandlers } from '@/shared/core/tea-utils/effect_handlers';
+import { effectHandlers } from '@/shared/core/tea-utils';
 import apiClient from '@/shared/services/api_client/api_client';
 import { AuthRepository, User } from '@/shared/repositories/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -63,13 +63,12 @@ export const createTestEnv = async () => {
     const testMiddleware = createTestMiddleware<Model, Msg>();
 
     // 3. Create Store
-    const store = createElmStore<Model, Msg>(
-        initialState,
+    const store = createElmStore<Model, Msg>({
+        initial: initialState,
         update,
-        effectHandlers as any,
-        undefined, // No subscriptions for now
-        [testMiddleware.middleware]
-    );
+        effectHandlers: effectHandlers as any,
+        middlewares: [testMiddleware.middleware]
+    });
 
     // 4. Helper for Real Auth
     const authenticateRealUser = async (username: string, pin: string): Promise<User> => {

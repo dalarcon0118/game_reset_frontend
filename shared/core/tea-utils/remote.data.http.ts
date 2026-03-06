@@ -1,6 +1,6 @@
-import { logger } from '../utils/logger';
+import { logger } from '../../utils/logger';
 import { RemoteData, WebData } from './remote.data';
-import { Cmd } from './tea-utils/cmd';
+import { Cmd } from './cmd';
 import { Result } from 'neverthrow';
 
 const log = logger.withTag('REMOTE_DATA_HTTP');

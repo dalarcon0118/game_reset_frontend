@@ -1,4 +1,4 @@
-import { offlineStorage } from '../instance';
+import { offlineStorage } from '../storage';
 import { OfflineStorageKeyManager } from '../utils';
 import { SyncQueueItem, SyncMetadata } from '../types';
 

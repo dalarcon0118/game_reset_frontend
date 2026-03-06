@@ -1,9 +1,6 @@
 import { Model } from './model';
 import * as Msg from './msg';
-import { Return, ret } from '@/shared/core/return';
-import { Cmd } from '@/shared/core/tea-utils/cmd';
-import { RemoteDataHttp } from '@/shared/core/remote.data.http';
-import { RemoteData, WebData } from '@/shared/core/tea-utils/remote.data';
+import { Return, ret, Cmd, RemoteDataHttp, RemoteData, WebData } from '@/shared/core/tea-utils';
 import { match } from 'ts-pattern';
 import { FinancialSummary as DomainFinancialSummary, PendingBet as DomainPendingBet, DailyTotals } from './domain/models';
 

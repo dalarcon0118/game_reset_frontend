@@ -1,4 +1,4 @@
-import { WebData } from '@/shared/core/tea-utils/remote.data';
+import { WebData } from '@/shared/core/tea-utils';
 import { ChildStructure } from '@/shared/services/structure';
 
 export type Msg =

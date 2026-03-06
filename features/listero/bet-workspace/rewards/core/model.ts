@@ -1,6 +1,6 @@
 import { WinningRecord } from '@/types';
 import { UnifiedRulesResponse } from '@/shared/services/rules';
-import { WebData, RemoteData } from '@/shared/core/tea-utils/remote.data';
+import { WebData, RemoteData } from '@/shared/core/tea-utils';
 
 export interface RewardsModel {
     rewards: {

@@ -10,27 +10,48 @@ import { isLeft } from 'fp-ts/Either';
 import { PathReporter } from 'io-ts/PathReporter';
 import { Cmd, CommandDescriptor } from '../tea-utils/cmd';
 import { elmEngine } from './engine_config';
+import { effectHandlers as fallbackEffectHandlers } from '../tea-utils/effect_handlers';
 
 // La estructura que debe devolver cualquier función 'update'
 export type UpdateResult<TModel, TMsg> = [TModel, Cmd] | Return<TModel, TMsg>;
 
+export interface ElmStoreConfig<TModel, TMsg> {
+    initial: TModel | ((params?: any) => UpdateResult<TModel, TMsg>);
+    update: (model: TModel, msg: TMsg) => UpdateResult<TModel, TMsg>;
+    subscriptions?: (model: TModel) => SubDescriptor<TMsg>;
+    effectHandlers?: Record<string, (payload: any, dispatch: (msg: TMsg) => void) => Promise<any>>;
+    middlewares?: TeaMiddleware<TModel, TMsg>[];
+}
+
 export const createElmStore = <TModel, TMsg>(
-    initial: TModel | ((params?: any) => UpdateResult<TModel, TMsg>),
-    update: (model: TModel, msg: TMsg) => UpdateResult<TModel, TMsg>,
-    subscriptions?: (model: TModel) => SubDescriptor<TMsg>,
-    // Effect handlers: si no se pasa, usa los globales configurados con elmEngine.configure()
-    effectHandlers?: Record<string, (payload: any, dispatch: (msg: TMsg) => void) => Promise<any>>,
-    // Middlewares: si no se pasa, usa los globales de MiddlewareRegistry + los globales de elmEngine
-    middlewares?: TeaMiddleware<TModel, TMsg>[]
+    config: ElmStoreConfig<TModel, TMsg>
 ) => {
+    const { initial, update, subscriptions, effectHandlers, middlewares } = config;
     // Obtener effectHandlers globales si no se proporcionan
     const globalEffectHandlers = elmEngine.getEffectHandlers();
-    const finalEffectHandlers = effectHandlers ?? globalEffectHandlers;
+    const finalEffectHandlers: any = effectHandlers ?? globalEffectHandlers ?? fallbackEffectHandlers;
 
-    if (!finalEffectHandlers || Object.keys(finalEffectHandlers).length === 0) {
-        throw new Error(
-            '[TEA_ENGINE] ERROR: No effectHandlers provided. ' +
-            'Either pass them directly to createElmStore() or configure them globally with elmEngine.configure() in your app root.'
+    // --- Lazy Validation & Resilience ---
+    // If we're using fallback because global hasn't been configured yet, log a warning (only in dev)
+    if (__DEV__ && !effectHandlers && !globalEffectHandlers && fallbackEffectHandlers) {
+        logger.debug(
+            '[TEA_ENGINE] Note: Using fallbackEffectHandlers. ' +
+            'Ensure elmEngine.configure() is called during app bootstrap if you want global custom handlers.',
+            'ENGINE_INIT'
+        );
+    }
+
+    const isValidEffectHandlers = !!finalEffectHandlers && (
+        typeof finalEffectHandlers === 'object' || typeof finalEffectHandlers === 'function'
+    );
+
+    if (!isValidEffectHandlers) {
+        // Instead of a fatal throw at creation, we'll log an error and use a dummy object
+        // The real error will happen when a Cmd is executed if handlers are still missing.
+        logger.error(
+            '[TEA_ENGINE] CRITICAL: No effectHandlers available during store creation. ' +
+            'This will cause Cmd execution to fail. Check your bootstrap.ts configuration.',
+            'ENGINE_INIT'
         );
     }
 
@@ -161,13 +182,16 @@ export const createElmStore = <TModel, TMsg>(
                     return;
                 }
 
-                if (singleCmd && finalEffectHandlers[singleCmd.type]) {
+                const handlersToUse = finalEffectHandlers || fallbackEffectHandlers;
+                const handler = handlersToUse && (handlersToUse as any)[singleCmd.type];
+
+                if (singleCmd && handler) {
                     try {
                         // Middleware: Before Command
                         const currentMeta = parentMeta || {};
                         allMiddlewares.forEach(m => m.beforeCmd?.(singleCmd, currentMeta));
 
-                        const result = await finalEffectHandlers[singleCmd.type](singleCmd.payload, dispatchWithMeta);
+                        const result = await handler(singleCmd.payload, dispatchWithMeta);
                         if (singleCmd.payload && singleCmd.payload.msgCreator) {
                             dispatchWithMeta(singleCmd.payload.msgCreator(result));
                         }
@@ -179,7 +203,11 @@ export const createElmStore = <TModel, TMsg>(
                         }
                     }
                 } else if (singleCmd) {
-                    logger.warn(`Unknown Cmd type: ${singleCmd.type}`, 'ENGINE');
+                    const errorMsg = `No handler found for Cmd type: ${singleCmd.type}`;
+                    logger.error(errorMsg, 'ENGINE_EXECUTION', {
+                        availableHandlers: handlersToUse ? Object.keys(handlersToUse) : 'none',
+                        cmd: singleCmd
+                    });
                 }
             });
         };

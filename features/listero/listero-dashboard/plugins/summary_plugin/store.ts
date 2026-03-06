@@ -1,5 +1,5 @@
 import { createElmStore } from '@/shared/core/engine/engine';
-import { effectHandlers } from '@/shared/core/tea-utils/effect_handlers';
+import { effectHandlers } from '@/shared/core/tea-utils';
 import { initialModel } from './model';
 import { update } from './update';
 import { subscriptions } from './subscriptions';
@@ -9,11 +9,11 @@ import { Msg } from './msg';
 
 
 export const useSummaryPluginStore = createElmStore<Model, Msg>(
-    initialModel,
-    update,
-    effectHandlers as any,
-    subscriptions,
-    [createLoggerMiddleware()]
+    {
+        initial: initialModel,
+        update,
+        subscriptions
+    }
 );
 
 export const dispatch = (msg: Msg) => useSummaryPluginStore.getState().dispatch(msg);

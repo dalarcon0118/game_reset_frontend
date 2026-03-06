@@ -7,3 +7,5 @@ export * from './effect_handlers';
 export * from './events';
 export * from './middleware.types';
 export * from './middleware_registry';
+export * from './msg';
+export * from './effect_registry';

@@ -12,7 +12,7 @@ import {
     BOLITA_BETS_UPDATED
 } from '../domain/models/bolita.messages';
 import { BolitaModel } from '../domain/models/bolita.types';
-import { Return, singleton } from '@/shared/core/return';
+import { Return, singleton } from '@/shared/core/tea-utils';
 import { updateParlet, updateFijos, updateCentena, updateList, updateEdit } from './sub_updates';
 import { BolitaFlows } from './bolita.flows';
 

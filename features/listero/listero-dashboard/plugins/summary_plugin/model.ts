@@ -1,4 +1,4 @@
-import { RemoteData } from '@/shared/core/tea-utils/remote.data';
+import { RemoteData } from '@/shared/core/tea-utils';
 import { FinancialSummary } from './domain/models';
 import { PendingBet } from './domain/models';
 import { SummaryPluginContext } from './domain/services';

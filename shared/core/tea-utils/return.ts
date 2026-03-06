@@ -1,5 +1,5 @@
 
-import { Cmd, CommandDescriptor } from './tea-utils/cmd';
+import { Cmd, CommandDescriptor } from './cmd';
 
 /**
  * Normalizes a Cmd into a flat array of CommandDescriptors recursively.

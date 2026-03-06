@@ -2,12 +2,8 @@ import { createElmStore } from '@/shared/core/engine/engine';
 import { Model } from './model';
 import { Msg } from './msg';
 import { update } from './update';
-import { RemoteData } from '@/shared/core/tea-utils/remote.data';
-import { RemoteDataHttp } from '@/shared/core/remote.data.http';
+import { RemoteData, RemoteDataHttp, Cmd } from '@/shared/core/tea-utils';
 import { structureRepository } from '@/shared/repositories/structure';
-import { Cmd } from '@/shared/core/tea-utils/cmd';
-import { effectHandlers } from '@/shared/core/tea-utils/effect_handlers';
-import { createLoggerMiddleware } from '@/shared/core/middlewares/logger.middleware';
 
 
 const createInitialModel = (id: number): Model => ({
@@ -34,13 +30,10 @@ const initial = (params?: { id: number }) => {
     return [model, id ? fetchDetailsCmd(id, model.selectedDate) : null] as [Model, Cmd];
 };
 
-const store = createElmStore<Model, Msg>(
+const store = createElmStore<Model, Msg>({
     initial,
-    update,
-    effectHandlers as any,
-    undefined,
-    [createLoggerMiddleware()]
-);
+    update
+});
 
 export const useDrawersStore = store;
 export const selectDrawersModel = (state: { model: Model; dispatch: (msg: Msg) => void; init: (params?: any) => void }) => state.model;

@@ -1,8 +1,6 @@
 import { Model } from '../model';
 import { Msg, FinancialUpdate } from '../msg';
-import { Cmd } from '@/shared/core/tea-utils/cmd';
-import { RemoteData, WebData } from '@/shared/core/tea-utils/remote.data';
-import { ret, singleton, Return } from '@/shared/core/return';
+import { Cmd, RemoteData, WebData, ret, singleton, Return } from '@/shared/core/tea-utils';
 import { shouldFetchData, checkRateLimit, recalculateDashboardState, handleSseUpdate } from '../logic';
 import { fetchDrawsCmd, fetchSummaryCmd, loadPendingBetsCmd } from '../commands';
 import { match, P } from 'ts-pattern';

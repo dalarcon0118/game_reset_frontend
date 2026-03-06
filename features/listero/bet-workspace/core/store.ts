@@ -9,8 +9,7 @@ import { initialManagementState } from '../management/core/types';
 import { initialLoteriaState } from '../../bet-loteria/loteria/loteria.types';
 import { initialVoucherModel } from '../success/core/domain/success.types';
 import { initialParletState, initialCentenaState } from '../../bet-bolita/domain/models/bolita.initial';
-import { RemoteData } from '@/shared/core/tea-utils/remote.data';
-import { Return } from '@/shared/core/return';
+import { RemoteData, Return } from '@/shared/core/tea-utils';
 
 const initialSummary: BetSummary = {
     loteriaTotal: 0,
@@ -31,7 +30,6 @@ const initialListData: ListData = {
 
 const initialState: Model = {
     // UiState
-    isSidebarOpen: false,
     activeTab: 'create',
     showDrawSelector: false,
     showRulesDrawer: false,
@@ -58,10 +56,7 @@ const initialState: Model = {
     rulesCache: { rules: RemoteData.notAsked() },
 };
 
-export const useBetWorkspaceStore = createElmStore<Model, Msg>(
-    initialState,
-    (model, msg) => update(msg, model),
-    {
-        // Add custom effect handlers if needed
-    }
-);
+export const useBetWorkspaceStore = createElmStore<Model, Msg>({
+    initial: initialState,
+    update: (model, msg) => update(msg, model)
+});

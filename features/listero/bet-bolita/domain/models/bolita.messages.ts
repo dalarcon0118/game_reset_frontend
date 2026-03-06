@@ -1,5 +1,4 @@
-import { createMsg } from '@/shared/core/tea-utils/msg';
-import { WebData } from '@/shared/core/tea-utils/remote.data';
+import { createMsg, WebData } from '@/shared/core/tea-utils';
 import { BetType, ParletBet, CentenaBet, FijosCorridosBet } from '@/types';
 import { BolitaListData } from '../models/bolita.types';
 

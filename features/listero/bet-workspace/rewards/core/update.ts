@@ -9,11 +9,9 @@ import {
     FETCH_RULES_SUCCEEDED,
     FETCH_RULES_FAILED
 } from './types';
-import { Cmd } from '@/shared/core/tea-utils/cmd';
+import { Cmd, Return, ret, singleton, RemoteData } from '@/shared/core/tea-utils';
 import { winningRepository } from '@/shared/repositories/winning';
 import { rulesRepository } from '@/shared/repositories/rules';
-import { Return, ret, singleton } from '@/shared/core/return';
-import { RemoteData } from '@/shared/core/tea-utils/remote.data';
 import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('REWARDS_UPDATE');

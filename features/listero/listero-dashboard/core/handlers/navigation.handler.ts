@@ -1,8 +1,7 @@
 import { Model } from '../model';
 import { Msg } from '../msg';
-import { Cmd } from '@/shared/core/tea-utils/cmd';
+import { Cmd, ret, singleton, Return } from '@/shared/core/tea-utils';
 import { routes } from '@/config';
-import { ret, singleton, Return } from '@/shared/core/return';
 import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('DASHBOARD_NAV_HANDLER');

@@ -1,7 +1,6 @@
 import { FiltersPluginConfig, Model } from './model';
 import * as Msg from './msg';
-import { Return, ret } from '@/shared/core/return';
-import { Cmd } from '@/shared/core/tea-utils/cmd';
+import { Return, ret, Cmd } from '@/shared/core/tea-utils';
 import { match } from 'ts-pattern';
 import { PluginContext } from '@/shared/core/plugins/plugin.types';
 

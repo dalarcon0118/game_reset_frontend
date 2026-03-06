@@ -48,10 +48,14 @@ class ElmEngineConfig {
 
     /**
      * Obtiene los effectHandlers globales.
-     * @returns Los effectHandlers configurados o undefined si no se han configurado
+     * @returns Los effectHandlers configurados o undefined si no se han configurado.
+     * El motor usará fallbackEffectHandlers si este método retorna undefined.
      */
     getEffectHandlers(): Record<string, (payload: any, dispatch: (msg: any) => void) => Promise<any>> | undefined {
-        return this.configRef.getOrElse({} as any).effectHandlers;
+        if (!this.configRef.isSet()) {
+            return undefined;
+        }
+        return this.configRef.get().effectHandlers;
     }
 
     /**

@@ -1,34 +1,13 @@
-import { OfflineStorageCore } from './engine';
 import { SyncWorkerCore } from './sync/worker';
 import { StorageJanitor } from './maintenance/janitor';
-import { EventBusPort, DomainEvent, DomainEventCallback, Unsubscribe, SYNC_CONSTANTS, STORAGE_TTL } from './types';
-import storageClient from './storage_client';
+import { SYNC_CONSTANTS, STORAGE_TTL } from './types';
 import { offlineEventBus } from './event_bus';
+import { offlineStorage, commonPorts } from './storage';
 
 export { StorageJanitor } from './maintenance/janitor';
 export { offlineEventBus };
 export { SYNC_CONSTANTS, STORAGE_TTL };
-
-/**
- * Puertos compartidos
- */
-const commonPorts = {
-  storage: storageClient,
-  clock: {
-    now: () => Date.now(),
-    iso: () => new Date().toISOString()
-  },
-  events: offlineEventBus
-};
-
-/**
- * Instancia global del motor de almacenamiento offline configurada.
- * Centralizada en core para ser consumida por adaptadores y el worker.
- */
-export const offlineStorage = new OfflineStorageCore(
-  commonPorts,
-  { version: 'v2' }
-);
+export { offlineStorage };
 
 /**
  * Instancia global del conserje (Janitor) para mantenimiento.

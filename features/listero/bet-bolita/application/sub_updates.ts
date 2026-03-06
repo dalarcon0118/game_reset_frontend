@@ -1,10 +1,8 @@
 import { match } from 'ts-pattern';
 import { BolitaModel } from '../domain/models/bolita.types';
 import { ListMsg, ListMsgType, EditMsg, EditMsgType, FijosMsg, ParletMsg, CentenaMsg } from '../domain/models/bolita.messages';
-import { Return, ret, singleton } from '@/shared/core/return';
-import { Cmd } from '@/shared/core/tea-utils/cmd';
+import { Return, ret, singleton, Cmd, RemoteData } from '@/shared/core/tea-utils';
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
-import { RemoteData } from '@/shared/core/tea-utils/remote.data';
 import { BolitaImpl } from '../domain/bolita.impl';
 
 /**

@@ -71,11 +71,8 @@ export const createModuleLoaderStore = (manifest: ModuleManifest) => {
             .exhaustive();
     };
 
-    return createElmStore<LoaderModel, LoaderMsg>(
-        init,
-        update,
-        effectHandlers as any, // Use core effects (TASK handler needed)
-        undefined, // No subscriptions
-        [createLoggerMiddleware()] // Inject Logger Middleware
-    );
+    return createElmStore<LoaderModel, LoaderMsg>({
+        initial: init,
+        update
+    });
 };

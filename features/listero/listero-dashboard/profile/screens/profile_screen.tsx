@@ -6,7 +6,7 @@ import { Text, Card, Avatar, Button, Divider, Spinner, Layout, TopNavigation, To
 import { Key, LogOut, ChevronRight, ArrowLeft } from 'lucide-react-native';
 import { useProfileStore, selectProfileModel, selectDispatch, selectInit } from '../store';
 import { ProfileMsgType } from '../profile.types';
-import { RemoteData } from '@/shared/core/tea-utils/remote.data';
+import { RemoteData } from '@/shared/core/tea-utils';
 import { useAuth } from '../../../../auth/hooks/use_auth';
 import { IncidentList } from '../components/incident_list';
 import LayoutConstants from '@/constants/layout';

@@ -1,8 +1,7 @@
 import { useEffect } from 'react';
 import { createElmStore } from '../engine/engine';
-import { effectHandlers } from '../tea-utils/effect_handlers';
 import { createTEAStoreUpdate } from './tea-store.update';
-import { TEAStoreConfig, TEAStoreState, TEAStoreMsg, Entity } from './tea-store.types';
+import { TEAStoreConfig, TEAStoreState, TEAStoreMsg, TEAStoreMsgType, Entity } from './tea-store.types';
 
 /**
  * React hook for using TEAStore in components.
@@ -40,16 +39,15 @@ export const useTEAStore = <T extends Entity>(
 ) => {
     const { initial, update } = createTEAStoreUpdate(config);
     
-    const store = createElmStore(
+    const store = createElmStore<TEAStoreState<T>, TEAStoreMsg<T>>({
         initial,
-        update,
-        effectHandlers
-    );
+        update
+    });
 
     // Auto-fetch on mount if enabled
     useEffect(() => {
         if (autoFetch) {
-            store.getState().dispatch({ type: 'FETCH_ALL_REQUESTED' });
+            store.getState().dispatch({ type: TEAStoreMsgType.FETCH_ALL_REQUESTED });
         }
     }, [autoFetch, store]);
 
@@ -71,69 +69,68 @@ export const useTEAStore = <T extends Entity>(
             /**
              * Fetch all entities
              */
-            fetchAll: () => store.getState().dispatch({ type: 'FETCH_ALL_REQUESTED' }),
+            fetchAll: () => store.getState().dispatch({ type: TEAStoreMsgType.FETCH_ALL_REQUESTED }),
             
             /**
              * Fetch a single entity by ID
              * @param id - The entity ID to fetch
              */
-            fetchOne: (id: string) => store.getState().dispatch({ type: 'FETCH_ONE_REQUESTED', id }),
+            fetchOne: (id: string) => store.getState().dispatch({ type: TEAStoreMsgType.FETCH_ONE_REQUESTED, id }),
             
             /**
              * Create a new entity
              * @param data - The entity data without the id field
              */
-            create: (data: Omit<T, 'id'>) => store.getState().dispatch({ type: 'CREATE_REQUESTED', data }),
+            create: (data: Omit<T, 'id'>) => store.getState().dispatch({ type: TEAStoreMsgType.CREATE_REQUESTED, data }),
             
             /**
              * Update an existing entity
              * @param id - The ID of the entity to update
              * @param data - Partial data to update on the entity
              */
-            update: (id: string, data: Partial<T>) => store.getState().dispatch({ type: 'UPDATE_REQUESTED', id, data }),
+            update: (id: string, data: Partial<T>) => store.getState().dispatch({ type: TEAStoreMsgType.UPDATE_REQUESTED, id, data }),
             
             /**
              * Delete an entity
              * @param id - The ID of the entity to delete
              */
-            delete: (id: string) => store.getState().dispatch({ type: 'DELETE_REQUESTED', id }),
+            delete: (id: string) => store.getState().dispatch({ type: TEAStoreMsgType.DELETE_REQUESTED, id }),
             
             /**
-             * Select an entity (for detail view or editing)
-             * @param id - The entity ID to select, or null to deselect
+             * Select an item for display or editing
+             * @param id - The entity ID to select, or null to clear selection
              */
-            selectItem: (id: string | null) => store.getState().dispatch({ type: 'SELECT_ITEM', id }),
+            selectItem: (id: string | null) => store.getState().dispatch({ type: TEAStoreMsgType.SELECT_ITEM, id }),
             
             /**
-             * Start create mode (show form for new entity)
+             * Start create mode
              */
-            startCreate: () => store.getState().dispatch({ type: 'START_CREATE' }),
+            startCreate: () => store.getState().dispatch({ type: TEAStoreMsgType.START_CREATE }),
             
             /**
-             * Start edit mode (show form for existing entity)
-             * @param id - The ID of the entity to edit
+             * Start edit mode for an entity
+             * @param id - The entity ID to edit
              */
-            startEdit: (id: string) => store.getState().dispatch({ type: 'START_EDIT', id }),
+            startEdit: (id: string) => store.getState().dispatch({ type: TEAStoreMsgType.START_EDIT, id }),
             
             /**
              * Cancel create/edit mode
              */
-            cancelEdit: () => store.getState().dispatch({ type: 'CANCEL_EDIT' }),
+            cancelEdit: () => store.getState().dispatch({ type: TEAStoreMsgType.CANCEL_EDIT }),
             
             /**
-             * Clear operation status (error/success)
+             * Clear the operation status error
              */
-            clearError: () => store.getState().dispatch({ type: 'CLEAR_ERROR' }),
+            clearError: () => store.getState().dispatch({ type: TEAStoreMsgType.CLEAR_ERROR }),
             
             /**
-             * Reset store to initial state
+             * Reset the store state
              */
-            reset: () => store.getState().dispatch({ type: 'RESET' }),
+            reset: () => store.getState().dispatch({ type: TEAStoreMsgType.RESET }),
         },
         
         /**
-         * Store reference for advanced usage
-         * Can be used to subscribe to state changes or access store methods directly
+         * The underlying Zustand store instance
          */
         store
     };

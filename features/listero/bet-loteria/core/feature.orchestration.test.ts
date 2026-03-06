@@ -1,6 +1,6 @@
 import { LoteriaFeatureModel, initialEditSession, initialListSession, initialEntrySession, initialManagementSession } from './feature.types';
 import { initialLoteriaState, OPEN_BET_KEYBOARD } from '../loteria/loteria.types';
-import { RemoteData } from '@/shared/core/tea-utils/remote.data';
+import { RemoteData } from '@/shared/core/tea-utils';
 import { updateFeature } from './feature.update';
 
 describe('Loteria Feature Orchestration', () => {

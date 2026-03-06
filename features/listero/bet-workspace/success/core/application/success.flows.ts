@@ -1,5 +1,4 @@
-import { ret, singleton, Return } from '@/shared/core/return';
-import { Cmd } from '@/shared/core/tea-utils/cmd';
+import { ret, singleton, Return, Cmd, RemoteData } from '@/shared/core/tea-utils';
 import {
     VoucherModel,
     VoucherMsg,
@@ -8,7 +7,6 @@ import {
 } from '../domain/success.types';
 import { VoucherAdapter } from '../../infrastructure/adapters/voucher.adapter';
 import { SuccessImpl } from '../domain/success.impl';
-import { RemoteData } from '@/shared/core/tea-utils/remote.data';
 import { LISTER_ROOT } from '@/config/routes/lister';
 import { logger } from '@/shared/utils/logger';
 import { match } from 'ts-pattern';

@@ -1,5 +1,5 @@
 import { createElmStore } from '@/shared/core/engine/engine';
-import { effectHandlers } from '@/shared/core/tea-utils/effect_handlers';
+import { effectHandlers } from '@/shared/core/tea-utils';
 import { initialModel, Model } from './model';
 import { update } from './update';
 import { subscriptions } from './subscriptions';
@@ -14,11 +14,11 @@ export const getDashboardStore = () => {
     // En este punto, estamos seguros de que la app ya terminó de cargar
     // todos los imports y ejecutó las configuraciones globales.
     dashboardStoreInstance = createElmStore<Model, Msg>(
-      () => [initialModel(), Cmd.none],
-      update,
-      effectHandlers,
-      subscriptions,
-      [createLoggerMiddleware()]
+      {
+        initial: () => [initialModel(), Cmd.none],
+        update,
+        subscriptions
+      }
     );
   }
   return dashboardStoreInstance;
