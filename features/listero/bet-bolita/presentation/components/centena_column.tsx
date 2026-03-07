@@ -4,13 +4,7 @@ import Layout from '@/constants/layout';
 import Colors from '@/constants/colors';
 import AmountCircle from '@/shared/components/bets/amount_circle';
 import BetCircle from '@/shared/components/bets/bet_circle';
-import { BetNumericKeyboard, AmountNumericKeyboard } from '@/shared/components/bets/numeric_keyboard';
-import { AnnotationType, AnnotationTypes } from '@/constants/bet';
 import { useCentena } from '../hooks/use_centena';
-import { CENTENA_EDITING_TYPE } from '../../domain/models/bolita.types';
-import BottomDrawer from '@/components/ui/bottom_drawer';
-
-import { BET_TYPE_KEYS } from '@/shared/types/bet_types';
 
 interface CentenaColumnProps {
     editable?: boolean;
@@ -20,52 +14,12 @@ interface CentenaColumnProps {
 export const CentenaColumn: React.FC<CentenaColumnProps> = ({ editable = false, data }) => {
     const {
         centenaList: hookList,
-        editingAmountType,
-        currentInput,
-        showBetKeyboard,
-        showAmountKeyboard,
-        isCentenaDrawerVisible,
-        isAmountDrawerVisible,
         editCentenaBet,
         editAmountKeyboard,
         pressAddCentena,
-        showCentenaDrawer,
-        showAmountDrawer,
-        handleKeyPress,
-        handleConfirmInput,
     } = useCentena();
 
     const centenaList = data || hookList;
-
-    const renderKeyboard = (annotationType: AnnotationType) => {
-        const isVisible = annotationType === AnnotationTypes.Amount
-            ? showAmountKeyboard && editingAmountType === CENTENA_EDITING_TYPE
-            : showBetKeyboard && editingAmountType === CENTENA_EDITING_TYPE;
-        const onClose = annotationType === AnnotationTypes.Amount
-            ? () => showAmountDrawer(false)
-            : () => showCentenaDrawer(false);
-
-        if (!isVisible) return null;
-
-        return (
-            <BottomDrawer isVisible={isVisible} onClose={onClose} height={"60%"} title=''>
-                {annotationType === AnnotationTypes.Bet ? (
-                    <BetNumericKeyboard
-                        onKeyPress={handleKeyPress}
-                        onConfirm={handleConfirmInput}
-                        currentInput={currentInput}
-                        betType={BET_TYPE_KEYS.CENTENA}
-                    />
-                ) : (
-                    <AmountNumericKeyboard
-                        onKeyPress={handleKeyPress}
-                        onConfirm={handleConfirmInput}
-                        currentInput={currentInput}
-                    />
-                )}
-            </BottomDrawer>
-        );
-    };
 
     const renderCentenaList = () => (
         <View style={styles.columnContent}>
@@ -75,9 +29,9 @@ export const CentenaColumn: React.FC<CentenaColumnProps> = ({ editable = false, 
                         value={item.bet.toString().padStart(3, '0')}
                         onPress={editable ? () => editCentenaBet(item.id) : undefined}
                     />
-                    <AmountCircle 
-                        amount={item.amount} 
-                        onPress={editable ? () => editAmountKeyboard(item.id) : undefined} 
+                    <AmountCircle
+                        amount={item.amount}
+                        onPress={editable ? () => editAmountKeyboard(item.id) : undefined}
                     />
                 </View>
             ))}
@@ -96,8 +50,6 @@ export const CentenaColumn: React.FC<CentenaColumnProps> = ({ editable = false, 
                     </View>
                 </View>
             )}
-            {editable && renderKeyboard(AnnotationTypes.Bet)}
-            {editable && renderKeyboard(AnnotationTypes.Amount)}
         </View>
     );
 };

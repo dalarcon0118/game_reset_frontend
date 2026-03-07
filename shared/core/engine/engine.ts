@@ -21,6 +21,7 @@ export interface ElmStoreConfig<TModel, TMsg> {
     subscriptions?: (model: TModel) => SubDescriptor<TMsg>;
     effectHandlers?: Record<string, (payload: any, dispatch: (msg: TMsg) => void) => Promise<any>>;
     middlewares?: TeaMiddleware<TModel, TMsg>[];
+    name?: string;
 }
 
 export const createElmStore = <TModel, TMsg>(

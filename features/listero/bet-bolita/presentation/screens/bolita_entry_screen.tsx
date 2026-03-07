@@ -11,9 +11,15 @@ import { SumRowComponent } from '@/shared/components/bets/sum_row_component';
 import FijosCorridosColumn from '../components/fijos_corridos_column';
 import { ParletColumn } from '../components/parlet_column';
 import { CentenaColumn } from '../components/centena_column';
+import { BolitaKeyboardManager } from '../components/bolita_keyboard_manager';
 import { useBolitaStore, selectBolitaModel, selectDispatch } from '../store';
-import { SAVE_ALL_BETS } from '../../domain/models/bolita.messages';
-
+import { 
+    SAVE_ALL_BETS, 
+    FIJOS, 
+    PARLET, 
+    CENTENA, 
+} from '../../domain/models/bolita.messages';
+import { BET_TYPE_KEYS } from '@/shared/types/bet_types';
 
 import { logger } from '@/shared/utils/logger';
 
@@ -110,6 +116,7 @@ const BolitaEntryScreen: React.FC<BolitaEntryScreenProps> = ({ drawId, title }) 
                     </View>
                 </ScrollView>
                 {renderSavingFooterBar()}
+                <BolitaKeyboardManager />
             </>
         );
     };

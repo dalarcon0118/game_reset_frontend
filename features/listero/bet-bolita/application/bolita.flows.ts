@@ -10,6 +10,7 @@ import {
     PARLET
 } from '../domain/models/bolita.messages';
 import { Return, ret, singleton, Cmd, RemoteData } from '@/shared/core/tea-utils';
+import { RemoteDataHttp } from '@/shared/core/tea-utils/remote.data.http';
 import { BolitaImpl } from '../domain/bolita.impl';
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
 import { logger } from '@/shared/utils/logger';
@@ -118,16 +119,17 @@ export const BolitaFlows = {
         const payload = validation.payload;
 
         // 3. Trigger HTTP Side Effect
+        log.info('SAVE_BETS_INIT', { payload_count: 1 });
         return ret<BolitaModel, BolitaMsg>(
             {
                 ...model,
                 summary: { ...model.summary, isSaving: true }
             },
-            Cmd.task({
-                task: () => betRepository.placeBatch([payload]),
-                onSuccess: (res) => SAVE_BETS_RESPONSE({ response: RemoteData.success(res) }),
-                onFailure: (err) => SAVE_BETS_RESPONSE({ response: RemoteData.failure(err) })
-            })
+            RemoteDataHttp.fetch(
+                () => betRepository.placeBatch([payload] as unknown as any[]),
+                (response) => SAVE_BETS_RESPONSE({ response }),
+                'SAVE_BETS'
+            )
         );
     },
 

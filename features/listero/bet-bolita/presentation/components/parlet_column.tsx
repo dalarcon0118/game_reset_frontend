@@ -5,11 +5,7 @@ import Colors from '@/constants/colors';
 import AmountCircle from '@/shared/components/bets/amount_circle';
 import BetCircle from '@/shared/components/bets/bet_circle';
 import { FijosCorridosBet, ParletBet } from '@/types';
-import { BetNumericKeyboard, AmountNumericKeyboard } from '@/shared/components/bets/numeric_keyboard';
-import { AnnotationType, AnnotationTypes } from '@/constants/bet';
 import { useParlet } from '../hooks/use_parlet';
-import { PARLET_EDITING_TYPE } from '../../domain/models/bolita.types';
-import BottomDrawer from '@/components/ui/bottom_drawer';
 
 interface ParletColumnProps {
     fijosCorridosList: FijosCorridosBet[];
@@ -20,55 +16,13 @@ interface ParletColumnProps {
 export const ParletColumn: React.FC<ParletColumnProps> = ({ fijosCorridosList, editable = false, data }) => {
     const {
         parletList: hookList,
-        editingAmountType,
-        currentInput,
-        showAmountKeyboard,
-        showBetKeyboard,
-        isParletDrawerVisible,
         editParletBet,
         editAmountKeyboard,
         pressAddParlet,
-        showParletDrawer,
-        showAmountDrawer,
-        hideAmountKeyboard,
-        hideBetKeyboard,
-        handleKeyPress,
-        handleConfirmInput,
     } = useParlet(fijosCorridosList);
 
     const parletList = data || hookList;
 
-    const renderKeyboard = (annotationType: AnnotationType) => {
-        const isVisible = annotationType === AnnotationTypes.Amount
-            ? showAmountKeyboard && editingAmountType === PARLET_EDITING_TYPE
-            : (showBetKeyboard && editingAmountType === PARLET_EDITING_TYPE) || isParletDrawerVisible;
-        const onClose = annotationType === AnnotationTypes.Amount
-            ? () => hideAmountKeyboard()
-            : () => {
-                if (showBetKeyboard) hideBetKeyboard();
-                if (isParletDrawerVisible) showParletDrawer(false);
-            };
-
-        if (!isVisible) return null;
-
-        return (
-            <BottomDrawer isVisible={isVisible} onClose={onClose} height={"60%"} title=''>
-                {annotationType === AnnotationTypes.Bet ? (
-                    <BetNumericKeyboard
-                        onKeyPress={handleKeyPress}
-                        onConfirm={handleConfirmInput}
-                        currentInput={currentInput}
-                    />
-                ) : (
-                    <AmountNumericKeyboard
-                        onKeyPress={handleKeyPress}
-                        onConfirm={handleConfirmInput}
-                        currentInput={currentInput}
-                    />
-                )}
-            </BottomDrawer>
-        );
-    };
     const renderParletList = () => (
         <View style={styles.columnContent}>
             {parletList.map((item: ParletBet) => (
@@ -76,16 +30,16 @@ export const ParletColumn: React.FC<ParletColumnProps> = ({ fijosCorridosList, e
                     <View style={styles.parletNumbers}>
                         {item.bets.map((bet: number, index: number) => (
                             <View key={index} style={styles.circleWrapper}>
-                                <BetCircle 
-                                    value={bet.toString().padStart(2, '0')} 
-                                    onPress={editable ? () => editParletBet(item.id) : undefined} 
+                                <BetCircle
+                                    value={bet.toString().padStart(2, '0')}
+                                    onPress={editable ? () => editParletBet(item.id) : undefined}
                                 />
                             </View>
                         ))}
                     </View>
-                    <AmountCircle 
-                        amount={item.amount} 
-                        onPress={editable ? () => editAmountKeyboard(item.id) : undefined} 
+                    <AmountCircle
+                        amount={item.amount}
+                        onPress={editable ? () => editAmountKeyboard(item.id) : undefined}
                     />
                 </View>
             ))}
@@ -99,18 +53,11 @@ export const ParletColumn: React.FC<ParletColumnProps> = ({ fijosCorridosList, e
             {editable && (
                 <View style={styles.columnContent}>
                     <View style={styles.parletBlock}>
-                        <View style={styles.parletNumbers}>
-                            <View style={styles.circleWrapper}>
-                                <BetCircle value={"+"} onPress={() => pressAddParlet()} />
-                            </View>
-                        </View>
-                        
-                            <AmountCircle amount={"$"} />
+                        <BetCircle value={"+"} onPress={() => pressAddParlet()} />
+                        <AmountCircle amount={"$"} />
                     </View>
                 </View>
             )}
-            {editable && renderKeyboard(AnnotationTypes.Bet)}
-            {editable && renderKeyboard(AnnotationTypes.Amount)}
         </View>
     );
 };

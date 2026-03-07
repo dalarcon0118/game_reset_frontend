@@ -44,7 +44,8 @@ const log = logger.withTag('OFFLINE_SYNC_PLUGIN');
 
 export const useOfflineSyncStore = createElmStore<OfflineSyncModel, OfflineSyncMsg>({
   initial: initialOfflineSyncModel,
-  update: (model, msg) => offlineSyncUpdate(msg, model),
+  update: offlineSyncUpdate,
+  name: 'OfflineSyncPlugin',
   effectHandlers: {
     // Basic support for TASK commands used in plugins
     'TASK': async (payload, dispatch) => {

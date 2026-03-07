@@ -36,15 +36,10 @@ export const useCentena = () => {
     const pressAddCentena = () => dispatch(CENTENA(CentenaMessages.PRESS_ADD_CENTENA()));
     const showCentenaDrawer = (visible: boolean) => dispatch(CENTENA(CentenaMessages.SHOW_CENTENA_DRAWER({ visible })));
     const showAmountDrawer = (visible: boolean) => dispatch(CENTENA(CentenaMessages.SHOW_CENTENA_MODAL({ visible })));
-    const handleKeyPress = (key: string) => dispatch(KEY_PRESSED({ key }));
-    const handleConfirmInput = () => dispatch(CENTENA(CentenaMessages.CENTENA_CONFIRM_INPUT()));
 
     return {
         centenaList,
         editingAmountType,
-        currentInput,
-        showBetKeyboard,
-        showAmountKeyboard,
         isCentenaDrawerVisible,
         isAmountDrawerVisible,
         editCentenaBet,
@@ -52,7 +47,5 @@ export const useCentena = () => {
         pressAddCentena,
         showCentenaDrawer,
         showAmountDrawer,
-        handleKeyPress,
-        handleConfirmInput,
     };
 };

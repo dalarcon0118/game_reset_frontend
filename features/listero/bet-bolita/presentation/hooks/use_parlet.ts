@@ -37,17 +37,10 @@ export const useParlet = (fijosCorridosList: FijosCorridosBet[]) => {
   const pressAddParlet = () => dispatch(PARLET(ParletMessages.PRESS_ADD_PARLET({ fijosCorridosList })));
   const showParletDrawer = (visible: boolean) => dispatch(PARLET(ParletMessages.SHOW_PARLET_DRAWER({ visible })));
   const showAmountDrawer = (visible: boolean) => dispatch(PARLET(ParletMessages.SHOW_PARLET_MODAL({ visible })));
-  const hideAmountKeyboard = () => dispatch(PARLET(ParletMessages.CLOSE_PARLET_AMOUNT_KEYBOARD()));
-  const hideBetKeyboard = () => dispatch(PARLET(ParletMessages.CLOSE_PARLET_BET_KEYBOARD()));
-  const handleKeyPress = (key: string) => dispatch(KEY_PRESSED({ key }));
-  const handleConfirmInput = () => dispatch(PARLET(ParletMessages.PARLET_CONFIRM_INPUT()));
 
   return {
     parletList,
     editingAmountType,
-    currentInput,
-    showAmountKeyboard,
-    showBetKeyboard,
     isParletDrawerVisible,
     isParletModalVisible,
     editParletBet,
@@ -55,9 +48,5 @@ export const useParlet = (fijosCorridosList: FijosCorridosBet[]) => {
     pressAddParlet,
     showParletDrawer,
     showAmountDrawer,
-    hideAmountKeyboard,
-    hideBetKeyboard,
-    handleKeyPress,
-    handleConfirmInput,
   };
 };

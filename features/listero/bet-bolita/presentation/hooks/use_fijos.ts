@@ -37,16 +37,8 @@ export const useFijos = ({ onSelectPlay }: { onSelectPlay?: (bets: FijosCorridos
       : []);
 
   const openBetKeyboard = useCallback(() => dispatch(FIJOS(FijosMessages.OPEN_BET_KEYBOARD())), [dispatch]);
-  const closeBetKeyboard = useCallback(() => dispatch(FIJOS(FijosMessages.CLOSE_BET_KEYBOARD())), [dispatch]);
   const openAmountKeyboard = useCallback((betId: string, amountType: 'fijo' | 'corrido') =>
     dispatch(FIJOS(FijosMessages.OPEN_AMOUNT_KEYBOARD({ betId, amountType }))), [dispatch]);
-  const closeAmountKeyboard = useCallback(() => dispatch(FIJOS(FijosMessages.CLOSE_AMOUNT_KEYBOARD())), [dispatch]);
-  const processBetInput = useCallback((inputString: string) =>
-    dispatch(FIJOS(FijosMessages.PROCESS_BET_INPUT({ inputString }))), [dispatch]);
-  const submitAmountInput = useCallback((amountString: string) =>
-    dispatch(FIJOS(FijosMessages.SUBMIT_AMOUNT_INPUT({ amountString }))), [dispatch]);
-  const handleKeyPress = useCallback((key: string) => dispatch(KEY_PRESSED({ key })), [dispatch]);
-  const handleConfirmInput = useCallback(() => dispatch(FIJOS(FijosMessages.FIJOS_CONFIRM_INPUT())), [dispatch]);
 
   // Efecto para llamar a onSelectPlay cuando fijosCorridos cambia
   useEffect(() => {
@@ -57,17 +49,8 @@ export const useFijos = ({ onSelectPlay }: { onSelectPlay?: (bets: FijosCorridos
 
   return {
     fijosCorridosList: fijosCorridos,
-    showBetKeyboard,
-    showAmountKeyboard,
     editingAmountType,
-    currentInput,
     handleAddBetPress: openBetKeyboard,
     handleAmountCirclePress: openAmountKeyboard,
-    hideBetKeyboard: closeBetKeyboard,
-    hideAmountKeyboard: closeAmountKeyboard,
-    processBetInput,
-    handleAmountKeyboardInput: submitAmountInput,
-    handleKeyPress,
-    handleConfirmInput,
   };
 };

@@ -25,8 +25,8 @@ function formatTimeSinceLast(timestamp: number | null): string {
 // ============================================================================
 
 export const offlineSyncUpdate = (
-  msg: OfflineSyncMsg,
-  model: OfflineSyncModel
+  model: OfflineSyncModel,
+  msg: OfflineSyncMsg
 ): Return<OfflineSyncModel, OfflineSyncMsg> => {
   return match<OfflineSyncMsg, Return<OfflineSyncModel, OfflineSyncMsg>>(msg)
     .with({ type: 'SHOW_TOAST' }, (m) => handleShowToast(model, m.payload))

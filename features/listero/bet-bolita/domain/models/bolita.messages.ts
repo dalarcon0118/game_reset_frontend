@@ -7,7 +7,7 @@ import { BolitaListData } from '../models/bolita.types';
 // ============================================================================
 
 export const PRESS_ADD_PARLET = createMsg<'PRESS_ADD_PARLET', { fijosCorridosList: FijosCorridosBet[] }>('PRESS_ADD_PARLET');
-export const CONFIRM_PARLET_BET = createMsg<'CONFIRM_PARLET_BET', void>('CONFIRM_PARLET_BET');
+export const CONFIRM_PARLET_BET = createMsg<'CONFIRM_PARLET_BET', { numbers: number[] }>('CONFIRM_PARLET_BET');
 export const CANCEL_PARLET_BET = createMsg<'CANCEL_PARLET_BET', void>('CANCEL_PARLET_BET');
 export const EDIT_PARLET_BET = createMsg<'EDIT_PARLET_BET', { betId: string }>('EDIT_PARLET_BET');
 export const DELETE_PARLET_BET = createMsg<'DELETE_PARLET_BET', { betId: string }>('DELETE_PARLET_BET');
@@ -134,6 +134,8 @@ export const EDIT_CENTENA_BET = createMsg<'EDIT_CENTENA_BET', { betId: string }>
 export const DELETE_CENTENA_BET = createMsg<'DELETE_CENTENA_BET', { betId: string }>('DELETE_CENTENA_BET');
 export const UPDATE_CENTENA_BET = createMsg<'UPDATE_CENTENA_BET', { betId: string; changes: Partial<CentenaBet> }>('UPDATE_CENTENA_BET');
 export const OPEN_CENTENA_AMOUNT_KEYBOARD = createMsg<'OPEN_CENTENA_AMOUNT_KEYBOARD', { betId: string }>('OPEN_CENTENA_AMOUNT_KEYBOARD');
+export const CLOSE_CENTENA_BET_KEYBOARD = createMsg<'CLOSE_CENTENA_BET_KEYBOARD', void>('CLOSE_CENTENA_BET_KEYBOARD');
+export const CLOSE_CENTENA_AMOUNT_KEYBOARD = createMsg<'CLOSE_CENTENA_AMOUNT_KEYBOARD', void>('CLOSE_CENTENA_AMOUNT_KEYBOARD');
 export const SHOW_CENTENA_DRAWER = createMsg<'SHOW_CENTENA_DRAWER', { visible: boolean }>('SHOW_CENTENA_DRAWER');
 export const SHOW_CENTENA_MODAL = createMsg<'SHOW_CENTENA_MODAL', { visible: boolean }>('SHOW_CENTENA_MODAL');
 export const PROCESS_CENTENA_BET_INPUT = createMsg<'PROCESS_CENTENA_BET_INPUT', { inputString: string }>('PROCESS_CENTENA_BET_INPUT');
@@ -147,6 +149,8 @@ export const CentenaMessages = {
     DELETE_CENTENA_BET,
     UPDATE_CENTENA_BET,
     OPEN_CENTENA_AMOUNT_KEYBOARD,
+    CLOSE_CENTENA_BET_KEYBOARD,
+    CLOSE_CENTENA_AMOUNT_KEYBOARD,
     SHOW_CENTENA_DRAWER,
     SHOW_CENTENA_MODAL,
     PROCESS_CENTENA_BET_INPUT,
@@ -161,6 +165,8 @@ export type CentenaMsg =
     | typeof DELETE_CENTENA_BET._type
     | typeof UPDATE_CENTENA_BET._type
     | typeof OPEN_CENTENA_AMOUNT_KEYBOARD._type
+    | typeof CLOSE_CENTENA_BET_KEYBOARD._type
+    | typeof CLOSE_CENTENA_AMOUNT_KEYBOARD._type
     | typeof SHOW_CENTENA_DRAWER._type
     | typeof SHOW_CENTENA_MODAL._type
     | typeof PROCESS_CENTENA_BET_INPUT._type

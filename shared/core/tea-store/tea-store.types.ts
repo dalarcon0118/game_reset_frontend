@@ -75,6 +75,11 @@ export interface TEAStoreConfig<T extends Entity> {
      * @param error - The error that occurred
      */
     onError?: (error: any) => void;
+
+    /**
+     * Optional: Descriptive name for the store, used for debugging.
+     */
+    name?: string;
 }
 
 /**

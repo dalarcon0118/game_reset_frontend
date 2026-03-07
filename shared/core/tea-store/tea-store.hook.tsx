@@ -32,9 +32,10 @@ export const useTEAStore = <T extends Entity>(
         
         return createElmStore<TEAStoreState<T>, TEAStoreMsg<T>>({
             initial,
-            update
+            update,
+            name: `TEAStore_${config.name || 'Anonymous'}`
         });
-    }, [config]);
+    }, [config.name, config.fetchAll, config.fetchOne, config.create, config.update, config.delete, config.initialData, config.onError]);
 
     // Use store as a hook to get reactive state
     const model = store(s => s.model);

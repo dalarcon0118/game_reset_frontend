@@ -117,6 +117,7 @@ export interface FijosCorridosBet {
   receiptCode?: string;
   betTypeid?: string | number;
   drawid?: string | number;
+  usedInParlet?: boolean;
 }
 
 
