@@ -40,3 +40,22 @@ export interface TimeRange {
   start: number;
   end: number;
 }
+
+/**
+ * Contexto que el host (Dashboard) pasa al plugin.
+ * Basado en la definición de PluginContext en shared/core/plugins/plugin.types.ts
+ */
+export interface SummaryPluginContext {
+  hostStore: any;
+  state: {
+    userStructureId?: string;
+    commissionRate?: number;
+    [key: string]: any;
+  };
+  storage: {
+    getItem: (key: string) => Promise<any>;
+    setItem: (key: string, value: any) => Promise<void>;
+  };
+  api: any;
+  events: any;
+}

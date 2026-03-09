@@ -224,7 +224,7 @@ const OfflineSyncPlugin: Plugin = {
       (OfflineSyncPlugin as any)._initialized = true;
       // Inicializar store y sync worker
       const store = useOfflineSyncStore.getState();
-      await store.initialize();
+      store.init();
 
       // Programar limpieza diaria a las 00:00
       scheduleDailyCleanup();

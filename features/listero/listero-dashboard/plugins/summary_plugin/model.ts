@@ -1,7 +1,5 @@
 import { RemoteData } from '@/shared/core/tea-utils';
-import { FinancialSummary } from './domain/models';
-import { PendingBet } from './domain/models';
-import { SummaryPluginContext } from './domain/services';
+import { FinancialSummary, PendingBet, SummaryPluginContext } from './domain/models';
 
 export interface DailyTotals {
   totalCollected: number;

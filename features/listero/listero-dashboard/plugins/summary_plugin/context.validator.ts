@@ -1,4 +1,4 @@
-import { SummaryPluginContext } from './domain/services';
+import { SummaryPluginContext } from './domain/models';
 import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('SUMMARY_PLUGIN_VALIDATOR');
@@ -10,10 +10,6 @@ export interface ContextValidationError {
 
 /**
  * Valida que el contexto proporcionado por el Host cumpla con los requisitos mínimos del Plugin.
- * Esto actúa como un "Contrato de Runtime" para evitar errores silenciosos o crashes.
- * 
- * NOTA: Somos más lenient con la validación ya que el contexto se construye gradualmente.
- * El estado inicial puede no tener todos los datos (se cargan después).
  */
 export const validatePluginContext = (context: any): { isValid: boolean; error?: string } => {
     if (!context) {
@@ -22,31 +18,25 @@ export const validatePluginContext = (context: any): { isValid: boolean; error?:
 
     const missingProps: string[] = [];
 
-    // 1. Validar API básica - hacer más lenient
-    if (!context.api) {
-        missingProps.push('api');
-    } else {
-        if (typeof context.api.get !== 'function') missingProps.push('api.get');
+    // 1. Validar HostStore y Storage
+    if (!context.hostStore) {
+        missingProps.push('hostStore');
     }
 
-    // 2. Validar Storage - hacer más lenient
-    if (!context.storage) {
+    if (!context.storage || typeof context.storage.getItem !== 'function') {
         missingProps.push('storage');
-    } else {
-        if (typeof context.storage.getItem !== 'function') missingProps.push('storage.getItem');
-        if (typeof context.storage.setItem !== 'function') missingProps.push('storage.setItem');
     }
 
-    // 3. Validar Estado del Host - somos más lenient con valores nulos
-    // El estado puede no estar completamente cargado al inicio
+    // 2. Validar propiedades de negocio dentro de state
     if (!context.state) {
         missingProps.push('state');
+    } else {
+        if (!context.state.userStructureId) missingProps.push('state.userStructureId');
+        if (context.state.commissionRate === undefined) missingProps.push('state.commissionRate');
     }
-    // Nota: No validamos userStructureId aquí ya que puede ser null inicialmente
-    // y se cargará después cuando el usuario esté autenticado
 
     if (missingProps.length > 0) {
-        const errorMsg = `Invalid Plugin Context. Missing required services/properties: ${missingProps.join(', ')}`;
+        const errorMsg = `Invalid Plugin Context. Missing required properties: ${missingProps.join(', ')}`;
         log.error(errorMsg, { contextKeys: Object.keys(context) });
         return { isValid: false, error: errorMsg };
     }

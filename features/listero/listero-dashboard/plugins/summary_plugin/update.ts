@@ -2,29 +2,11 @@ import { Model } from './model';
 import * as Msg from './msg';
 import { Return, ret, Cmd, RemoteDataHttp, RemoteData, WebData } from '@/shared/core/tea-utils';
 import { match } from 'ts-pattern';
-import { FinancialSummary as DomainFinancialSummary, PendingBet as DomainPendingBet, DailyTotals } from './domain/models';
-
-// Importar casos de usos limpios (sin dependencias de infraestructura global)
-import { LoadPreferencesUseCase, LoadPreferencesResult } from './application/useCases/load-preferences-simple.use-case';
-import { GetFinancialDataUseCase } from './application/useCases/get-financial-data.use-case';
-import { FinancialCalculatorService } from './domain/services/financial-calculator.service';
-import { TimeRangeService } from './domain/services/time-range.service';
-
-import { SummaryPluginContext } from './domain/services';
+import { FinancialSummary as DomainFinancialSummary, SummaryPluginContext } from './domain/models';
+import { calculateFinancials } from './domain/logic';
+import { betRepository } from '@/shared/repositories/bet/bet.repository';
 import { validatePluginContext } from './context.validator';
-
-import { FinancialSummaryExternalCodec, decodeOrFallback } from './domain/codecs';
 import logger from '@/shared/utils/logger';
-
-// Instanciar servicios de dominio (sin dependencias externas)
-const financialCalculator = new FinancialCalculatorService();
-const timeRangeService = new TimeRangeService();
-
-// Instanciar casos de uso
-const loadPreferencesUseCase = new LoadPreferencesUseCase();
-const getFinancialDataUseCase = new GetFinancialDataUseCase(financialCalculator, timeRangeService);
-
-const log = logger.withTag('[SummaryPlugin][Update]');
 
 export const update = (model: Model, msg: Msg.Msg): Return<Model, Msg.Msg> => {
   return match<Msg.Msg, Return<Model, Msg.Msg>>(msg)
@@ -37,20 +19,11 @@ export const update = (model: Model, msg: Msg.Msg): Return<Model, Msg.Msg> => {
     .with({ type: 'PREFERENCES_LOADED' }, (m) =>
       handlePreferencesLoaded(model, m.payload))
 
-    .with({ type: 'FETCH_FINANCIAL_SUMMARY' }, () =>
-      handleFetchFinancialSummary(model))
+    .with({ type: 'GET_FINANCIAL_BETS' }, () =>
+      handleGetFinancialBets(model))
 
-    .with({ type: 'FINANCIAL_SUMMARY_RECEIVED' }, (m) =>
-      handleFinancialSummaryReceived(model, m.payload))
-
-    .with({ type: 'PENDING_BETS_RECEIVED' }, (m) =>
-      handlePendingBetsReceived(model, m.payload))
-
-    .with({ type: 'CALCULATE_DAILY_TOTALS' }, () =>
-      handleCalculateDailyTotals(model))
-
-    .with({ type: 'DAILY_TOTALS_CALCULATED' }, (m) =>
-      handleDailyTotalsCalculated(model, m.payload))
+    .with({ type: 'FINANCIAL_BETS_UPDATED' }, (m) =>
+      handleFinancialBetsUpdated(model, m.payload))
 
     .with({ type: 'TOGGLE_BALANCE_VISIBILITY' }, () =>
       handleToggleBalanceVisibility(model))
@@ -58,13 +31,17 @@ export const update = (model: Model, msg: Msg.Msg): Return<Model, Msg.Msg> => {
     .with({ type: 'NOOP' }, () =>
       ret(model, Cmd.none))
 
-    .with({ type: 'FETCH_PENDING_BETS' }, () =>
-      ret(model, Cmd.none))
+    // Mensajes obsoletos mantenidos por compatibilidad de tipos si es necesario, 
+    // pero ya no ejecutan lógica compleja.
+    .with({ type: 'GET_PENDING_BETS' }, () => ret(model, Cmd.none))
+    .with({ type: 'PENDING_BETS_UPDATED' }, () => ret(model, Cmd.none))
+    .with({ type: 'CALCULATE_DAILY_TOTALS' }, () => ret(model, Cmd.none))
+    .with({ type: 'DAILY_TOTALS_CALCULATED' }, () => ret(model, Cmd.none))
 
     .exhaustive();
 };
 
-// Handlers separados siguiendo SRP
+// Handlers
 
 function handleInitContext(model: Model, context: SummaryPluginContext): Return<Model, Msg.Msg> {
   const validation = validatePluginContext(context);
@@ -84,8 +61,17 @@ function handleLoadPreferences(model: Model): Return<Model, Msg.Msg> {
 
   return ret(model, Cmd.task({
     task: async () => {
-      const result = await loadPreferencesUseCase.execute(model.context!);
-      return Msg.PREFERENCES_LOADED(result);
+      // Simplificado: Carga directa de preferencias desde el host storage
+      const showBalance = await model.context!.storage.getItem('showBalance');
+      return Msg.PREFERENCES_LOADED({
+        userProfile: {
+          id: 'me',
+          name: 'Usuario',
+          structureId: model.context!.state.userStructureId || '1',
+          commissionRate: model.context!.state.commissionRate || 0.1
+        },
+        userPreferences: { showBalance: showBalance !== 'false' }
+      });
     },
     onSuccess: (msg: Msg.Msg) => msg,
     onFailure: () => Msg.PREFERENCES_LOADED({
@@ -95,84 +81,65 @@ function handleLoadPreferences(model: Model): Return<Model, Msg.Msg> {
   }));
 }
 
-function handlePreferencesLoaded(model: Model, payload: LoadPreferencesResult): Return<Model, Msg.Msg> {
+function handlePreferencesLoaded(model: Model, payload: any): Return<Model, Msg.Msg> {
   return ret({
     ...model,
     showBalance: payload.userPreferences.showBalance,
     commissionRate: payload.userProfile.commissionRate,
     structureId: payload.userProfile.structureId
-  }, Cmd.ofMsg(Msg.FETCH_FINANCIAL_SUMMARY()));
+  }, Cmd.ofMsg(Msg.GET_FINANCIAL_BETS()));
 }
 
-// ... (en la función handleFetchFinancialSummary)
-
-function handleFetchFinancialSummary(model: Model): Return<Model, Msg.Msg> {
+function handleGetFinancialBets(model: Model): Return<Model, Msg.Msg> {
   if (!model.context || !model.structureId) return ret(model, Cmd.none);
+
+  const todayStart = new Date().setHours(0, 0, 0, 0);
 
   return ret(
     { ...model, financialSummary: RemoteData.loading() },
-    RemoteDataHttp.fetch<DomainFinancialSummary, Msg.Msg>(
-      async () => {
-        // Usamos getFinancialDataUseCase en lugar de llamar al servicio directamente
-        // Esto centraliza la lógica y el manejo de errores/offline
-        const result = await getFinancialDataUseCase.execute({
-          structureId: model.structureId!,
-          commissionRate: model.commissionRate,
-          context: model.context!
-        });
-        // El caso de uso ahora garantiza que financialSummary nunca es null (retorna 0s por defecto)
-        // por lo que podemos retornar directamente.
-        return result.financialSummary!;
+    Cmd.task({
+      task: async () => {
+        // LLAMADA DIRECTA AL BET REPOSITORY (LA REALIDAD)
+        const rawData = await betRepository.getFinancialSummary(todayStart, model.structureId);
+
+        // CÁLCULO EN CALIENTE USANDO LÓGICA PURA
+        const { summary } = calculateFinancials(
+          {
+            totalCollected: rawData.totalCollected,
+            premiumsPaid: 0, // Las apuestas locales no tienen premios pagados aún
+            betCount: rawData.betCount
+          },
+          model.commissionRate
+        );
+
+        return summary;
       },
-      Msg.FINANCIAL_SUMMARY_RECEIVED
-    )
+      onSuccess: (data) => Msg.FINANCIAL_BETS_UPDATED(RemoteData.success(data)),
+      onFailure: (error) => Msg.FINANCIAL_BETS_UPDATED(RemoteData.failure(error))
+    })
   );
 }
 
-function handleFinancialSummaryReceived(model: Model, webData: WebData<DomainFinancialSummary>): Return<Model, Msg.Msg> {
-  const nextModel = { ...model, financialSummary: webData };
-
+function handleFinancialBetsUpdated(model: Model, webData: WebData<DomainFinancialSummary>): Return<Model, Msg.Msg> {
   if (webData.type === 'Success') {
-    return ret(nextModel, Cmd.ofMsg(Msg.CALCULATE_DAILY_TOTALS()));
-  }
-
-  return ret(nextModel, Cmd.none);
-}
-
-function handlePendingBetsReceived(model: Model, webData: WebData<DomainPendingBet[]>): Return<Model, Msg.Msg> {
-  const nextModel = { ...model, pendingBets: webData };
-
-  if (webData.type === 'Success') {
-    return ret(nextModel, Cmd.ofMsg(Msg.CALCULATE_DAILY_TOTALS()));
-  }
-
-  return ret(nextModel, Cmd.none);
-}
-
-function handleCalculateDailyTotals(model: Model): Return<Model, Msg.Msg> {
-  if (!model.context || !model.structureId) return ret(model, Cmd.none);
-
-  return ret(
-    model,
-    RemoteDataHttp.fetch<DailyTotals, Msg.Msg>(
-      async () => {
-        const result = await getFinancialDataUseCase.execute({
-          structureId: model.structureId,
-          commissionRate: model.commissionRate,
-          context: model.context!
-        });
-        return result.dailyTotals;
+    // Al recibir el resumen, calculamos los totales diarios inmediatamente
+    const { totals } = calculateFinancials(
+      {
+        totalCollected: webData.data.totalCollected,
+        premiumsPaid: webData.data.premiumsPaid,
+        betCount: 0 // No necesitamos el conteo aquí
       },
-      Msg.DAILY_TOTALS_CALCULATED
-    )
-  );
-}
+      model.commissionRate
+    );
 
-function handleDailyTotalsCalculated(model: Model, webData: WebData<DailyTotals>): Return<Model, Msg.Msg> {
-  if (webData.type === 'Success') {
-    return ret({ ...model, dailyTotals: webData.data }, Cmd.none);
+    return ret({
+      ...model,
+      financialSummary: webData,
+      dailyTotals: totals
+    }, Cmd.none);
   }
-  return ret(model, Cmd.none);
+
+  return ret({ ...model, financialSummary: webData }, Cmd.none);
 }
 
 function handleToggleBalanceVisibility(model: Model): Return<Model, Msg.Msg> {
@@ -184,7 +151,7 @@ function handleToggleBalanceVisibility(model: Model): Return<Model, Msg.Msg> {
     { ...model, showBalance: newShowBalance },
     Cmd.task({
       task: async () => {
-        await model.context!.storage.setItem('showBalance', newShowBalance);
+        await model.context!.storage.setItem('showBalance', String(newShowBalance));
         return Msg.NOOP();
       },
       onSuccess: (msg) => msg,

@@ -2,12 +2,12 @@ import React from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Card, Button } from '@ui-kitten/components';
 import { Eye, EyeOff, PiggyBank, Wallet, FileText, TrendingUp, BarChart3 } from 'lucide-react-native';
-import { INIT_CONTEXT, FETCH_FINANCIAL_SUMMARY, TOGGLE_BALANCE_VISIBILITY } from './msg';
+import { INIT_CONTEXT, GET_FINANCIAL_BETS, TOGGLE_BALANCE_VISIBILITY } from './msg';
 import { useSummaryPluginStore } from './store';
 import { RemoteData } from '@/shared/core/tea-utils';
 import { formatCurrency } from '@/shared/utils/formatters';
 import { styles } from './styles';
-import { SummaryPluginContext } from './domain/services';
+import { SummaryPluginContext } from './domain/models';
 
 interface SummaryComponentProps {
   context: SummaryPluginContext;
@@ -58,7 +58,7 @@ export const SummaryComponent: React.FC<SummaryComponentProps> = ({ context }) =
           <Button 
             size="small" 
             style={{ marginTop: 8 }}
-            onPress={() => dispatch(FETCH_FINANCIAL_SUMMARY())}
+            onPress={() => dispatch(GET_FINANCIAL_BETS())}
           >
             Cargar datos
           </Button>
@@ -76,7 +76,7 @@ export const SummaryComponent: React.FC<SummaryComponentProps> = ({ context }) =
           <Button 
             size="small"
             status="danger"
-            onPress={() => dispatch(FETCH_FINANCIAL_SUMMARY())}
+            onPress={() => dispatch(GET_FINANCIAL_BETS())}
           >
             Reintentar
           </Button>

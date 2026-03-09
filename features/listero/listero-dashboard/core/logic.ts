@@ -4,48 +4,16 @@ import { Model } from './model';
 import { RemoteData, WebData } from '@/shared/core/tea-utils';
 import { logger } from '@/shared/utils/logger';
 import { DashboardUser } from './user.dto';
+// Importación de la utilidad centralizada
+import { calculateFinancials } from '@/shared/utils/financial.logic';
 
 const log = logger.withTag('DASHBOARD_LOGIC');
 
 /**
- * Helper to calculate the total amount of a bet payload (single or bulk)
+ * Helper to calculate the total amount of a bet (single or bulk)
  */
-export const calculatePayloadAmount = (payload: any): number => {
-    let total = 0;
-
-    // 1. Single bet legacy field or explicit amount
-    if (payload.amount) {
-        total += Number(payload.amount) || 0;
-    }
-
-    // 2. Bulk fields
-    if (payload.fijosCorridos && Array.isArray(payload.fijosCorridos)) {
-        total += payload.fijosCorridos.reduce((acc: number, bet: any) =>
-            acc + (Number(bet.fijoAmount) || 0) + (Number(bet.corridoAmount) || 0), 0);
-    }
-
-    if (payload.parlets && Array.isArray(payload.parlets)) {
-        total += payload.parlets.reduce((acc: number, bet: any) => {
-            if (bet.bets && Array.isArray(bet.bets) && bet.bets.length >= 2 && bet.amount) {
-                const n = bet.bets.length;
-                // Combinatorial formula: n * (n - 1) / 2
-                const numCombinations = (n * (n - 1)) / 2;
-                const parletTotal = numCombinations * (Number(bet.amount) || 0);
-                return acc + parletTotal;
-            }
-            return acc;
-        }, 0);
-    }
-
-    if (payload.centenas && Array.isArray(payload.centenas)) {
-        total += payload.centenas.reduce((acc: number, bet: any) => acc + (Number(bet.amount) || 0), 0);
-    }
-
-    if (payload.loteria && Array.isArray(payload.loteria)) {
-        total += payload.loteria.reduce((acc: number, bet: any) => acc + (Number(bet.amount) || 0), 0);
-    }
-
-    return total;
+export const calculatePayloadAmount = (bet: BetType): number => {
+    return Number(bet.amount) || 0;
 };
 
 /**
@@ -55,44 +23,31 @@ export const calculatePendingDelta = (pendingBets: BetType[], commissionRate: nu
     const startOfDay = new Date().setHours(0, 0, 0, 0);
     const endOfDay = new Date().setHours(23, 59, 59, 999);
 
-    const initialTotals: DailyTotals = {
-        totalCollected: 0,
-        premiumsPaid: 0,
-        netResult: 0,
-        estimatedCommission: 0,
-        amountToRemit: 0
-    };
-
-    return pendingBets.reduce((acc, bet) => {
-        // Only include bets from today in the delta
+    const rawData = pendingBets.reduce((acc, bet) => {
         if (bet.timestamp && bet.timestamp >= startOfDay && bet.timestamp < endOfDay) {
-            const amount = bet.amount || 0;
+            const amount = calculatePayloadAmount(bet);
             return {
                 ...acc,
                 totalCollected: acc.totalCollected + amount,
-                // Pending bets don't have premiums paid yet
-                netResult: acc.netResult + amount,
-                estimatedCommission: acc.estimatedCommission + (amount * commissionRate),
-                amountToRemit: acc.amountToRemit + (amount * (1 - commissionRate))
+                betCount: acc.betCount + 1
             };
         }
         return acc;
-    }, initialTotals);
+    }, { totalCollected: 0, premiumsPaid: 0, betCount: 0 });
+
+    const { totals } = calculateFinancials(rawData, commissionRate);
+    return totals;
 };
 
 export const summaryToTotals = (summary: FinancialSummary, commissionRate: number): DailyTotals => {
-    const collected = summary.totalCollected || 0;
-    const premiums = summary.premiumsPaid || 0;
-    const net = summary.netResult || (collected - premiums);
-    const commission = collected * commissionRate;
-
-    return {
-        totalCollected: collected,
-        premiumsPaid: premiums,
-        netResult: net,
-        estimatedCommission: commission,
-        amountToRemit: net - commission,
+    const rawData = {
+        totalCollected: summary.totalCollected || 0,
+        premiumsPaid: summary.premiumsPaid || 0,
+        betCount: (summary as any).betCount || 0
     };
+
+    const { totals } = calculateFinancials(rawData, commissionRate);
+    return totals;
 };
 
 /**
@@ -119,7 +74,7 @@ export const enrichDraws = (
         log.debug('PENDING_BETS_SAMPLE', {
             firstBet: pendingBets[0],
             firstBetKeys: Object.keys(pendingBets[0] || {}),
-            betDrawIds: pendingBets.map(b => b.draw || b.drawId)
+            betDrawIds: pendingBets.map(b => b.draw)
         });
     }
 
@@ -155,28 +110,19 @@ export const enrichDraws = (
 
     // Process pending bets (always include these)
     pendingBets.forEach(bet => {
-        const drawId = (bet.draw || bet.drawId || '').toString();
+        const drawId = (bet.draw || '').toString();
         if (drawId) {
             const amount = calculatePayloadAmount(bet);
             const current = localMap.get(drawId) || 0;
             localMap.set(drawId, current + amount);
             pendingCountMap.set(drawId, (pendingCountMap.get(drawId) || 0) + 1);
-
-            // DEBUG: Log loteria bets
-            if (bet.loteria && Array.isArray(bet.loteria)) {
-                log.debug('LOTERIA_BET_IN_FINANCIAL', {
-                    drawId,
-                    loteriaCount: bet.loteria.length,
-                    loteriaAmounts: bet.loteria.map((l: any) => l.amount)
-                });
-            }
         }
     });
 
     // Process synced bets (the local "truth" for recently synced items)
     syncedBets.forEach(bet => {
-        const drawId = (bet.draw || bet.drawId || '').toString();
-        const betId = bet.offlineId;
+        const drawId = (bet.draw || '').toString();
+        const betId = bet.id;
         if (drawId && betId) {
             const amount = calculatePayloadAmount(bet);
             const current = localMap.get(drawId) || 0;
@@ -224,7 +170,7 @@ export const enrichDraws = (
                 localAmount,
                 diff: localAmount - backendCollected,
                 pendingCount,
-                syncedCount: syncedBets.filter(b => (b.draw || b.drawId || '').toString() === drawId).length,
+                syncedCount: syncedBets.filter(b => (b.draw || '').toString() === drawId).length,
                 // Log if we suspect some bets are missing from local storage but present in backend
                 backendHigher: backendCollected > localAmount
             });
@@ -246,29 +192,14 @@ export const enrichDraws = (
 };
 
 export const calculateTotals = (draws: DrawType[], commissionRate: number): DailyTotals => {
-    return draws.reduce(
-        (acc, draw) => {
-            const collected = draw.totalCollected || 0;
-            const premiums = draw.premiumsPaid || 0;
-            const net = draw.netResult || (collected - premiums);
-            const commission = collected * commissionRate;
+    const rawData = draws.reduce((acc, draw) => ({
+        totalCollected: acc.totalCollected + (Number(draw.totalCollected) || 0),
+        premiumsPaid: acc.premiumsPaid + (Number(draw.premiumsPaid) || 0),
+        betCount: acc.betCount + 1 // Estimación basada en sorteos
+    }), { totalCollected: 0, premiumsPaid: 0, betCount: 0 });
 
-            return {
-                totalCollected: acc.totalCollected + collected,
-                premiumsPaid: acc.premiumsPaid + premiums,
-                netResult: acc.netResult + net,
-                estimatedCommission: acc.estimatedCommission + commission,
-                amountToRemit: acc.amountToRemit + (net - commission),
-            };
-        },
-        {
-            totalCollected: 0,
-            premiumsPaid: 0,
-            netResult: 0,
-            estimatedCommission: 0,
-            amountToRemit: 0
-        }
-    );
+    const { totals } = calculateFinancials(rawData, commissionRate);
+    return totals;
 };
 
 export const filterDraws = (draws: DrawType[], filter: StatusFilter): DrawType[] => {
@@ -341,56 +272,35 @@ export const recalculateDashboardState = (
 
     const safeDrawsData = Array.isArray(drawsData) ? drawsData : null;
 
-    // Default empty result
-    const result = {
-        filteredDraws: [] as DrawType[],
-        dailyTotals: {
-            totalCollected: 0,
-            premiumsPaid: 0,
-            netResult: 0,
-            estimatedCommission: 0,
-            amountToRemit: 0
-        }
-    };
+    // 1. Enrich draws (if possible)
+    const enrichedDraws = safeDrawsData
+        ? enrichDraws(safeDrawsData, summaryData, pendingBets, syncedBets)
+        : [];
 
-    if (!safeDrawsData) {
-        // If we have summary but no draws (rare but possible), we can still calculate totals from summary
-        if (summaryData) {
-            result.dailyTotals = summaryToTotals(summaryData, commissionRate);
-        }
+    // 2. Base Totals from Summary or Draws
+    let dailyTotals: DailyTotals;
+    if (summaryData) {
+        dailyTotals = summaryToTotals(summaryData, commissionRate);
     } else {
-        // 1. Enrich draws with summary data AND pending bets AND synced bets if available
-        const enrichedDraws = enrichDraws(safeDrawsData, summaryData, pendingBets, syncedBets);
-
-        // 2. Filter draws
-        const filtered = filterDraws(enrichedDraws, filter);
-        result.filteredDraws = filtered as DrawType[];
-
-        // 3. Calculate totals
-        // Prioritize summary data for daily totals if available
-        if (summaryData) {
-            result.dailyTotals = summaryToTotals(summaryData, commissionRate);
-        } else {
-            // FIX: Always calculate totals from ALL draws (enrichedDraws), not just the filtered ones.
-            // This ensures the "Global Summary" remains stable and represents the daily total
-            // even when the user filters the list view (e.g., viewing only "Open" draws).
-            result.dailyTotals = calculateTotals(enrichedDraws, commissionRate);
-        }
+        dailyTotals = calculateTotals(enrichedDraws, commissionRate);
     }
 
-    // 4. Add Pending Bets (Offline Delta)
+    // 3. Add Pending Bets (Offline Delta) - Only if they were NOT already enriched into draws
     if (pendingBets.length > 0) {
         const pendingDelta = calculatePendingDelta(pendingBets, commissionRate);
-        result.dailyTotals = {
-            totalCollected: result.dailyTotals.totalCollected + pendingDelta.totalCollected,
-            premiumsPaid: result.dailyTotals.premiumsPaid + pendingDelta.premiumsPaid,
-            netResult: result.dailyTotals.netResult + pendingDelta.netResult,
-            estimatedCommission: result.dailyTotals.estimatedCommission + pendingDelta.estimatedCommission,
-            amountToRemit: result.dailyTotals.amountToRemit + pendingDelta.amountToRemit
+        dailyTotals = {
+            totalCollected: dailyTotals.totalCollected + pendingDelta.totalCollected,
+            premiumsPaid: dailyTotals.premiumsPaid + pendingDelta.premiumsPaid,
+            netResult: dailyTotals.netResult + pendingDelta.netResult,
+            estimatedCommission: dailyTotals.estimatedCommission + pendingDelta.estimatedCommission,
+            amountToRemit: dailyTotals.amountToRemit + pendingDelta.amountToRemit
         };
     }
 
-    return result;
+    return {
+        filteredDraws: filterDraws(enrichedDraws, filter) as DrawType[],
+        dailyTotals
+    };
 };
 
 // Return type for auth sync logic

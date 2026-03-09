@@ -29,30 +29,8 @@ export class BetOfflineAdapter implements IBetStorage {
      */
     async getAll(): Promise<BetDomainModel[]> {
         const pattern = BetOfflineKeys.getPattern('pending', '*');
-        const results = await offlineStorage.query<any>(pattern).all();
-
-        return results.map(item => {
-            if (!item) return null;
-
-            // Si el item ya es un BetDomainModel plano (Estructura v2 ideal)
-            if (item.externalId || item.offlineId) {
-                // Si accidentalmente tiene data anidada (Error v2 detectado en log)
-                if (item.data && typeof item.data === 'object' && (item.data.drawId || item.data.draw)) {
-                    return {
-                        ...item,
-                        ...item.data
-                    } as BetDomainModel;
-                }
-                return item as BetDomainModel;
-            }
-
-            // Si el item es legacy o viene de un envelope v1/v2 mal procesado
-            if (item.data && typeof item.data === 'object') {
-                return item.data as BetDomainModel;
-            }
-
-            return item as BetDomainModel;
-        }).filter((b): b is BetDomainModel => b !== null);
+        const results = await offlineStorage.query<BetDomainModel>(pattern).all();
+        return results.filter((b): b is BetDomainModel => b !== null);
     }
 
     /**
@@ -84,7 +62,7 @@ export class BetOfflineAdapter implements IBetStorage {
             const matchesDraw = String(b.drawId) === normalizedDrawId;
             const isPending = b.status === 'pending' || b.status === 'error';
             const isRecentSynced = b.status === 'synced' && (now - (b.timestamp || 0)) < maxAgeMs;
-            
+
             return matchesDraw && (isPending || isRecentSynced);
         });
     }
@@ -118,8 +96,7 @@ export class BetOfflineAdapter implements IBetStorage {
         const normalizedDrawId = String(drawId);
         return all.filter(b => {
             if (!b) return false;
-            const bDrawId = b.drawId ?? (b as any).data?.draw;
-            return String(bDrawId) === normalizedDrawId;
+            return String(b.drawId) === normalizedDrawId;
         });
     }
 }

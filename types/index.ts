@@ -66,16 +66,21 @@ export interface DrawType {
 
 
 export interface BetType {
-  id: string;
-  type: string;
-  numbers: string;
-  amount: number;
-  draw: string;
-  createdAt: string;
-  timestamp?: number;
-  isPending?: boolean;
+  id: string; // Backend serial ID
+  externalId: string; // Frontend UUID
+  type: string; // Friendly name of the type
+  numbers: any; // JSONField compatible
+  amount: number; // Flat amount
+  drawId: string | number;
+  betTypeId: string | number;
+  status: 'pending' | 'synced' | 'error' | 'blocked';
+  timestamp: number;
+  createdAt: string; // ISO format for UI
   receiptCode?: string;
-  betTypeId?: string | number; // Almacenamos el ID original del backend
+  ownerStructure?: string | number;
+  isPending?: boolean; // Legacy flag for UI compatibility
+  lastError?: string;
+  retryCount?: number;
 }
 export type GameType = {
   id: string;

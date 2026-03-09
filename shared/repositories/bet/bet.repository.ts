@@ -1,5 +1,5 @@
 import { Result, err } from 'neverthrow';
-import { IBetRepository, BetRepositoryResult, BetDomainModel, ChildStructure, ListeroDetails, BetPlacementInput } from './bet.types';
+import { IBetRepository, BetRepositoryResult, BetDomainModel, ChildStructure, ListeroDetails, BetPlacementInput, RawBetTotals } from './bet.types';
 import { IBetStorage, IBetApi } from './bet.ports';
 import { logger } from '@/shared/utils/logger';
 import { ListBetsFilters } from '@/shared/services/bet/types';
@@ -71,26 +71,14 @@ export class BetRepository implements IBetRepository {
     /**
      * Get financial summary for a period and structure.
      */
-    async getFinancialSummary(todayStart: number, structureId?: string): Promise<{
-        totalCollected: number;
-        totalPaid: number;
-        premiumsPaid: number;
-        netResult: number;
-        betCount: number;
-    }> {
+    async getFinancialSummary(todayStart: number, structureId?: string): Promise<RawBetTotals> {
         return await getFinancialSummaryFlow(this.storage, todayStart, structureId);
     }
 
     /**
      * Get totals grouped by Draw ID for a period and structure.
      */
-    async getTotalsByDrawId(todayStart: number, structureId?: string): Promise<Record<string, {
-        totalCollected: number;
-        totalPaid: number;
-        premiumsPaid: number;
-        netResult: number;
-        betCount: number;
-    }>> {
+    async getTotalsByDrawId(todayStart: number, structureId?: string): Promise<Record<string, RawBetTotals>> {
         return await getTotalsByDrawIdFlow(this.storage, todayStart, structureId);
     }
 

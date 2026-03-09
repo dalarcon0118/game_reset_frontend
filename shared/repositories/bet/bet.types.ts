@@ -31,62 +31,25 @@ export interface FinancialImpact {
  * 3. Persistence: Backend creates record with its own serial `id` (Backend PK).
  * 4. Completion: Frontend stores Backend PK in `backendId` for future reference.
  */
-export interface BetDomainModel {
-    /** 
-     * UUID generated in the frontend. 
-     * Used as the primary key for offline storage and as an idempotency key 
-     * for backend requests to prevent duplicate bets on network retries.
-     */
-    externalId: string;
-
-    /** Current sync status (pending, synced, error) */
-    status: SyncStatus;
-
-    /** When the bet was created locally */
-    timestamp: number;
-
-    /** Draw ID for this bet */
-    drawId: string | number;
-
-    /** ID of the bet type (FIJO, CORRIDO, etc) */
-    betTypeId: string | number;
-
-    /** Amount played */
-    amount: number;
-
-    /** Numbers played (string, array or object depending on type) */
-    numbers: any;
-
-    /** Optional pre-generated receipt code */
-    receiptCode?: string;
-
-    /** ID of the structure/banker owner of this bet */
-    ownerStructure: string | number;
-
-    // --- Optional / Results ---
-
-    /** 
-     * ID assigned by the backend after successful sync. 
-     * This is the serial Primary Key from the database.
-     */
-    backendId?: string | number;
-
-    /** Full result from backend after successful sync (for mapping) */
+export interface BetDomainModel extends BetType {
+    // Los campos ya están en BetType, pero mantenemos BetDomainModel 
+    // como el nombre del contrato dentro del repositorio para mayor semántica.
+    // Añadimos campos específicos del repositorio si fuera necesario.
     backendBets?: BetType[];
-
-    /** Optional commission rate applied */
     commissionRate?: number;
-
-    /** Last error message if sync failed */
-    lastError?: string;
-
-    /** Number of sync attempts */
-    retryCount?: number;
 }
 
 export type BetPlacementInput = Omit<BetDomainModel, 'externalId' | 'status' | 'timestamp'>;
 
 export type BetRepositoryResult = BetType | BetType[];
+
+/**
+ * Totales crudos de apuestas para cálculos financieros externos.
+ */
+export interface RawBetTotals {
+    totalCollected: number;
+    betCount: number;
+}
 
 /**
  * Interface for the Bet Repository.
@@ -105,21 +68,9 @@ export interface IBetRepository {
     hasCriticalPendingBets(beforeTimestamp: number): Promise<boolean>;
     getAllRawBets(): Promise<BetDomainModel[]>;
 
-    // Financial calculations (on-demand from bets)
-    getFinancialSummary(todayStart: number, structureId?: string): Promise<{
-        totalCollected: number;
-        totalPaid: number;
-        premiumsPaid: number;
-        netResult: number;
-        betCount: number;
-    }>;
-    getTotalsByDrawId(todayStart: number, structureId?: string): Promise<Record<string, {
-        totalCollected: number;
-        totalPaid: number;
-        premiumsPaid: number;
-        netResult: number;
-        betCount: number;
-    }>>;
+    // Agregaciones crudas (SSOT) - No incluyen lógica de negocio
+    getFinancialSummary(todayStart: number, structureId?: string): Promise<RawBetTotals>;
+    getTotalsByDrawId(todayStart: number, structureId?: string): Promise<Record<string, RawBetTotals>>;
 
     // Structure related methods
     getChildren(id: number, level?: number): Promise<ChildStructure[]>;

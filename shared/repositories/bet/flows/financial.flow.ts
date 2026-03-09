@@ -1,16 +1,8 @@
 import { IBetStorage } from '../bet.ports';
-import { BetDomainModel } from '../bet.types';
+import { BetDomainModel, RawBetTotals } from '../bet.types';
 import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('FinancialFlow');
-
-export interface FinancialSummary {
-    totalCollected: number;
-    totalPaid: number;
-    premiumsPaid: number;
-    netResult: number;
-    betCount: number;
-}
 
 interface FinancialFlowContext {
     allBets: BetDomainModel[];
@@ -20,29 +12,6 @@ interface FinancialFlowContext {
 const getTodayEnd = (todayStart: number): number =>
     todayStart + (24 * 60 * 60 * 1000);
 
-const resolveDrawId = (bet: BetDomainModel): string | null => {
-    const primaryDrawId = bet.drawId;
-    const fallbackDrawId = (bet as any).data?.draw;
-    const candidate = primaryDrawId === undefined || primaryDrawId === null || String(primaryDrawId).trim() === ''
-        ? fallbackDrawId
-        : primaryDrawId;
-    if (candidate === undefined || candidate === null || String(candidate).trim() === '') {
-        return null;
-    }
-    return String(candidate);
-};
-
-const resolveAmount = (bet: BetDomainModel): number => {
-    const rawAmount = bet.amount ?? (bet as any).data?.amount;
-    const amount = Number(rawAmount);
-    return Number.isFinite(amount) ? amount : 0;
-};
-
-const resolveTimestamp = (bet: BetDomainModel): number => {
-    const timestamp = Number(bet.timestamp ?? (bet as any).data?.timestamp);
-    return Number.isFinite(timestamp) ? timestamp : 0;
-};
-
 const filterBetsByContext = (
     bets: BetDomainModel[],
     todayStart: number,
@@ -50,7 +19,7 @@ const filterBetsByContext = (
 ): FinancialFlowContext => {
     const todayEnd = getTodayEnd(todayStart);
     const filteredBets = bets.filter((bet) => {
-        const timestamp = resolveTimestamp(bet);
+        const timestamp = Number(bet.timestamp) || 0;
         const isToday = timestamp >= todayStart && timestamp < todayEnd;
         const matchesStructure = !structureId || String(bet.ownerStructure) === String(structureId);
         return isToday && matchesStructure;
@@ -70,22 +39,19 @@ const filterBetsByContext = (
     };
 };
 
-const createEmptySummary = (): FinancialSummary => ({
+const createEmptyTotals = (): RawBetTotals => ({
     totalCollected: 0,
-    totalPaid: 0,
-    premiumsPaid: 0,
-    netResult: 0,
     betCount: 0
 });
 
 /**
- * Calculates financial summary based on stored bets.
+ * Calculates raw financial aggregation based on stored bets.
  */
 export const getFinancialSummaryFlow = async (
     storage: IBetStorage,
     todayStart: number,
     structureId?: string
-): Promise<FinancialSummary> => {
+): Promise<RawBetTotals> => {
     try {
         const allBets = await storage.getAll();
         log.debug('Financial flow input', {
@@ -95,36 +61,34 @@ export const getFinancialSummaryFlow = async (
         });
 
         const { filteredBets } = filterBetsByContext(allBets, todayStart, structureId);
-        const summary = filteredBets.reduce<FinancialSummary>((acc, bet) => {
-            const amount = resolveAmount(bet);
+        const totals = filteredBets.reduce<RawBetTotals>((acc, bet) => {
+            const amount = Number(bet.amount) || 0;
             return {
                 ...acc,
                 totalCollected: acc.totalCollected + amount,
                 betCount: acc.betCount + 1
             };
-        }, createEmptySummary());
-        summary.netResult = summary.totalCollected - summary.totalPaid;
+        }, createEmptyTotals());
 
         log.debug('Financial flow final', {
-            totalCollected: summary.totalCollected,
-            betCount: summary.betCount,
-            netResult: summary.netResult
+            totalCollected: totals.totalCollected,
+            betCount: totals.betCount
         });
-        return summary;
+        return totals;
     } catch (error) {
-        log.error('Error calculating financial summary', error);
-        return createEmptySummary();
+        log.error('Error aggregating raw financial data', error);
+        return createEmptyTotals();
     }
 };
 
 /**
- * Calculates financial totals grouped by Draw ID.
+ * Calculates raw financial totals grouped by Draw ID.
  */
 export const getTotalsByDrawIdFlow = async (
     storage: IBetStorage,
     todayStart: number,
     structureId?: string
-): Promise<Record<string, FinancialSummary>> => {
+): Promise<Record<string, RawBetTotals>> => {
     try {
         const allBets = await storage.getAll();
         log.debug('Totals by draw input', {
@@ -134,32 +98,31 @@ export const getTotalsByDrawIdFlow = async (
         });
 
         const { filteredBets } = filterBetsByContext(allBets, todayStart, structureId);
-        const totals: Record<string, FinancialSummary> = {};
+        const groupedTotals: Record<string, RawBetTotals> = {};
         let discardedWithoutDraw = 0;
         filteredBets.forEach((bet) => {
-            const drawId = resolveDrawId(bet);
+            const drawId = bet.drawId ? String(bet.drawId) : null;
             if (!drawId) {
                 discardedWithoutDraw += 1;
                 return;
             }
-            if (!totals[drawId]) {
-                totals[drawId] = createEmptySummary();
+            if (!groupedTotals[drawId]) {
+                groupedTotals[drawId] = createEmptyTotals();
             }
 
-            const amount = resolveAmount(bet);
-            totals[drawId].totalCollected += amount;
-            totals[drawId].betCount += 1;
-            totals[drawId].netResult = totals[drawId].totalCollected - totals[drawId].totalPaid;
+            const amount = Number(bet.amount) || 0;
+            groupedTotals[drawId].totalCollected += amount;
+            groupedTotals[drawId].betCount += 1;
         });
 
         log.debug('Totals by draw final', {
-            drawCount: Object.keys(totals).length,
+            drawCount: Object.keys(groupedTotals).length,
             filteredCount: filteredBets.length,
             discardedWithoutDraw
         });
-        return totals;
+        return groupedTotals;
     } catch (error) {
-        log.error('Error calculating totals by draw', error);
+        log.error('Error aggregating raw totals by draw', error);
         return {};
     }
 };

@@ -1,6 +1,6 @@
 import { Sub } from '@/shared/core/tea-utils';
 import { Model } from './model';
-import { Msg, FETCH_FINANCIAL_SUMMARY } from './msg';
+import { Msg, GET_FINANCIAL_BETS } from './msg';
 import { offlineEventBus } from '@/shared/core/offline-storage/instance';
 import { logger } from '@/shared/utils/logger';
 
@@ -19,13 +19,13 @@ export const subscriptions = (model: Model) => {
       // Escuchar eventos de cambios en apuestas
       if (event.type === 'SYNC_ITEM_SUCCESS' && event.entity === 'bet') {
         log.debug('Bet change detected, triggering financial recalculation', event);
-        dispatch(FETCH_FINANCIAL_SUMMARY());
+        dispatch(GET_FINANCIAL_BETS());
       }
 
       // También escuchar otros eventos de cambio de entidad
       if (event.type === 'ENTITY_CHANGED' && event.entity?.includes('bet')) {
         log.debug('Entity changed for bets, triggering financial recalculation', event);
-        dispatch(FETCH_FINANCIAL_SUMMARY());
+        dispatch(GET_FINANCIAL_BETS());
       }
     });
 
