@@ -4,40 +4,8 @@ import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('FinancialFlow');
 
-interface FinancialFlowContext {
-    allBets: BetDomainModel[];
-    filteredBets: BetDomainModel[];
-}
-
 const getTodayEnd = (todayStart: number): number =>
     todayStart + (24 * 60 * 60 * 1000);
-
-const filterBetsByContext = (
-    bets: BetDomainModel[],
-    todayStart: number,
-    structureId?: string
-): FinancialFlowContext => {
-    const todayEnd = getTodayEnd(todayStart);
-    const filteredBets = bets.filter((bet) => {
-        const timestamp = Number(bet.timestamp) || 0;
-        const isToday = timestamp >= todayStart && timestamp < todayEnd;
-        const matchesStructure = !structureId || String(bet.ownerStructure) === String(structureId);
-        return isToday && matchesStructure;
-    });
-
-    log.debug('Financial flow intermediate', {
-        totalBetsRead: bets.length,
-        totalBetsFiltered: filteredBets.length,
-        todayStart,
-        todayEnd,
-        structureId: structureId ?? 'all'
-    });
-
-    return {
-        allBets: bets,
-        filteredBets
-    };
-};
 
 const createEmptyTotals = (): RawBetTotals => ({
     totalCollected: 0,
@@ -53,14 +21,14 @@ export const getFinancialSummaryFlow = async (
     structureId?: string
 ): Promise<RawBetTotals> => {
     try {
-        const allBets = await storage.getAll();
         log.debug('Financial flow input', {
             todayStart,
-            structureId: structureId ?? 'all',
-            totalBetsRead: allBets.length
+            structureId: structureId ?? 'all'
         });
 
-        const { filteredBets } = filterBetsByContext(allBets, todayStart, structureId);
+        // CENTRALIZACIÓN SSOT: El storage ahora se encarga de filtrar
+        const filteredBets = await storage.getFiltered({ todayStart, structureId });
+
         const totals = filteredBets.reduce<RawBetTotals>((acc, bet) => {
             const amount = Number(bet.amount) || 0;
             return {
@@ -72,7 +40,8 @@ export const getFinancialSummaryFlow = async (
 
         log.debug('Financial flow final', {
             totalCollected: totals.totalCollected,
-            betCount: totals.betCount
+            betCount: totals.betCount,
+            totalBetsFiltered: filteredBets.length
         });
         return totals;
     } catch (error) {
@@ -90,39 +59,35 @@ export const getTotalsByDrawIdFlow = async (
     structureId?: string
 ): Promise<Record<string, RawBetTotals>> => {
     try {
-        const allBets = await storage.getAll();
         log.debug('Totals by draw input', {
             todayStart,
-            structureId: structureId ?? 'all',
-            totalBetsRead: allBets.length
+            structureId: structureId ?? 'all'
         });
 
-        const { filteredBets } = filterBetsByContext(allBets, todayStart, structureId);
-        const groupedTotals: Record<string, RawBetTotals> = {};
-        let discardedWithoutDraw = 0;
-        filteredBets.forEach((bet) => {
-            const drawId = bet.drawId ? String(bet.drawId) : null;
-            if (!drawId) {
-                discardedWithoutDraw += 1;
-                return;
-            }
-            if (!groupedTotals[drawId]) {
-                groupedTotals[drawId] = createEmptyTotals();
-            }
+        // CENTRALIZACIÓN SSOT: El storage ahora se encarga de filtrar
+        const filteredBets = await storage.getFiltered({ todayStart, structureId });
 
+        const totalsByDraw = filteredBets.reduce<Record<string, RawBetTotals>>((acc, bet) => {
+            const drawId = String(bet.drawId || 'unknown');
             const amount = Number(bet.amount) || 0;
-            groupedTotals[drawId].totalCollected += amount;
-            groupedTotals[drawId].betCount += 1;
-        });
+            const currentDrawTotals = acc[drawId] || createEmptyTotals();
+
+            return {
+                ...acc,
+                [drawId]: {
+                    totalCollected: currentDrawTotals.totalCollected + amount,
+                    betCount: currentDrawTotals.betCount + 1
+                }
+            };
+        }, {});
 
         log.debug('Totals by draw final', {
-            drawCount: Object.keys(groupedTotals).length,
-            filteredCount: filteredBets.length,
-            discardedWithoutDraw
+            drawsCount: Object.keys(totalsByDraw).length,
+            totalBetsFiltered: filteredBets.length
         });
-        return groupedTotals;
+        return totalsByDraw;
     } catch (error) {
-        log.error('Error aggregating raw totals by draw', error);
+        log.error('Error aggregating totals by draw ID', error);
         return {};
     }
 };

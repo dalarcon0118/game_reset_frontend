@@ -16,11 +16,10 @@ const log = logger.withTag('PlaceBetFlow');
 /**
  * 1. Validate business rules.
  */
-const validateBusinessRules = async (
+const validateBusinessRules = (
     betData: Omit<BetDomainModel, 'externalId' | 'status' | 'timestamp'>,
-    storage: IBetStorage
-): Promise<Result<Omit<BetDomainModel, 'externalId' | 'status' | 'timestamp'>, Error>> => {
-    const allBets = await storage.getAll();
+    allBets: BetDomainModel[]
+): Result<Omit<BetDomainModel, 'externalId' | 'status' | 'timestamp'>, Error> => {
     const { blocked } = BetLogic.isAppBlocked(allBets);
     if (blocked) return err(new Error('APUESTA_BLOQUEADA: Debes sincronizar antes de continuar.'));
 
@@ -35,49 +34,41 @@ const validateBusinessRules = async (
 /**
  * 2. Prepare and save bet locally.
  */
-const prepareAndSaveBet = async (
+const prepareBet = (
     betData: Omit<BetDomainModel, 'externalId' | 'status' | 'timestamp'>,
-    storage: IBetStorage
-): Promise<Result<BetDomainModel, Error>> => {
-    const trustedNow = await TimerRepository.getTrustedNow(Date.now());
-
-    log.info(`[PLACE_BET_DEBUG] Saving bet`, {
-        timestamp: new Date(trustedNow).toISOString(),
-        drawId: betData.drawId
-    });
-
-    const bet: BetDomainModel = {
+    trustedNow: number
+): BetDomainModel => {
+    return {
         ...betData,
         externalId: Crypto.randomUUID(),
         status: 'pending',
         timestamp: trustedNow
     };
-
-    await storage.save(bet);
-    return ok(bet);
 };
 
 /**
  * 3. Notify bet creation for reactivity.
  */
-const notifyBetCreated = async (
-    bet: BetDomainModel
-): Promise<Result<BetDomainModel, Error>> => {
+const notifyBatchCreated = (
+    bets: BetDomainModel[],
+    trustedNow: number
+): Result<void, Error> => {
     try {
-        const trustedNow = await TimerRepository.getTrustedNow(Date.now());
-        offlineEventBus.publish({
-            type: 'SYNC_ITEM_SUCCESS',
-            entity: 'bet',
-            payload: {
-                id: bet.externalId,
-                drawId: bet.drawId,
-                changeType: 'local_added'
-            },
-            timestamp: trustedNow
+        bets.forEach(bet => {
+            offlineEventBus.publish({
+                type: 'SYNC_ITEM_SUCCESS',
+                entity: 'bet',
+                payload: {
+                    id: bet.externalId,
+                    drawId: bet.drawId,
+                    changeType: 'local_added'
+                },
+                timestamp: trustedNow
+            });
         });
-        return ok(bet);
+        return ok(undefined);
     } catch (error) {
-        log.error('Error notifying bet creation', error);
+        log.error('Error notifying batch creation', error);
         return err(error instanceof Error ? error : new Error(String(error)));
     }
 };
@@ -168,11 +159,20 @@ export const placeBetFlow = async (
         receiptCode: betData.receiptCode || BetLogic.generateReceiptCode()
     };
 
+    const allBets = await storage.getAll();
+    const trustedNow = await TimerRepository.getTrustedNow(Date.now());
+
     // Functional Builder orchestration using ResultAsync (neverthrow)
     return okAsync(betWithCode)
-        .andThen(data => new ResultAsync(validateBusinessRules(data, storage)))
-        .andThen(data => new ResultAsync(prepareAndSaveBet(data, storage)))
-        .andThen(bet => new ResultAsync(notifyBetCreated(bet)))
+        .andThen(data => ResultAsync.fromPromise(Promise.resolve(validateBusinessRules(data, allBets)), e => e as Error))
+        .andThen(data => {
+            const bet = prepareBet(data, trustedNow);
+            return ResultAsync.fromPromise(storage.save(bet).then(() => bet), e => e as Error);
+        })
+        .andThen(bet => {
+            notifyBatchCreated([bet], trustedNow);
+            return okAsync(bet);
+        })
         .andThen(bet => new ResultAsync(attemptSync(bet, api, storage)))
         .andThen(syncResult => new ResultAsync(mapToResult(syncResult)));
 };
@@ -192,18 +192,30 @@ export const placeBatchFlow = async (
         receiptCode: bet.receiptCode || commonReceiptCode
     }));
 
+    // Cargar contexto UNA SOLA VEZ para evitar O(N^2) y redundancia de I/O
+    const allBets = await storage.getAll();
+    const trustedNow = await TimerRepository.getTrustedNow(Date.now());
+
     return okAsync(betsWithCommonCode)
         .andThen(dataList => {
-            const validations = dataList.map(data => new ResultAsync(validateBusinessRules(data, storage)));
-            return ResultAsync.combine(validations);
+            // Validación en memoria (Ultra-rápida)
+            const validations = dataList.map(data => validateBusinessRules(data, allBets));
+            const combined = Result.combine(validations);
+            return combined.isOk() ? okAsync(combined.value) : errAsync(combined.error);
         })
         .andThen(validList => {
-            const preparations = validList.map(data => new ResultAsync(prepareAndSaveBet(data, storage)));
-            return ResultAsync.combine(preparations);
+            // Preparación en memoria
+            const preparedBets = validList.map(data => prepareBet(data, trustedNow));
+            // Guardado en lote (Una sola operación de I/O)
+            return ResultAsync.fromPromise(
+                storage.saveBatch(preparedBets).then(() => preparedBets),
+                e => e as Error
+            );
         })
         .andThen(savedList => {
-            const notifications = savedList.map(bet => new ResultAsync(notifyBetCreated(bet)));
-            return ResultAsync.combine(notifications);
+            // Notificación reactiva
+            notifyBatchCreated(savedList, trustedNow);
+            return okAsync(savedList);
         })
         .andThen(savedList => {
             return new ResultAsync((async () => {

@@ -11,17 +11,13 @@ import { Plugin } from '@/shared/core/plugins/plugin.types';
 // Importar todos los plugins del dashboard
 import { DrawsListPlugin } from './draws_list_plugin';
 import { FiltersPlugin } from './filters_plugin';
-import { FinancialIntegrityPluginExport as FinancialIntegrityPlugin } from './financial_integrity_plugin';
 import { SummaryPluginExport as SummaryPlugin } from './summary_plugin';
-import OfflineSyncPlugin from './offline_sync_plugin';
 
 // Lista de plugins a registrar
 const dashboardPlugins: Plugin[] = [
     DrawsListPlugin,
     FiltersPlugin,
     SummaryPlugin,
-    FinancialIntegrityPlugin,
-    OfflineSyncPlugin,
 ];
 
 let registered = false;
@@ -72,4 +68,4 @@ export function unregisterDashboardPlugins(): void {
     registered = false;
 }
 
-export { DrawsListPlugin, FiltersPlugin, SummaryPlugin, FinancialIntegrityPlugin, OfflineSyncPlugin };
+export { DrawsListPlugin, FiltersPlugin, SummaryPlugin };

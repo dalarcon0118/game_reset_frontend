@@ -1,12 +1,10 @@
-import { createElmStore } from '@/shared/core/engine/engine';
+import { createTEAModule } from '@/shared/core/engine';
 import { Model, initialModel } from './model';
 import { Msg } from './msg';
 import { update } from './update';
 import { Sub } from '@/shared/core/tea-utils';
-// import { useDashboardStore } from '@/features/colector/dashboard/core/store'; // TODO: This store is context-based, cannot be watched globally
 import { useDrawersStore } from '@/features/colector/drawers/core/store';
 import { useListeriasStore } from '@/features/banker/listerias/core/store';
-// import { useDashboardStore as useBankerDashboardStore } from '@/features/banker/dashboard/core/store'; // TODO: This store is context-based, cannot be watched globally
 
 export const subscriptions = (model: Model) => {
     // Watch Colector Dashboard children to sync financial data
@@ -93,11 +91,14 @@ export const subscriptions = (model: Model) => {
     ]);
 };
 
-export const useFinancialStore = createElmStore<Model, Msg>({
+export const FinancialModule = createTEAModule({
+    name: 'Financial',
     initial: initialModel,
     update,
     subscriptions,
 });
+
+export const useFinancialStore = FinancialModule.useStore;
 
 // Selectors
 export const selectFinancialModel = (state: { model: Model }) => state.model;

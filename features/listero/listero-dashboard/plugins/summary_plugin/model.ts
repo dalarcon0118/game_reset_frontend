@@ -1,5 +1,5 @@
 import { RemoteData } from '@/shared/core/tea-utils';
-import { FinancialSummary, PendingBet, SummaryPluginContext } from './domain/models';
+import { FinancialSummary, SummaryPluginContext } from './domain/models';
 
 export interface DailyTotals {
   totalCollected: number;
@@ -11,7 +11,6 @@ export interface DailyTotals {
 
 export interface Model {
   financialSummary: RemoteData<any, FinancialSummary>;
-  pendingBets: RemoteData<any, PendingBet[]>;
   dailyTotals: DailyTotals;
   showBalance: boolean;
   commissionRate: number;
@@ -22,7 +21,6 @@ export interface Model {
 
 export const initialModel: Model = {
   financialSummary: RemoteData.notAsked(),
-  pendingBets: RemoteData.notAsked(),
   dailyTotals: {
     totalCollected: 0,
     premiumsPaid: 0,

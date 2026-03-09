@@ -184,6 +184,7 @@ export const BolitaFlows = {
         return ret<BolitaModel, BolitaMsg>(
             {
                 ...model,
+                currentDrawId: drawId,
                 summary: { ...model.summary, isSaving: true }
             },
             RemoteDataHttp.fetch(
@@ -205,6 +206,11 @@ export const BolitaFlows = {
                 // Intentamos extraer el receiptCode del primer elemento si existe
                 const receiptCode = (Array.isArray(data) && data.length > 0) ? data[0].receiptCode : null;
                 const drawId = model.currentDrawId;
+                const successRoute = receiptCode
+                    ? drawId
+                        ? `/lister/bet_success?receiptCode=${receiptCode}&drawId=${drawId}`
+                        : `/lister/bet_success?receiptCode=${receiptCode}`
+                    : '/lister/bet_success';
 
                 return ret(
                     {
@@ -219,7 +225,7 @@ export const BolitaFlows = {
                         }
                     },
                     Cmd.batch([
-                        Cmd.navigate(receiptCode ? `/lister/bet_success?receiptCode=${receiptCode}&drawId=${drawId}` : '/lister/bet_success'),
+                        Cmd.navigate(successRoute),
                         Cmd.alert({
                             title: 'Éxito',
                             message: 'Apuestas guardadas correctamente.'

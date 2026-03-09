@@ -55,6 +55,36 @@ export class OfflineStorageCore {
   }
 
   /**
+   * Guarda múltiples items en un solo batch
+   */
+  async setMulti<T>(entries: { key: StorageKey; data: T; options?: { ttl?: number } }[]): Promise<void> {
+    const timestamp = this.ports.clock.now();
+    const envelopes: [string, StorageEnvelope<T>][] = entries.map(({ key, data, options }) => [
+      key,
+      {
+        data,
+        metadata: {
+          version: this.config.version,
+          timestamp,
+          expiresAt: options?.ttl ? timestamp + options.ttl : undefined
+        }
+      }
+    ]);
+
+    await this.ports.storage.setMulti(envelopes);
+
+    // Emitir eventos individuales para mantener reactividad por entidad
+    entries.forEach(({ key, data }) => {
+      this.ports.events.publish({
+        type: 'ENTITY_CHANGED',
+        entity: key,
+        payload: data,
+        timestamp
+      });
+    });
+  }
+
+  /**
    * Obtiene un item validando su existencia y expiración
    */
   async get<T>(key: StorageKey): Promise<T | null> {
@@ -81,6 +111,22 @@ export class OfflineStorageCore {
       type: 'ENTITY_REMOVED',
       entity: key,
       timestamp: this.ports.clock.now()
+    });
+  }
+
+  /**
+   * Elimina múltiples items y emite eventos
+   */
+  async removeMulti(keys: StorageKey[]): Promise<void> {
+    await this.ports.storage.removeMulti(keys);
+    const timestamp = this.ports.clock.now();
+
+    keys.forEach(key => {
+      this.ports.events.publish({
+        type: 'ENTITY_REMOVED',
+        entity: key,
+        timestamp
+      });
     });
   }
 

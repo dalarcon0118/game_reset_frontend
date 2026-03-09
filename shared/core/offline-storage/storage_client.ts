@@ -15,10 +15,27 @@ export const storageClient = {
     try {
       const stringValue = typeof value === 'string' ? value : JSON.stringify(value);
       await AsyncStorage.setItem(key, stringValue);
-      
+
       log.debug(`>>> STORAGE SET: ${key}`, { value });
     } catch (error) {
       log.error(`Error saving to storage: ${key}`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Saves multiple items to AsyncStorage in a single batch.
+   */
+  async setMulti(entries: [string, any][]): Promise<void> {
+    try {
+      const stringifiedEntries = entries.map(([key, value]): [string, string] => [
+        key,
+        typeof value === 'string' ? value : JSON.stringify(value)
+      ]);
+      await AsyncStorage.multiSet(stringifiedEntries);
+      log.debug(`>>> STORAGE MULTI SET: ${entries.length} items`, { keys: entries.map(([k]) => k) });
+    } catch (error) {
+      log.error('Error saving multi items to storage', error);
       throw error;
     }
   },
@@ -48,12 +65,12 @@ export const storageClient = {
         logData.count = parsedValue.length;
         // Try to summarize status if available
         if (parsedValue.length > 0 && typeof parsedValue[0] === 'object' && 'status' in (parsedValue[0] as any)) {
-             const statusCounts = parsedValue.reduce((acc: any, item: any) => {
-                 const s = item.status || 'unknown';
-                 acc[s] = (acc[s] || 0) + 1;
-                 return acc;
-             }, {});
-             logData.statusSummary = statusCounts;
+          const statusCounts = parsedValue.reduce((acc: any, item: any) => {
+            const s = item.status || 'unknown';
+            acc[s] = (acc[s] || 0) + 1;
+            return acc;
+          }, {});
+          logData.statusSummary = statusCounts;
         }
       }
 
@@ -74,6 +91,19 @@ export const storageClient = {
       log.debug(`--- STORAGE REMOVE: ${key}`);
     } catch (error) {
       log.error(`Error removing from storage: ${key}`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Removes multiple items from AsyncStorage.
+   */
+  async removeMulti(keys: string[]): Promise<void> {
+    try {
+      await AsyncStorage.multiRemove(keys);
+      log.debug(`--- STORAGE MULTI REMOVE: ${keys.length} items`, { keys });
+    } catch (error) {
+      log.error('Error removing multiple items from storage', error);
       throw error;
     }
   },

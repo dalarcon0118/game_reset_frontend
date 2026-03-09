@@ -1,4 +1,4 @@
-import { BackendDraw, BetType } from '../api/types';
+import { BackendDraw, BetType } from '../api/types/types';
 import { offlineStorage } from '@/shared/core/offline-storage/instance';
 import { DrawOfflineKeys } from '../draw.offline.keys';
 import { STORAGE_TTL } from '@/shared/core/offline-storage/types';
@@ -14,10 +14,12 @@ export class DrawOfflineAdapter {
 
     /**
      * Cachea la lista completa de sorteos
+     * @param draws - Lista de sorteos a cachear
+     * @param structureId - Opcional: ID de la estructura para segmentar la caché
      */
-    async saveDraws(draws: BackendDraw[]): Promise<void> {
-        // Guardamos la lista completa para acceso rápido
-        const key = DrawOfflineKeys.drawList();
+    async saveDraws(draws: BackendDraw[], structureId?: string | number): Promise<void> {
+        // Guardamos la lista completa para acceso rápido (segmentada o global)
+        const key = DrawOfflineKeys.drawList(structureId);
         await offlineStorage.set(key, draws, { ttl: STORAGE_TTL.DRAW });
 
         // También guardamos cada sorteo individualmente para permitir consultas por ID (Redis-style)
@@ -29,14 +31,22 @@ export class DrawOfflineAdapter {
 
     /**
      * Obtiene todos los sorteos cacheados
+     * @param structureId - Opcional: ID de la estructura para buscar en caché segmentada
      */
-    async getAll(): Promise<BackendDraw[]> {
-        const key = DrawOfflineKeys.drawList();
-        const list = await offlineStorage.get<BackendDraw[]>(key);
+    async getAll(structureId?: string | number): Promise<BackendDraw[]> {
+        // 1. Intentar obtener la lista segmentada por estructura
+        if (structureId) {
+            const segmentedKey = DrawOfflineKeys.drawList(structureId);
+            const segmentedList = await offlineStorage.get<BackendDraw[]>(segmentedKey);
+            if (segmentedList) return segmentedList;
+        }
 
-        if (list) return list;
+        // 2. Fallback: Intentar obtener la lista global (legacy)
+        const globalKey = DrawOfflineKeys.drawList();
+        const globalList = await offlineStorage.get<BackendDraw[]>(globalKey);
+        if (globalList) return globalList;
 
-        // Si la lista no existe, intentamos reconstruirla desde las llaves individuales
+        // 3. Fallback Final: Reconstruir desde llaves individuales
         const pattern = DrawOfflineKeys.getPattern('instance', '*', 'data');
         return await offlineStorage.query<BackendDraw>(pattern).all();
     }

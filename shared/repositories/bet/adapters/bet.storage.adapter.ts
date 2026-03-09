@@ -11,12 +11,21 @@ export class BetStorageAdapter implements IBetStorage {
     private log = logger.withTag('BetStorageAdapter');
 
     async save(bet: BetDomainModel): Promise<void> {
-        this.log.info('Saving bet offline', { offlineId: bet.offlineId });
+        this.log.info('Saving bet offline', { externalId: bet.externalId });
         await this.offlineAdapter.save(bet);
+    }
+
+    async saveBatch(bets: BetDomainModel[]): Promise<void> {
+        this.log.info('Saving bets batch offline', { count: bets.length });
+        await this.offlineAdapter.saveBatch(bets);
     }
 
     async getAll(): Promise<BetDomainModel[]> {
         return await this.offlineAdapter.getAll();
+    }
+
+    async getFiltered(filters: { todayStart: number; structureId?: string }): Promise<BetDomainModel[]> {
+        return await this.offlineAdapter.getFiltered(filters);
     }
 
     async getPending(): Promise<BetDomainModel[]> {

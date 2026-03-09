@@ -13,9 +13,12 @@ export const DrawOfflineKeys = {
 
     /**
      * Llave para la lista completa de sorteos (caché rápida)
+     * Puede ser segmentada por estructura o global (legacy)
      */
-    drawList: () => 
-        OfflineStorageKeyManager.generateKey('draw', 'instance', 'list', 'data'),
+    drawList: (structureId?: string | number) => 
+        structureId 
+            ? OfflineStorageKeyManager.generateKey('draw', 'instance', `list:${structureId}`, 'data')
+            : OfflineStorageKeyManager.generateKey('draw', 'instance', 'list', 'data'),
 
     /**
      * Llave para los tipos de apuesta de un sorteo

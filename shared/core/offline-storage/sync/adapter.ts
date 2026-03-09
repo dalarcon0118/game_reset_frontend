@@ -27,7 +27,7 @@ export const SyncAdapter = {
             status: 'pending',
             attempts: 0
         };
-        
+
         const key = OfflineStorageKeyManager.generateKey('system', 'sync_queue', id);
         await offlineStorage.set(key, newItem);
         return id;
@@ -50,6 +50,33 @@ export const SyncAdapter = {
     async removeFromQueue(id: string): Promise<void> {
         const key = OfflineStorageKeyManager.generateKey('system', 'sync_queue', id);
         await offlineStorage.remove(key);
+    },
+
+    /**
+     * Elimina varios items de la cola por lote
+     */
+    async removeBatchFromQueue(ids: string[]): Promise<void> {
+        const keys = ids.map(id => OfflineStorageKeyManager.generateKey('system', 'sync_queue', id));
+        await offlineStorage.removeMulti(keys);
+    },
+
+    /**
+     * Actualiza varios items de la cola por lote
+     */
+    async updateBatchQueueItems(updates: { id: string, data: Partial<SyncQueueItem> }[]): Promise<void> {
+        const entries: { key: string, data: SyncQueueItem }[] = [];
+
+        for (const update of updates) {
+            const key = OfflineStorageKeyManager.generateKey('system', 'sync_queue', update.id);
+            const item = await offlineStorage.get<SyncQueueItem>(key);
+            if (item) {
+                entries.push({ key, data: { ...item, ...update.data } });
+            }
+        }
+
+        if (entries.length > 0) {
+            await offlineStorage.setMulti(entries);
+        }
     },
 
     /**

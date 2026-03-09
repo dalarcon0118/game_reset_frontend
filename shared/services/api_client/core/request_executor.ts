@@ -188,9 +188,10 @@ export class RequestExecutor {
   }
 
   private getTimeout(profile?: string): number {
-    return profile
-      ? this.settings.api.timeoutProfiles[profile]
-      : this.settings.api.timeout;
+    if (!profile) {
+      return this.settings.api.timeout;
+    }
+    return this.settings.api.timeoutProfiles[profile] ?? this.settings.api.timeout;
   }
 
   private isCacheable(method?: string): boolean {

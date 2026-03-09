@@ -7,7 +7,9 @@ import { BackendChildStructure, BackendListeroDetails } from '@/shared/services/
  */
 export interface IBetStorage {
     save(bet: BetDomainModel): Promise<void>;
+    saveBatch(bets: BetDomainModel[]): Promise<void>;
     getAll(): Promise<BetDomainModel[]>;
+    getFiltered(filters: { todayStart: number; structureId?: string }): Promise<BetDomainModel[]>;
     getPending(): Promise<BetDomainModel[]>;
     getByStatus(status: BetDomainModel['status']): Promise<BetDomainModel[]>;
     getRecentByDraw(drawId: string | number, maxAgeMs?: number): Promise<BetDomainModel[]>;

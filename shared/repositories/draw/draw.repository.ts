@@ -53,37 +53,51 @@ export class DrawRepository implements IDrawRepository {
 
     // Legacy-compatible methods
     async getDraws(params: Record<string, any> = {}): Promise<Result<ExtendedDrawType[], Error>> {
-        console.log('[DEBUG] drawRepository.getDraws: INICIANDO params =', params);
         try {
             this.log.debug('Getting draws', params);
             const isOnline = await isServerReachable();
-            console.log('[DEBUG] drawRepository.getDraws: isOnline =', isOnline);
             this.log.debug('Server reachable:', isOnline);
             // 1. Obtener datos (Remoto -> Local)
             let backendDraws: BackendDraw[] | null = null;
 
             if (isOnline) {
-                console.log('[DEBUG] drawRepository.getDraws: HACIENDO PETICION AL SERVIDOR...');
                 backendDraws = await this.api.list(params)
                     .then(res => {
-                        console.log('[DEBUG] drawRepository.getDraws: RESPUESTA =', res);
-                        return Array.isArray(res) ? res : null;
+                        const data = Array.isArray(res) ? res : null;
+
+                        // Si se solicitó una estructura específica, normalizamos el owner_structure
+                        // de los sorteos para asegurar consistencia en la caché local (Padre -> Hijo)
+                        if (data && params.owner_structure) {
+                            return data.map(draw => ({
+                                ...draw,
+                                owner_structure: Number(params.owner_structure)
+                            }));
+                        }
+                        return data;
                     })
                     .catch(error => {
-                        console.log('[DEBUG] drawRepository.getDraws: ERROR en peticion =', error);
                         this.log.warn('Online fetch failed, falling back to cache', error);
                         return null;
                     });
                 this.log.debug('Fetched draws from server', backendDraws);
-                if (backendDraws) await this.cacheDraws(backendDraws);
+                if (backendDraws) await this.cacheDraws(backendDraws, params.owner_structure);
             }
 
             if (!backendDraws) {
-                console.log('[DEBUG] drawRepository.getDraws: Sin datos remotos, buscando cache...');
-                const cached = await this.getCachedDraws();
+                const cached = await this.getCachedDraws(params.owner_structure);
                 if (cached.length > 0) {
                     this.log.info('Returning cached draws from local storage', { count: cached.length });
-                    backendDraws = cached;
+
+                    // Si se solicitó una estructura específica, nos aseguramos de que los datos
+                    // de la caché (incluso los legacy) tengan el ID correcto
+                    if (params.owner_structure) {
+                        backendDraws = cached.map(draw => ({
+                            ...draw,
+                            owner_structure: Number(params.owner_structure)
+                        }));
+                    } else {
+                        backendDraws = cached;
+                    }
                 } else {
                     this.log.warn('No cached draws available for offline mode');
                 }
@@ -91,7 +105,6 @@ export class DrawRepository implements IDrawRepository {
 
             // 2. Retornar resultado
             if (backendDraws) {
-                console.log('[DEBUG] drawRepository.getDraws: RETORNANDO', backendDraws.length, 'sorteos');
                 // En modo offline, retornamos todos los sorteos cacheados
                 // sin filtrar por estructura (el usuario puede necesitar ver sorteos
                 // de estructuras relacionadas o dados de alta previamente)
@@ -110,7 +123,6 @@ export class DrawRepository implements IDrawRepository {
             return ok([]);
 
         } catch (error: any) {
-            console.log('[DEBUG] drawRepository.getDraws: ERROR GENERAL =', error);
             this.log.error('Error getting draws', error);
             return err(error instanceof Error ? error : new Error(String(error)));
         }
@@ -230,12 +242,12 @@ export class DrawRepository implements IDrawRepository {
         return this.api.confirmClosure(confirmationId, status, notes);
     }
 
-    private async cacheDraws(draws: BackendDraw[]): Promise<void> {
-        await this.offlineAdapter.saveDraws(draws);
+    private async cacheDraws(draws: BackendDraw[], structureId?: string | number): Promise<void> {
+        await this.offlineAdapter.saveDraws(draws, structureId);
     }
 
-    private async getCachedDraws(): Promise<BackendDraw[]> {
-        return this.offlineAdapter.getAll();
+    private async getCachedDraws(structureId?: string | number): Promise<BackendDraw[]> {
+        return this.offlineAdapter.getAll(structureId);
     }
 
     // ============================================================================

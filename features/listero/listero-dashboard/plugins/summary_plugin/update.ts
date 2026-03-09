@@ -9,34 +9,27 @@ import { validatePluginContext } from './context.validator';
 import logger from '@/shared/utils/logger';
 
 export const update = (model: Model, msg: Msg.Msg): Return<Model, Msg.Msg> => {
-  return match<Msg.Msg, Return<Model, Msg.Msg>>(msg)
-    .with({ type: 'INIT_CONTEXT' }, (m) =>
+  return match<Msg.Msg>(msg)
+    .with({ type: 'INIT_CONTEXT' }, (m): Return<Model, Msg.Msg> =>
       handleInitContext(model, m.payload))
 
-    .with({ type: 'LOAD_PREFERENCES' }, () =>
+    .with({ type: 'LOAD_PREFERENCES' }, (): Return<Model, Msg.Msg> =>
       handleLoadPreferences(model))
 
-    .with({ type: 'PREFERENCES_LOADED' }, (m) =>
+    .with({ type: 'PREFERENCES_LOADED' }, (m): Return<Model, Msg.Msg> =>
       handlePreferencesLoaded(model, m.payload))
 
-    .with({ type: 'GET_FINANCIAL_BETS' }, () =>
+    .with({ type: 'GET_FINANCIAL_BETS' }, (): Return<Model, Msg.Msg> =>
       handleGetFinancialBets(model))
 
-    .with({ type: 'FINANCIAL_BETS_UPDATED' }, (m) =>
+    .with({ type: 'FINANCIAL_BETS_UPDATED' }, (m): Return<Model, Msg.Msg> =>
       handleFinancialBetsUpdated(model, m.payload))
 
-    .with({ type: 'TOGGLE_BALANCE_VISIBILITY' }, () =>
+    .with({ type: 'TOGGLE_BALANCE_VISIBILITY' }, (): Return<Model, Msg.Msg> =>
       handleToggleBalanceVisibility(model))
 
-    .with({ type: 'NOOP' }, () =>
+    .with({ type: 'NOOP' }, (): Return<Model, Msg.Msg> =>
       ret(model, Cmd.none))
-
-    // Mensajes obsoletos mantenidos por compatibilidad de tipos si es necesario, 
-    // pero ya no ejecutan lógica compleja.
-    .with({ type: 'GET_PENDING_BETS' }, () => ret(model, Cmd.none))
-    .with({ type: 'PENDING_BETS_UPDATED' }, () => ret(model, Cmd.none))
-    .with({ type: 'CALCULATE_DAILY_TOTALS' }, () => ret(model, Cmd.none))
-    .with({ type: 'DAILY_TOTALS_CALCULATED' }, () => ret(model, Cmd.none))
 
     .exhaustive();
 };
@@ -93,7 +86,7 @@ function handlePreferencesLoaded(model: Model, payload: any): Return<Model, Msg.
 function handleGetFinancialBets(model: Model): Return<Model, Msg.Msg> {
   if (!model.context || !model.structureId) return ret(model, Cmd.none);
 
-  const todayStart = new Date().setHours(0, 0, 0, 0);
+  const todayStart = model.context.state.todayStart || new Date().setHours(0, 0, 0, 0);
 
   return ret(
     { ...model, financialSummary: RemoteData.loading() },

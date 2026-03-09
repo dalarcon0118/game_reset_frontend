@@ -109,49 +109,11 @@ export class SyncWorkerCore {
             WorkerStateManager.setStatus('running');
             this.emitEvent('SYNC_STARTED', 'system');
 
-            let succeeded = 0;
-            let failed = 0;
+            const { succeeded, failed, errors: batchErrors } = await this.executeSyncCycle(
+                pendingItems.slice(0, this.config.batchSize)
+            );
 
-            for (const item of pendingItems.slice(0, this.config.batchSize)) {
-                const strategy = this.strategies.get(item.type.toLowerCase());
-
-                if (!strategy || !strategy.push) {
-                    log.warn(`No push strategy for ${item.type}`);
-                    continue;
-                }
-
-                try {
-                    await SyncAdapter.updateQueueItem(item.id, { status: 'processing' });
-                    const outcome = await strategy.push(item);
-
-                    if (outcome.type === 'SUCCESS') {
-                        await SyncAdapter.removeFromQueue(item.id);
-                        succeeded++;
-                        this.emitEvent('SYNC_ITEM_SUCCESS', item.type, { entityId: item.entityId, backendId: outcome.backendId });
-                    } else {
-                        const reason = outcome.reason || 'Unknown error';
-                        await SyncAdapter.updateQueueItem(item.id, {
-                            status: outcome.type === 'FATAL_ERROR' ? 'failed' : 'pending',
-                            error: reason,
-                            attempts: item.attempts + 1,
-                            lastAttempt: Date.now()
-                        });
-                        failed++;
-                        errors.push({ entityId: item.entityId, type: item.type, reason });
-                        this.emitEvent('SYNC_ITEM_ERROR', item.type, { entityId: item.entityId, error: reason });
-                    }
-                } catch (error: any) {
-                    const msg = error.message || 'Internal error';
-                    log.error(`Error processing item ${item.id}`, error);
-                    failed++;
-                    errors.push({ entityId: item.entityId, type: item.type, reason: msg });
-                    await SyncAdapter.updateQueueItem(item.id, {
-                        status: 'failed',
-                        error: msg,
-                        attempts: item.attempts + 1
-                    });
-                }
-            }
+            errors.push(...batchErrors);
 
             const finalStatus = failed === 0 ? 'SUCCESS' : (succeeded > 0 ? 'PARTIAL' : 'FAILED');
             const report: SyncReport = {
@@ -201,6 +163,124 @@ export class SyncWorkerCore {
         };
     }
 
+    /**
+     * Lógica central de ejecución de un ciclo de sincronización para un conjunto de ítems.
+     * Soporta procesamiento por lotes si la estrategia lo permite.
+     */
+    private async executeSyncCycle(items: SyncQueueItem[]): Promise<{
+        succeeded: number;
+        failed: number;
+        errors: { entityId: string; type: string; reason: string }[];
+    }> {
+        let succeeded = 0;
+        let failed = 0;
+        const errors: { entityId: string; type: string; reason: string }[] = [];
+
+        // Agrupar ítems por tipo para aprovechar pushBatch
+        const groups = items.reduce((acc, item) => {
+            const type = item.type.toLowerCase();
+            if (!acc[type]) acc[type] = [];
+            acc[type].push(item);
+            return acc;
+        }, {} as Record<string, SyncQueueItem[]>);
+
+        for (const [type, group] of Object.entries(groups)) {
+            const strategy = this.strategies.get(type);
+
+            if (!strategy) {
+                log.warn(`No strategy for ${type}`);
+                for (const item of group) {
+                    failed++;
+                    const reason = `No strategy for ${type}`;
+                    errors.push({ entityId: item.entityId, type: item.type, reason });
+                    await SyncAdapter.updateQueueItem(item.id, { status: 'failed', error: reason });
+                }
+                continue;
+            }
+
+            try {
+                // Marcar todos como en procesamiento por lote
+                await SyncAdapter.updateBatchQueueItems(group.map(item => ({
+                    id: item.id,
+                    data: { status: 'processing' }
+                })));
+
+                let outcomes: SyncOutcome[];
+
+                if (strategy.pushBatch && group.length > 1) {
+                    log.debug(`Using pushBatch for ${type} with ${group.length} items`);
+                    outcomes = await strategy.pushBatch(group);
+                } else if (strategy.push) {
+                    log.debug(`Using sequential push for ${type}`);
+                    outcomes = await Promise.all(group.map(item => strategy.push!(item)));
+                } else {
+                    throw new Error(`Strategy for ${type} does not support push or pushBatch`);
+                }
+
+                // Preparar actualizaciones y eliminaciones por lote
+                const itemsToRemove: string[] = [];
+                const itemsToUpdate: { id: string, data: Partial<SyncQueueItem> }[] = [];
+
+                for (let i = 0; i < group.length; i++) {
+                    const item = group[i];
+                    const outcome = outcomes[i];
+
+                    if (outcome.type === 'SUCCESS') {
+                        itemsToRemove.push(item.id);
+                        succeeded++;
+                        this.emitEvent('SYNC_ITEM_SUCCESS', item.type, {
+                            entityId: item.entityId,
+                            backendId: outcome.backendId
+                        });
+                    } else {
+                        const reason = outcome.reason || 'Unknown error';
+                        const isFatal = outcome.type === 'FATAL_ERROR';
+
+                        itemsToUpdate.push({
+                            id: item.id,
+                            data: {
+                                status: isFatal ? 'failed' : 'pending',
+                                error: reason,
+                                attempts: item.attempts + 1,
+                                lastAttempt: Date.now()
+                            }
+                        });
+
+                        failed++;
+                        errors.push({ entityId: item.entityId, type: item.type, reason });
+                        this.emitEvent('SYNC_ITEM_ERROR', item.type, {
+                            entityId: item.entityId,
+                            error: reason
+                        });
+                    }
+                }
+
+                // Ejecutar operaciones de base de datos por lote
+                if (itemsToRemove.length > 0) {
+                    await SyncAdapter.removeBatchFromQueue(itemsToRemove);
+                }
+                if (itemsToUpdate.length > 0) {
+                    await SyncAdapter.updateBatchQueueItems(itemsToUpdate);
+                }
+            } catch (error: any) {
+                const msg = error.message || 'Internal error';
+                log.error(`Critical error processing group ${type}`, error);
+
+                for (const item of group) {
+                    failed++;
+                    errors.push({ entityId: item.entityId, type: item.type, reason: msg });
+                    await SyncAdapter.updateQueueItem(item.id, {
+                        status: 'failed',
+                        error: msg,
+                        attempts: item.attempts + 1
+                    });
+                }
+            }
+        }
+
+        return { succeeded, failed, errors };
+    }
+
     private async processQueue(): Promise<void> {
         const isOnline = await isServerReachable();
         WorkerStateManager.setOnline(isOnline);
@@ -215,52 +295,9 @@ export class SyncWorkerCore {
 
         log.debug(`Processing ${Math.min(pendingItems.length, this.config.batchSize)} items...`);
 
-        let succeeded = 0;
-        let failed = 0;
-
-        for (const item of pendingItems.slice(0, this.config.batchSize)) {
-            const strategy = this.strategies.get(item.type.toLowerCase());
-
-            if (!strategy || !strategy.push) {
-                log.warn(`No push strategy for ${item.type}`);
-                continue;
-            }
-
-            try {
-                await SyncAdapter.updateQueueItem(item.id, { status: 'processing' });
-                const outcome = await strategy.push(item);
-
-                if (outcome.type === 'SUCCESS') {
-                    await SyncAdapter.removeFromQueue(item.id);
-                    succeeded++;
-                    this.emitEvent('SYNC_COMPLETED', item.type, { entityId: item.entityId, backendId: outcome.backendId });
-                } else if (outcome.type === 'FATAL_ERROR') {
-                    await SyncAdapter.updateQueueItem(item.id, {
-                        status: 'failed',
-                        error: outcome.reason,
-                        attempts: item.attempts + 1
-                    });
-                    failed++;
-                    this.emitEvent('SYNC_ERROR', item.type, { entityId: item.entityId, error: outcome.reason });
-                } else {
-                    // RETRY_LATER
-                    await SyncAdapter.updateQueueItem(item.id, {
-                        status: 'pending',
-                        attempts: item.attempts + 1,
-                        lastAttempt: Date.now()
-                    });
-                    failed++;
-                }
-            } catch (error: any) {
-                log.error(`Error processing item ${item.id}`, error);
-                failed++;
-                await SyncAdapter.updateQueueItem(item.id, {
-                    status: 'failed',
-                    error: error.message,
-                    attempts: item.attempts + 1
-                });
-            }
-        }
+        const { succeeded, failed } = await this.executeSyncCycle(
+            pendingItems.slice(0, this.config.batchSize)
+        );
 
         WorkerStateManager.updateStats(succeeded + failed, succeeded, failed);
 

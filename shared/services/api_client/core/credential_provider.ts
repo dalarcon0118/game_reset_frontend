@@ -126,11 +126,25 @@ export class CredentialProvider {
 
   private async performRefreshRequest(refreshToken: string): Promise<{ access: string; refresh: string | null }> {
     const url = `${this.settings.api.baseUrl}${this.settings.api.endpoints.refresh()}`;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ refresh: refreshToken }),
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.settings.api.timeoutProfiles.FAST);
+    let response: Response;
+
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ refresh: refreshToken }),
+        signal: controller.signal
+      });
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new ApiClientError('Refresh token request timeout', 408, { detail: 'REFRESH_TIMEOUT' });
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
       let errorData: ApiClientErrorData = { detail: `Error ${response.status}` };

@@ -14,7 +14,9 @@ export type StorageKey = string;
 export interface StoragePort {
   get<T>(key: string): Promise<T | null>;
   set(key: string, value: any): Promise<void>;
+  setMulti(entries: [string, any][]): Promise<void>;
   remove(key: string): Promise<void>;
+  removeMulti(keys: string[]): Promise<void>;
   getAllKeys(): Promise<readonly string[]>;
   clear(): Promise<void>;
 }
@@ -149,6 +151,7 @@ export interface SyncReport {
  */
 export interface SyncStrategy {
   push?(item: SyncQueueItem): Promise<SyncOutcome>;
+  pushBatch?(items: SyncQueueItem[]): Promise<SyncOutcome[]>;
   pull?(): Promise<void>;
 }
 
@@ -168,7 +171,7 @@ export const SYNC_CONSTANTS = {
  */
 export const STORAGE_TTL = {
   /** Sorteos (Draws): 4 horas - suficiente para el día actual */
-  DRAW: 4 * 60 * 60 * 1000,
+  DRAW: 8 * 60 * 60 * 1000,
 
   /** Tipos de apuesta (Bet Types): 24 horas */
   BET_TYPE: 24 * 60 * 60 * 1000,

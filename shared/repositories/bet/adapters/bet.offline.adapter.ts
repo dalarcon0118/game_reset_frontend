@@ -23,6 +23,20 @@ export class BetOfflineAdapter implements IBetStorage {
     }
 
     /**
+     * Guarda un lote de apuestas en una sola operación
+     */
+    async saveBatch(bets: BetDomainModel[]): Promise<void> {
+        const entries = bets.map(bet => {
+            const id = bet.externalId || (bet as any).offlineId;
+            return {
+                key: BetOfflineKeys.bet(id),
+                data: bet
+            };
+        });
+        await offlineStorage.setMulti(entries);
+    }
+
+    /**
      * Obtiene todas las apuestas registradas.
      * NORMALIZA los datos para asegurar que cumplen con BetDomainModel (SSOT)
      * incluso si vienen de estructuras legacy o anidadas.
@@ -31,6 +45,21 @@ export class BetOfflineAdapter implements IBetStorage {
         const pattern = BetOfflineKeys.getPattern('pending', '*');
         const results = await offlineStorage.query<BetDomainModel>(pattern).all();
         return results.filter((b): b is BetDomainModel => b !== null);
+    }
+
+    /**
+     * Obtiene apuestas filtradas por fecha y estructura (SSOT)
+     */
+    async getFiltered(filters: { todayStart: number; structureId?: string }): Promise<BetDomainModel[]> {
+        const all = await this.getAll();
+        const todayEnd = filters.todayStart + (24 * 60 * 60 * 1000);
+
+        return all.filter((bet) => {
+            const timestamp = Number(bet.timestamp) || 0;
+            const isToday = timestamp >= filters.todayStart && timestamp < todayEnd;
+            const matchesStructure = !filters.structureId || String(bet.ownerStructure) === String(filters.structureId);
+            return isToday && matchesStructure;
+        });
     }
 
     /**

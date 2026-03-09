@@ -18,7 +18,7 @@ const getDevelopmentBaseUrl = () => {
 
   if (host) {
     log.debug('Detected Host IP from Expo', { host });
-    return `https://uk80ggc4c00og4s0ocogckwo.149.130.221.251.sslip.io/api`; //`http://${host}:8000/api`;
+    return `http://${host}:8000/api`;//`https://uk80ggc4c00og4s0ocogckwo.149.130.221.251.sslip.io/api`;
   }
 
   if (Platform.OS === 'android') {
@@ -53,11 +53,11 @@ const IS_DEVELOPMENT = APP_ENV === 'production' ? false : (APP_ENV === 'developm
 export const settings = {
   api: {
     baseUrl: IS_DEVELOPMENT ? API_BASE_URL_DEVELOPMENT : API_BASE_URL_PRODUCTION,
-    timeout: 60000, // Default 60s timeout for Render cold starts
+    timeout: 25000, // Default 25s timeout to stay below Render gateway limits
     timeoutProfiles: {
       FAST: 15000,    // 15s for auth/validations
-      NORMAL: 60000, // 60s for standard CRUD
-      SLOW: 120000    // 120s for reports/heavy data
+      NORMAL: 20000, // 20s for standard CRUD
+      SLOW: 25000    // 25s for heavy operations
     },
     defaults: {
       cacheTTL: 5 * 60 * 1000, // 5 minutes default cache

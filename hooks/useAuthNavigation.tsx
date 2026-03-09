@@ -5,7 +5,6 @@ import { useAuth } from '../shared/context/auth_context';
 import { useNotificationStore, selectNotificationDispatch } from '../features/notification/core/store';
 import { FETCH_NOTIFICATIONS_REQUESTED } from '../features/notification/core/msg';
 import { navigationRef } from '../shared/navigation/navigation_service';
-import { routes } from '../config/routes';
 import { logger } from '../shared/utils/logger';
 import { Button } from '@ui-kitten/components';
 import { ArrowLeft } from "lucide-react-native";
@@ -18,7 +17,7 @@ export function useAuthNavigation() {
   const { isAuthenticated, isLoading, user, logout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
-  const notificationDispatch = useNotificationStore(selectNotificationDispatch);
+  ////const notificationDispatch = useNotificationStore(selectNotificationDispatch);
   const rootNavigation = useNavigationContainerRef();
 
   // 1. Navigation Reference Synchronization
@@ -64,7 +63,7 @@ export function useAuthNavigation() {
       // User is authenticated
       
       // Initialize notifications
-      notificationDispatch(FETCH_NOTIFICATIONS_REQUESTED());
+      //notificationDispatch(FETCH_NOTIFICATIONS_REQUESTED());
 
       // Redirect to dashboard if on public/login pages or root
       if (isPublicRoute || isRoot) {
@@ -93,7 +92,7 @@ export function useAuthNavigation() {
          router.replace('/login');
       }
     }
-  }, [isLoading, isAuthenticated, user, pathname, router, notificationDispatch]);
+  }, [isLoading, isAuthenticated, user, pathname, router]);
 
   // 4. Back Button Handler
   const handleBackPress = useCallback(() => {
