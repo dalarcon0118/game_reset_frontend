@@ -229,9 +229,14 @@ export const CENTENA = createMsg<'CENTENA', CentenaMsg>('CENTENA');
 export const LIST = createMsg<'LIST', ListMsg>('LIST');
 export const EDIT = createMsg<'EDIT', EditMsg>('EDIT');
 export const KEY_PRESSED = createMsg<'KEY_PRESSED', { key: string }>('KEY_PRESSED');
-export const SAVE_ALL_BETS = createMsg<'SAVE_ALL_BETS', { drawId: string }>('SAVE_ALL_BETS');
+export const REQUEST_SAVE_ALL_BETS = createMsg<'REQUEST_SAVE_ALL_BETS', { drawId: string }>('REQUEST_SAVE_ALL_BETS');
+export const CONFIRM_SAVE_ALL_BETS = createMsg<'CONFIRM_SAVE_ALL_BETS', { drawId: string }>('CONFIRM_SAVE_ALL_BETS');
+export const SET_USER_CONTEXT = createMsg<'SET_USER_CONTEXT', { structureId: number }>('SET_USER_CONTEXT');
 export const SAVE_BETS_RESPONSE = createMsg<'SAVE_BETS_RESPONSE', { response: WebData<BetType[]> }>('SAVE_BETS_RESPONSE');
 export const BOLITA_BETS_UPDATED = createMsg<'BOLITA_BETS_UPDATED', void>('BOLITA_BETS_UPDATED');
+
+export const CLOSE_KEYBOARD = createMsg<'CLOSE_KEYBOARD', void>('CLOSE_KEYBOARD');
+export const CONFIRM_INPUT = createMsg<'CONFIRM_INPUT', void>('CONFIRM_INPUT');
 
 export type BolitaMsg =
     | typeof PARLET._type
@@ -240,6 +245,10 @@ export type BolitaMsg =
     | typeof LIST._type
     | typeof EDIT._type
     | typeof KEY_PRESSED._type
-    | typeof SAVE_ALL_BETS._type
+    | typeof REQUEST_SAVE_ALL_BETS._type
+    | typeof CONFIRM_SAVE_ALL_BETS._type
+    | typeof SET_USER_CONTEXT._type
     | typeof SAVE_BETS_RESPONSE._type
-    | typeof BOLITA_BETS_UPDATED._type;
+    | typeof BOLITA_BETS_UPDATED._type
+    | typeof CLOSE_KEYBOARD._type
+    | typeof CONFIRM_INPUT._type;

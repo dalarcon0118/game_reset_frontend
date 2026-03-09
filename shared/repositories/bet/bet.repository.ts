@@ -202,6 +202,43 @@ export class BetRepository implements IBetRepository {
         await this.recoverStuckBets();
     }
 
+    /**
+     * Limpia apuestas sincronizadas antiguas para liberar almacenamiento local.
+     * Solo elimina apuestas con estado 'synced' anteriores al inicio del día especificado.
+     * 
+     * @param today Fecha en formato YYYY-MM-DD (proporcionada por el servidor/TimerRepository)
+     * @returns Número de apuestas eliminadas
+     */
+    async cleanup(today: string): Promise<number> {
+        try {
+            this.log.info('Starting bet cleanup', { today });
+            const allBets = await this.storage.getAll();
+
+            // Interpretación explícita en UTC para evitar desfases de zona horaria
+            const [year, month, day] = today.split('-').map(Number);
+            const todayStartTimestamp = Date.UTC(year, month - 1, day, 0, 0, 0, 0);
+
+            const toDelete = allBets.filter(b =>
+                b.status === 'synced' &&
+                b.timestamp < todayStartTimestamp
+            );
+
+            this.log.debug(`Found ${toDelete.length} synced bets to cleanup`, {
+                total: allBets.length,
+                todayStartTimestamp
+            });
+
+            for (const bet of toDelete) {
+                await this.storage.delete(bet.externalId);
+            }
+
+            return toDelete.length;
+        } catch (error) {
+            this.log.error('Error in bet cleanup', error);
+            return 0;
+        }
+    }
+
     async getChildren(id: number, level: number = 1): Promise<ChildStructure[]> {
         return this.api.getChildren(id, level);
     }

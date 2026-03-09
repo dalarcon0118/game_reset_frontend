@@ -78,6 +78,25 @@ export const createElmStore = <TModel, TMsg>(
     // Engine only manages propagation, not business logic of metadata
     const metaRegistry = new WeakMap<any, Record<string, any>>();
 
+    /**
+     * Helper to generate a unique traceId for each transaction (Msg processing).
+     */
+    const generateTraceId = () => Math.random().toString(36).substring(2, 8).toUpperCase();
+
+    const getOrCreateMeta = (msg: any): Record<string, any> => {
+        if (!msg || typeof msg !== 'object') return {};
+
+        let meta = metaRegistry.get(msg);
+        if (!meta) {
+            meta = {
+                traceId: generateTraceId(),
+                timestamp: Date.now()
+            };
+            metaRegistry.set(msg, meta);
+        }
+        return meta;
+    };
+
     // --- Middleware Validation ---
     if (allMiddlewares && allMiddlewares.length > 0) {
         allMiddlewares.forEach((m, i) => {
@@ -245,18 +264,14 @@ export const createElmStore = <TModel, TMsg>(
                 if (checkStorm(msgType)) return;
 
                 // --- Retrieve/Initialize Metadata ---
-                let meta = (msg && typeof msg === 'object') ? metaRegistry.get(msg) : null;
-                if (!meta && msg && typeof msg === 'object') {
-                    meta = {};
-                    metaRegistry.set(msg, meta);
-                }
+                const meta = getOrCreateMeta(msg);
 
                 let cmdToRun: Cmd = null;
 
                 try {
                     // Middlewares: Before Update
                     const prevModel = get().model;
-                    allMiddlewares.forEach(m => m.beforeUpdate?.(prevModel, msg, meta!));
+                    allMiddlewares.forEach(m => m.beforeUpdate?.(prevModel, msg, meta));
 
                     let nextModel: TModel;
                     let cmd: Cmd = null;
@@ -277,14 +292,14 @@ export const createElmStore = <TModel, TMsg>(
                     set({ model: nextModel });
 
                     // Middlewares: After Update
-                    allMiddlewares.forEach(m => m.afterUpdate?.(prevModel, msg, nextModel, cmd || null, meta!));
+                    allMiddlewares.forEach(m => m.afterUpdate?.(prevModel, msg, nextModel, cmd || null, meta));
 
                 } catch (error) {
                     const currentModel = get().model;
                     logger.error(`Error in update function for Msg: ${msgType}`, 'ENGINE', error, { msg, meta });
 
                     // Middlewares: On Error
-                    allMiddlewares.forEach(m => m.onUpdateError?.(currentModel, msg, error, meta!));
+                    allMiddlewares.forEach(m => m.onUpdateError?.(currentModel, msg, error, meta));
 
                     if (__DEV__) {
                         // Fail Fast in development: This triggers the Red Box in React Native
@@ -294,7 +309,7 @@ export const createElmStore = <TModel, TMsg>(
                 }
 
 
-                if (cmdToRun) executeCmds(cmdToRun, meta || undefined);
+                if (cmdToRun) executeCmds(cmdToRun, meta);
             },
         };
     });

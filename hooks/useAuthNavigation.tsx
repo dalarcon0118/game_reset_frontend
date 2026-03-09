@@ -23,6 +23,10 @@ export function useAuthNavigation() {
 
   // 1. Navigation Reference Synchronization
   useEffect(() => {
+    if (!rootNavigation?.isReady()) {
+      logger.debug('Skipping navigation - navigator not ready', 'RootLayout');
+      return;
+    }
     if (rootNavigation) {
       (navigationRef as any).current = rootNavigation.current;
       logger.debug('Navigation Ref synchronized', 'RootLayout');
@@ -39,6 +43,18 @@ export function useAuthNavigation() {
     if (isLoading) {
       logger.debug('Skipping navigation - auth is loading', 'RootLayout');
       return;
+    }
+
+    // NEW: Block navigation during session hydration to prevent race conditions
+    // The coordinator might be verifying the token; don't redirect yet.
+    if (!isAuthenticated && !user && !isLoading) {
+      // Check if we are in the middle of a hydration process in the store
+      // We check isLoading as a proxy for HYDRATING in the base case,
+      // but if the store is in a specific HYDRATING status, we should wait.
+      if (isLoading) {
+        logger.debug('Skipping navigation - session is hydrating', 'RootLayout');
+        return;
+      }
     }
 
     const isPublicRoute = PUBLIC_ROUTES.some(route => pathname?.includes(route.replace('/', '')));

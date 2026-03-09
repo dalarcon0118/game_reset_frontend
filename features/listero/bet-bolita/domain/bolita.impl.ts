@@ -1,7 +1,7 @@
 import { BolitaModel, BolitaListData } from './models/bolita.types';
-import { CreateBetDTO, GenericBetItemDTO } from '@/shared/services/bet/types';
 import { BET_TYPE_KEYS } from '@/shared/types/bet_types';
 import { BetType, ParletBet, CentenaBet, FijosCorridosBet } from '@/types';
+import { BetPlacementInput } from '@/shared/repositories/bet/bet.types';
 import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('BOLITA_IMPL');
@@ -41,6 +41,8 @@ const parseNumbers = (bet: BetType): any => {
  * Following the TEA Clean Feature Design.
  */
 export const BolitaImpl = {
+    log: () => logger.withTag('BOLITA_VALIDATE_PREPARE'),
+
     // --- Validation Logic ---
     validation: {
         parseInput: (input: string, size: number): number[] => {
@@ -87,19 +89,21 @@ export const BolitaImpl = {
 
     // --- Persistence Logic (Preparation) ---
     persistence: {
-        validateAndPrepare: (model: BolitaModel, drawId: string): { type: 'Valid'; payload: CreateBetDTO } | { type: 'Invalid'; reason: string } => {
-            const { summary, entrySession, drawDetails } = model;
+        validateAndPrepare: (model: BolitaModel, drawId: string): { type: 'Valid'; payload: BetPlacementInput[] } | { type: 'Invalid'; reason: string } => {
+            BolitaImpl.log().info('validateAndPrepare triggered', { drawId, ...model });
+
+            const { summary, entrySession, userStructureId } = model;
 
             if (summary.grandTotal <= 0) {
                 return { type: 'Invalid', reason: 'El monto total debe ser mayor a 0.' };
             }
 
-            const structureId = drawDetails.type === 'Success' ? drawDetails.data.owner_structure : null;
-            if (!structureId) {
-                return { type: 'Invalid', reason: 'Error Crítico: No se encontró la estructura propietaria del sorteo.' };
+            if (!userStructureId) {
+                return { type: 'Invalid', reason: 'Error Crítico: No se encontró la estructura del usuario para registrar la apuesta.' };
             }
 
-            const bets: GenericBetItemDTO[] = [];
+            const bets: BetPlacementInput[] = [];
+            const ownerStructure = Number(userStructureId);
 
             // Fijos/Corridos
             entrySession.fijosCorridos.forEach(b => {
@@ -108,7 +112,8 @@ export const BolitaImpl = {
                         betTypeId: BET_TYPE_KEYS.FIJO,
                         amount: b.fijoAmount,
                         numbers: b.bet,
-                        drawId
+                        drawId,
+                        ownerStructure
                     });
                 }
                 if (b.corridoAmount && b.corridoAmount > 0) {
@@ -116,7 +121,8 @@ export const BolitaImpl = {
                         betTypeId: BET_TYPE_KEYS.CORRIDO,
                         amount: b.corridoAmount,
                         numbers: b.bet,
-                        drawId
+                        drawId,
+                        ownerStructure
                     });
                 }
             });
@@ -128,7 +134,8 @@ export const BolitaImpl = {
                         betTypeId: BET_TYPE_KEYS.PARLET,
                         amount: b.amount,
                         numbers: b.bets,
-                        drawId
+                        drawId,
+                        ownerStructure
                     });
                 }
             });
@@ -140,19 +147,17 @@ export const BolitaImpl = {
                         betTypeId: BET_TYPE_KEYS.CENTENA,
                         amount: b.amount,
                         numbers: b.bet,
-                        drawId
+                        drawId,
+                        ownerStructure
                     });
                 }
             });
 
-            const payload: CreateBetDTO = {
-                drawId,
-                amount: summary.grandTotal,
-                owner_structure: Number(structureId),
-                bets
-            };
+            if (bets.length === 0) {
+                return { type: 'Invalid', reason: 'No hay apuestas válidas para guardar.' };
+            }
 
-            return { type: 'Valid', payload };
+            return { type: 'Valid', payload: bets };
         },
 
         transformBets: (bets: BetType[]): BolitaListData => {

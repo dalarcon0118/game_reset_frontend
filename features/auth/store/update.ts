@@ -21,6 +21,8 @@ const mapAuthError = (type: AuthErrorType, defaultMessage: string): string => {
 const loginCmd = (username: string, pin: string): Cmd => {
     return RemoteDataHttp.fetch<AuthSession, AuthMsg>(
         async () => {
+            // Reset exit flag in coordinator when starting login
+            SessionCoordinator.getInstance().resetExitFlag();
             const result = await AuthRepository.login(username, pin);
             if (result.success) {
                 return result.data;
@@ -120,7 +122,15 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
         })
 
         .with({ type: AuthMsgType.SESSION_EXPIRED }, ({ reason }) => {
-            log.warn('Session expired', { reason });
+            // Guard: If we are already logging out, expired or anonymous, do nothing to prevent logout loops
+            if (['LOGGING_OUT', 'EXPIRED', 'ANONYMOUS'].includes(model.status)) {
+                // Silent debug log to avoid noise during normal logout flow
+                log.debug('Ignoring session expired signal (already in exit state)', { reason });
+                return [model, Cmd.none] as [AuthModel, Cmd];
+            }
+
+            log.warn('Session expired signal received - forcing logout', { reason, currentStatus: model.status });
+
             return [
                 {
                     ...model,
@@ -341,6 +351,12 @@ export const updateAuth = (model: AuthModel, msg: AuthMsg): [AuthModel, Cmd] => 
                 Cmd.none,
             ] as [AuthModel, Cmd];
         })
-
+        .with({ type: AuthMsgType.LOGIN_SUCCEEDED }, () => [model, Cmd.none] as [AuthModel, Cmd])
+        .with({ type: AuthMsgType.LOGIN_FAILED }, () => [model, Cmd.none] as [AuthModel, Cmd])
+        .with({ type: AuthMsgType.LOGOUT_SUCCEEDED }, () => [model, Cmd.none] as [AuthModel, Cmd])
+        .with({ type: AuthMsgType.LOGOUT_FAILED }, () => [model, Cmd.none] as [AuthModel, Cmd])
+        .with({ type: AuthMsgType.CHECK_AUTH_STATUS_FAILED }, () => [model, Cmd.none] as [AuthModel, Cmd])
+        .with({ type: AuthMsgType.ROLE_CHECK_REQUESTED }, () => [model, Cmd.none] as [AuthModel, Cmd])
+        .with({ type: AuthMsgType.CONNECTION_STATUS_CHANGED }, () => [model, Cmd.none] as [AuthModel, Cmd])
         .exhaustive();
 };

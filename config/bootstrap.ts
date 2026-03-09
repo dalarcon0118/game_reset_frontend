@@ -9,7 +9,7 @@ import { AuthSubscriptionHandler } from '../features/auth/subscription_handler';
 import { bootstrapKernel } from '../shared/core/architecture/bootstrap_kernel';
 import { AppManifest } from './app_manifest';
 import { createLoggerMiddleware } from '../shared/core/middlewares/logger.middleware';
-import { createTimeIntegrityMiddleware } from '../shared/core/middlewares/time_integrity.middleware';
+import { createTimeIntegrityMiddleware } from '../shared/core/middlewares/time-integrity-v2.middleware';
 import { elmEngine } from '@/shared/core/engine/engine_config';
 /**
  * Bootstraps the Application Architecture

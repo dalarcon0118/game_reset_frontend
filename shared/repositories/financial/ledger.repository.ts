@@ -27,7 +27,6 @@ import { offlineStorage } from '@/shared/core/offline-storage/instance';
 import { SystemOfflineKeys } from './financial.offline.keys';
 import { logger } from '@/shared/utils/logger';
 import { TimerRepository } from '../system/time/timer.repository';
-import { toLocalISODate } from '@/shared/utils/formatters';
 
 const log = logger.withTag('FinancialRepository');
 
@@ -54,9 +53,9 @@ function notifyListeners(): void {
  */
 async function getStorageKey(date?: string): Promise<string> {
     if (date) return SystemOfflineKeys.ledger(date);
-    
+
     const trustedNow = await TimerRepository.getTrustedNow(Date.now());
-    const d = toLocalISODate(trustedNow);
+    const d = TimerRepository.formatUTCDate(trustedNow);
     return SystemOfflineKeys.ledger(d);
 }
 
@@ -67,7 +66,7 @@ export function onLedgerChange(listener: Listener): () => void {
     listeners.add(listener);
 
     let currentKey = '';
-    
+
     // Inicializar la llave actual de forma asíncrona
     getStorageKey().then(key => {
         currentKey = key;

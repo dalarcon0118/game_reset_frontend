@@ -65,13 +65,13 @@ export const settings = {
     },
     endpoints: {
       public: [
-        '/auth/login/',
+        '/auth/login/token',
         '/auth/register/',
         '/auth/login/refresh/',
         '/public/config',
       ],
       auth: () => '/auth',
-      login: () => '/auth/login/',
+      login: () => '/auth/token/',
       refresh: () => '/auth/login/refresh/',
       logout: () => '/auth/logout/',
       me: () => '/auth/me/',

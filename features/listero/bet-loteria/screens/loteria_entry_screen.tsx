@@ -5,24 +5,20 @@ import { LoteriaColumn } from '../components/loteria/loteria_column';
 import { useLoteria } from '../use_loteria';
 import { SumRowComponent } from '@/shared/components/bets/sum_row_component';
 import { useTheme } from '@/shared/hooks/use_theme';
+import { LoteriaStoreProvider } from '../core/store';
 
 interface LoteriaEntryScreenProps {
     drawId?: string;
     title?: string;
 }
 
-/**
- * Pantalla principal para la entrada de jugadas de Lotería.
- * Sigue el patrón TEA (Model-View-Update) delegando la lógica al hook useLoteria.
- */
-const LoteriaEntryScreen: React.FC<LoteriaEntryScreenProps> = ({ drawId }) => {
+const LoteriaEntryContent: React.FC<LoteriaEntryScreenProps> = ({ drawId }) => {
     const { colors } = useTheme();
     const { loteriaTotal, hasBets, isSaving, handleSave } = useLoteria(drawId);
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
             <View style={styles.content}>
-                {/* El anotador siempre recibe isEditing en true para permitir la entrada de datos */}
                 <LoteriaColumn isEditing={true} />
             </View>
 
@@ -34,6 +30,18 @@ const LoteriaEntryScreen: React.FC<LoteriaEntryScreenProps> = ({ drawId }) => {
                 />
             )}
         </View>
+    );
+};
+
+/**
+ * Pantalla principal para la entrada de jugadas de Lotería.
+ * Sigue el patrón TEA (Model-View-Update) delegando la lógica al hook useLoteria.
+ */
+const LoteriaEntryScreen: React.FC<LoteriaEntryScreenProps> = (props) => {
+    return (
+        <LoteriaStoreProvider>
+            <LoteriaEntryContent {...props} />
+        </LoteriaStoreProvider>
     );
 };
 

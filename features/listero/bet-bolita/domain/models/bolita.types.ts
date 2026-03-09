@@ -80,6 +80,7 @@ export interface CentenaModel {
 export interface BolitaModel {
     isEditing: boolean;
     currentDrawId: string | null;
+    userStructureId: number | null;
     drawDetails: WebData<ExtendedDrawType>;
     betTypes: WebData<any[]>;
     parletSession: ParletModel;
@@ -94,5 +95,6 @@ export interface BolitaModel {
         grandTotal: number;
         hasBets: boolean;
         isSaving: boolean;
+        pendingReceiptCode: string | null;
     };
 }

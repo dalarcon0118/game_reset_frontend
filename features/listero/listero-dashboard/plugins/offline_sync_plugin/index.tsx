@@ -14,6 +14,15 @@
  */
 
 // Export types
+// ============================================================================
+// Plugin Interface for Slot System
+// ============================================================================
+
+import React from 'react';
+import OfflineSyncView, { SyncStatusTrigger } from './view';
+import { useOfflineSyncStore } from './store';
+import type { OfflineSyncMsg } from './msg';
+
 export * from './types';
 export * from './msg';
 
@@ -53,15 +62,6 @@ export { SyncStatusTrigger } from './view';
 export { ToastContainer } from './view';
 export { SyncStatusScreen } from './view';
 
-// ============================================================================
-// Plugin Interface for Slot System
-// ============================================================================
-
-import React from 'react';
-import OfflineSyncView, { SyncStatusTrigger } from './view';
-import { useOfflineSyncStore } from './store';
-import type { OfflineSyncMsg } from './msg';
-
 // Componente para Toast Slot (overlay arriba de todo)
 export const ToastSlot: React.FC = () => {
   const { model, dispatch } = useOfflineSyncStore();
@@ -96,7 +96,7 @@ export const OfflineSyncPlugin = {
   // Lifecycle
   initialize: async () => {
     const store = useOfflineSyncStore.getState();
-    await store.initialize();
+    await store.init();
   },
 
   cleanup: () => {

@@ -1,6 +1,6 @@
-import { CreateBetDTO } from '@/shared/services/bet/types';
 import { BetType } from '@/types';
 import { BolitaModel, BolitaListData } from './models/bolita.types';
+import { BetPlacementInput } from '@/shared/repositories/bet/bet.types';
 
 /**
  * 🧱 DOMAIN PORTS
@@ -8,7 +8,7 @@ import { BolitaModel, BolitaListData } from './models/bolita.types';
  * Following the TEA Clean Feature Design.
  */
 export interface IBolitaPersistence {
-    validateAndPrepare(model: BolitaModel, drawId: string): { type: 'Valid'; payload: CreateBetDTO } | { type: 'Invalid'; reason: string };
+    validateAndPrepare(model: BolitaModel, drawId: string): { type: 'Valid'; payload: BetPlacementInput[] } | { type: 'Invalid'; reason: string };
     transformBets(bets: BetType[]): BolitaListData;
 }
 

@@ -17,6 +17,71 @@ class LogManager {
     this.logFile = logFile;
     this.processor = new LogProcessor();
     this.buffer = ''; // Accumulator for log lines
+    this.viewStreams = new Map(); // Map of viewName -> writeStream
+    this.currentView = 'BOOT';
+    this.previousView = null;
+  }
+
+  /**
+   * Get formatted filename for a view
+   * Converts paths like /lister/bets/bolita/list to bolita.list.log
+   */
+  getViewFilename(viewName) {
+    if (!viewName || viewName === 'BOOT') return 'boot.log';
+
+    // Si es una ruta completa (empieza por /)
+    if (viewName.includes('/')) {
+      const segments = viewName
+        .split('/')
+        .filter(s => s && !/^\d+$/.test(s) && !s.includes('[') && !s.includes('('));
+      
+      if (segments.length > 0) {
+        // Tomamos los últimos 2 segmentos significativos (ej: bolita.list)
+        const relevant = segments.slice(-2);
+        return `${relevant.join('.').toLowerCase()}.log`;
+      }
+    }
+
+    // Mapeo de compatibilidad para nombres cortos (fallback)
+    const nameMap = {
+      'LOGIN': 'auth.login.log',
+      'LIST': 'loteria.list.log',
+      'BOLITA_LIST': 'bolita.list.log',
+      'ANOTATE': 'loteria.anotate.log',
+      'DASHBOARD': 'lister.dashboard.log',
+      'TABS': 'lister.main.log'
+    };
+    return nameMap[viewName] || `view_${viewName.toLowerCase()}.log`;
+  }
+
+  /**
+   * Ensures a stream for the current view exists and is active
+   */
+  switchViewStream(viewName) {
+    // Si ya tenemos una ruta completa y nos llega un nombre corto (uppercase), ignoramos el corto
+    // para mantener la precisión del nombre del archivo basado en la ruta.
+    if (this.currentView.includes('/') && !viewName.includes('/') && viewName === viewName.toUpperCase()) {
+      return;
+    }
+
+    if (this.currentView === viewName && this.viewStreams.has(viewName)) return;
+
+    console.log(`\n[Manager] Switching view: ${this.currentView} -> ${viewName}`);
+    
+    this.previousView = this.currentView;
+    this.currentView = viewName;
+
+    const fileName = this.getViewFilename(viewName);
+    const filePath = path.join(this.logDir, fileName);
+
+    // Close and remove old stream if it exists to overwrite
+    if (this.viewStreams.has(viewName)) {
+      this.viewStreams.get(viewName).end();
+    }
+
+    // Create new stream with 'w' flag to clear previous content
+    const stream = rotator.createLogStream(filePath, 'w');
+    this.viewStreams.set(viewName, stream);
   }
 
   /**
@@ -65,14 +130,18 @@ class LogManager {
       if (str.includes('Reloading apps')) {
         console.log('\n[Manager] "Reloading apps" detected. Clearing logs directory...');
         try {
-          // 1. Close current stream
+          // 1. Close current streams
           this.logStream.end();
+          this.viewStreams.forEach(stream => stream.end());
+          this.viewStreams.clear();
           
           // 2. Clear directory
           rotator.clearDirectory(this.logDir);
           
-          // 3. Re-initiate stream
+          // 3. Re-initiate main stream
           this.logStream = rotator.createLogStream(this.logFile);
+          this.currentView = 'BOOT';
+          this.processor.currentView = null;
           console.log('[Manager] Log stream restarted successfully.');
         } catch (e) {
           console.error(`[Manager] Error during log reset: ${e.message}`);
@@ -89,15 +158,35 @@ class LogManager {
         
         const cleanLine = sanitize(line);
         if (cleanLine) {
+          // Interceptar la ruta completa de la línea de log de navegación antes de procesar
+          if (cleanLine.includes('NAV_EFFECT') && cleanLine.includes('Navigating to:')) {
+            const pathMatch = cleanLine.match(/Navigating to: ([^\s,{}]+)/);
+            if (pathMatch && pathMatch[1]) {
+              this.switchViewStream(pathMatch[1]);
+            }
+          }
+
           const wasDumping = this.processor.isDumping;
           const processedLine = this.processor.process(cleanLine);
           const isDumping = this.processor.isDumping;
 
           if (processedLine) {
+            // Write to main log
             this.logStream.write(processedLine + '\n');
 
+            // 4. Handle view-specific logs
+            if (this.processor.currentView) {
+              this.switchViewStream(this.processor.currentView);
+            } else if (this.currentView === 'BOOT') {
+              this.switchViewStream('BOOT');
+            }
+
+            const currentViewStream = this.viewStreams.get(this.currentView);
+            if (currentViewStream) {
+              currentViewStream.write(processedLine + '\n');
+            }
+
             // Handle offline storage dump to offline.log
-            // Include both the line that starts the dump and the line that ends it
             if ((wasDumping || isDumping) && this.logDir) {
               const offlineLogPath = path.join(this.logDir, 'offline.log');
               fs.appendFileSync(offlineLogPath, processedLine + '\n');

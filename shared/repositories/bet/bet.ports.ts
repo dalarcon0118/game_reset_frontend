@@ -10,6 +10,7 @@ export interface IBetStorage {
     getAll(): Promise<BetDomainModel[]>;
     getPending(): Promise<BetDomainModel[]>;
     getByStatus(status: BetDomainModel['status']): Promise<BetDomainModel[]>;
+    getRecentByDraw(drawId: string | number, maxAgeMs?: number): Promise<BetDomainModel[]>;
     updateStatus(offlineId: string, status: BetDomainModel['status'], extra?: Partial<BetDomainModel>): Promise<void>;
     delete(offlineId: string): Promise<void>;
 }

@@ -19,6 +19,8 @@ export const LoteriaTotalRow: React.FC<LoteriaTotalRowProps> = ({ totalAmount })
     );
 };
 
+LoteriaTotalRow.displayName = 'LoteriaTotalRow';
+
 const styles = StyleSheet.create({
     totalRow: {
         flexDirection: 'row',

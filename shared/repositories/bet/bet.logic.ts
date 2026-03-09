@@ -45,5 +45,13 @@ export const BetLogic = {
             blocked: blockedBets.length > 0,
             blockedBetsCount: blockedBets.length
         };
+    },
+
+    /**
+     * Generates a random receipt code for grouping bets.
+     * Format: 5 uppercase alphanumeric characters.
+     */
+    generateReceiptCode(): string {
+        return Math.random().toString(36).substring(2, 7).toUpperCase();
     }
 };

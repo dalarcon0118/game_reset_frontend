@@ -23,18 +23,16 @@ export const VoucherAdapter: VoucherPort = {
         ]);
 
         if (drawRes && drawRes.isErr()) {
-            log.error('❌ Error loading draw details', drawRes.error);
-            throw new Error('Error loading draw details');
+            log.warn('⚠️ Error loading draw details, proceeding with empty draw data', drawRes.error);
         }
 
         if (betsRes.isErr()) {
-            log.error('❌ Error loading bets', betsRes.error);
-            throw new Error('Error loading bets');
+            log.error('❌ Error loading bets from repository', betsRes.error);
         }
 
         return {
-            draw: drawRes ? drawRes.value : null,
-            bets: betsRes.value || [],
+            draw: drawRes && drawRes.isOk() ? drawRes.value : null,
+            bets: betsRes.isOk() ? (betsRes.value || []) : [],
             betTypes: betTypesRes && betTypesRes.isOk() ? betTypesRes.value : []
         };
     },

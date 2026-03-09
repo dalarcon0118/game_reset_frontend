@@ -17,6 +17,9 @@ export class SessionCoordinator {
     private static instance: SessionCoordinator;
     private bus = SessionSignalBus.getInstance();
     private isRefreshing = false;
+    private refreshTimeout: NodeJS.Timeout | null = null;
+    private isExiting = false; // Local flag to prevent multiple exit signals during race conditions
+    private isHydrating = false; // Flag to prevent expiration signals during hydration
     private refreshPromise: Promise<string | null> | null = null;
 
     private constructor(
@@ -73,6 +76,7 @@ export class SessionCoordinator {
      */
     async onAppHydration(): Promise<void> {
         this.log.info('Starting app hydration...');
+        this.isHydrating = true; // Block expiration signals during hydration
 
         try {
             const user = await this.authRepo.getUserIdentity();
@@ -81,21 +85,37 @@ export class SessionCoordinator {
 
             if (user && (tokenState === TokenState.VALID || tokenState === TokenState.EXPIRED || tokenState === TokenState.OFFLINE_MARKER)) {
                 this.log.info('Session restored', { user: user.username, tokenState });
+                this.isExiting = false; // Reset exit flag on successful hydration
                 this.bus.publish({ type: SessionSignalType.SESSION_HYDRATED, payload: { user, tokenState } });
             } else {
                 this.log.info('No valid session found during hydration');
+                this.isExiting = false; // Reset flag anyway
                 this.bus.publish({ type: SessionSignalType.SESSION_HYDRATED, payload: { user: null, tokenState: TokenState.ABSENT } });
             }
         } catch (error) {
             this.log.error('Error during hydration', error);
+            this.isExiting = false;
             this.bus.publish({ type: SessionSignalType.SESSION_HYDRATED, payload: { user: null, tokenState: TokenState.ABSENT } });
+        } finally {
+            this.isHydrating = false; // Release the lock
         }
     }
 
     /**
      * Evalúa si un request requiere refresh preventivo.
      */
-    async onRequestAuthCheck(endpoint: string, isPublic: boolean, networkConnected: boolean): Promise<void> {
+    async onRequestAuthCheck(
+        endpoint: string,
+        isPublic: boolean,
+        networkConnected: boolean,
+        refreshAction: () => Promise<string | null>
+    ): Promise<void> {
+        // 1. Guard contra refrescos concurrentes
+        if (this.isRefreshing) {
+            this.log.debug('Preventive refresh already in progress, skipping check', { endpoint });
+            return;
+        }
+
         const { access } = await this.authRepo.getToken();
         const tokenState = SessionPolicy.resolveTokenState(access);
         const status = this.getState();
@@ -110,8 +130,24 @@ export class SessionCoordinator {
 
         if (SessionPolicy.shouldAttemptRefresh(context)) {
             this.log.info('Preventive refresh required', { endpoint, tokenState });
-            // Aquí se llamaría al provider para refrescar
-            this.bus.publish({ type: SessionSignalType.TOKEN_REFRESHED, payload: { endpoint } });
+
+            // 2. Safety lock contra bucles infinitos (timeout de 10s)
+            this.isRefreshing = true;
+            this.refreshTimeout = setTimeout(() => {
+                this.log.warn('Preventive refresh timeout exceeded, resetting isRefreshing flag');
+                this.isRefreshing = false;
+                this.refreshTimeout = null;
+            }, 10000);
+
+            try {
+                await this.runPreventiveRefresh(endpoint, refreshAction);
+            } finally {
+                if (this.refreshTimeout) {
+                    clearTimeout(this.refreshTimeout);
+                    this.refreshTimeout = null;
+                }
+                this.isRefreshing = false;
+            }
         }
     }
 
@@ -147,11 +183,62 @@ export class SessionCoordinator {
      * Notifica la expiración de la sesión a todo el sistema.
      */
     handleSessionExpired(reason: string): void {
-        this.log.warn('Session expired signal', { reason });
+        const currentStatus = this.getState();
+
+        // Evitar disparar si ya estamos en un estado de salida o expirado para prevenir bucles de logout
+        // O si estamos en proceso de hidratación para evitar race conditions al arrancar
+        if (this.isExiting || this.isHydrating || ['EXPIRED', 'LOGGING_OUT', 'ANONYMOUS'].includes(currentStatus)) {
+            this.log.debug('Ignoring session expired signal (already in exit state, hydrating or exiting)', {
+                currentStatus,
+                reason,
+                isExiting: this.isExiting,
+                isHydrating: this.isHydrating
+            });
+            return;
+        }
+
+        this.isExiting = true; // Mark that we are already handling the exit
+        this.log.warn('Session expired signal triggered', { reason });
         this.bus.publish({ type: SessionSignalType.SESSION_EXPIRED, payload: { reason } });
 
         // El Store escuchará esta señal (vía sub) y cambiará a EXPIRED/ANONYMOUS
         // También disparará el LOGOUT_REQUESTED si es necesario
+    }
+
+    /**
+     * Resets the exit flag. Useful when a new login is started or successful.
+     */
+    public resetExitFlag(): void {
+        this.isExiting = false;
+    }
+
+    private async runPreventiveRefresh(endpoint: string, refreshAction: () => Promise<string | null>): Promise<void> {
+        if (this.refreshPromise) {
+            await this.refreshPromise;
+            return;
+        }
+
+        this.isRefreshing = true;
+        this.refreshPromise = (async () => {
+            try {
+                const token = await refreshAction();
+                if (token) {
+                    this.bus.publish({ type: SessionSignalType.TOKEN_REFRESHED, payload: { token, endpoint } });
+                    return token;
+                }
+                this.handleSessionExpired('REFRESH_FAILED');
+                return null;
+            } catch (error) {
+                this.log.error('Preventive refresh failed', { endpoint, error });
+                this.handleSessionExpired('REFRESH_FAILED');
+                return null;
+            } finally {
+                this.isRefreshing = false;
+                this.refreshPromise = null;
+            }
+        })();
+
+        await this.refreshPromise;
     }
 
     private isPublicEndpoint(endpoint: string): boolean {

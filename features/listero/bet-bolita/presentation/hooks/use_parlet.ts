@@ -1,10 +1,12 @@
 import { useBolitaStore, selectBolitaModel, selectDispatch } from '../store';
-import { PARLET, KEY_PRESSED, ParletMessages } from '../../domain/models/bolita.messages';
+import { PARLET, ParletMessages } from '../../domain/models/bolita.messages';
 import { FijosCorridosBet } from '@/types';
+import { useBolitaActions } from './use_bolita_actions';
 
 export const useParlet = (fijosCorridosList: FijosCorridosBet[]) => {
   const model = useBolitaStore(selectBolitaModel);
   const dispatch = useBolitaStore(selectDispatch);
+  const { parlet: actions } = useBolitaActions();
 
   const {
     listState,
@@ -32,9 +34,6 @@ export const useParlet = (fijosCorridosList: FijosCorridosBet[]) => {
     isParletModalVisible,
   } = parletSession;
 
-  const editParletBet = (betId: string) => dispatch(PARLET(ParletMessages.EDIT_PARLET_BET({ betId })));
-  const editAmountKeyboard = (betId: string) => dispatch(PARLET(ParletMessages.OPEN_PARLET_AMOUNT_KEYBOARD({ betId })));
-  const pressAddParlet = () => dispatch(PARLET(ParletMessages.PRESS_ADD_PARLET({ fijosCorridosList })));
   const showParletDrawer = (visible: boolean) => dispatch(PARLET(ParletMessages.SHOW_PARLET_DRAWER({ visible })));
   const showAmountDrawer = (visible: boolean) => dispatch(PARLET(ParletMessages.SHOW_PARLET_MODAL({ visible })));
 
@@ -43,9 +42,9 @@ export const useParlet = (fijosCorridosList: FijosCorridosBet[]) => {
     editingAmountType,
     isParletDrawerVisible,
     isParletModalVisible,
-    editParletBet,
-    editAmountKeyboard,
-    pressAddParlet,
+    editParletBet: actions.editBet,
+    editAmountKeyboard: actions.openAmountKeyboard,
+    pressAddParlet: () => actions.openBetKeyboard(fijosCorridosList),
     showParletDrawer,
     showAmountDrawer,
   };

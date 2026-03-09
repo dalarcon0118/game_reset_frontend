@@ -1,13 +1,16 @@
-import { match } from 'ts-pattern';
+import { match, P } from 'ts-pattern';
 import { BolitaModel, InputOwner } from '../domain/models/bolita.types';
 import { initialBolitaListData } from '../domain/models/bolita.initial';
 import {
     BolitaMsg,
-    SAVE_ALL_BETS,
+    REQUEST_SAVE_ALL_BETS,
+    CONFIRM_SAVE_ALL_BETS,
     SAVE_BETS_RESPONSE,
     FIJOS,
     CENTENA,
-    PARLET
+    PARLET,
+    CLOSE_KEYBOARD,
+    CONFIRM_INPUT
 } from '../domain/models/bolita.messages';
 import { Return, ret, singleton, Cmd, RemoteData } from '@/shared/core/tea-utils';
 import { RemoteDataHttp } from '@/shared/core/tea-utils/remote.data.http';
@@ -16,9 +19,9 @@ import { betRepository } from '@/shared/repositories/bet/bet.repository';
 import { logger } from '@/shared/utils/logger';
 
 // Message imports for orchestration
-import { FIJOS_CONFIRM_INPUT } from '../domain/models/bolita.messages';
-import { CENTENA_CONFIRM_INPUT } from '../domain/models/bolita.messages';
-import { PARLET_CONFIRM_INPUT } from '../domain/models/bolita.messages';
+import { FIJOS_CONFIRM_INPUT, CLOSE_BET_KEYBOARD, CLOSE_AMOUNT_KEYBOARD } from '../domain/models/bolita.messages';
+import { CENTENA_CONFIRM_INPUT, CLOSE_CENTENA_BET_KEYBOARD, CLOSE_CENTENA_AMOUNT_KEYBOARD } from '../domain/models/bolita.messages';
+import { PARLET_CONFIRM_INPUT, CLOSE_PARLET_BET_KEYBOARD, CLOSE_PARLET_AMOUNT_KEYBOARD } from '../domain/models/bolita.messages';
 
 const log = logger.withTag('BOLITA_FLOWS');
 
@@ -93,40 +96,98 @@ export const BolitaFlows = {
         return singleton(model);
     },
 
+    /**
+     * Centralized keyboard close handler.
+     * Logic moved from UI to Flow Orchestrator.
+     */
+    handleCloseKeyboard: (model: BolitaModel): Return<BolitaModel, BolitaMsg> => {
+        const { activeOwner, showBetKeyboard, showAmountKeyboard } = model.editState;
+
+        log.info('handleCloseKeyboard', { activeOwner, showBetKeyboard, showAmountKeyboard });
+
+        if (!activeOwner) return singleton(model);
+
+        const closeMsg = match([activeOwner, showBetKeyboard, showAmountKeyboard])
+            // FIJOS
+            .with(['fijos', true, P._], () => FIJOS(CLOSE_BET_KEYBOARD()))
+            .with(['fijos', false, true], () => FIJOS(CLOSE_AMOUNT_KEYBOARD()))
+            // PARLET
+            .with(['parlet', true, P._], () => PARLET(CLOSE_PARLET_BET_KEYBOARD()))
+            .with(['parlet', false, true], () => PARLET(CLOSE_PARLET_AMOUNT_KEYBOARD()))
+            // CENTENA
+            .with(['centena', true, P._], () => CENTENA(CLOSE_CENTENA_BET_KEYBOARD()))
+            .with(['centena', false, true], () => CENTENA(CLOSE_CENTENA_AMOUNT_KEYBOARD()))
+            .otherwise(() => null);
+
+        return closeMsg ? ret(model, Cmd.ofMsg(closeMsg)) : singleton(model);
+    },
+
     // --- Persistence Flows (Use Cases) ---
 
     /**
-     * Orchestrates the complete save flow for all bets in the session.
+     * Shows a confirmation alert before saving.
      */
-    saveAllBets: (model: BolitaModel, drawId: string): Return<BolitaModel, BolitaMsg> => {
-        log.info('saveAllBets starting...', { drawId });
+    requestSaveAllBets: (model: BolitaModel, drawId: string): Return<BolitaModel, BolitaMsg> => {
+        log.info('requestSaveAllBets triggered', { drawId });
 
         // 1. Pure Validation Step (using Domain Implementation)
         const validation = BolitaImpl.persistence.validateAndPrepare(model, drawId);
 
         if (validation.type === 'Invalid') {
             log.warn('SAVE_ABORTED: Validation failed', { reason: validation.reason });
+
+            // Si el error es por falta de estructura, es probable que la sesión haya expirado
+            const isSessionError = validation.reason.includes('estructura');
+
             return ret(
                 model,
                 Cmd.alert({
-                    title: 'Error de Validación',
-                    message: validation.reason
+                    title: isSessionError ? 'Sesión no válida' : 'Error de Validación',
+                    message: isSessionError
+                        ? 'No se pudo identificar tu sesión. Por favor, verifica tu conexión o vuelve a iniciar sesión.'
+                        : validation.reason
                 })
             );
         }
 
-        // 2. Prepare Payload
+        // 2. Trigger Confirmation Alert
+        return ret(
+            model,
+            Cmd.alert({
+                title: 'Confirmar Apuestas',
+                message: `¿Estás seguro de que deseas guardar estas apuestas por un total de $${model.summary.grandTotal}?`,
+                buttons: [
+                    { text: 'Cancelar', style: 'cancel' },
+                    {
+                        text: 'Guardar',
+                        onPressMsg: CONFIRM_SAVE_ALL_BETS({ drawId })
+                    }
+                ]
+            })
+        );
+    },
+
+    /**
+     * Orchestrates the complete save flow for all bets in the session.
+     */
+    executeSaveAllBets: (model: BolitaModel, drawId: string): Return<BolitaModel, BolitaMsg> => {
+        log.info('executeSaveAllBets starting...', { drawId });
+
+        // 1. Prepare Payload (Already validated in requestSaveAllBets, but good to double check)
+        const validation = BolitaImpl.persistence.validateAndPrepare(model, drawId);
+        if (validation.type === 'Invalid') return singleton(model);
+
         const payload = validation.payload;
 
-        // 3. Trigger HTTP Side Effect
-        log.info('SAVE_BETS_INIT', { payload_count: 1 });
+        // 2. Trigger HTTP Side Effect
+        log.info('SAVE_BETS_INIT', { payload_count: payload.length });
         return ret<BolitaModel, BolitaMsg>(
             {
                 ...model,
                 summary: { ...model.summary, isSaving: true }
             },
             RemoteDataHttp.fetch(
-                () => betRepository.placeBatch([payload] as unknown as any[]),
+                () => betRepository.placeBatch(payload),
                 (response) => SAVE_BETS_RESPONSE({ response }),
                 'SAVE_BETS'
             )
@@ -138,18 +199,32 @@ export const BolitaFlows = {
      */
     handleSaveResponse: (model: BolitaModel, response: RemoteData<any, any>): Return<BolitaModel, BolitaMsg> => {
         return match<RemoteData<any, any>, Return<BolitaModel, BolitaMsg>>(response)
-            .with({ type: 'Success' }, () => {
-                log.info('SAVE_SUCCESS');
+            .with({ type: 'Success' }, ({ data }) => {
+                log.info('SAVE_SUCCESS', { data });
+
+                // Intentamos extraer el receiptCode del primer elemento si existe
+                const receiptCode = (Array.isArray(data) && data.length > 0) ? data[0].receiptCode : null;
+                const drawId = model.currentDrawId;
+
                 return ret(
                     {
                         ...model,
                         entrySession: initialBolitaListData,
-                        summary: { ...model.summary, isSaving: false, hasBets: false, grandTotal: 0 }
+                        summary: {
+                            ...model.summary,
+                            isSaving: false,
+                            hasBets: false,
+                            grandTotal: 0,
+                            pendingReceiptCode: receiptCode
+                        }
                     },
-                    Cmd.alert({
-                        title: 'Éxito',
-                        message: 'Apuestas guardadas correctamente.'
-                    })
+                    Cmd.batch([
+                        Cmd.navigate(receiptCode ? `/lister/bet_success?receiptCode=${receiptCode}&drawId=${drawId}` : '/lister/bet_success'),
+                        Cmd.alert({
+                            title: 'Éxito',
+                            message: 'Apuestas guardadas correctamente.'
+                        })
+                    ])
                 );
             })
             .with({ type: 'Failure' }, ({ error }) => {

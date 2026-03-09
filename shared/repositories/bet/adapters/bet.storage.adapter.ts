@@ -27,6 +27,10 @@ export class BetStorageAdapter implements IBetStorage {
         return await this.offlineAdapter.getByStatus(status);
     }
 
+    async getRecentByDraw(drawId: string | number, maxAgeMs?: number): Promise<BetDomainModel[]> {
+        return await this.offlineAdapter.getRecentByDraw(drawId, maxAgeMs);
+    }
+
     async updateStatus(offlineId: string, status: BetDomainModel['status'], extra?: Partial<BetDomainModel>): Promise<void> {
         await this.offlineAdapter.updateStatus(offlineId, status, extra);
     }

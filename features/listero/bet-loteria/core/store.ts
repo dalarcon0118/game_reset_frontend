@@ -1,3 +1,5 @@
+import React, { createContext, useContext, useEffect, useMemo } from 'react';
+import { UseBoundStore, StoreApi } from 'zustand';
 import { createElmStore } from '@/shared/core/engine/engine';
 import { Cmd, Sub } from '@/shared/core/tea-utils';
 import { updateFeature } from './feature.update';
@@ -21,11 +23,55 @@ const update = (model: LoteriaFeatureModel, msg: FeatureMsg) => updateFeature(mo
 
 const subscriptions = (_model: LoteriaFeatureModel) => Sub.none();
 
-export const useLoteriaStore = createElmStore<LoteriaFeatureModel, FeatureMsg>({
-    initial: init,
-    update,
-    subscriptions
-});
+interface StoreState {
+    model: LoteriaFeatureModel;
+    dispatch: (msg: FeatureMsg) => void;
+    init: (params?: any) => void;
+    cleanup: () => void;
+}
 
-export const selectLoteriaModel = (state: { model: LoteriaFeatureModel }) => state.model;
-export const selectDispatch = (state: { dispatch: (msg: FeatureMsg) => void }) => state.dispatch;
+type StoreType = UseBoundStore<StoreApi<StoreState>>;
+
+const LoteriaStoreContext = createContext<StoreType | undefined>(undefined);
+
+const createLoteriaStore = () => {
+    return createElmStore<LoteriaFeatureModel, FeatureMsg>({
+        initial: init,
+        update: update,
+        subscriptions
+    });
+};
+
+export const LoteriaStoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const store = useMemo(() => createLoteriaStore(), []);
+
+    useEffect(() => {
+        return () => {
+            store.getState().cleanup();
+        };
+    }, [store]);
+
+    return React.createElement(
+        LoteriaStoreContext.Provider,
+        { value: store },
+        children
+    );
+};
+
+export function useLoteriaStore(): StoreState;
+export function useLoteriaStore<T>(selector: (state: StoreState) => T): T;
+export function useLoteriaStore<T>(selector?: (state: StoreState) => T): T | StoreState {
+    const store = useContext(LoteriaStoreContext);
+    if (!store) {
+        throw new Error('useLoteriaStore must be used within a LoteriaStoreProvider');
+    }
+
+    if (!selector) {
+        return store();
+    }
+
+    return store(selector);
+}
+
+export const selectLoteriaModel = (state: StoreState) => state.model;
+export const selectDispatch = (state: StoreState) => state.dispatch;

@@ -166,7 +166,8 @@ describe('Bolita Sub-Updates Confirmation Logic', () => {
             const [newModel] = updateCentena(initialBolitaModel, { type: 'PRESS_ADD_CENTENA', payload: undefined });
             const updatedModel = newModel as BolitaModel;
             expect(updatedModel.isEditing).toBe(true);
-            expect(updatedModel.entrySession.centenas).toHaveLength(1);
+            expect(updatedModel.editState.showBetKeyboard).toBe(true);
+            expect(updatedModel.editState.activeOwner).toBe('centena');
         });
     });
 

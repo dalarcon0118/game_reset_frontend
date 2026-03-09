@@ -9,6 +9,8 @@ import { SessionCoordinator } from '@/shared/auth/session/session.coordinator';
 import { AuthRepository } from '@/shared/repositories/auth';
 import { logger } from '@/shared/utils/logger';
 
+import { settings } from '@/config/settings';
+
 // Zustand store with TEA integration using the central engine
 export const useAuthStore = createElmStore<AuthModel, AuthMsg>({
     initial: initAuth,
@@ -21,7 +23,7 @@ export const useAuthStore = createElmStore<AuthModel, AuthMsg>({
 // Initialize SessionCoordinator after store creation
 SessionCoordinator.initialize(
     AuthRepository,
-    {} as any, // Settings will be injected or loaded
+    settings,
     logger.withTag('SessionCoordinator'),
     () => useAuthStore.getState().model.status as any,
     (msg) => useAuthStore.getState().dispatch(msg)

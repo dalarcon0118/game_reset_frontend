@@ -3,11 +3,10 @@ import { BetType, GameType } from '@/types';
 import { IBetStorage, IBetApi } from '../bet.ports';
 import { ListBetsFilters } from '@/shared/services/bet/types';
 import { drawRepository } from '../../draw';
-import { isServerReachable } from '@/shared/utils/network';
 import { mapBackendBetToFrontend, mapPendingBetsToFrontend } from '@/shared/services/bet/mapper';
 import { logger } from '@/shared/utils/logger';
 
-import { toLocalISODate } from '@/shared/utils/formatters';
+import { TimerRepository } from '@/shared/repositories/system/time/timer.repository';
 
 const log = logger.withTag('GetBetsFlow');
 
@@ -17,71 +16,6 @@ interface GetBetsContext {
     offlineBets: BetType[];
     onlineBets: BetType[];
 }
-
-/**
- * Fetches bet types for mapping.
- */
-const fetchBetTypes = (ctx: GetBetsContext): ResultAsync<GetBetsContext, Error> => {
-    return ResultAsync.fromPromise(
-        drawRepository.getBetTypes(ctx.filters?.drawId || ''),
-        (e) => e instanceof Error ? e : new Error(String(e))
-    ).map((result) => {
-        const types = result.isOk()
-            ? result.value.map((t): GameType => ({
-                id: String(t.id),
-                name: t.name,
-                code: t.code || '',
-                description: t.description || ''
-            }))
-            : [];
-        return { ...ctx, betTypes: types };
-    });
-};
-
-/**
- * Fetches and maps offline bets.
- * Only pending/error bets are considered.
- */
-const fetchOfflineBets = (storage: IBetStorage) => (ctx: GetBetsContext): ResultAsync<GetBetsContext, Error> => {
-    return ResultAsync.fromPromise(
-        storage.getPending(),
-        (e) => e instanceof Error ? e : new Error('Failed to fetch offline bets')
-    ).map((allOffline) => {
-        const offlineBets = mapPendingBetsToFrontend(allOffline as any, ctx.filters, ctx.betTypes);
-        return { ...ctx, offlineBets };
-    });
-};
-
-/**
- * Fetches and maps online bets if server is reachable.
- */
-const fetchOnlineBets = (api: IBetApi) => (ctx: GetBetsContext): ResultAsync<GetBetsContext, Error> => {
-    return ResultAsync.fromPromise(
-        isServerReachable(),
-        () => new Error('Network check failed')
-    ).andThen((reachable) => {
-        if (!reachable) {
-            log.info('Server unreachable, skipping online fetch');
-            return okAsync(ctx);
-        }
-
-        return ResultAsync.fromPromise(
-            api.list(ctx.filters),
-            (e) => e instanceof Error ? e : new Error('Failed to fetch online bets')
-        ).map((response) => {
-            const onlineBets = response
-                .map(b => {
-                    try { return mapBackendBetToFrontend(b, ctx.betTypes); }
-                    catch (e) {
-                        log.warn('Mapping error for bet', { betId: b.id, error: e });
-                        return null;
-                    }
-                })
-                .filter(Boolean) as BetType[];
-            return { ...ctx, onlineBets };
-        });
-    });
-};
 
 /**
  * Merges offline and online bets, deduplicating by receiptCode or id,
@@ -112,7 +46,7 @@ const mergeBets = (ctx: GetBetsContext): Result<BetType[], Error> => {
     if (ctx.filters?.date) {
         const rawDate = ctx.filters.date;
         const filterDate = (typeof rawDate === 'number' || !isNaN(Number(rawDate)))
-            ? toLocalISODate(Number(rawDate))
+            ? TimerRepository.formatUTCDate(Number(rawDate))
             : String(rawDate);
 
         log.info('Final safety filter by date', {
@@ -122,19 +56,22 @@ const mergeBets = (ctx: GetBetsContext): Result<BetType[], Error> => {
         });
 
         result = result.filter(bet => {
-            const betDate = toLocalISODate(bet.timestamp || Date.now());
+            const betDate = TimerRepository.formatUTCDate(bet.timestamp || Date.now());
             const isMatch = betDate === filterDate;
 
-            if (!isMatch) {
-                log.warn('Bet excluded by safety filter', {
-                    receiptCode: bet.receiptCode,
+            // Prioridad: Si el DrawId coincide, confiamos en la apuesta aunque la fecha UTC varíe por milisegundos
+            const isSameDraw = ctx.filters?.drawId && String(bet.draw) === String(ctx.filters.drawId);
+
+            if (!isMatch && !isSameDraw) {
+                log.warn(`[GET_BETS_DEBUG] EXCLUDED: Bet ${bet.receiptCode}`, {
                     betDate,
-                    filterDate,
-                    criteria: 'betDate === filterDate'
+                    expectedDate: filterDate,
+                    drawId: bet.draw,
+                    filterDrawId: ctx.filters?.drawId
                 });
             }
 
-            return isMatch;
+            return isMatch || isSameDraw;
         });
     }
 
@@ -149,14 +86,108 @@ const mergeBets = (ctx: GetBetsContext): Result<BetType[], Error> => {
 };
 
 /**
+ * Helper to map raw backend types to GameType.
+ */
+const mapToGameType = (t: any): GameType => ({
+    id: String(t.id),
+    name: t.name,
+    code: t.code || '',
+    description: t.description || ''
+});
+
+/**
+ * RESOLVE METADATA: Fetches bet types with a safety timeout.
+ * Business logic: Metadata should never block transactional data.
+ */
+const resolveMetadata = (ctx: GetBetsContext, pTypes: Promise<Result<any, any>>): ResultAsync<GetBetsContext, Error> => {
+    return ResultAsync.fromPromise(
+        (async () => {
+            // Timeout of 2 seconds for metadata - after that we proceed without it
+            const timeoutPromise = new Promise<Result<any, any>>((resolve) =>
+                setTimeout(() => resolve(err(new Error('METADATA_TIMEOUT'))), 2000)
+            );
+
+            const res = await Promise.race([pTypes, timeoutPromise]);
+
+            const betTypes = res.isOk()
+                ? res.value.map(mapToGameType)
+                : []; // Fallback to empty list if error or timeout
+
+            if (res.isErr() && res.error.message === 'METADATA_TIMEOUT') {
+                log.warn('Metadata fetch timed out, proceeding with degraded mapping');
+            }
+
+            return ok({ ...ctx, betTypes });
+        })(),
+        (e) => e instanceof Error ? e : new Error(String(e))
+    ).andThen(res => res);
+};
+
+/**
+ * RESOLVE BETS: Fetches offline and online bets in parallel.
+ * Business logic: Show local data immediately, merge with online data when ready.
+ */
+const resolveBets = (ctx: GetBetsContext, storage: IBetStorage, pOffline: Promise<any[]>, pOnline: Promise<any[]>): ResultAsync<GetBetsContext, Error> => {
+    return ResultAsync.fromPromise(
+        (async () => {
+            const [offlineRaw, onlineRaw] = await Promise.all([
+                pOffline,
+                pOnline.catch(e => {
+                    log.warn('Online fetch failed, proceeding with offline data only', { error: e });
+                    return [] as any[];
+                })
+            ]);
+
+            let offlineBets = mapPendingBetsToFrontend(offlineRaw as any, ctx.filters, ctx.betTypes);
+
+            // DEEP FALLBACK: If we have a receiptCode but no matches in recent draw cache, search everything
+            if (ctx.filters?.receiptCode && offlineBets.length === 0) {
+                log.info('ReceiptCode provided but no recent match found. Performing deep storage search.', { receiptCode: ctx.filters.receiptCode });
+                const allLocal = await storage.getAll();
+                const found = allLocal.filter(b => b.receiptCode === ctx.filters?.receiptCode);
+                
+                if (found.length > 0) {
+                    log.info('✅ Found match in deep storage search', { count: found.length });
+                    offlineBets = mapPendingBetsToFrontend(found as any, ctx.filters, ctx.betTypes);
+                }
+            }
+
+            const onlineBets = (onlineRaw as any[])
+                .map(b => {
+                    try { return mapBackendBetToFrontend(b, ctx.betTypes); }
+                    catch (e) {
+                        log.warn('Mapping error for bet', { betId: b.id, error: e });
+                        return null;
+                    }
+                })
+                .filter(Boolean) as BetType[];
+
+            return ok({ ...ctx, offlineBets, onlineBets });
+        })(),
+        (e) => e instanceof Error ? e : new Error(String(e))
+    ).andThen(res => res);
+};
+
+/**
  * Flow for getting bets (Online + Offline merging).
- * Implemented with a declarative chain pattern using neverthrow.
+ * Architecture: Resilient Pipeline (Parallel Fetch + Sequential Orchestration).
  */
 export const getBetsFlow = async (
     storage: IBetStorage,
     api: IBetApi,
     filters?: ListBetsFilters
 ): Promise<Result<BetType[], Error>> => {
+    log.info('Starting GetBetsFlow (Resilient Pipeline)', { filters });
+
+    // 1. PRE-FETCH (Parallel Request Layer)
+    // We start all tasks immediately to maximize network/disk usage.
+    const pTypes = drawRepository.getBetTypes(filters?.drawId || '');
+
+    // Mejorado: Obtenemos apuestas locales RECIENTES (pendientes + sincronizadas hace poco)
+    // para evitar que desaparezcan mientras el backend las indexa.
+    const pOffline = storage.getRecentByDraw(filters?.drawId || '');
+    const pOnline = api.list(filters);
+
     const initialContext: GetBetsContext = {
         filters,
         betTypes: [],
@@ -164,9 +195,10 @@ export const getBetsFlow = async (
         onlineBets: []
     };
 
+    // 2. ORCHESTRATION (Business Logic Layer)
+    // We use a clean chain pattern that consumes the pre-fetched promises.
     return okAsync(initialContext)
-        .andThen(fetchBetTypes)
-        .andThen(fetchOfflineBets(storage))
-        .andThen(fetchOnlineBets(api))
-        .andThen(mergeBets);
+        .andThen(ctx => resolveMetadata(ctx, pTypes)) // Metadata as enricher (non-blocking timeout)
+        .andThen(ctx => resolveBets(ctx, storage, pOffline, pOnline)) // Core transactional data
+        .andThen(mergeBets); // Final deduplication and safety filtering
 };

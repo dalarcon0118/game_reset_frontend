@@ -118,18 +118,64 @@ export class DrawRepository implements IDrawRepository {
 
     async getDraw(id: string | number): Promise<Result<ExtendedDrawType, Error>> {
         try {
-            const draw = await this.api.getOne(id);
+            const isOnline = await isServerReachable();
+            let draw: BackendDraw | null = null;
+
+            if (isOnline) {
+                try {
+                    draw = await this.api.getOne(id);
+                    if (draw) {
+                        await this.offlineAdapter.saveDraws([draw]);
+                    }
+                } catch (apiError) {
+                    this.log.warn('Failed to fetch draw from API, checking cache', { id, error: apiError });
+                }
+            }
+
+            if (!draw) {
+                draw = await this.offlineAdapter.getById(id);
+                if (draw) {
+                    this.log.info('Returning cached draw', { id });
+                }
+            }
+
+            if (!draw) {
+                return err(new Error(`Draw ${id} not found locally or remotely`));
+            }
+
             return ok(mapBackendDrawToFrontend(draw));
         } catch (error: any) {
+            this.log.error('Error in getDraw', { id, error });
             return err(error instanceof Error ? error : new Error(String(error)));
         }
     }
 
     async getBetTypes(drawId: string | number): Promise<Result<BetType[], Error>> {
         try {
-            const types = await this.api.getBetTypes(drawId);
-            return ok(types);
+            const isOnline = await isServerReachable();
+            let types: BetType[] | null = null;
+
+            if (isOnline) {
+                try {
+                    types = await this.api.getBetTypes(drawId);
+                    if (types) {
+                        await this.offlineAdapter.saveBetTypes(drawId, types);
+                    }
+                } catch (apiError) {
+                    this.log.warn('Failed to fetch bet types from API, checking cache', apiError);
+                }
+            }
+
+            if (!types) {
+                types = await this.offlineAdapter.getBetTypes(drawId);
+                if (types) {
+                    this.log.info('Returning cached bet types', { drawId, count: types.length });
+                }
+            }
+
+            return ok(types || []);
         } catch (error: any) {
+            this.log.error('Error in getBetTypes', error);
             return err(error instanceof Error ? error : new Error(String(error)));
         }
     }

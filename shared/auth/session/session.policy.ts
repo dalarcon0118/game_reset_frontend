@@ -16,7 +16,14 @@ export class SessionPolicy {
         if (!token.includes('.')) return TokenState.INVALID;
 
         try {
-            const payload = JSON.parse(this.atob(token.split('.')[1]));
+            const parts = token.split('.');
+            if (parts.length < 2) return TokenState.INVALID;
+            
+            // Decodificar payload con manejo de padding base64
+            let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+            while (base64.length % 4) base64 += '=';
+            
+            const payload = JSON.parse(this.atob(base64));
             const now = Math.floor(Date.now() / 1000);
             
             if (payload.exp - now < this.REFRESH_SKEW_SECONDS) {
@@ -52,8 +59,19 @@ export class SessionPolicy {
         // No adjuntar si el endpoint es público explícitamente
         if (context.isPublicEndpoint) return false;
 
-        // No adjuntar si el token es nulo o marcador offline
-        if (context.tokenState === TokenState.ABSENT || context.tokenState === TokenState.OFFLINE_MARKER) {
+        // No adjuntar si el token es nulo
+        if (context.tokenState === TokenState.ABSENT) {
+            return false;
+        }
+
+        // Si el estado es ANONYMOUS pero TENEMOS un token válido o expirado,
+        // adjuntamos el token de todos modos (esto corrige fallos de hidratación/sync)
+        if (context.status === 'ANONYMOUS' || context.status === 'IDLE') {
+            return context.tokenState === TokenState.VALID || context.tokenState === TokenState.EXPIRED;
+        }
+
+        // No adjuntar si es marcador offline (no sirve para el backend)
+        if (context.tokenState === TokenState.OFFLINE_MARKER) {
             return false;
         }
 

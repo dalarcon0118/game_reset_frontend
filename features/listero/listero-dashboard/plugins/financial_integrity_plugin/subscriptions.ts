@@ -15,20 +15,23 @@ export function subscriptions(model: Model): Sub<typeof SYNC_DATA> {
   return Sub.batch([
     // Nos suscribimos a los cambios en el estado del host (Dashboard)
     // para reaccionar a nuevas apuestas o nuevos resúmenes del backend
-    hostStore.subscribe((hostState: any) => {
-      const summary = hostState.summary?.type === 'Success' ? hostState.summary.data : null;
-      const pendingBets = hostState.pendingBets || [];
-      const syncedBets = hostState.syncedBets || [];
-      const commissionRate = hostState.commissionRate || 0.1;
-
-      // Unimos todas las apuestas locales del día
-      const allLocalBets = [...pendingBets, ...syncedBets];
-
-      return SYNC_DATA({
-        allLocalBets,
-        backendSummary: summary,
-        commissionRate
-      });
-    }, 'financial-integrity-sync')
+    Sub.watchStore(
+      hostStore,
+      (state: any) => {
+        const hostModel = state.model || state;
+        const summary = hostModel.summary?.type === 'Success' ? hostModel.summary.data : null;
+        const pendingBets = hostModel.pendingBets || [];
+        const syncedBets = hostModel.syncedBets || [];
+        const commissionRate = hostModel.commissionRate || 0.1;
+        
+        return {
+          allLocalBets: [...pendingBets, ...syncedBets],
+          backendSummary: summary,
+          commissionRate
+        };
+      },
+      (data) => SYNC_DATA(data),
+      'financial-integrity-sync'
+    )
   ]);
 }

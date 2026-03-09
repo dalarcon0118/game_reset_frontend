@@ -431,10 +431,8 @@ export const checkRateLimit = (webData: WebData<any>): boolean => {
 };
 
 export const handleAuthUserSynced = (model: Model, user: DashboardUser | null): Model => {
-    console.log('[DEBUG] logic.handleAuthUserSynced: INICIANDO con user =', user ? user.id : 'null');
     // 1. Handle Logout / Null User
     if (!user) {
-        console.log('[DEBUG] logic.handleAuthUserSynced: Usuario es null - LOGOUT');
         // If we had a user before, we need to clear sensitive data
         if (model.currentUser) {
             log.info('User logged out, clearing dashboard state');
@@ -446,36 +444,29 @@ export const handleAuthUserSynced = (model: Model, user: DashboardUser | null): 
                 summary: RemoteData.notAsked() // Clear summary
             };
         }
+        // Already cleared, return same model reference to avoid re-renders
         return model;
     }
 
     // 2. Handle User Update
     // With Strict DTO, we KNOW structureId and commissionRate exist if the user exists.
-    // No more optional chaining guessing games.
     const newStructureId = user.structureId;
     const newCommissionRate = user.commissionRate;
-    console.log('[DEBUG] logic.handleAuthUserSynced: newStructureId =', newStructureId, 'newCommissionRate =', newCommissionRate);
 
     // Check if critical structure changed
     const structureChanged = model.userStructureId !== newStructureId;
-    console.log('[DEBUG] logic.handleAuthUserSynced: structureChanged =', structureChanged);
 
     // Check if commission changed
     const commissionChanged = model.commissionRate !== newCommissionRate;
 
     if (!structureChanged && !commissionChanged) {
-        console.log('[DEBUG] logic.handleAuthUserSynced: Sin cambios relevantes - retorna modelo sin cambios');
         // No material change, return model as is (preserves referential equality)
-        log.debug('User synced but no material change', { id: user.id });
         return model;
     }
 
-    console.log('[DEBUG] logic.handleAuthUserSynced: RETORNANDO modelo con cambios');
     log.info('User structure/commission updated', {
         oldStruct: model.userStructureId,
         newStruct: newStructureId,
-        oldComm: model.commissionRate,
-        newComm: newCommissionRate,
         structureChanged
     });
 

@@ -184,13 +184,16 @@ export const FeatureFlows = {
                     .andThen((trustedNow) => {
                         const query = BetQuery.create()
                             .forDraw(drawId)
-                            .onDate(trustedNow)
+                            .onDate(new Date(trustedNow))
                             .build();
 
                         return ResultAsync.fromPromise(
                             betRepository.getBets(query),
                             (e) => e instanceof Error ? e : new Error(String(e))
-                        ).andThen(result => result); // betRepository.getBets already returns a Result
+                        ).andThen(result => {
+                            log.info(`[LOTERIA_FLOW] Fetching bets for Draw: ${drawId}`, { filterDate: query.date });
+                            return result;
+                        }); // betRepository.getBets already returns a Result
                     })
                     .map((bets) => {
                         return bets

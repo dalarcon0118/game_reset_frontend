@@ -44,6 +44,14 @@ class LogProcessor {
   process(line) {
     if (!line) return null;
 
+    // 1. Detect view changes from NAV_EFFECT
+    if (line.includes('NAV_EFFECT') && line.includes('"to":')) {
+      const match = line.match(/"to":\s*"([^"]+)"/);
+      if (match && match[1]) {
+        this.currentView = match[1];
+      }
+    }
+
     // Always log important tags
     if (hasAlwaysLogTag(line)) {
       return line;

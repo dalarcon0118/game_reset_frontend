@@ -1,8 +1,8 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect } from 'react';
 import { FijosCorridosBet } from '@/types';
-import { useBolitaStore, selectBolitaModel, selectDispatch } from '../store';
-import { FIJOS, KEY_PRESSED, FijosMessages } from '../../domain/models/bolita.messages';
+import { useBolitaStore, selectBolitaModel } from '../store';
 import { logger } from '@/shared/utils/logger';
+import { useBolitaActions } from './use_bolita_actions';
 
 const log = logger.withTag('USE_FIJOS');
 
@@ -12,7 +12,7 @@ const log = logger.withTag('USE_FIJOS');
  */
 export const useFijos = ({ onSelectPlay }: { onSelectPlay?: (bets: FijosCorridosBet[]) => void } = {}) => {
   const model = useBolitaStore(selectBolitaModel);
-  const dispatch = useBolitaStore(selectDispatch);
+  const { fijos: actions } = useBolitaActions();
 
   const {
     listState,
@@ -36,10 +36,6 @@ export const useFijos = ({ onSelectPlay }: { onSelectPlay?: (bets: FijosCorridos
       ? listState.remoteData.data.fijosCorridos
       : []);
 
-  const openBetKeyboard = useCallback(() => dispatch(FIJOS(FijosMessages.OPEN_BET_KEYBOARD())), [dispatch]);
-  const openAmountKeyboard = useCallback((betId: string, amountType: 'fijo' | 'corrido') =>
-    dispatch(FIJOS(FijosMessages.OPEN_AMOUNT_KEYBOARD({ betId, amountType }))), [dispatch]);
-
   // Efecto para llamar a onSelectPlay cuando fijosCorridos cambia
   useEffect(() => {
     if (fijosCorridos.length > 0 && onSelectPlay) {
@@ -50,7 +46,7 @@ export const useFijos = ({ onSelectPlay }: { onSelectPlay?: (bets: FijosCorridos
   return {
     fijosCorridosList: fijosCorridos,
     editingAmountType,
-    handleAddBetPress: openBetKeyboard,
-    handleAmountCirclePress: openAmountKeyboard,
+    handleAddBetPress: actions.openBetKeyboard,
+    handleAmountCirclePress: actions.openAmountKeyboard,
   };
 };

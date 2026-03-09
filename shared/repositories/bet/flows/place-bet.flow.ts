@@ -40,6 +40,12 @@ const prepareAndSaveBet = async (
     storage: IBetStorage
 ): Promise<Result<BetDomainModel, Error>> => {
     const trustedNow = await TimerRepository.getTrustedNow(Date.now());
+
+    log.info(`[PLACE_BET_DEBUG] Saving bet`, {
+        timestamp: new Date(trustedNow).toISOString(),
+        drawId: betData.drawId
+    });
+
     const bet: BetDomainModel = {
         ...betData,
         externalId: Crypto.randomUUID(),
@@ -156,8 +162,14 @@ export const placeBetFlow = async (
     storage: IBetStorage,
     api: IBetApi
 ): Promise<Result<BetRepositoryResult, Error>> => {
+    // Asegurar receiptCode único si no viene ya uno
+    const betWithCode = {
+        ...betData,
+        receiptCode: betData.receiptCode || BetLogic.generateReceiptCode()
+    };
+
     // Functional Builder orchestration using ResultAsync (neverthrow)
-    return okAsync(betData)
+    return okAsync(betWithCode)
         .andThen(data => new ResultAsync(validateBusinessRules(data, storage)))
         .andThen(data => new ResultAsync(prepareAndSaveBet(data, storage)))
         .andThen(bet => new ResultAsync(notifyBetCreated(bet)))
@@ -173,7 +185,14 @@ export const placeBatchFlow = async (
     storage: IBetStorage,
     api: IBetApi
 ): Promise<Result<BetType[], Error>> => {
-    return okAsync(betsData)
+    // Generar un único receiptCode para todo el batch si no viene ya uno
+    const commonReceiptCode = BetLogic.generateReceiptCode();
+    const betsWithCommonCode = betsData.map(bet => ({
+        ...bet,
+        receiptCode: bet.receiptCode || commonReceiptCode
+    }));
+
+    return okAsync(betsWithCommonCode)
         .andThen(dataList => {
             const validations = dataList.map(data => new ResultAsync(validateBusinessRules(data, storage)));
             return ResultAsync.combine(validations);

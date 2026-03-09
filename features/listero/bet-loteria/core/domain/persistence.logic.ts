@@ -19,7 +19,7 @@ export const PersistenceLogic = {
             ...model.summary,
             isSaving: true,
             error: null,
-            pendingReceiptCode: CalculationLogic.generateReceiptCode()
+            pendingReceiptCode: null // Ahora lo maneja el repositorio
         }
     }),
 
@@ -57,7 +57,6 @@ export const PersistenceLogic = {
      * Esto permite usar betRepository.placeBatch para un manejo offline-first consistente.
      */
     createSavePayload: (model: LoteriaFeatureModel, drawId: string): Result<BetPlacementInput[], Error> => {
-        const receiptCode = model.summary.pendingReceiptCode || CalculationLogic.generateReceiptCode();
         const loteriaBetTypeId = model.managementSession.betTypes.loteria;
 
         // Obtener detalles del sorteo para extraer la estructura (fallback)
@@ -71,12 +70,12 @@ export const PersistenceLogic = {
             : String(drawDetails?.owner_structure || '');
 
         // Retornamos un array de apuestas individuales compatibles con BetDomainModel
+        // El receiptCode será generado por el Repositorio si no se provee aquí.
         const candidates = model.entrySession.loteria.map(bet => ({
             drawId,
             betTypeId: loteriaBetTypeId || '',
             numbers: bet.bet,
             amount: bet.amount,
-            receiptCode,
             ownerStructure: effectiveStructureId
         }));
 

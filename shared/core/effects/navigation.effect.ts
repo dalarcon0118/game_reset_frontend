@@ -1,5 +1,5 @@
 import { logger } from '../../utils/logger';
-
+import { navigationRef } from '../../navigation/navigation_service';
 const log = logger.withTag('NAV_EFFECT');
 
 // Keep track of current view for logging transitions
@@ -58,7 +58,10 @@ export async function handleNavigation(
   const targetPath = payload.pathname || payload.path;
 
   const now = Date.now();
-
+  if (!navigationRef.isReady()) {
+    log.warn('Navigation skipped - navigator not ready', { path: targetPath });
+    return;
+  }
   // Handle Back Navigation
   if (method === 'back') {
     log.info('Navigating back');

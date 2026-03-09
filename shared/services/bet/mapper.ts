@@ -5,7 +5,7 @@ import { logger } from '@/shared/utils/logger';
 import { BET_TYPE_KEYS, BetTypeKind, BACKEND_BET_CODES, BET_TYPE_KEYWORDS, UI_CONSTANTS } from '@/shared/types/bet_types';
 import { GameType } from '@/types';
 
-import { toLocalISODate } from '@/shared/utils/formatters';
+import { TimerRepository } from '@/shared/repositories/system/time/timer.repository';
 
 const log = logger.withTag('BET_MAPPER');
 
@@ -158,7 +158,7 @@ export const mapPendingBetsToFrontend = (pendingBets: BetDomainModel[], filters?
     if (filters?.date) {
         // Asegurar que el filtro sea un string ISO (YYYY-MM-DD) incluso si viene como timestamp
         const filterDate = typeof filters.date === 'number' || !isNaN(Number(filters.date))
-            ? toLocalISODate(Number(filters.date))
+            ? TimerRepository.formatUTCDate(Number(filters.date))
             : filters.date;
 
         log.info('Filtering pending bets by date', {
@@ -168,7 +168,7 @@ export const mapPendingBetsToFrontend = (pendingBets: BetDomainModel[], filters?
         });
 
         relevantPendingBets = relevantPendingBets.filter((pb: BetDomainModel) => {
-            const betDate = toLocalISODate(pb.timestamp);
+            const betDate = TimerRepository.formatUTCDate(pb.timestamp);
             const isMatch = betDate === filterDate;
 
             if (!isMatch) {
@@ -231,7 +231,7 @@ export const mapSinglePendingBetToFrontend = (pb: BetDomainModel, betTypes: Game
         }),
         timestamp: pb.timestamp,
         isPending: true,
-        receiptCode: pb.receiptCode || UI_CONSTANTS.PENDING_OFFLINE_PREFIX,
+        receiptCode: pb.receiptCode,
         betTypeId: pb.betTypeId // Almacenamos el ID del backend
     };
 };

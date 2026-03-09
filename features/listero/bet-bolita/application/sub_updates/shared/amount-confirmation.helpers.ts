@@ -26,7 +26,7 @@ export const clearAmountConfirmation = (model: BolitaModel): BolitaModel => ({
 });
 
 /**
- * Aplica un monto a una apuesta individual de fijos/corridos.
+ * Aplica un monto a una apuesta individual de fijos/corridos o centenas.
  */
 export const applyAmountSingle = (model: BolitaModel): BolitaModel => {
     const { amountConfirmationDetails } = model.editState;
@@ -34,6 +34,7 @@ export const applyAmountSingle = (model: BolitaModel): BolitaModel => {
 
     const { amountValue, intendedAmountType, intendedBetId } = amountConfirmationDetails;
 
+    // Actualizar fijos/corridos si aplica
     const updatedFijosCorridos = model.entrySession.fijosCorridos.map(b => {
         if (b.id === intendedBetId) {
             return {
@@ -45,11 +46,29 @@ export const applyAmountSingle = (model: BolitaModel): BolitaModel => {
         return b;
     });
 
+    // Actualizar centenas si aplica
+    const updatedCentenas = model.entrySession.centenas.map(c => {
+        if (c.id === intendedBetId && intendedAmountType === 'centena') {
+            return { ...c, amount: amountValue };
+        }
+        return c;
+    });
+
+    // Actualizar parlets si aplica
+    const updatedParlets = model.entrySession.parlets.map(p => {
+        if (p.id === intendedBetId && intendedAmountType === 'parlet') {
+            return { ...p, amount: amountValue };
+        }
+        return p;
+    });
+
     const modelWithBets = {
         ...model,
         entrySession: {
             ...model.entrySession,
             fijosCorridos: updatedFijosCorridos,
+            centenas: updatedCentenas,
+            parlets: updatedParlets,
         }
     };
 
@@ -57,7 +76,7 @@ export const applyAmountSingle = (model: BolitaModel): BolitaModel => {
 };
 
 /**
- * Aplica un monto a todas las apuestas de fijos/corridos.
+ * Aplica un monto a todas las apuestas de fijos/corridos o centenas o parlets.
  */
 export const applyAmountAll = (model: BolitaModel): BolitaModel => {
     const { amountConfirmationDetails } = model.editState;
@@ -65,22 +84,36 @@ export const applyAmountAll = (model: BolitaModel): BolitaModel => {
 
     const { amountValue, intendedAmountType } = amountConfirmationDetails;
 
-    // Solo aplicar a las apuestas actuales, SIN persistir el monto para futuras apuestas
+    // Actualizar fijos/corridos si aplica
     const updatedFijosCorridos = model.entrySession.fijosCorridos.map(b => ({
         ...b,
         fijoAmount: intendedAmountType === 'fijo' ? amountValue : b.fijoAmount,
         corridoAmount: intendedAmountType === 'corrido' ? amountValue : b.corridoAmount,
     }));
 
-    log.info('applyAmountAll: Monto aplicado a todas las apuestas actuales');
+    // Actualizar centenas si aplica
+    const updatedCentenas = model.entrySession.centenas.map(c => ({
+        ...c,
+        amount: intendedAmountType === 'centena' ? amountValue : c.amount,
+    }));
+
+    // Actualizar parlets si aplica
+    const updatedParlets = model.entrySession.parlets.map(p => ({
+        ...p,
+        amount: intendedAmountType === 'parlet' ? amountValue : p.amount,
+    }));
+
+    log.info('applyAmountAll: Monto aplicado a todas las apuestas actuales', { intendedAmountType });
 
     return updateSummary({
         ...model,
         entrySession: {
             ...model.entrySession,
             fijosCorridos: updatedFijosCorridos,
+            centenas: updatedCentenas,
+            parlets: updatedParlets,
         },
-        ...clearAmountConfirmation(model).editState
+        editState: clearAmountConfirmation(model).editState
     });
 };
 
@@ -93,6 +126,7 @@ export const prepareAmountConfirmation = (model: BolitaModel, amount: number): B
 
     return {
         ...model,
+        isEditing: true,
         editState: {
             ...model.editState,
             amountConfirmationDetails: {

@@ -1,9 +1,11 @@
 import { useBolitaStore, selectBolitaModel, selectDispatch } from '../store';
-import { CENTENA, KEY_PRESSED, CentenaMessages } from '../../domain/models/bolita.messages';
+import { CENTENA, CentenaMessages } from '../../domain/models/bolita.messages';
+import { useBolitaActions } from './use_bolita_actions';
 
 export const useCentena = () => {
     const model = useBolitaStore(selectBolitaModel);
     const dispatch = useBolitaStore(selectDispatch);
+    const { centena: actions } = useBolitaActions();
 
     const {
         listState,
@@ -31,9 +33,6 @@ export const useCentena = () => {
         isAmountDrawerVisible,
     } = centenaSession;
 
-    const editCentenaBet = (betId: string) => dispatch(CENTENA(CentenaMessages.EDIT_CENTENA_BET({ betId })));
-    const editAmountKeyboard = (betId: string) => dispatch(CENTENA(CentenaMessages.OPEN_CENTENA_AMOUNT_KEYBOARD({ betId })));
-    const pressAddCentena = () => dispatch(CENTENA(CentenaMessages.PRESS_ADD_CENTENA()));
     const showCentenaDrawer = (visible: boolean) => dispatch(CENTENA(CentenaMessages.SHOW_CENTENA_DRAWER({ visible })));
     const showAmountDrawer = (visible: boolean) => dispatch(CENTENA(CentenaMessages.SHOW_CENTENA_MODAL({ visible })));
 
@@ -42,9 +41,9 @@ export const useCentena = () => {
         editingAmountType,
         isCentenaDrawerVisible,
         isAmountDrawerVisible,
-        editCentenaBet,
-        editAmountKeyboard,
-        pressAddCentena,
+        editCentenaBet: actions.editBet,
+        editAmountKeyboard: actions.openAmountKeyboard,
+        pressAddCentena: actions.openBetKeyboard,
         showCentenaDrawer,
         showAmountDrawer,
     };

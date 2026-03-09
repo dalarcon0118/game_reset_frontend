@@ -1,4 +1,4 @@
-import { TeaMiddleware } from '@/shared/core/middleware.types';
+import { TeaMiddleware } from '@/shared/core/tea-utils/middleware.types';
 import { TimerRepository } from '@/shared/repositories/system/time/timer.repository';
 import { useAuthStore } from '@/features/auth/store/store';
 import { AuthMsgType } from '@/features/auth/store/types/messages.types';
@@ -14,16 +14,28 @@ const log = logger.withTag('TIME_INTEGRITY_MW');
  * when the device has been asleep or in background for extended periods.
  */
 export const createTimeIntegrityMiddleware = (): TeaMiddleware<any, any> => {
+    // Local cache for the current transaction ID to avoid redundant validations
+    // within the same TEA message processing cycle (across multiple stores).
+    let lastProcessedTraceId: string | null = null;
+
     return {
         id: 'time-integrity',
 
         beforeUpdate: async (model, msg, meta) => {
+            // 1. TraceID Deduplication
+            // If we already validated for this specific traceId, skip.
+            if (meta.traceId && meta.traceId === lastProcessedTraceId) {
+                return;
+            }
+            lastProcessedTraceId = meta.traceId;
+
+            // 2. Auth Guards
             // Skip validation for auth-related messages to avoid loops
-            // or if the message is already a session expiration.
             const msgType = (msg as any).type;
             if (
                 msgType === AuthMsgType.SESSION_EXPIRED ||
                 msgType === AuthMsgType.LOGOUT_REQUESTED ||
+                msgType === AuthMsgType.USER_CHANGED || // FIX: Prevent infinite loop during logout
                 msgType?.startsWith('LOGIN_')
             ) {
                 return;
@@ -33,6 +45,13 @@ export const createTimeIntegrityMiddleware = (): TeaMiddleware<any, any> => {
                 // Check if we have an offline session - skip validation to avoid false positives
                 // when the device has been asleep or in background for extended periods
                 const authState = useAuthStore.getState();
+
+                // FIX: Prevent infinite loop by checking if already in expired/logging out state
+                if (authState?.model?.status === 'EXPIRED' || authState?.model?.status === 'LOGGING_OUT') {
+                    log.debug('Skipping time integrity validation - session already expired/logging out');
+                    return;
+                }
+
                 const token = authState?.model?.loginResponse;
 
                 // If login response is a success with offline token, skip validation

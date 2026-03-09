@@ -12,7 +12,13 @@ import {
     closeBetKeyboard,
     closeAmountKeyboard
 } from './shared/edit-state.helpers';
-import { updateSummary } from './shared/amount-confirmation.helpers';
+import {
+    updateSummary,
+    applyAmountSingle,
+    applyAmountAll,
+    clearAmountConfirmation,
+    prepareAmountConfirmation
+} from './shared/amount-confirmation.helpers';
 import { FijosCorridosBet, ParletBet } from '@/types';
 
 const log = logger.withTag('BOLITA_PARLET_UPDATE');
@@ -70,7 +76,7 @@ const prepareParletData = (ctx: ParletContext): Result<ParletContext, string> =>
     const newParlets: ParletBet[] = pairs.map(pair => ({
         id: Math.random().toString(36).substr(2, 9),
         bets: pair,
-        amount: 0
+        amount: null // Use null for "$" placeholder
     }));
 
     const updatedFijos = ctx.model.entrySession.fijosCorridos.map(f =>
@@ -96,6 +102,37 @@ const applyParletToModel = (ctx: ParletContext): BolitaModel => {
         isEditing: newModel.isEditing
     });
     return newModel;
+};
+
+/**
+ * Procesa la entrada del teclado de parlets (números o montos).
+ */
+const processParletInput = (model: BolitaModel): Result<BolitaModel, string> => {
+    const { currentInput, showAmountKeyboard, showBetKeyboard, editingBetId } = model.editState;
+
+    // CASO 1: Procesando Monto
+    if (showAmountKeyboard && editingBetId) {
+        const amount = parseInt(currentInput, 10) || 0;
+        log.info('processParletInput: Preparando confirmación de monto', { amount, editingBetId });
+        return ok(prepareAmountConfirmation(model, amount));
+    }
+
+    // CASO 2: Procesando Números (Entrada manual)
+    if (showBetKeyboard) {
+        // Parsear entrada en pares (ej: "121516" -> [12, 15, 16])
+        const numbers = BolitaImpl.validation.parseInput(currentInput, 2);
+        log.info('processParletInput: Números parseados', { currentInput, numbers });
+
+        if (numbers.length < 2) {
+            return ok(model);
+        }
+
+        return ok<ParletContext, string>({ model, numbers })
+            .andThen(prepareParletData)
+            .map(applyParletToModel);
+    }
+
+    return ok(model);
 };
 
 // ============================================================================
@@ -192,53 +229,73 @@ export const updateParlet = (model: BolitaModel, msg: ParletMsg): Return<BolitaM
         .with({ type: 'CLOSE_PARLET_AMOUNT_KEYBOARD' }, () => {
             return singleton(closeAmountKeyboard(model));
         })
+        .with({ type: 'CONFIRM_APPLY_AMOUNT_SINGLE' }, () => {
+            return singleton(applyAmountSingle(model));
+        })
+        .with({ type: 'CONFIRM_APPLY_AMOUNT_ALL' }, () => {
+            return singleton(applyAmountAll(model));
+        })
+        .with({ type: 'CANCEL_AMOUNT_CONFIRMATION' }, () => {
+            return singleton(clearAmountConfirmation(model));
+        })
         .with({ type: 'PARLET_CONFIRM_INPUT' }, () => {
             log.info('PARLET_CONFIRM_INPUT: Procesando entrada');
 
-            const { currentInput, showAmountKeyboard, showBetKeyboard, editingBetId } = model.editState;
+            const result = ok<BolitaModel, string>(model)
+                .andThen(processParletInput)
+                .map(updateSummary);
 
-            // CASO 1: Procesando Monto
-            if (showAmountKeyboard && editingBetId) {
-                const amount = parseInt(currentInput, 10) || 0;
-                log.info('PARLET_CONFIRM_INPUT: Aplicando monto', { amount, editingBetId });
+            return result.match(
+                (newModel) => {
+                    // Si hay una confirmación de monto pendiente, mostrar la alerta
+                    if (newModel.editState.amountConfirmationDetails) {
+                        const { amountValue } = newModel.editState.amountConfirmationDetails;
 
-                const updatedParlets = model.entrySession.parlets.map(p =>
-                    p.id === editingBetId ? { ...p, amount } : p
-                );
+                        // Contar cuántas apuestas de parlet existen
+                        const betCount = newModel.entrySession.parlets.length;
 
-                const newModel: BolitaModel = {
-                    ...model,
-                    isEditing: true,
-                    entrySession: {
-                        ...model.entrySession,
-                        parlets: updatedParlets,
+                        // Si solo hay una apuesta, aplicar directamente sin preguntar
+                        if (betCount <= 1) {
+                            log.info('PARLET_CONFIRM_INPUT: Solo una apuesta detectada, aplicando monto directamente');
+                            const finalModel = {
+                                ...newModel,
+                                editState: {
+                                    ...newModel.editState,
+                                    showAmountKeyboard: false,
+                                    currentInput: '',
+                                }
+                            };
+                            return singleton(applyAmountSingle(finalModel));
+                        }
+
+                        // Limpiar estado visual del teclado antes de mostrar la alerta
+                        const finalModel = {
+                            ...newModel,
+                            editState: {
+                                ...newModel.editState,
+                                showAmountKeyboard: false,
+                                currentInput: '',
+                            }
+                        };
+
+                        return ret(finalModel, Cmd.alert({
+                            title: '¿Aplicar monto?',
+                            message: `Deseas aplicar el monto de ${amountValue} a:`,
+                            buttons: [
+                                { text: 'Solo a esta', onPressMsg: { type: 'CONFIRM_APPLY_AMOUNT_SINGLE' } },
+                                { text: 'A todas', onPressMsg: { type: 'CONFIRM_APPLY_AMOUNT_ALL' } },
+                                { text: 'Cancelar', style: 'cancel', onPressMsg: { type: 'CANCEL_AMOUNT_CONFIRMATION' } }
+                            ]
+                        }));
                     }
-                };
 
-                return singleton(updateSummary(clearEditState(newModel)));
-            }
-
-            // CASO 2: Procesando Números (Entrada manual)
-            if (showBetKeyboard) {
-                // Parsear entrada en pares (ej: "121516" -> [12, 15, 16])
-                const numbers = BolitaImpl.validation.parseInput(currentInput, 2);
-                log.info('PARLET_CONFIRM_INPUT: Números parseados', { currentInput, numbers });
-
-                if (numbers.length < 2) {
+                    return singleton(clearEditState(newModel));
+                },
+                (error) => {
+                    log.error('PARLET_CONFIRM_INPUT Error:', error);
                     return singleton(clearEditState(model));
                 }
-
-                const result = ok<ParletContext, string>({ model, numbers })
-                    .andThen(prepareParletData)
-                    .map(applyParletToModel)
-                    .map(updateSummary);
-
-                return result.isOk()
-                    ? singleton(clearEditState(result.value))
-                    : singleton(clearEditState(model));
-            }
-
-            return singleton(clearEditState(model));
+            );
         })
         .otherwise(() => singleton(model));
 };

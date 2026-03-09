@@ -1,4 +1,5 @@
 import { ApiClientError } from '../api_client.errors';
+import NetInfo from '@react-native-community/netinfo';
 import {
   ErrorHandler,
   ILogger,
@@ -56,10 +57,14 @@ export class RequestExecutor {
     const cached = this.getCachedResponse<T>(context);
     if (cached !== null) return cached;
 
-    // Validación proactiva via coordinator
     if (this.shouldAttemptAuth(endpoint, context.fetchOptions)) {
       const coordinator = this.coordinatorGetter();
-      await coordinator.onRequestAuthCheck(endpoint, false, true); // Public check already in shouldAttemptAuth
+      await coordinator.onRequestAuthCheck(
+        endpoint,
+        this.isPublicEndpoint(endpoint),
+        true,
+        this.runPreventiveRefresh.bind(this)
+      );
     }
 
     return this.executeWithRetry<T>(context);
@@ -195,6 +200,8 @@ export class RequestExecutor {
   private shouldAttemptAuth(endpoint: string, options: RequestExecutionOptions): boolean {
     if (options.skipAuth) return false;
     if (this.isPublicEndpoint(endpoint)) return false;
+    // Excluir explícitamente login y refresh para evitar bucles de dependencia
+    if (endpoint.includes('/login') || endpoint.includes('/token/refresh')) return false;
     return !this.isRefreshEndpoint(endpoint);
   }
 
@@ -227,10 +234,14 @@ export class RequestExecutor {
     const token = await this.credentialProvider.getAccessToken();
     const tokenState = SessionPolicy.resolveTokenState(token);
 
+    // Obtener estado real de red para la política de sesión
+    const netInfo = await NetInfo.fetch();
+    const networkConnected = !!(netInfo.isConnected && netInfo.isInternetReachable);
+
     const context: SessionPolicyContext = {
       status: this.coordinatorGetter().getCurrentStatus(),
       tokenState,
-      networkConnected: true, // TODO: Inyectar monitor de red
+      networkConnected,
       isPublicEndpoint: options.skipAuth
     };
 
@@ -299,6 +310,11 @@ export class RequestExecutor {
 
   private shouldRetryServerError(status: number, attempt: number, retryCount: number): boolean {
     return status >= 500 && attempt < retryCount;
+  }
+
+  private async runPreventiveRefresh(): Promise<string | null> {
+    const result = await this.credentialProvider.refreshCredentials();
+    return result.isOk() ? result.value : null;
   }
 
   private handleTimeSync(response: Response) {

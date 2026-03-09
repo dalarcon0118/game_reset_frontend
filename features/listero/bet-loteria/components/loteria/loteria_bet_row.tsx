@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import Layout from '@/constants/layout';
 import AmountCircle from '@/shared/components/bets/amount_circle';
@@ -14,7 +14,7 @@ interface LoteriaBetRowProps {
     onOpenAmountKeyboard: (id: string) => void;
 }
 
-export const LoteriaBetRow: React.FC<LoteriaBetRowProps> = ({
+export const LoteriaBetRow: React.FC<LoteriaBetRowProps> = memo(({
     item,
     isEditing,
     hasFixedAmount,
@@ -43,7 +43,7 @@ export const LoteriaBetRow: React.FC<LoteriaBetRowProps> = ({
             )}
         </View>
     );
-};
+});
 
 const styles = StyleSheet.create({
     betRow: {

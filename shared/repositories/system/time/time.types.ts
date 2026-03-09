@@ -6,6 +6,7 @@ export interface TimeMetadata {
     lastServerTime: number;
     /** The client time in ms when the last server sync occurred */
     lastClientTime: number;
+    anchorMonotonicMs?: number;
     /** (ServerTime - ClientTime) in ms */
     serverTimeOffset: number;
     /** When this metadata was last updated */

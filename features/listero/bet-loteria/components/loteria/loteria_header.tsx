@@ -23,6 +23,8 @@ export const LoteriaHeader: React.FC<LoteriaHeaderProps> = ({ hasFixedAmount, fi
     );
 };
 
+LoteriaHeader.displayName = 'LoteriaHeader';
+
 const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',

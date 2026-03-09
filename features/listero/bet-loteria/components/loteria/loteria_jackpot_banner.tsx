@@ -25,6 +25,8 @@ export const LoteriaJackpotBanner: React.FC<LoteriaJackpotBannerProps> = ({
     );
 };
 
+LoteriaJackpotBanner.displayName = 'LoteriaJackpotBanner';
+
 const styles = StyleSheet.create({
     jackpotBanner: {
         backgroundColor: Colors.light.tint + '15',

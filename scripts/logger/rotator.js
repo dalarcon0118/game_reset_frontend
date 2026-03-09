@@ -50,8 +50,8 @@ function rotateFile(filePath) {
 /**
  * Creates a WriteStream for the log file
  */
-function createLogStream(logFile) {
-  return fs.createWriteStream(logFile, { flags: 'a' });
+function createLogStream(logFile, flags = 'a') {
+  return fs.createWriteStream(logFile, { flags });
 }
 
 /**

@@ -148,6 +148,23 @@ export const updateFijos = (model: BolitaModel, msg: FijosMsg): Return<BolitaMod
                     if (newModel.editState.amountConfirmationDetails) {
                         const { amountValue } = newModel.editState.amountConfirmationDetails;
 
+                        // Contar cuántas apuestas de fijos/corridos existen
+                        const betCount = newModel.entrySession.fijosCorridos.length;
+
+                        // Si solo hay una apuesta, aplicar directamente sin preguntar
+                        if (betCount <= 1) {
+                            log.info('FIJOS_CONFIRM_INPUT: Solo una apuesta detectada, aplicando monto directamente');
+                            const finalModel = {
+                                ...newModel,
+                                editState: {
+                                    ...newModel.editState,
+                                    showAmountKeyboard: false,
+                                    currentInput: '',
+                                }
+                            };
+                            return singleton(applyAmountSingle(finalModel));
+                        }
+
                         // Limpiar estado visual del teclado antes de mostrar la alerta
                         const finalModel = {
                             ...newModel,

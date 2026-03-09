@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Text, View } from 'react-native';
 import BolitaListPlays from '@/features/listero/bet-bolita/presentation/screens/bolita_list_plays';
+import { BolitaStoreProvider } from '@/features/listero/bet-bolita/presentation/store';
 
 export default function BetsListPage() {
   const { id } = useLocalSearchParams();
@@ -23,6 +24,8 @@ export default function BetsListPage() {
   }
 
   return (
-    <BolitaListPlays drawId={id as string} />
+    <BolitaStoreProvider>
+      <BolitaListPlays drawId={id as string} />
+    </BolitaStoreProvider>
   );
 }

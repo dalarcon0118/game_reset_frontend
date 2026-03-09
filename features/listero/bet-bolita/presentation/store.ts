@@ -1,6 +1,7 @@
+import React, { createContext, useContext, useEffect, useMemo } from 'react';
+import { UseBoundStore, StoreApi } from 'zustand';
 import { createElmStore } from '@/shared/core/engine/engine';
-import { effectHandlers, Cmd, Sub } from '@/shared/core/tea-utils';
-import { createLoggerMiddleware } from '@/shared/core/middlewares/logger.middleware';
+import { Cmd, Sub } from '@/shared/core/tea-utils';
 import { BolitaModel } from '../domain/models/bolita.types';
 import { initialBolitaModel } from '../domain/models/bolita.initial';
 import { update } from '../application/bolita';
@@ -22,13 +23,55 @@ const init = (params?: Partial<BolitaModel>): [BolitaModel, Cmd] => {
 
 const subscriptions = (model: BolitaModel) => Sub.none();
 
-export const useBolitaStore = createElmStore<BolitaModel, BolitaMsg>(
-    {
+interface StoreState {
+    model: BolitaModel;
+    dispatch: (msg: BolitaMsg) => void;
+    init: (params?: any) => void;
+    cleanup: () => void;
+}
+
+type StoreType = UseBoundStore<StoreApi<StoreState>>;
+
+const BolitaStoreContext = createContext<StoreType | undefined>(undefined);
+
+const createBolitaStore = () => {
+    return createElmStore<BolitaModel, BolitaMsg>({
         initial: init,
         update: update,
         subscriptions
-    }
-);
+    });
+};
 
-export const selectBolitaModel = (state: { model: BolitaModel }) => state.model;
-export const selectDispatch = (state: { dispatch: (msg: BolitaMsg) => void }) => state.dispatch;
+export const BolitaStoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const store = useMemo(() => createBolitaStore(), []);
+
+    useEffect(() => {
+        return () => {
+            store.getState().cleanup();
+        };
+    }, [store]);
+
+    return React.createElement(
+        BolitaStoreContext.Provider,
+        { value: store },
+        children
+    );
+};
+
+export function useBolitaStore(): StoreState;
+export function useBolitaStore<T>(selector: (state: StoreState) => T): T;
+export function useBolitaStore<T>(selector?: (state: StoreState) => T): T | StoreState {
+    const store = useContext(BolitaStoreContext);
+    if (!store) {
+        throw new Error('useBolitaStore must be used within a BolitaStoreProvider');
+    }
+
+    if (!selector) {
+        return store();
+    }
+
+    return store(selector);
+}
+
+export const selectBolitaModel = (state: StoreState) => state.model;
+export const selectDispatch = (state: StoreState) => state.dispatch;

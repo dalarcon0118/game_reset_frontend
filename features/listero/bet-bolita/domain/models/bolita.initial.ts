@@ -66,6 +66,7 @@ export const initialBolitaListData: BolitaListData = {
 export const initialBolitaModel: BolitaModel = {
     isEditing: false,
     currentDrawId: null,
+    userStructureId: null,
     drawDetails: RemoteData.notAsked(),
     betTypes: RemoteData.notAsked(),
     parletSession: initialParletState,
@@ -80,5 +81,6 @@ export const initialBolitaModel: BolitaModel = {
         grandTotal: 0,
         hasBets: false,
         isSaving: false,
+        pendingReceiptCode: null,
     },
 };

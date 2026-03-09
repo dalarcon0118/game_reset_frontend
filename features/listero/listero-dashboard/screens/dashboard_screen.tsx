@@ -10,7 +10,7 @@ import { useShallow } from 'zustand/shallow';
 import { RemoteData } from '@/shared/core/tea-utils';
 import { Label } from '@/shared/components';
 import Header from '../views/header';
-import { useDashboardStore } from '../store';
+import { useDashboardStore, useListeroDashboardStoreApi } from '../store';
 import { REFRESH_CLICKED, AUTH_USER_SYNCED } from '../core/msg';
 import { adaptAuthUser } from '../core/user.dto';
 import { Slot } from '@/shared/core/plugins';
@@ -31,7 +31,9 @@ export default function DashboardScreen() {
     const dispatch = useDashboardStore((state) => state.dispatch);
 
     // Manage Dashboard Lifecycle (Initialization & Cleanup)
-    useDashboardLifecycle(useDashboardStore);
+    // Pass the actual store API (Zustand store) to lifecycle
+    const storeApi = useListeroDashboardStoreApi();
+    useDashboardLifecycle(storeApi);
 
     // Synchronize auth user state with dashboard store
     // We use a ref and ID check to break any potential infinite re-render loops
@@ -85,26 +87,26 @@ export default function DashboardScreen() {
                 <Slot 
                     name="dashboard.notifications" 
                     contextData={model} 
-                    hostStore={useDashboardStore}
+                    hostStore={storeApi}
                 />
 
                 <Slot 
                     name="dashboard.filters" 
                     contextData={model} 
-                    hostStore={useDashboardStore}
+                    hostStore={storeApi}
                 />
                 
                 <Slot 
                     name="dashboard.summary" 
                     contextData={model} 
-                    hostStore={useDashboardStore}
+                    hostStore={storeApi}
                 />
                 <Slot name="dashboard.summary_bottom" />
                 
                 <Slot 
                     name="dashboard.draws_list" 
                     contextData={model} 
-                    hostStore={useDashboardStore}
+                    hostStore={storeApi}
                 />
             </ScrollView>
         </SafeAreaView>

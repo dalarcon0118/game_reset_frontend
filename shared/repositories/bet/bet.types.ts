@@ -99,6 +99,7 @@ export interface IBetRepository {
     getPendingBets(): Promise<BetDomainModel[]>;
     syncPending(): Promise<{ success: number; failed: number }>;
     applyMaintenance(): Promise<void>;
+    cleanup(today: string): Promise<number>;
 
     // Domain helper methods
     hasCriticalPendingBets(beforeTimestamp: number): Promise<boolean>;

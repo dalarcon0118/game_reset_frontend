@@ -72,6 +72,24 @@ export class BetOfflineAdapter implements IBetStorage {
     }
 
     /**
+     * Obtiene apuestas recientes (pendientes o sincronizadas) para un sorteo específico.
+     * Útil para cubrir la ventana de latencia del backend tras una sincronización exitosa.
+     */
+    async getRecentByDraw(drawId: string | number, maxAgeMs: number = 60 * 60 * 1000): Promise<BetDomainModel[]> {
+        const all = await this.getAll();
+        const normalizedDrawId = String(drawId);
+        const now = Date.now();
+
+        return all.filter(b => {
+            const matchesDraw = String(b.drawId) === normalizedDrawId;
+            const isPending = b.status === 'pending' || b.status === 'error';
+            const isRecentSynced = b.status === 'synced' && (now - (b.timestamp || 0)) < maxAgeMs;
+            
+            return matchesDraw && (isPending || isRecentSynced);
+        });
+    }
+
+    /**
      * Actualiza el estado de una apuesta
      */
     async updateStatus(offlineId: string, status: BetDomainModel['status'], extra?: Partial<BetDomainModel>): Promise<void> {

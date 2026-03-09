@@ -15,11 +15,6 @@ export const createLoggerMiddleware = <Model, Msg>(storeId?: string): TeaMiddlew
     return {
         id: 'logger-middleware',
         beforeUpdate: (model, msg, meta) => {
-            // Generar traceId lo antes posible para que esté disponible en toda la cadena
-            if (!meta.traceId) {
-                meta.traceId = Math.random().toString(36).substring(2, 8).toUpperCase();
-            }
-
             if (__DEV__) {
                 const msgType = (msg as any)?.type || 'UNKNOWN';
                 const category = getCategory(msgType);
@@ -35,7 +30,7 @@ export const createLoggerMiddleware = <Model, Msg>(storeId?: string): TeaMiddlew
                 });
 
                 log.groupCollapsed(`⚡ ${msgType}`, msg);
-                log.debug('⏪ Prev State:', model);
+                //log.debug('⏪ Prev State:', model);
             }
         },
         afterUpdate: (_prevModel, msg, nextModel, cmd, meta) => {
@@ -44,13 +39,13 @@ export const createLoggerMiddleware = <Model, Msg>(storeId?: string): TeaMiddlew
                 const category = getCategory(msgType);
                 if (category === 'INFRA') return;
 
-                const log = baseLog.withContext({ 
-                    category, 
-                    traceId: meta.traceId, 
-                    storeId: storeId || 'GLOBAL' 
+                const log = baseLog.withContext({
+                    category,
+                    traceId: meta.traceId,
+                    storeId: storeId || 'GLOBAL'
                 });
 
-                log.debug('⏩ Next State:', nextModel);
+                // log.debug('⏩ Next State:', nextModel);
 
                 if (cmd) {
                     const formatCmd = (c: any): any => {

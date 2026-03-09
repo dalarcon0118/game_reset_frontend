@@ -99,44 +99,35 @@ class AuthRepositoryImpl implements IAuthRepository {
     async login(username: string, pin: string): Promise<AuthResult> {
         this.isLoggingIn = true;
         try {
-            // 0. Pre-check de conectividad para evitar timeouts largos
-            const reachable = await isServerReachable();
-            if (!reachable) {
-                log.info('Server unreachable (fast-check), jumping to offline validation', { username });
-                const offlineResult = await this.storage.validateOffline(username, pin);
-                if (offlineResult.success && offlineResult.data) {
-                    this.notifySessionListeners(offlineResult.data.user);
+            // 0. Pre-check de conectividad rápido (timeout de 3s para evitar bloqueos)
+            const reachable = await isServerReachable(3000);
+
+            if (reachable) {
+                // 1. Intento Online
+                const onlineResult = await this.api.login(username, pin);
+
+                if (onlineResult.success && onlineResult.data) {
+                    log.info('Online login successful, persisting session', { username });
+                    await this.storage.saveSession(onlineResult.data);
+                    await this.storage.saveOfflineCredentials(username, pin, onlineResult.data.user);
+                    this.notifySessionListeners(onlineResult.data.user);
+                    return onlineResult;
                 }
-                return offlineResult;
-            }
 
-            // 1. Intento Online
-            const onlineResult = await this.api.login(username, pin);
-
-            if (onlineResult.success && onlineResult.data) {
-                log.info('Online login successful, persisting session', { username });
-                await this.storage.saveSession(onlineResult.data);
-                await this.storage.saveOfflineCredentials(username, pin, onlineResult.data.user);
-                this.notifySessionListeners(onlineResult.data.user);
-                return onlineResult;
-            }
-
-            // 2. Fallback Offline solo si hay error de red/servidor
-            if (!onlineResult.success) {
+                // Si falló por red (CONNECTION_ERROR), intentamos offline
                 if (onlineResult.error.type === AuthErrorType.CONNECTION_ERROR) {
-                    log.info('Network unavailable, attempting offline validation', { username });
-                    const offlineResult = await this.storage.validateOffline(username, pin);
-                    if (offlineResult.success && offlineResult.data) {
-                        this.notifySessionListeners(offlineResult.data.user);
-                    }
-                    return offlineResult;
+                    log.info('Online login failed due to connection, attempting offline validation', { username });
+                    return await this.performOfflineValidation(username, pin);
                 }
 
+                // Si falló por credenciales inválidas u otro error de dominio, retornamos el error online
                 log.warn('Online login failed with domain error', onlineResult.error);
                 return onlineResult;
             }
 
-            return onlineResult;
+            // Si el servidor no es alcanzable, intentamos offline directamente
+            log.info('Server unreachable (fast-check), attempting offline validation', { username });
+            return await this.performOfflineValidation(username, pin);
 
         } catch (error: any) {
             log.error('Unexpected error during login flow', error);
@@ -150,6 +141,14 @@ class AuthRepositoryImpl implements IAuthRepository {
         } finally {
             this.isLoggingIn = false;
         }
+    }
+
+    private async performOfflineValidation(username: string, pin: string): Promise<AuthResult> {
+        const offlineResult = await this.storage.validateOffline(username, pin);
+        if (offlineResult.success && offlineResult.data) {
+            this.notifySessionListeners(offlineResult.data.user);
+        }
+        return offlineResult;
     }
 
     async logout(): Promise<void> {

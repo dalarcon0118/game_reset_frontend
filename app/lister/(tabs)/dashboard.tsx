@@ -1,7 +1,8 @@
 import {  StyleSheet, SafeAreaView } from 'react-native';
 import { useColorScheme } from 'react-native';
 import Colors from '@/constants/colors';
-import DashboardScreen from '@/features/listero/listero-dashboard/views';
+import DashboardScreenComponent from '@/features/listero/listero-dashboard/views';
+import { ListeroDashboardProvider } from '@/features/listero/listero-dashboard/core/store_context';
 
 
 export default function ListeroDashboardTab() {
@@ -9,13 +10,15 @@ export default function ListeroDashboardTab() {
 
 
   return (
-    <SafeAreaView style={[
-      styles.container,
-      { backgroundColor: Colors[colorScheme].background }
-    ]}>
-      <DashboardScreen/>
+    <ListeroDashboardProvider>
+      <SafeAreaView style={[
+        styles.container,
+        { backgroundColor: Colors[colorScheme].background }
+      ]}>
+        <DashboardScreenComponent/>
 
-    </SafeAreaView>
+      </SafeAreaView>
+    </ListeroDashboardProvider>
   );
 }
 
