@@ -222,7 +222,9 @@ export const mapSinglePendingBetToFrontend = (pb: BetDomainModel, betTypes: Game
     return {
         id: `${UI_CONSTANTS.OFFLINE_ID_PREFIX}-${pb.externalId}`,
         type: mappedType,
-        numbers: String(pb.numbers || ''),
+        numbers: Array.isArray(pb.numbers)
+            ? pb.numbers.join(UI_CONSTANTS.BET_NUMBER_DELIMITER)
+            : String(pb.numbers || ''),
         amount: Number(pb.amount || 0),
         draw: (pb.drawId || '').toString(),
         createdAt: new Date(pb.timestamp).toLocaleTimeString(UI_CONSTANTS.DEFAULT_LOCALE, {

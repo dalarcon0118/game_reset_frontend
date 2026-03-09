@@ -1,5 +1,5 @@
 import { BolitaModel, BolitaListData } from './models/bolita.types';
-import { BET_TYPE_KEYS } from '@/shared/types/bet_types';
+import { BET_TYPE_KEYS, UI_CONSTANTS } from '@/shared/types/bet_types';
 import { BetType, ParletBet, CentenaBet, FijosCorridosBet } from '@/types';
 import { BetPlacementInput } from '@/shared/repositories/bet/bet.types';
 import { logger } from '@/shared/utils/logger';
@@ -24,15 +24,57 @@ const extractSingleNumber = (val: any): number | null => {
     return null;
 };
 
-const parseNumbers = (bet: BetType): any => {
-    if (typeof bet.numbers === 'string' && (bet.numbers.startsWith('{') || bet.numbers.startsWith('['))) {
-        try {
-            return JSON.parse(bet.numbers);
-        } catch {
-            return bet.numbers;
-        }
+const parseNumbers = (bet: BetType): number[] => {
+    const numbers = bet.numbers;
+
+    if (Array.isArray(numbers)) {
+        // Preservar array completo del almacenamiento
+        return numbers.map(n => {
+            if (typeof n === 'number') return n;
+            if (typeof n === 'string') {
+                const parsed = parseInt(n, 10);
+                return isNaN(parsed) ? null : parsed;
+            }
+            return null;
+        }).filter((n): n is number => n !== null);
     }
-    return bet.numbers;
+
+    if (typeof numbers === 'string') {
+        // Caso 1: JSON (para compatibilidad con storage nativo)
+        if (numbers.startsWith('{') || numbers.startsWith('[')) {
+            try {
+                const parsed = JSON.parse(numbers);
+                if (Array.isArray(parsed)) {
+                    return parsed.map(n => {
+                        if (typeof n === 'number') return n;
+                        if (typeof n === 'string') {
+                            const parsedNum = parseInt(n, 10);
+                            return isNaN(parsedNum) ? null : parsedNum;
+                        }
+                        return null;
+                    }).filter((n): n is number => n !== null);
+                }
+                return [extractSingleNumber(parsed)].filter((n): n is number => n !== null);
+            } catch {
+                // Si falla el JSON, tratar como string delimitado
+            }
+        }
+        // Caso 2: Formato del Mapper UI (delimitado por '-')
+        if (numbers.includes(UI_CONSTANTS.BET_NUMBER_DELIMITER)) {
+            return numbers.split(UI_CONSTANTS.BET_NUMBER_DELIMITER)
+                .map(n => parseInt(n, 10))
+                .filter(n => !isNaN(n));
+        }
+        // Caso 3: Número simple como string
+        const single = parseInt(numbers, 10);
+        return isNaN(single) ? [] : [single];
+    }
+
+    if (typeof numbers === 'number') {
+        return [numbers];
+    }
+
+    return [];
 };
 
 /**
@@ -109,6 +151,9 @@ export const BolitaImpl = {
             entrySession.fijosCorridos.forEach(b => {
                 if (b.fijoAmount && b.fijoAmount > 0) {
                     bets.push({
+                        id: b.id,
+                        type: BET_TYPE_KEYS.FIJO,
+                        createdAt: new Date().toISOString(),
                         betTypeId: BET_TYPE_KEYS.FIJO,
                         amount: b.fijoAmount,
                         numbers: b.bet,
@@ -118,6 +163,9 @@ export const BolitaImpl = {
                 }
                 if (b.corridoAmount && b.corridoAmount > 0) {
                     bets.push({
+                        id: b.id,
+                        type: BET_TYPE_KEYS.CORRIDO,
+                        createdAt: new Date().toISOString(),
                         betTypeId: BET_TYPE_KEYS.CORRIDO,
                         amount: b.corridoAmount,
                         numbers: b.bet,
@@ -131,6 +179,9 @@ export const BolitaImpl = {
             entrySession.parlets.forEach(b => {
                 if (b.amount && b.amount > 0) {
                     bets.push({
+                        id: b.id,
+                        type: BET_TYPE_KEYS.PARLET,
+                        createdAt: new Date().toISOString(),
                         betTypeId: BET_TYPE_KEYS.PARLET,
                         amount: b.amount,
                         numbers: b.bets,
@@ -144,6 +195,9 @@ export const BolitaImpl = {
             entrySession.centenas.forEach(b => {
                 if (b.amount && b.amount > 0) {
                     bets.push({
+                        id: b.id,
+                        type: BET_TYPE_KEYS.CENTENA,
+                        createdAt: new Date().toISOString(),
                         betTypeId: BET_TYPE_KEYS.CENTENA,
                         amount: b.amount,
                         numbers: b.bet,
@@ -167,48 +221,60 @@ export const BolitaImpl = {
 
             bets.forEach(bet => {
                 try {
+                    // 1. Normalización de ID (Usa id, sino externalId, sino un fallback basado en timestamp)
+                    const betId = bet.id || bet.externalId || `temp-${Date.now()}-${Math.random()}`;
+
+                    // 2. Normalización de Números
                     const parsedNumbers = parseNumbers(bet);
 
-                    if (bet.type === BET_TYPE_KEYS.PARLET) {
-                        let numbers: number[] = [];
-                        if (Array.isArray(parsedNumbers)) {
-                            numbers = parsedNumbers.map(n => typeof n === 'number' ? n : parseInt(n, 10)).filter(n => !isNaN(n));
-                        }
-                        if (numbers.length > 0) {
+                    // 3. Normalización de Tipo de Apuesta (Prioridad absoluta al betTypeId del storage)
+                    const rawType = bet.betTypeId || bet.type || '';
+                    const betType = String(rawType).toLowerCase();
+                    const parletKey = String(BET_TYPE_KEYS.PARLET).toLowerCase();
+                    const centenaKey = String(BET_TYPE_KEYS.CENTENA).toLowerCase();
+                    const fijoKey = String(BET_TYPE_KEYS.FIJO).toLowerCase();
+                    const corridoKey = String(BET_TYPE_KEYS.CORRIDO).toLowerCase();
+
+                    // 4. Procesamiento por tipo (Detección estricta para evitar colisiones)
+                    if (betType === parletKey) {
+                        // Un Parlet DEBE tener al menos 2 números
+                        if (parsedNumbers.length >= 2) {
                             parlets.push({
-                                id: bet.id,
-                                bets: numbers,
+                                id: betId,
+                                bets: parsedNumbers,
                                 amount: bet.amount,
                                 receiptCode: bet.receiptCode
                             });
+                        } else {
+                            log.warn('Apuesta marcada como Parlet pero con números insuficientes', { betId, numbers: parsedNumbers });
                         }
-                    } else if (bet.type === BET_TYPE_KEYS.CENTENA) {
-                        const number = extractSingleNumber(parsedNumbers);
-                        if (number !== null) {
+                    } else if (betType === centenaKey) {
+                        if (parsedNumbers.length > 0) {
                             centenas.push({
-                                id: bet.id,
-                                bet: number,
+                                id: betId,
+                                bet: parsedNumbers[0],
                                 amount: bet.amount,
                                 receiptCode: bet.receiptCode
                             });
                         }
-                    } else if (bet.type === BET_TYPE_KEYS.FIJO || bet.type === BET_TYPE_KEYS.CORRIDO) {
-                        const number = extractSingleNumber(parsedNumbers);
-                        if (number !== null && !isNaN(number)) {
-                            const key = `${number}-${bet.receiptCode || ''}`;
+                    } else if (betType === fijoKey || betType === corridoKey || !isNaN(Number(betType))) {
+                        // Nota: betTypeId "10" (visto en el log) se trata como Fijo/Corrido si corresponde
+                        if (parsedNumbers.length > 0 && !isNaN(parsedNumbers[0])) {
+                            const firstNumber = parsedNumbers[0];
+                            const key = `${firstNumber}-${bet.receiptCode || ''}`;
                             const existing = fijosCorridosMap.get(key);
                             if (existing) {
-                                if (bet.type === BET_TYPE_KEYS.FIJO) {
+                                if (betType === fijoKey || betType === 'fijo') {
                                     existing.fijoAmount = bet.amount;
-                                } else if (bet.type === BET_TYPE_KEYS.CORRIDO) {
+                                } else {
                                     existing.corridoAmount = bet.amount;
                                 }
                             } else {
                                 fijosCorridosMap.set(key, {
-                                    id: bet.id,
-                                    bet: number,
-                                    fijoAmount: bet.type === BET_TYPE_KEYS.FIJO ? bet.amount : null,
-                                    corridoAmount: bet.type === BET_TYPE_KEYS.CORRIDO ? bet.amount : null,
+                                    id: betId,
+                                    bet: firstNumber,
+                                    fijoAmount: (betType === fijoKey || betType === 'fijo') ? bet.amount : null,
+                                    corridoAmount: (betType === corridoKey || betType === 'corrido' || !isNaN(Number(betType))) ? bet.amount : null,
                                     receiptCode: bet.receiptCode,
                                 });
                             }
