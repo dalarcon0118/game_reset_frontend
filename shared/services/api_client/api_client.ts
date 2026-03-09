@@ -96,9 +96,11 @@ export class ApiClient {
   // --- Core Methods ---
 
   async request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
-    this.log.debug('[Request]', endpoint, options);
+    //Logs just the part of the enpoint after the base url
+    const endpointWithoutBase = endpoint.replace(this.credentialProvider.getSettings().api.baseUrl, '');
+    this.log.debug('[Request-Started]', endpointWithoutBase, options);
     const response = await this.requestExecutor.run<T>(endpoint, options);
-    this.log.debug('[Request completed]', response);
+    this.log.debug('[Request-Completed]', endpointWithoutBase, response);
     return response;
   }
 

@@ -332,16 +332,16 @@ export const FeatureFlows = {
         // 1. Use match to handle all states
         return match(response)
             .with({ type: 'Failure' }, ({ error }) => FeatureFlows.finalizeSaveFailure(model, error))
-            .with({ type: 'Success' }, () => FeatureFlows.finalizeSaveSuccess(model))
+            .with({ type: 'Success' }, ({ data }) => FeatureFlows.finalizeSaveSuccess(model, data))
             .otherwise(() => ret(model, Cmd.none));
     },
 
-    finalizeSaveSuccess: (model: LoteriaFeatureModel): Return<LoteriaFeatureModel, FeatureMsg> => {
-        // Extract receipt code before clearing the model
-        const receiptCode = model.summary.pendingReceiptCode;
+    finalizeSaveSuccess: (model: LoteriaFeatureModel, bets: any[] = []): Return<LoteriaFeatureModel, FeatureMsg> => {
+        // Extract receipt code from the first bet or fallback to model
+        const receiptCode = (bets && bets[0]?.receiptCode) || model.summary.pendingReceiptCode;
         const drawId = model.currentDrawId;
 
-        log.debug('FINALIZE_SAVE_SUCCESS', { receiptCode, drawId });
+        log.debug('FINALIZE_SAVE_SUCCESS', { receiptCode, drawId, betsCount: bets?.length });
 
         if (!receiptCode) {
             log.warn('SAVE_SUCCESS_WITHOUT_RECEIPT_CODE', {

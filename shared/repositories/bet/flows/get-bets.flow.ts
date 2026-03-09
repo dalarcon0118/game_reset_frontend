@@ -26,15 +26,16 @@ const mergeBets = (ctx: GetBetsContext): Result<BetType[], Error> => {
 
     // First add offline bets
     ctx.offlineBets.forEach((bet: BetType) => {
-        const key = bet.receiptCode || bet.id;
+        // Use ID for deduplication, NOT receiptCode (multiple bets can share a receiptCode)
+        const key = bet.id;
         if (key && !betsMap.has(key)) {
             betsMap.set(key, bet);
         }
     });
 
-    // Then add online bets (will overwrite offline if same receiptCode)
+    // Then add online bets (will overwrite offline if same ID)
     ctx.onlineBets.forEach((bet: BetType) => {
-        const key = bet.receiptCode || bet.id;
+        const key = bet.id;
         if (key) {
             betsMap.set(key, bet);
         }
@@ -145,7 +146,7 @@ const resolveBets = (ctx: GetBetsContext, storage: IBetStorage, pOffline: Promis
                 log.info('ReceiptCode provided but no recent match found. Performing deep storage search.', { receiptCode: ctx.filters.receiptCode });
                 const allLocal = await storage.getAll();
                 const found = allLocal.filter(b => b.receiptCode === ctx.filters?.receiptCode);
-                
+
                 if (found.length > 0) {
                     log.info('✅ Found match in deep storage search', { count: found.length });
                     offlineBets = mapPendingBetsToFrontend(found as any, ctx.filters, ctx.betTypes);

@@ -20,6 +20,9 @@ export class CredentialProvider {
     this.log = log.withTag ? log.withTag('CredentialProvider') : log;
   }
 
+  getSettings(): ISettings {
+    return this.settings;
+  }
   setSessionExpiredHandler(handler: () => void) {
     this.sessionExpiredHandler = handler;
   }
