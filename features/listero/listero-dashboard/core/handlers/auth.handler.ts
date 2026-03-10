@@ -9,16 +9,28 @@ import { DashboardUser } from '../user.dto';
 const log = logger.withTag('DASHBOARD_AUTH_HANDLER');
 
 const triggerDailyPreparation = (model: Model): Return<Model, Msg> => {
-    console.log('[DEBUG] triggerDailyPreparation: INICIANDO...');
+    // STATE MACHINE GUARD: Solo permitir preparación si estamos en IDLE
+    if (model.status.type !== 'IDLE') {
+        log.debug('triggerDailyPreparation skipped: Already in progress or ready', { currentStatus: model.status.type });
+        return singleton(model);
+    }
+
     log.info('Triggering daily session preparation before load...');
-    return ret(model, prepareDailySessionCmd());
+    return ret(
+        { ...model, status: { type: 'PREPARING_SESSION' } },
+        prepareDailySessionCmd()
+    );
 };
 
 const triggerInitialLoad = (model: Model): Return<Model, Msg> => {
-    console.log('[DEBUG] triggerInitialLoad: INICIANDO...');
-    console.log('[DEBUG] triggerInitialLoad: model.userStructureId =', model.userStructureId);
-    console.log('[DEBUG] triggerInitialLoad: model.draws.type =', model.draws.type);
-    console.log('[DEBUG] triggerInitialLoad: model.summary.type =', model.summary.type);
+    // STATE MACHINE GUARD: Solo permitir carga si venimos de PREPARING_SESSION o ya estamos en LOADING_DATA
+    const canLoad = model.status.type === 'PREPARING_SESSION' || model.status.type === 'LOADING_DATA';
+
+    if (!canLoad && model.status.type !== 'IDLE') {
+        log.debug('triggerInitialLoad skipped: Invalid state transition', { currentStatus: model.status.type });
+        return singleton(model);
+    }
+
     // 1. Basic Requirement: We need a user structure.
     if (!model.userStructureId) {
         console.log('[DEBUG] triggerInitialLoad: SALTADO - No userStructureId');
@@ -50,6 +62,7 @@ const triggerInitialLoad = (model: Model): Return<Model, Msg> => {
     // Set to loading immediately to prevent duplicate fetches
     const loadingModel: Model = {
         ...model,
+        status: { type: 'LOADING_DATA' },
         draws: RemoteData.loading(),
         summary: RemoteData.loading()
     };

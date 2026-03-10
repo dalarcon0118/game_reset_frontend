@@ -44,7 +44,15 @@ class LogProcessor {
   process(line) {
     if (!line) return null;
 
-    // 1. Detect view changes from NAV_EFFECT
+    // 1. Detect view changes from NAV_EFFECT or explicit markers
+    if (line.includes('🔄 VIEW:')) {
+      const match = line.match(/🔄 VIEW: ([A-Z_]+)/);
+      if (match && match[1]) {
+        this.currentView = match[1];
+        return line; // Always return the marker to ensure it's logged
+      }
+    }
+
     if (line.includes('NAV_EFFECT') && line.includes('"to":')) {
       const match = line.match(/"to":\s*"([^"]+)"/);
       if (match && match[1]) {

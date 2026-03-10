@@ -61,22 +61,16 @@ export const prepareDailySessionUseCase = async (
             log.warn('Critical: Found pending/failed bets from previous sessions.');
         }
 
-        // 3. Limpiar apuestas sincronizadas antiguas (mantiene pending)
-        console.log('[DEBUG] prepareDailySessionUseCase: cleanup bets...');
-        const betCleaned = await deps.betRepo.cleanup(today);
-        console.log('[DEBUG] prepareDailySessionUseCase: bets cleaned, removed =', betCleaned);
-        log.info('Bets cleaned', { removed: betCleaned });
-
-        // 4. Limpiar caché de sorteos (se recargará del servidor)
-        console.log('[DEBUG] prepareDailySessionUseCase: cleanup draws...');
-        const drawCleaned = await deps.drawRepo.cleanup(today);
-        console.log('[DEBUG] prepareDailySessionUseCase: draws cleaned, removed =', drawCleaned);
-        log.info('Draws cache cleaned', { removed: drawCleaned });
-
-        // 5. Marcar reset como completado para hoy (idempotencia)
-        console.log('[DEBUG] prepareDailySessionUseCase: markDayAsPrepared...');
-        await deps.maintenanceRepo.markDayAsPrepared(today);
-        console.log('[DEBUG] prepareDailySessionUseCase: markDayAsPrepared OK');
+        // 3. Limpiar apuestas sincronizadas antiguas y marcar día como preparado (Paralelizado)
+        console.log('[DEBUG] prepareDailySessionUseCase: Parallel cleanup and marking...');
+        const [betCleaned, drawCleaned] = await Promise.all([
+            deps.betRepo.cleanup(today),
+            deps.drawRepo.cleanup(today),
+            deps.maintenanceRepo.markDayAsPrepared(today)
+        ]);
+        
+        console.log('[DEBUG] prepareDailySessionUseCase: cleanup OK', { betCleaned, drawCleaned });
+        log.info('Cleanups completed', { betsRemoved: betCleaned, drawsRemoved: drawCleaned });
 
         console.log('[DEBUG] prepareDailySessionUseCase: COMPLETADO OK - retorna true');
         log.info('Daily session preparation completed successfully');

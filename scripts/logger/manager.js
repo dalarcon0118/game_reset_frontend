@@ -158,9 +158,16 @@ class LogManager {
         
         const cleanLine = sanitize(line);
         if (cleanLine) {
-          // Interceptar la ruta completa de la línea de log de navegación antes de procesar
-          if (cleanLine.includes('NAV_EFFECT') && cleanLine.includes('Navigating to:')) {
-            const pathMatch = cleanLine.match(/Navigating to: ([^\s,{}]+)/);
+          // Intercept both NAV_EFFECT and explicit markers
+          if (cleanLine.includes('🔄 VIEW:')) {
+            const match = cleanLine.match(/🔄 VIEW: ([A-Z_]+)/);
+            if (match && match[1]) {
+              this.switchViewStream(match[1]);
+            }
+          }
+
+          if (cleanLine.includes('NAV_EFFECT') && (cleanLine.includes('Navigating to:') || cleanLine.includes('Navigated from'))) {
+            const pathMatch = cleanLine.match(/Navigating to: ([^\s,{}]+)/) || cleanLine.match(/to ([^\s,{}]+)/);
             if (pathMatch && pathMatch[1]) {
               this.switchViewStream(pathMatch[1]);
             }

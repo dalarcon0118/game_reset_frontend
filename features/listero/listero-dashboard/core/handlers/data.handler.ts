@@ -9,6 +9,13 @@ import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('DASHBOARD_DATA_HANDLER');
 
+const checkReadyState = (model: Model): Model => {
+    if (model.draws.type === 'Success' && model.summary.type === 'Success') {
+        return { ...model, status: { type: 'READY' } };
+    }
+    return model;
+};
+
 export const DataHandler = {
     handleFetchDataRequested: (model: Model, structureId?: string): Return<Model, Msg> => {
         console.log('[DEBUG] handleFetchDataRequested: INICIANDO con structureId =', structureId);
@@ -107,13 +114,13 @@ export const DataHandler = {
                     totals: dailyTotals
                 });
 
-                return singleton({
+                return singleton(checkReadyState({
                     ...model,
                     draws: webData,
                     isRateLimited: false,
                     filteredDraws,
                     dailyTotals
-                });
+                }));
             })
             // 3. Other cases: Update draws, clear filteredDraws
             .otherwise(() =>
@@ -153,13 +160,13 @@ export const DataHandler = {
                     model.syncedBets
                 );
 
-                return singleton({
+                return singleton(checkReadyState({
                     ...model,
                     summary: webData,
                     isRateLimited: false,
                     filteredDraws,
                     dailyTotals
-                });
+                }));
             })
             // 3. Other cases (Loading, NotAsked, Failure without previous data): Just update summary
             .otherwise(() =>

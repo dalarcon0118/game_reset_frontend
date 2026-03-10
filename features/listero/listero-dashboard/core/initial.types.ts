@@ -2,6 +2,7 @@ import { RemoteData } from '@/shared/core/tea-utils';
 import { Model } from './model';
 
 export const initialState: Model = {
+    status: { type: 'IDLE' },
     draws: RemoteData.notAsked(),
     filteredDraws: [],
     summary: RemoteData.notAsked(),
