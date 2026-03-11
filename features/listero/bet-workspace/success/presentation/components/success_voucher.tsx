@@ -92,6 +92,16 @@ export const SuccessVoucher: React.FC<SuccessVoucherProps> = ({
     isBolita,
     groupedBets
 }) => {
+    const isAnyLoteria = bets.some(b => isLoteriaBet(b.type));
+    const loteriaPrize = "$ 2,000,000.00";
+    
+    // Get current time for the receipt
+    const currentTime = new Date().toLocaleTimeString('es-DO', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+    });
+
     const renderBolitaLayout = () => {
         if (!groupedBets) return null;
 
@@ -247,17 +257,40 @@ export const SuccessVoucher: React.FC<SuccessVoucherProps> = ({
                     <Text category='c1' style={styles.infoLabel}>Fecha Emisión:</Text>
                     <Text category='c1' style={styles.infoValue}>{metadata.issueDate}</Text>
                 </View>
+                {isAnyLoteria && (
+                    <View style={styles.infoRow}>
+                        <Text category='c1' style={styles.infoLabel}>Hora Emisión:</Text>
+                        <Text category='c1' style={styles.infoValue}>{currentTime}</Text>
+                    </View>
+                )}
                 <View style={styles.infoRow}>
                     <Text category='c1' style={styles.infoLabel}>Fecha Premiación:</Text>
                     <Text category='c1' style={styles.infoValue}>{metadata.awardDate}</Text>
                 </View>
-                <View style={styles.infoRow}>
-                    <Text category='c1' style={styles.infoLabel}>Premio Total:</Text>
-                    <Text category='c1' status='info' style={styles.jackpotValue}>{metadata.totalPrize}</Text>
+                <View style={[styles.infoRow, isAnyLoteria && styles.highlightedPrizeRow]}>
+                    <Text category='c1' style={[styles.infoLabel, isAnyLoteria && styles.highlightedPrizeLabel]}>Premio Total:</Text>
+                    <Text 
+                        category={isAnyLoteria ? 'h6' : 'c1'} 
+                        status={isAnyLoteria ? 'primary' : 'info'} 
+                        style={isAnyLoteria ? styles.highlightedPrizeValue : styles.jackpotValue}
+                    >
+                        {isAnyLoteria ? loteriaPrize : metadata.totalPrize}
+                    </Text>
                 </View>
             </View>
             
             <View style={styles.divider} />
+
+            {isAnyLoteria && (
+                <View style={styles.loteriaInfoBox} collapsable={false}>
+                    <Text category='c1' style={styles.loteriaInfoText}>
+                        * En caso de múltiples ganadores con el mismo número premiado, el premio mayor se dividirá en partes iguales entre todos los ganadores.
+                    </Text>
+                    <Text category='c1' style={styles.loteriaWebLink}>
+                        Consulta ganadores en: game-reset.com
+                    </Text>
+                </View>
+            )}
 
             {isBolita ? renderBolitaLayout() : bets.map((bet, index) => (
                 <View key={bet.id || index} style={styles.betRow} collapsable={false}>
@@ -340,6 +373,29 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         fontSize: 13,
     },
+    highlightedPrizeRow: {
+        backgroundColor: '#FFFFFF',
+        marginTop: 8,
+        padding: 12,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#E4E9F2',
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 3.84,
+        elevation: 2,
+        alignItems: 'center',
+    },
+    highlightedPrizeLabel: {
+        color: '#222B45',
+        fontWeight: 'bold',
+        fontSize: 12,
+    },
+    highlightedPrizeValue: {
+        fontWeight: '900',
+        fontSize: 20,
+    },
     divider: {
         height: 1,
         backgroundColor: '#E4E9F2',
@@ -410,6 +466,26 @@ const styles = StyleSheet.create({
         marginHorizontal: 2,
         color: '#8F9BB3',
         fontSize: 16,
+    },
+    loteriaInfoBox: {
+        backgroundColor: '#F7F9FC',
+        padding: 12,
+        borderRadius: 8,
+        marginBottom: 15,
+        borderLeftWidth: 3,
+        borderLeftColor: '#3366FF',
+    },
+    loteriaInfoText: {
+        color: '#222B45',
+        fontSize: 11,
+        lineHeight: 16,
+        fontStyle: 'italic',
+    },
+    loteriaWebLink: {
+        color: '#3366FF',
+        fontSize: 11,
+        fontWeight: 'bold',
+        marginTop: 6,
     },
     hyphen: {
         marginHorizontal: 4,
