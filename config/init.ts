@@ -1,11 +1,48 @@
 import 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import 'react-native-url-polyfill/auto';
+import Constants from 'expo-constants';
 import { EventSourcePolyfill } from 'event-source-polyfill';
 import { logger } from '../shared/utils/logger';
 import { registerReactNativeEvents } from '../shared/react-native-events';
 import storageClient from '@/shared/core/offline-storage/storage_client';
 import { authStorageAdapter } from '../shared/repositories/auth/adapters/auth.storage.adapter';
+
+const log = logger.withTag('INIT');
+const APP_VERSION_KEY = 'APP_VERSION_TRACKER';
+
+/**
+ * Checks if the app has been updated and clears the local cache if so.
+ */
+async function checkAppUpdate() {
+    try {
+        const currentVersion = Constants.expoConfig?.version;
+        if (!currentVersion) {
+            log.warn('Could not determine app version from expoConfig');
+            return;
+        }
+        const storedVersion = await storageClient.get<string>(APP_VERSION_KEY);
+
+        if (storedVersion !== currentVersion) {
+            log.info(`Update detected: ${storedVersion || 'initial'} -> ${currentVersion}. Clearing local cache...`);
+
+            // Clear local storage but keep session (unless you want to force re-login)
+            await storageClient.clear();
+
+            // Save the new version
+            await storageClient.set(APP_VERSION_KEY, currentVersion);
+
+            log.info('Local cache cleared successfully after update.');
+        } else {
+            log.debug(`No update detected. Version: ${currentVersion}`);
+        }
+    } catch (error) {
+        log.error('Error during app update check', error);
+    }
+}
+
+// Execute update check
+checkAppUpdate();
 
 // Setup EventSource for React Native
 if (typeof window !== 'undefined') {

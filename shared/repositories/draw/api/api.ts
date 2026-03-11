@@ -10,7 +10,7 @@ import {
 import logger from '@/shared/utils/logger';
 import apiClient from '@/shared/services/api_client';
 
-const log = logger.withTag('DRAW_API');
+const log = logger.withTag('DRAW_API_REPOSITORY');
 
 const normalizeListResponse = <T>(response: any): T[] => {
   if (Array.isArray(response)) return response;
@@ -43,11 +43,9 @@ export const DrawApi = {
       delete queryParams.next24h;
     }
 
-    log.debug('<<< API CALL: GET draws', { queryParams });
+
     const response = await apiClient.get<any>(settings.api.endpoints.draws(), { queryParams });
     const data = normalizeListResponse<BackendDraw>(response);
-    log.debug('<<< API CALL: GET draws data', JSON.stringify(data));
-
     return decodeOrFallback(BackendDrawArrayCodec, data, 'list');
   },
 

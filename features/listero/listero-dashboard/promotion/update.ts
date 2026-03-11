@@ -1,4 +1,4 @@
-import { match } from 'ts-pattern';
+import { match, P } from 'ts-pattern';
 import { PromotionState } from './model';
 import { Msg } from './msg';
 import { Return, singleton, ret, RemoteData } from '@/shared/core/tea-utils';
@@ -12,7 +12,7 @@ export function update(msg: Msg, model: PromotionState): Return<PromotionState, 
                 fetchPromotionsCmd()
             )
         )
-        .with({ type: 'PROMOTIONS_RECEIVED', webData: match.P.select() }, (webData) => {
+        .with({ type: 'PROMOTIONS_RECEIVED', webData: P.select() }, (webData) => {
             const hasPromotions = webData.type === 'Success' && webData.data.length > 0;
             return singleton({
                 ...model,

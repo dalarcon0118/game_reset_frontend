@@ -86,6 +86,7 @@ export const settings = {
       financialStatement: () => '/financial-statement/summary/',
       financialStatements: () => '/financial-statement/',
       dashboardStats: () => '/financial-statement/dashboard-stats/',
+      promotions: () => '/promotions/',
       // ...otros endpoints de tu API
     },
   },

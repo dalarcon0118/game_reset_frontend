@@ -100,7 +100,7 @@ export class ApiClient {
     const endpointWithoutBase = endpoint.replace(this.credentialProvider.getSettings().api.baseUrl, '');
     this.log.debug('[Request-Started]', endpointWithoutBase, options);
     const response = await this.requestExecutor.run<T>(endpoint, options);
-    this.log.debug('[Request-Completed]', endpointWithoutBase, response);
+    this.log.debug('[Request-Completed]', endpointWithoutBase);
     return response;
   }
 
