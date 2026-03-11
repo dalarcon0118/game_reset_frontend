@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import { 
     StyleSheet, 
     ScrollView, 
@@ -11,19 +11,14 @@ import { RemoteData } from '@/shared/core/tea-utils';
 import { Label } from '@/shared/components';
 import Header from '../views/header';
 import { useDashboardStore, useListeroDashboardStoreApi } from '../store';
-import { REFRESH_CLICKED, AUTH_USER_SYNCED } from '../core/msg';
-import { adaptAuthUser } from '../core/user.dto';
+import { REFRESH_CLICKED, PROMOTION_MSG } from '../core/msg';
+import { CLOSE_PROMOTIONS_MODAL } from '../promotion/msg';
 import { Slot } from '@/shared/core/plugins';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuth } from '../../../auth/hooks/use_auth';
 import { useDashboardLifecycle } from '../core/lifecycle';
-import { logger } from '@/shared/utils/logger';
-
-const log = logger.withTag('DASHBOARD_SCREEN');
+import { PromotionModal } from '../promotion/PromotionModal';
 
 export default function DashboardScreen() {
-    const { user } = useAuth();
-    const lastSyncedUser = useRef<string | null>(null);
     
     // Using useShallow to only re-render if the model properties actually change.
     // This helps avoid re-renders from the 1s TICK if those specific fields don't change.
@@ -34,22 +29,6 @@ export default function DashboardScreen() {
     // Pass the actual store API (Zustand store) to lifecycle
     const storeApi = useListeroDashboardStoreApi();
     useDashboardLifecycle(storeApi);
-
-    // Synchronize auth user state with dashboard store
-    // We use a ref and ID check to break any potential infinite re-render loops
-    React.useEffect(() => {
-        if (user) {
-            const adapted = adaptAuthUser(user);
-            if (adapted) {
-                const userKey = `${adapted.id}-${adapted.structureId}`;
-                if (lastSyncedUser.current !== userKey) {
-                    log.info('Syncing user with dashboard store', { userKey });
-                    lastSyncedUser.current = userKey;
-                    dispatch(AUTH_USER_SYNCED(adapted));
-                }
-            }
-        }
-    }, [user, dispatch]);
 
     return (
         <SafeAreaView style={styles.container}>
@@ -68,10 +47,10 @@ export default function DashboardScreen() {
                 }
             >
                 {/* Global Error Banners could also be plugins, but kept here for now as shell concerns */}
-                {match(model.summary)
+                {match(model.draws)
                     .with(RemoteData.Failure, ({ error }) => (
                         <View style={styles.errorBanner}>
-                            <Label style={styles.errorText}>Error al cargar resumen: {error?.message || String(error)}</Label>
+                            <Label style={styles.errorText}>Error al cargar sorteos: {error?.message || String(error)}</Label>
                         </View>
                     ))
                     .otherwise(() => null)}
@@ -109,6 +88,12 @@ export default function DashboardScreen() {
                     hostStore={storeApi}
                 />
             </ScrollView>
+
+            <PromotionModal 
+                isVisible={model.promotion.showPromotionsModal}
+                promotions={model.promotion.promotions}
+                onClose={() => dispatch(PROMOTION_MSG(CLOSE_PROMOTIONS_MODAL()))}
+            />
         </SafeAreaView>
     );
 }

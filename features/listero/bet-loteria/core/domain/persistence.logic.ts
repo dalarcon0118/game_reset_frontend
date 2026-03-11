@@ -4,6 +4,8 @@ import { CalculationLogic } from './calculation.logic';
 import { Result } from 'neverthrow';
 import { BetMapper } from '@/shared/repositories/bet/bet.mapper';
 import { BetPlacementInput } from '@/shared/repositories/bet/bet.types';
+import { normalizeBetType, normalizeBetTypeId, normalizeNumbers, normalizeOwnerStructure } from '@/shared/types/bet_types';
+
 /**
  * 💾 PERSISTENCE LOGIC
  * Manages the state transitions related to saving data.
@@ -55,6 +57,12 @@ export const PersistenceLogic = {
      * 
      * IMPORTANTE: Ahora retorna un array de apuestas compatibles con BetDomainModel.
      * Esto permite usar betRepository.placeBatch para un manejo offline-first consistente.
+     * 
+     * APLICAMOS NORMALIZACIÓN CENTRALIZADA:
+     * - type: normalizado usando normalizeBetType
+     * - betTypeId: normalizado usando normalizeBetTypeId
+     * - numbers: normalizado a string usando normalizeNumbers
+     * - ownerStructure: normalizado a string usando normalizeOwnerStructure
      */
     createSavePayload: (model: LoteriaFeatureModel, drawId: string): Result<BetPlacementInput[], Error> => {
         const loteriaBetTypeId = model.managementSession.betTypes.loteria;
@@ -69,14 +77,21 @@ export const PersistenceLogic = {
             ? String(model.structureId)
             : String(drawDetails?.owner_structure || '');
 
+        // Normalizar using centralized functions
+        const normalizedBetTypeId = normalizeBetTypeId(loteriaBetTypeId || '');
+        const normalizedType = normalizeBetType('Lotería');  // 'Lotería' -> 'Lotería'
+        const normalizedOwnerStructure = normalizeOwnerStructure(effectiveStructureId);
+
         // Retornamos un array de apuestas individuales compatibles con BetDomainModel
         // El receiptCode será generado por el Repositorio si no se provee aquí.
+        // NORMALIZAMOS numbers a string
         const candidates = model.entrySession.loteria.map(bet => ({
             drawId,
-            betTypeId: loteriaBetTypeId || '',
-            numbers: bet.bet,
+            betTypeId: normalizedBetTypeId,
+            type: normalizedType,
+            numbers: normalizeNumbers(bet.bet),
             amount: bet.amount,
-            ownerStructure: effectiveStructureId
+            ownerStructure: normalizedOwnerStructure
         }));
 
         return BetMapper.toPlacementBatch(candidates);

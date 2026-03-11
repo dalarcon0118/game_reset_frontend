@@ -7,6 +7,9 @@ export interface OfflineSyncBetView {
     timestamp: number;
     status: BetDomainModel['status'];
     lastError?: string;
+    attempts?: number;
+    errorType?: 'FATAL' | 'RETRYABLE';
+    lastAttempt?: number;
 }
 
 export interface OfflineSyncStatsView {
@@ -25,8 +28,6 @@ const resolveOfflineId = (bet: any): string =>
 
 const resolveAmount = (bet: any): number => {
     if (!bet) return 0;
-    // Handle both new flat structure and legacy nested structure
-    // We use a safe check to avoid "Cannot read property 'amount' of undefined"
     const amount = (bet && typeof bet === 'object')
         ? (bet.amount !== undefined ? bet.amount : (bet.data ? bet.data.amount : 0))
         : 0;
@@ -36,19 +37,26 @@ const resolveAmount = (bet: any): number => {
 const resolveTimestamp = (bet: any): number =>
     toSafeNumber(bet?.timestamp ?? Date.now());
 
-const toView = (bet: any): OfflineSyncBetView => ({
-    offlineId: resolveOfflineId(bet),
-    amount: resolveAmount(bet),
-    timestamp: resolveTimestamp(bet),
-    status: (bet?.status ?? 'pending') as BetDomainModel['status'],
-    lastError: bet?.lastError
-});
+const toView = (bet: any): OfflineSyncBetView => {
+    const syncContext = bet?.syncContext;
+
+    return {
+        offlineId: resolveOfflineId(bet),
+        amount: resolveAmount(bet),
+        timestamp: resolveTimestamp(bet),
+        status: (bet?.status ?? 'pending') as BetDomainModel['status'],
+        lastError: syncContext?.lastError ?? bet?.lastError,
+        attempts: syncContext?.attemptsCount,
+        errorType: syncContext?.errorType,
+        lastAttempt: syncContext?.lastAttempt
+    };
+};
 
 export const OfflineSyncReadModelService = {
     mapBets(rawBets: BetDomainModel[]): OfflineSyncBetView[] {
         if (!Array.isArray(rawBets)) return [];
         return rawBets
-            .filter(bet => !!bet) // Remove null/undefined
+            .filter(bet => !!bet)
             .map((bet) => toView(bet));
     },
 
@@ -59,8 +67,11 @@ export const OfflineSyncReadModelService = {
     } {
         const normalized = this.mapBets(rawBets);
         return {
+            // 'pending' incluye las que están listas para sync
             pending: normalized.filter((bet) => bet.status === 'pending'),
-            syncing: normalized.filter((bet) => bet.status === 'syncing'),
+            // 'syncing' es un estado de la cola, pero si el modelo no lo tiene, devolvemos vacío o manejamos vía worker
+            syncing: [],
+            // 'error' incluye las fallidas (DLQ)
             error: normalized.filter((bet) => bet.status === 'error')
         };
     },

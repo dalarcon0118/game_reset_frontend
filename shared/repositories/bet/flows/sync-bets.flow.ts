@@ -53,8 +53,19 @@ const syncSingleBet = async (
         .orElse(error => {
             return new ResultAsync((async () => {
                 log.error(`Failed to sync bet ${bet.externalId}`, error);
-                await storage.updateStatus(bet.externalId, 'error');
-                return err<void, Error>(error);
+                
+                const attemptsCount = (bet.syncContext?.attemptsCount || 0) + 1;
+                const isFatal = (error as any).status >= 400 && (error as any).status < 500;
+                
+                await storage.updateStatus(bet.externalId, isFatal ? 'error' : 'pending', {
+                    syncContext: {
+                        lastAttempt: Date.now(),
+                        attemptsCount,
+                        lastError: error instanceof Error ? error.message : String(error),
+                        errorType: isFatal ? 'FATAL' : 'RETRYABLE'
+                    }
+                });
+                return err<void, Error>(error instanceof Error ? error : new Error(String(error)));
             })());
         });
 };

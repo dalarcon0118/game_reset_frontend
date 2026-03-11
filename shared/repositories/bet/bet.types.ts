@@ -22,6 +22,27 @@ export interface FinancialImpact {
 }
 
 /**
+ * Contexto de sincronización para trazabilidad de errores y reintentos.
+ * Implementa el patrón de "Observable State Machine" para evitar fallos silenciosos.
+ */
+export interface BetSyncContext {
+    /** Timestamp del último intento de sincronización */
+    lastAttempt: number;
+
+    /** Cantidad de veces que se ha intentado sincronizar */
+    attemptsCount: number;
+
+    /** Mensaje de error legible del último fallo */
+    lastError?: string;
+
+    /** Clasificación del error para decidir la estrategia de reintento */
+    errorType?: 'FATAL' | 'RETRYABLE';
+
+    /** Timestamp programado para el próximo reintento (backoff) */
+    nextRetryAt?: number;
+}
+
+/**
  * Domain model for a Bet in the repository context.
  * Unified and flattened structure that aligns with the Backend contract.
  * 
@@ -37,9 +58,12 @@ export interface BetDomainModel extends BetType {
     // Añadimos campos específicos del repositorio si fuera necesario.
     backendBets?: BetType[];
     commissionRate?: number;
+
+    /** Contexto de sincronización para observabilidad (Estilo DLQ) */
+    syncContext?: BetSyncContext;
 }
 
-export type BetPlacementInput = Omit<BetDomainModel, 'externalId' | 'status' | 'timestamp'>;
+export type BetPlacementInput = Omit<BetDomainModel, 'externalId' | 'status' | 'timestamp' | 'createdAt'>;
 
 export type BetRepositoryResult = BetType | BetType[];
 
@@ -67,6 +91,7 @@ export interface IBetRepository {
     // Domain helper methods
     hasCriticalPendingBets(beforeTimestamp: number): Promise<boolean>;
     getAllRawBets(): Promise<BetDomainModel[]>;
+    resetSyncStatus(offlineId: string): Promise<void>;
 
     // Agregaciones crudas (SSOT) - No incluyen lógica de negocio
     getFinancialSummary(todayStart: number, structureId?: string): Promise<RawBetTotals>;

@@ -1,7 +1,7 @@
-import { 
-    SyncStrategy, 
-    SyncQueueItem, 
-    SyncOutcome 
+import {
+    SyncStrategy,
+    SyncQueueItem,
+    SyncOutcome
 } from '@/shared/core/offline-storage/types';
 import { BetApiAdapter } from '../adapters/bet.api.adapter';
 import { logger } from '@/shared/utils/logger';
@@ -29,16 +29,16 @@ export class BetPushStrategy implements SyncStrategy {
             // pero el backend actual procesa cada CreateBetDTO de forma independiente.
             // Para simplicidad y robustez, procesamos cada item del batch.
             // Si el backend tuviera un endpoint de "bulk create bets", lo usaríamos aquí.
-            
+
             const results = await Promise.all(items.map(async (item): Promise<SyncOutcome> => {
                 try {
                     // 1. Verificar si ya existe en el servidor (idempotencia)
                     const status = await this.api.checkStatus(item.entityId);
                     if (status.synced && status.bets) {
                         log.info(`Bet ${item.entityId} already synced on server.`);
-                        return { 
-                            type: 'SUCCESS', 
-                            backendId: Array.isArray(status.bets) ? status.bets[0]?.id?.toString() : (status.bets as any).id?.toString() 
+                        return {
+                            type: 'SUCCESS',
+                            backendId: Array.isArray(status.bets) ? status.bets[0]?.id?.toString() : (status.bets as any).id?.toString()
                         };
                     }
 
@@ -50,27 +50,30 @@ export class BetPushStrategy implements SyncStrategy {
                     const response = await this.api.create(item.data, item.entityId);
                     const backendId = Array.isArray(response) ? response[0]?.id?.toString() : (response as any).id?.toString();
 
-                    return { 
-                        type: 'SUCCESS', 
-                        backendId 
+                    return {
+                        type: 'SUCCESS',
+                        backendId
                     };
                 } catch (error: any) {
                     const status = error.status || error.response?.status;
-                    if (status >= 400 && status < 500 && status !== 429 && status !== 408) {
-                        log.error(`Fatal error syncing bet ${item.entityId}`, error);
-                        return { 
-                            type: 'FATAL_ERROR', 
-                            reason: error.data?.detail || error.message || `HTTP ${status}` 
-                        };
-                    }
-                    return { type: 'RETRY_LATER', reason: error.message };
+                    const reason = error.data?.detail || error.data?.message || error.message || `HTTP ${status || 'Unknown Error'}`;
+
+                    log.error(`[SYNC_ERROR] Bet ${item.entityId} sync failed:`, reason);
+
+                    // MODO MANUAL PURO: Cualquier error se considera FATAL para detener reintentos automáticos
+                    // y permitir que el usuario decida cuándo reintentar desde la UI.
+                    return {
+                        type: 'FATAL_ERROR',
+                        reason
+                    };
                 }
             }));
 
             return results;
         } catch (error: any) {
             log.error('General error in bet batch push', error);
-            return items.map(() => ({ type: 'RETRY_LATER', reason: error.message }));
+            // MODO MANUAL PURO: Cualquier error se considera FATAL para detener reintentos automáticos
+            return items.map(() => ({ type: 'FATAL_ERROR', reason: error.message }));
         }
     }
 }

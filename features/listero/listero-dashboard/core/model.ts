@@ -2,6 +2,7 @@ import { WebData } from '@/shared/core/tea-utils';
 import { FinancialSummary, DrawType, BetType } from '@/types';
 import { StatusFilter, DailyTotals } from './core.types';
 import { DashboardUser } from './user.dto';
+import { PromotionState } from '../promotion/model';
 
 export type DashboardStatus =
     | { type: 'IDLE' }                               // Esperando datos iniciales (Estructura/Token)
@@ -14,7 +15,6 @@ export interface Model {
     status: DashboardStatus; // El "cerebro" de la inicialización
     draws: WebData<DrawType[]>;
     filteredDraws: DrawType[];
-    summary: WebData<FinancialSummary>;
     pendingBets: BetType[];
     syncedBets: BetType[]; // Todas las apuestas sincronizadas del día
     dailyTotals: DailyTotals;
@@ -26,4 +26,5 @@ export interface Model {
     authToken: string | null;
     currentUser: DashboardUser | null;
     isRateLimited: boolean;
+    promotion: PromotionState;
 }

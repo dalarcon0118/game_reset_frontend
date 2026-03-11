@@ -40,7 +40,7 @@ export const authApiAdapter: IAuthApi = {
             };
 
         } catch (error: any) {
-            log.warn('Online login request failed', { username, error: error.message });
+            log.warn('Online login request failed', { username, error: error.message, status: error.status });
 
             const isNetworkError =
                 error.status === 0 ||
@@ -49,11 +49,19 @@ export const authApiAdapter: IAuthApi = {
                 error.message?.toLowerCase().includes('abort') ||
                 !error.status;
 
+            const isServerError = error.status >= 500;
+            const isInvalidCredentials = error.status === 401 || error.status === 403;
+
+            let errorType = AuthErrorType.UNKNOWN_ERROR;
+            if (isNetworkError) errorType = AuthErrorType.CONNECTION_ERROR;
+            else if (isServerError) errorType = AuthErrorType.SERVER_ERROR;
+            else if (isInvalidCredentials) errorType = AuthErrorType.INVALID_CREDENTIALS;
+
             return {
                 success: false,
                 error: {
-                    type: isNetworkError ? AuthErrorType.CONNECTION_ERROR : AuthErrorType.INVALID_CREDENTIALS,
-                    message: error.message || 'Error de conexión'
+                    type: errorType,
+                    message: error.message || 'Error de autenticación'
                 }
             };
         }

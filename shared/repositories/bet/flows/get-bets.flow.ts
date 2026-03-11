@@ -5,7 +5,6 @@ import { ListBetsFilters } from '@/shared/services/bet/types';
 import { drawRepository } from '../../draw';
 import { mapBackendBetToFrontend, mapPendingBetsToFrontend } from '@/shared/services/bet/mapper';
 import { logger } from '@/shared/utils/logger';
-
 import { TimerRepository } from '@/shared/repositories/system/time/timer.repository';
 
 const log = logger.withTag('GetBetsFlow');
@@ -43,14 +42,15 @@ const mergeBets = (ctx: GetBetsContext): Result<BetType[], Error> => {
 
     let result = Array.from(betsMap.values());
 
-    // Safety filter: ensure all merged bets (especially online ones) match the date filter
+    // Seguridad: filtrar SOLO por fecha, sin fallback por drawId
+    // Si no hay filtro de fecha, devolver todas
     if (ctx.filters?.date) {
         const rawDate = ctx.filters.date;
         const filterDate = (typeof rawDate === 'number' || !isNaN(Number(rawDate)))
             ? TimerRepository.formatUTCDate(Number(rawDate))
             : String(rawDate);
 
-        log.info('Final safety filter by date', {
+        log.info('Filtering bets by date', {
             originalFilter: rawDate,
             normalizedFilter: filterDate,
             totalBefore: result.length
@@ -60,19 +60,15 @@ const mergeBets = (ctx: GetBetsContext): Result<BetType[], Error> => {
             const betDate = TimerRepository.formatUTCDate(bet.timestamp || Date.now());
             const isMatch = betDate === filterDate;
 
-            // Prioridad: Si el DrawId coincide, confiamos en la apuesta aunque la fecha UTC varíe por milisegundos
-            const isSameDraw = ctx.filters?.drawId && String(bet.draw) === String(ctx.filters.drawId);
-
-            if (!isMatch && !isSameDraw) {
-                log.warn(`[GET_BETS_DEBUG] EXCLUDED: Bet ${bet.receiptCode}`, {
+            if (!isMatch) {
+                log.debug(`Bet excluded by date filter`, {
+                    receiptCode: bet.receiptCode,
                     betDate,
-                    expectedDate: filterDate,
-                    drawId: bet.draw,
-                    filterDrawId: ctx.filters?.drawId
+                    expectedDate: filterDate
                 });
             }
 
-            return isMatch || isSameDraw;
+            return isMatch;
         });
     }
 

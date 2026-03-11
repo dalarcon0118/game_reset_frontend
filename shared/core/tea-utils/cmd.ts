@@ -207,4 +207,51 @@ export const Cmd = {
     type: 'RESOURCE',
     payload,
   }),
+
+  /**
+   * Maps a command from one message type to another.
+   * Useful for composing TEA modules.
+   */
+  map: <SubMsg, Msg>(
+    f: (subMsg: SubMsg) => Msg,
+    cmd: Cmd
+  ): Cmd => {
+    if (!cmd) return null;
+    if (Array.isArray(cmd)) {
+      return cmd.map((c) => Cmd.map(f, c) as CommandDescriptor);
+    }
+    const descriptor = cmd as CommandDescriptor;
+    switch (descriptor.type) {
+      case 'HTTP':
+        return {
+          ...descriptor,
+          payload: {
+            ...descriptor.payload,
+            msgCreator: (data: any) => f(descriptor.payload.msgCreator(data)),
+            errorCreator: descriptor.payload.errorCreator
+              ? (err: any) => f(descriptor.payload.errorCreator(err))
+              : undefined,
+          },
+        };
+      case 'TASK':
+        return {
+          ...descriptor,
+          payload: {
+            ...descriptor.payload,
+            onSuccess: (data: any) => f(descriptor.payload.onSuccess(data)),
+            onFailure: (err: any) => f(descriptor.payload.onFailure(err)),
+          },
+        };
+      case 'RESOURCE':
+        return {
+          ...descriptor,
+          payload: {
+            ...descriptor.payload,
+            msgCreator: (data: any) => f(descriptor.payload.msgCreator(data)),
+          }
+        };
+      default:
+        return descriptor;
+    }
+  },
 };

@@ -40,9 +40,10 @@ export interface BetFeature {
      * Transforms raw bets from the backend into the internal structure for this feature.
      * 
      * @param bets The raw bets fetched from the backend.
+     * @param identifiedBetTypes Optional map of identified bet type IDs (from identifyBetTypes).
      * @returns A partial ListData object containing the transformed bets for this feature.
      */
-    transformBets(bets: BetType[]): Partial<ListData>;
+    transformBets(bets: BetType[], identifiedBetTypes?: Record<string, string | null>): Partial<ListData>;
 
     /**
      * Checks if this feature handles the given game type code.
@@ -149,12 +150,15 @@ export class BetRegistry {
 
     /**
      * Transforms raw bets from the backend into the internal structure using all registered features.
+     * 
+     * @param bets The raw bets fetched from the backend.
+     * @param identifiedBetTypes Optional map of identified bet type IDs.
      */
-    static transformAllBets(bets: BetType[]): ListData {
+    static transformAllBets(bets: BetType[], identifiedBetTypes?: Record<string, string | null>): ListData {
         let combinedData: Partial<ListData> = {};
 
         this.features.forEach(feature => {
-            const transformedData = feature.transformBets(bets);
+            const transformedData = feature.transformBets(bets, identifiedBetTypes);
             combinedData = { ...combinedData, ...transformedData };
         });
 

@@ -114,8 +114,16 @@ const attemptSync = async (
         return ok({ bet, synced: false });
     } catch (error) {
         log.warn('Sync failed, bet remains pending', error);
-        await storage.updateStatus(bet.externalId, 'error', {
-            lastError: String(error)
+
+        const isFatal = (error as any).status >= 400 && (error as any).status < 500;
+
+        await storage.updateStatus(bet.externalId, isFatal ? 'error' : 'pending', {
+            syncContext: {
+                lastAttempt: Date.now(),
+                attemptsCount: 1,
+                lastError: error instanceof Error ? error.message : String(error),
+                errorType: isFatal ? 'FATAL' : 'RETRYABLE'
+            }
         });
         return ok({ bet, synced: false });
     }

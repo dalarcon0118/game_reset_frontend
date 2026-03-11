@@ -5,7 +5,7 @@ import { Model } from './model';
 import { Msg } from './msg';
 import { update } from './update';
 import { subscriptions } from './subscriptions';
-import { initialState } from './initial.types';
+import { initialState as initial } from './initial.types';
 
 // ============================================================================
 // Types
@@ -31,7 +31,7 @@ const ListeroDashboardContext = createContext<StoreType | undefined>(undefined);
 
 const createDashboardStore = () => {
     return createElmStore<Model, Msg>({
-        initial: initialState,
+        initial,
         update,
         subscriptions
     });

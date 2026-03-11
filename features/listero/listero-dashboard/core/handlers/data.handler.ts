@@ -1,16 +1,16 @@
 import { Model } from '../model';
 import { Msg, FinancialUpdate } from '../msg';
 import { Cmd, RemoteData, WebData, ret, singleton, Return } from '@/shared/core/tea-utils';
-import { shouldFetchData, checkRateLimit, recalculateDashboardState, handleSseUpdate } from '../logic';
-import { fetchDrawsCmd, fetchSummaryCmd, loadPendingBetsCmd } from '../commands';
+import { shouldFetchData, checkRateLimit, recalculateDashboardState } from '../logic';
+import { fetchDrawsCmd, loadPendingBetsCmd } from '../commands';
 import { match, P } from 'ts-pattern';
-import { DrawType, FinancialSummary, BetType } from '@/types';
+import { DrawType, BetType } from '@/types';
 import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('DASHBOARD_DATA_HANDLER');
 
 const checkReadyState = (model: Model): Model => {
-    if (model.draws.type === 'Success' && model.summary.type === 'Success') {
+    if (model.draws.type === 'Success') {
         return { ...model, status: { type: 'READY' } };
     }
     return model;
@@ -35,10 +35,9 @@ export const DataHandler = {
             {
                 ...model,
                 userStructureId: validId,
-                draws: RemoteData.loading(),
-                summary: RemoteData.loading()
+                draws: RemoteData.loading()
             },
-            [fetchDrawsCmd(validId), fetchSummaryCmd(validId), loadPendingBetsCmd()] as Cmd
+            [fetchDrawsCmd(validId), loadPendingBetsCmd()] as Cmd
         );
     },
 
@@ -48,12 +47,11 @@ export const DataHandler = {
 
         log.debug('Bets loaded', { pending: safeBets.length, synced: allSynced.length });
 
-        const summary = model.summary.type === 'Success' ? model.summary.data : null;
         const drawsData = model.draws.type === 'Success' ? model.draws.data : null;
 
         const { filteredDraws, dailyTotals } = recalculateDashboardState(
             drawsData,
-            summary,
+            null, // No external summary needed
             model.appliedFilter,
             model.commissionRate,
             safeBets,
@@ -97,10 +95,9 @@ export const DataHandler = {
             )
             // 2. Success Case: Update draws and recalculate derived state
             .with({ type: 'Success', data: P.select() }, (data) => {
-                const summary = model.summary.type === 'Success' ? model.summary.data : null;
                 const { filteredDraws, dailyTotals } = recalculateDashboardState(
                     data,
-                    summary,
+                    null, // No external summary needed
                     model.appliedFilter,
                     model.commissionRate,
                     model.pendingBets,
@@ -133,52 +130,10 @@ export const DataHandler = {
             );
     },
 
-    handleSummaryReceived: (model: Model, webData: WebData<FinancialSummary>): Return<Model, Msg> => {
-        console.log('[DEBUG] handleSummaryReceived: RECIBIDO', { type: webData.type });
-        log.debug('Summary received', { state: webData.type });
-
-        return match(webData)
-            // 1. Rate Limit Case: Failure + we already had successful data
-            .when(
-                (data) => checkRateLimit(data) && model.summary.type === 'Success',
-                () => {
-                    log.warn('Rate limited, keeping previous summary data');
-                    return singleton({ ...model, isRateLimited: true });
-                }
-            )
-            // 2. Success Case: Recalculate derived state
-            .with({ type: 'Success', data: P.select() }, (data) => {
-                log.debug('Updating dailyTotals from real-time summary', { data });
-
-                const drawsData = model.draws.type === 'Success' ? model.draws.data : null;
-                const { filteredDraws, dailyTotals } = recalculateDashboardState(
-                    drawsData,
-                    data,
-                    model.appliedFilter,
-                    model.commissionRate,
-                    model.pendingBets,
-                    model.syncedBets
-                );
-
-                return singleton(checkReadyState({
-                    ...model,
-                    summary: webData,
-                    isRateLimited: false,
-                    filteredDraws,
-                    dailyTotals
-                }));
-            })
-            // 3. Other cases (Loading, NotAsked, Failure without previous data): Just update summary
-            .otherwise(() =>
-                singleton({ ...model, summary: webData, isRateLimited: false })
-            );
-    },
-
     handleRefreshClicked: (model: Model): Return<Model, Msg> => {
         console.log('[DEBUG] handleRefreshClicked: INICIANDO');
         return ret(model, [
             fetchDrawsCmd(model.userStructureId),
-            fetchSummaryCmd(model.userStructureId),
             loadPendingBetsCmd()
         ] as Cmd);
     },
@@ -188,7 +143,6 @@ export const DataHandler = {
             log.debug('Tick triggered fetch');
             return ret(model, [
                 fetchDrawsCmd(model.userStructureId),
-                fetchSummaryCmd(model.userStructureId),
                 loadPendingBetsCmd()
             ] as Cmd);
         }
@@ -201,12 +155,10 @@ export const DataHandler = {
         const { shouldFetch } = handleSseUpdate(model, update);
 
         if (shouldFetch) {
-            // CRITICAL FIX: Fetch BOTH summary and pending bets to avoid "Double Counting".
-            // If we only fetch summary, the new summary (including the bet) would be added 
-            // to the stale pendingBets (still containing the bet), causing a temporary spike.
+            // CRITICAL FIX: Fetch pending bets to avoid "Double Counting".
             return ret(
-                { ...model, summary: RemoteData.loading() },
-                [fetchSummaryCmd(model.userStructureId), loadPendingBetsCmd()] as Cmd
+                model,
+                loadPendingBetsCmd()
             );
         }
 

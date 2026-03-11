@@ -1,7 +1,7 @@
-import { match } from 'ts-pattern';
+import { match, P } from 'ts-pattern';
 import { Model } from './model';
 import { Msg } from './msg';
-import { Cmd, Return, singleton, ret } from '@/shared/core/tea-utils';
+import { Cmd, Return, ret } from '@/shared/core/tea-utils';
 import { logger } from '@/shared/utils/logger';
 
 import { updateAuthTokenCmd } from './commands';
@@ -11,26 +11,33 @@ import { DataHandler } from './handlers/data.handler';
 import { NavigationHandler } from './handlers/navigation.handler';
 import { FilterHandler } from './handlers/filter.handler';
 import { AuthHandler } from './handlers/auth.handler';
+import * as PromotionUpdate from '../promotion/update';
+import { PROMOTION_MSG } from './msg';
 
 const log = logger.withTag('DASHBOARD_UPDATE');
 
-export const update = (model: Model, msg: Msg): [Model, Cmd] => {
+export const update = (model: Model, msg: Msg): Return<Model, Msg> => {
     // log.debug('Update msg', { type: msg.type });
 
-    const result = match<Msg, Return<Model, Msg>>(msg)
+    return match<Msg, Return<Model, Msg>>(msg)
+        // Feature: Promotions
+        .with({ type: 'PROMOTION_MSG', msg: P.select() }, (subMsg) => {
+            const promotionReturn = PromotionUpdate.update(subMsg, model.promotion);
+            return Return.val<Model, Msg>(
+                { ...model, promotion: promotionReturn.model },
+                Cmd.map(PROMOTION_MSG, promotionReturn.cmd)
+            );
+        })
+
         // Data Handling
         .with({ type: 'FETCH_DATA_REQUESTED' }, ({ structureId }) =>
             DataHandler.handleFetchDataRequested(model, structureId)
         )
-        .with({ type: 'DRAWS_RECEIVED' }, ({ webData }) => {
-            log.info('DRAWS_RECEIVED', { type: webData.type });
-            return DataHandler.handleDrawsReceived(model, webData);
-        })
-        .with({ type: 'SUMMARY_RECEIVED' }, ({ webData }) =>
-            DataHandler.handleSummaryReceived(model, webData)
+        .with({ type: 'DRAWS_RECEIVED', webData: P.select() }, (webData) =>
+            DataHandler.handleDrawsReceived(model, webData)
         )
-        .with({ type: 'PENDING_BETS_LOADED' }, ({ bets }) =>
-            DataHandler.handlePendingBetsLoaded(model, bets)
+        .with({ type: 'PENDING_BETS_LOADED' }, ({ bets, syncedBets }) =>
+            DataHandler.handlePendingBetsLoaded(model, bets, syncedBets)
         )
         .with({ type: 'REFRESH_CLICKED' }, () =>
             DataHandler.handleRefreshClicked(model)
@@ -47,6 +54,8 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
         .with({ type: 'SSE_ERROR' }, ({ error }) =>
             DataHandler.handleSseError(model, error)
         )
+
+
 
         // Auth Handling
         .with({ type: 'AUTH_USER_SYNCED' }, ({ user }) => {
@@ -129,8 +138,6 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
         .with({ type: 'SETTINGS_CLICKED' }, () =>
             NavigationHandler.handleSettingsClicked(model)
         )
-        .with({ type: 'NONE' }, () => ret(model, Cmd.none))
+        .with({ type: 'NONE' }, () => Return.singleton<Model>(model))
         .exhaustive();
-
-    return [result.model, result.cmd || Cmd.none];
 };

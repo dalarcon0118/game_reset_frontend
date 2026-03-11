@@ -262,16 +262,35 @@ export class DrawRepository implements IDrawRepository {
      * @returns Número de keys eliminadas
      */
     async cleanup(today: string): Promise<number> {
-        this.log.info('Starting DrawRepository cleanup', { today });
+        this.log.info('Starting DrawRepository Selective Cleanup', { today });
 
         try {
             let removed = 0;
 
-            // 1. Clear the draw list cache (will be refetched from server)
-            await this.offlineAdapter.clear();
+            // 1. Limpiar solo la caché de LISTAS.
+            // Esto fuerza a la app a pedir datos frescos al servidor, 
+            // pero NO borra los sorteos individuales.
+            await this.offlineAdapter.clearLists();
             removed++;
 
-            this.log.info('DrawRepository cleanup completed', { removed });
+            // 2. Obtener todos los sorteos individuales cacheados
+            const allCachedDraws = await this.offlineAdapter.getAll();
+
+            // 3. Filtrar y borrar solo los que sean estrictamente anteriores a 'today'
+            // La fecha de BackendDraw viene en formato YYYY-MM-DD
+            const toDelete = allCachedDraws.filter(draw => draw.date < today);
+
+            this.log.debug(`Found ${toDelete.length} old draws to cleanup out of ${allCachedDraws.length} total`, {
+                today,
+                keeping: allCachedDraws.length - toDelete.length
+            });
+
+            for (const draw of toDelete) {
+                await this.offlineAdapter.deleteDraw(draw.id);
+                removed++;
+            }
+
+            this.log.info('DrawRepository Selective Cleanup completed', { removed });
             return removed;
 
         } catch (error: any) {

@@ -11,6 +11,15 @@ const log = logger.withTag('BET_LIST_UPDATE');
 export interface ListContextModel {
     listSession: ListState;
     currentDrawId: string | null;
+    managementSession?: {
+        betTypes: {
+            fijo: string | null;
+            corrido: string | null;
+            parlet: string | null;
+            centena: string | null;
+            loteria: string | null;
+        };
+    };
 }
 
 export const updateList = <M extends ListContextModel>(model: M, msg: ListMsg): Return<M, ListMsg> => {
@@ -44,13 +53,24 @@ export const updateList = <M extends ListContextModel>(model: M, msg: ListMsg): 
                         },
                         args: [{ drawId }],
                         onSuccess: (bets: BetType[]) => {
-                            const listData = BetRegistry.transformAllBets(bets);
+                            // Extraer los betTypes identificados del managementSession
+                            const identifiedBetTypes = model.managementSession?.betTypes;
+                            const betTypesMap = identifiedBetTypes ? {
+                                loteria: identifiedBetTypes.loteria,
+                                fijo: identifiedBetTypes.fijo,
+                                corrido: identifiedBetTypes.corrido,
+                                parlet: identifiedBetTypes.parlet,
+                                centena: identifiedBetTypes.centena,
+                            } : undefined;
+
+                            const listData = BetRegistry.transformAllBets(bets, betTypesMap);
 
                             log.debug('Transformed data completed', {
                                 fijosCorridos: listData.fijosCorridos.length,
                                 parlets: listData.parlets.length,
                                 centenas: listData.centenas.length,
                                 loteria: listData.loteria.length,
+                                identifiedBetTypes: betTypesMap,
                             });
 
                             return {
@@ -92,7 +112,17 @@ export const updateList = <M extends ListContextModel>(model: M, msg: ListMsg): 
                         args: [{ drawId }],
                         onSuccess: (bets: BetType[]) => {
                             log.debug('FETCH_BETS_SUCCEEDED (refresh)');
-                            const listData = BetRegistry.transformAllBets(bets);
+                            // Extraer los betTypes identificados del managementSession
+                            const identifiedBetTypes = model.managementSession?.betTypes;
+                            const betTypesMap = identifiedBetTypes ? {
+                                loteria: identifiedBetTypes.loteria,
+                                fijo: identifiedBetTypes.fijo,
+                                corrido: identifiedBetTypes.corrido,
+                                parlet: identifiedBetTypes.parlet,
+                                centena: identifiedBetTypes.centena,
+                            } : undefined;
+
+                            const listData = BetRegistry.transformAllBets(bets, betTypesMap);
 
                             return {
                                 type: ListMsgType.FETCH_BETS_SUCCEEDED,

@@ -1,5 +1,5 @@
 import { BolitaModel, BolitaListData } from './models/bolita.types';
-import { BET_TYPE_KEYS, UI_CONSTANTS } from '@/shared/types/bet_types';
+import { BET_TYPE_KEYS, UI_CONSTANTS, normalizeBetType, normalizeBetTypeId, normalizeNumbers, normalizeOwnerStructure } from '@/shared/types/bet_types';
 import { BetType, ParletBet, CentenaBet, FijosCorridosBet } from '@/types';
 import { BetPlacementInput } from '@/shared/repositories/bet/bet.types';
 import { logger } from '@/shared/utils/logger';
@@ -144,33 +144,31 @@ export const BolitaImpl = {
                 return { type: 'Invalid', reason: 'Error Crítico: No se encontró la estructura del usuario para registrar la apuesta.' };
             }
 
+            // Normalizar ownerStructure usando función centralizada
+            const normalizedOwnerStructure = normalizeOwnerStructure(userStructureId);
+
             const bets: BetPlacementInput[] = [];
-            const ownerStructure = Number(userStructureId);
 
             // Fijos/Corridos
             entrySession.fijosCorridos.forEach(b => {
                 if (b.fijoAmount && b.fijoAmount > 0) {
                     bets.push({
-                        id: b.id,
-                        type: BET_TYPE_KEYS.FIJO,
-                        createdAt: new Date().toISOString(),
-                        betTypeId: BET_TYPE_KEYS.FIJO,
+                        type: normalizeBetType(BET_TYPE_KEYS.FIJO),
+                        betTypeId: normalizeBetTypeId(BET_TYPE_KEYS.FIJO),
                         amount: b.fijoAmount,
-                        numbers: b.bet,
+                        numbers: normalizeNumbers(b.bet),
                         drawId,
-                        ownerStructure
+                        ownerStructure: normalizedOwnerStructure
                     });
                 }
                 if (b.corridoAmount && b.corridoAmount > 0) {
                     bets.push({
-                        id: b.id,
-                        type: BET_TYPE_KEYS.CORRIDO,
-                        createdAt: new Date().toISOString(),
-                        betTypeId: BET_TYPE_KEYS.CORRIDO,
+                        type: normalizeBetType(BET_TYPE_KEYS.CORRIDO),
+                        betTypeId: normalizeBetTypeId(BET_TYPE_KEYS.CORRIDO),
                         amount: b.corridoAmount,
-                        numbers: b.bet,
+                        numbers: normalizeNumbers(b.bet),
                         drawId,
-                        ownerStructure
+                        ownerStructure: normalizedOwnerStructure
                     });
                 }
             });
@@ -179,14 +177,12 @@ export const BolitaImpl = {
             entrySession.parlets.forEach(b => {
                 if (b.amount && b.amount > 0) {
                     bets.push({
-                        id: b.id,
-                        type: BET_TYPE_KEYS.PARLET,
-                        createdAt: new Date().toISOString(),
-                        betTypeId: BET_TYPE_KEYS.PARLET,
+                        type: normalizeBetType(BET_TYPE_KEYS.PARLET),
+                        betTypeId: normalizeBetTypeId(BET_TYPE_KEYS.PARLET),
                         amount: b.amount,
-                        numbers: b.bets,
+                        numbers: normalizeNumbers(b.bets),
                         drawId,
-                        ownerStructure
+                        ownerStructure: normalizedOwnerStructure
                     });
                 }
             });
@@ -195,14 +191,12 @@ export const BolitaImpl = {
             entrySession.centenas.forEach(b => {
                 if (b.amount && b.amount > 0) {
                     bets.push({
-                        id: b.id,
-                        type: BET_TYPE_KEYS.CENTENA,
-                        createdAt: new Date().toISOString(),
-                        betTypeId: BET_TYPE_KEYS.CENTENA,
+                        type: normalizeBetType(BET_TYPE_KEYS.CENTENA),
+                        betTypeId: normalizeBetTypeId(BET_TYPE_KEYS.CENTENA),
                         amount: b.amount,
-                        numbers: b.bet,
+                        numbers: normalizeNumbers(b.bet),
                         drawId,
-                        ownerStructure
+                        ownerStructure: normalizedOwnerStructure
                     });
                 }
             });
@@ -214,7 +208,7 @@ export const BolitaImpl = {
             return { type: 'Valid', payload: bets };
         },
 
-        transformBets: (bets: BetType[]): BolitaListData => {
+        transformBets: (bets: BetType[], _identifiedBetTypes?: Record<string, string | null>): BolitaListData => {
             const parlets: ParletBet[] = [];
             const centenas: CentenaBet[] = [];
             const fijosCorridosMap = new Map<string, FijosCorridosBet>();

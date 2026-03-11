@@ -232,7 +232,16 @@ export class RequestExecutor {
   private async prepareRequestConfig(options: RequestExecutionOptions): Promise<RequestInit> {
     this.log.debug('[Preparing request config...]', options);
 
-    const token = await this.credentialProvider.getAccessToken();
+    let token = await this.credentialProvider.getAccessToken();
+
+    // RACE CONDITION FIX: Si no hay token en una petición privada, reintentar una vez tras 300ms
+    // Esto da tiempo al storage persistente (SecureStore/AsyncStorage) a terminar la escritura tras el login.
+    if (!token && !options.skipAuth) {
+      this.log.warn('[RACE-CONDITION-GUARD] No token found for private request, retrying in 300ms...');
+      await new Promise(resolve => setTimeout(resolve, 300));
+      token = await this.credentialProvider.getAccessToken();
+    }
+
     const tokenState = SessionPolicy.resolveTokenState(token);
 
     // Obtener estado real de red para la política de sesión

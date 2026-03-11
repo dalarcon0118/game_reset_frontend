@@ -5,6 +5,8 @@ import { Return, singleton, ret, RemoteData, Cmd } from '@/shared/core/tea-utils
 import { DrawService } from '@/shared/services/draw';
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
 import { BetRegistry } from '../../core/registry';
+import { BetMapper, BetPlacementCandidate } from '@/shared/repositories/bet/bet.mapper';
+import { normalizeBetType, normalizeBetTypeId, normalizeNumbers, normalizeOwnerStructure } from '@/shared/types/bet_types';
 
 export interface CreateContextModel {
     createSession: CreateModel;
@@ -228,6 +230,24 @@ export const updateCreate = <M extends CreateContextModel>(model: M, msg: Create
         .with({ type: CreateMsgType.SUBMIT_CREATE_SESSION }, () => {
             if (model.createSession.tempBets.length === 0) return singleton(model);
 
+            // Obtener el owner_structure del draw cargado (igual que en Lotería)
+            const drawDetails = model.createSession.draw.type === 'Success'
+                ? model.createSession.draw.data
+                : null;
+            const effectiveStructureId = drawDetails?.owner_structure
+                ? String(drawDetails.owner_structure)
+                : '';
+
+            // Crear candidatos de apuesta con normalización centralizada
+            const candidates: BetPlacementCandidate[] = model.createSession.tempBets.map(b => ({
+                drawId: model.createSession.selectedDrawId || '',
+                betTypeId: b.gameType.id,
+                type: b.gameType.code || b.gameType.name, // Usar el código o nombre del tipo
+                numbers: b.numbers,
+                amount: b.amount,
+                ownerStructure: effectiveStructureId || '0'
+            }));
+
             return ret(
                 {
                     ...model,
@@ -238,15 +258,12 @@ export const updateCreate = <M extends CreateContextModel>(model: M, msg: Create
                 },
                 Cmd.task({
                     task: async () => {
-                        const bets = model.createSession.tempBets.map(b => ({
-                            game_type: b.gameType.id,
-                            numbers: b.numbers,
-                            amount: b.amount,
-                            drawId: model.createSession.selectedDrawId || '',
-                            player_alias: model.createSession.playerAlias,
-                            owner_structure: 0, // This should be provided by the context or auth
-                        }));
-                        return await betRepository.placeBatch(bets as any);
+                        // Usar el mapper para validar y normalizar el formato
+                        const mappedResult = BetMapper.toPlacementBatch(candidates);
+                        if (mappedResult.isErr()) {
+                            throw mappedResult.error;
+                        }
+                        return await betRepository.placeBatch(mappedResult.value);
                     },
                     onSuccess: (result) => ({ type: CreateMsgType.SUBMISSION_RESULT, result: RemoteData.success(result) }),
                     onFailure: (error) => ({ type: CreateMsgType.SUBMISSION_RESULT, result: RemoteData.failure(error.message || 'Error al enviar apuestas') })

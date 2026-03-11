@@ -79,8 +79,18 @@ export class SessionCoordinator {
         this.isHydrating = true; // Block expiration signals during hydration
 
         try {
-            const user = await this.authRepo.getUserIdentity();
-            const { access } = await this.authRepo.getToken();
+            // Reintento de hidratación para evitar race conditions con el almacenamiento persistente tras un login
+            let user = await this.authRepo.getUserIdentity();
+            let { access } = await this.authRepo.getToken();
+
+            if (!user && access) {
+                this.log.warn('Access token found but no user identity, retrying hydration in 500ms...');
+                await new Promise(resolve => setTimeout(resolve, 500));
+                user = await this.authRepo.getUserIdentity();
+                const tokenData = await this.authRepo.getToken();
+                access = tokenData.access;
+            }
+
             const tokenState = SessionPolicy.resolveTokenState(access);
 
             if (user && (tokenState === TokenState.VALID || tokenState === TokenState.EXPIRED || tokenState === TokenState.OFFLINE_MARKER)) {

@@ -3,11 +3,137 @@
  * 
  * Este archivo define los tipos de apuestas y sus schemas de visualización
  * de manera centralizada para mantener consistencia en toda la aplicación.
+ * 
+ * NORMAS DE ESTANDARIZACIÓN:
+ * - type: Siempre usar valores de BET_TYPE_KEYS (enum)
+ * - betTypeId: Siempre string del ID del backend
+ * - numbers: Siempre string (para almacenamiento)
+ * - ownerStructure: Siempre string
  */
 
 import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('BET_TYPES');
+
+/**
+ * Mapeo canónico de IDs del backend a tipos de apuesta.
+ * Estos IDs vienen del campo bet_type en el backend.
+ */
+export const BET_TYPE_ID_MAP: Record<string, BetTypeKind> = {
+    // Lotería IDs
+    '10': 'Lotería',
+    '13': 'Lotería',
+    // Bolita IDs
+    '1': 'Fijo',
+    '2': 'Corrido',
+    '3': 'Parlet',
+    '4': 'Centena',
+    // Cuaterna / Semanales
+    '5': 'Cuaterna Semanal',
+    '6': 'Quiniela',
+};
+
+/**
+ * Mapeo inverso: tipo -> ID del backend (para guardado)
+ */
+export const BET_TYPE_TO_ID_MAP: Record<BetTypeKind, string> = {
+    'Lotería': '10',
+    'Fijo': '1',
+    'Corrido': '2',
+    'Parlet': '3',
+    'Centena': '4',
+    'Cuaterna Semanal': '5',
+    'Quiniela': '6',
+    'Fijo/Corrido': '1',
+};
+
+/**
+ * Normaliza el valor de type al formato canónico.
+ * Maneja: tildes, mayúsculas, variants.
+ */
+export const normalizeBetType = (value: string | undefined | null): BetTypeKind => {
+    if (!value) return 'Fijo';
+
+    const normalized = value
+        .toUpperCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+
+    // Buscar coincidencia exacta
+    for (const [key, displayName] of Object.entries(BET_TYPE_KEYS)) {
+        const keyNormalized = key.toUpperCase();
+        const displayNormalized = displayName
+            .toUpperCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
+
+        if (normalized === keyNormalized || normalized === displayNormalized) {
+            return displayName;
+        }
+    }
+
+    // Buscar por coincidencia parcial
+    if (normalized.includes('LOTERIA') || normalized.includes('CUATERNA')) {
+        return 'Lotería';
+    }
+    if (normalized.includes('FIJO') && normalized.includes('CORRIDO')) {
+        return 'Fijo/Corrido';
+    }
+    if (normalized.includes('FIJO')) return 'Fijo';
+    if (normalized.includes('CORRIDO')) return 'Corrido';
+    if (normalized.includes('PARLET')) return 'Parlet';
+    if (normalized.includes('CENTENA')) return 'Centena';
+
+    return 'Fijo'; // Default
+};
+
+/**
+ * Normaliza betTypeId al formato canónico.
+ * Si es un número, lo convierte a string.
+ * Si es un string que ya es un tipo (como 'Fijo'), lo convierte al ID.
+ */
+export const normalizeBetTypeId = (value: string | number | undefined | null): string => {
+    if (!value) return '1'; // Default Fijo
+
+    const strValue = String(value);
+
+    // Si es un ID numérico conocido, devolverlo
+    if (BET_TYPE_ID_MAP[strValue]) {
+        return strValue;
+    }
+
+    // Si es un nombre de tipo, convertir al ID
+    const normalizedType = normalizeBetType(strValue);
+    return BET_TYPE_TO_ID_MAP[normalizedType] || '1';
+};
+
+/**
+ * Normaliza el campo numbers a string.
+ * El almacenamiento SIEMPRE debe usar string.
+ */
+export const normalizeNumbers = (value: unknown): string => {
+    if (value === null || value === undefined) return '';
+
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number') return String(value);
+    if (Array.isArray(value)) return value.join('-');
+    if (typeof value === 'object') {
+        const obj = value as Record<string, unknown>;
+        if ('number' in obj) return normalizeNumbers(obj.number);
+        if ('bet' in obj) return normalizeNumbers(obj.bet);
+        if ('numbers' in obj) return normalizeNumbers(obj.numbers);
+    }
+
+    return String(value);
+};
+
+/**
+ * Normaliza ownerStructure a string.
+ */
+export const normalizeOwnerStructure = (value: string | number | undefined | null): string => {
+    if (!value) return '';
+    return String(value);
+};
 
 /**
  * Valores literales para cada tipo de apuesta (como constantes)
@@ -142,14 +268,35 @@ export const UI_CONSTANTS = {
 /**
  * Verifica si el tipo de apuesta requiere formato especial para Lotería
  * (útil para determinar si es un juego de 5 dígitos)
+ * 
+ * Esta función NO usa valores hardcodeados de ID. En su lugar:
+ * - Si se proporcionan knownLoteriaIds, los usa para verificar
+ * - Otherwise usa el nombre/tipo como fallback
+ * 
+ * @param type - El nombre/tipo de la apuesta (ej: 'Lotería', 'Cuaterna Semanal')
+ * @param betTypeId - El ID del tipo de apuesta del backend (opcional)
+ * @param knownLoteriaIds - Array de IDs de lotería identificados del backend (opcional)
  */
-export const isLoteriaType = (type: string, betTypeId?: string | number): boolean => {
-    // Si tenemos betTypeId, deberíamos idealmente compararlo contra una lista de IDs conocidos
-    // o confiar en que la lógica de negocio ya lo clasificó.
-    // Por ahora, mantenemos la normalización pero priorizamos consistencia.
+export const isLoteriaType = (
+    type: string,
+    betTypeId?: string | number,
+    knownLoteriaIds?: string[]
+): boolean => {
+    // PRIORIDAD 1: Si tenemos los IDs de lotería conocidos del backend, verificar contra ellos
+    if (knownLoteriaIds && knownLoteriaIds.length > 0 && betTypeId) {
+        const betTypeIdStr = String(betTypeId);
+        if (knownLoteriaIds.includes(betTypeIdStr)) {
+            return true;
+        }
+    }
+
+    // PRIORIDAD 2: Verificar por nombre/tipo usando keywords del registro
+    // Este es un fallback que funciona sin conocer los IDs del backend
     const normalized = type.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     return normalized === BET_TYPE_KEYWORDS.LOTERIA ||
         normalized === BET_TYPE_KEYWORDS.LOTERIA_ACCENT ||
         normalized.includes(BET_TYPE_KEYWORDS.CUATERNA) ||
         normalized.includes(BET_TYPE_KEYWORDS.SEMANAL);
 };
+
+// Las funciones de normalización ya están exportadas con 'export const'

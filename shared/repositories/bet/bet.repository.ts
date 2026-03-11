@@ -14,6 +14,7 @@ import { getFinancialSummaryFlow, getTotalsByDrawIdFlow } from './flows/financia
 // Instantiate and export singleton with default adapters
 import { BetStorageAdapter } from './adapters/bet.storage.adapter';
 import { BetApiAdapter } from './adapters/bet.api.adapter';
+import { BetSyncListener } from './sync/bet.sync.listener';
 
 const log = logger.withTag('BetRepository');
 
@@ -23,11 +24,16 @@ const log = logger.withTag('BetRepository');
  */
 export class BetRepository implements IBetRepository {
     private readonly log = log;
+    private readonly syncListener: BetSyncListener;
 
     constructor(
         private readonly storage: IBetStorage,
         private readonly api: IBetApi
-    ) { }
+    ) {
+        // Iniciar el listener de eventos de sincronización para mantener el syncContext actualizado
+        this.syncListener = new BetSyncListener(this.storage);
+        this.syncListener.start();
+    }
 
     /**
      * Optimistic Place Bet: Saves locally and tries to sync.
@@ -66,6 +72,28 @@ export class BetRepository implements IBetRepository {
      */
     async syncPending(): Promise<{ success: number; failed: number }> {
         return await syncPendingFlow(this.storage, this.api);
+    }
+
+    /**
+     * Resets the sync status of a bet (DLQ Reprocessing).
+     * Clears error context and sets status back to pending.
+     */
+    async resetSyncStatus(offlineId: string): Promise<void> {
+        try {
+            this.log.info(`Resetting sync status for bet ${offlineId}`);
+
+            // 1. Actualizar en el almacenamiento local
+            await this.storage.updateStatus(offlineId, 'pending', {
+                syncContext: undefined, // Limpiar el contexto de error (DLQ)
+                lastError: undefined
+            });
+
+            // 2. Opcionalmente podríamos disparar un trigger de sync aquí, 
+            // pero el worker lo recogerá en su ciclo habitual.
+        } catch (error) {
+            this.log.error(`Failed to reset sync status for bet ${offlineId}`, error);
+            throw error;
+        }
     }
 
     /**

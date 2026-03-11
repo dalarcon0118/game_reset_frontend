@@ -82,4 +82,32 @@ export class DrawOfflineAdapter {
         const pattern = DrawOfflineKeys.getPattern('instance', '*', '*');
         await offlineStorage.clear(pattern);
     }
+
+    /**
+     * Borra un sorteo individual por ID
+     */
+    async deleteDraw(id: string | number): Promise<void> {
+        const key = DrawOfflineKeys.draw(String(id), 'data');
+        const financialKey = DrawOfflineKeys.draw(String(id), 'financial');
+        const resultsKey = DrawOfflineKeys.draw(String(id), 'results');
+        const betTypesKey = DrawOfflineKeys.betType(String(id), 'list');
+
+        await offlineStorage.removeMulti([
+            key,
+            financialKey,
+            resultsKey,
+            betTypesKey
+        ]);
+    }
+
+    /**
+     * Limpia solo las llaves de listas de sorteos (caché de listas)
+     * Esto fuerza al repositorio a pedir listas nuevas al servidor,
+     * pero mantiene los sorteos individuales en caché.
+     */
+    async clearLists(): Promise<void> {
+        // Borrar llaves que contienen 'list' en el ID
+        const listPattern = DrawOfflineKeys.getPattern('instance', 'list*', 'data');
+        await offlineStorage.clear(listPattern);
+    }
 }

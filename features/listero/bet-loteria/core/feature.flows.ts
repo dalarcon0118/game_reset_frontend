@@ -182,9 +182,9 @@ export const FeatureFlows = {
                     (e) => e instanceof Error ? e : new Error('Time sync failed')
                 )
                     .andThen((trustedNow) => {
+                        // Filtrar solo por drawId (sin filtro de fecha)
                         const query = BetQuery.create()
                             .forDraw(drawId)
-                            .onDate(new Date(trustedNow))
                             .build();
 
                         return ResultAsync.fromPromise(
@@ -196,8 +196,13 @@ export const FeatureFlows = {
                         }); // betRepository.getBets already returns a Result
                     })
                     .map((bets) => {
+                        // Extraer los IDs de lotería conocidos del modelo
+                        // NOTA: Esto es un workaround porque no tenemos acceso directo al modelo aquí
+                        // La forma correcta sería pasar los betTypes identificados como parámetro
                         return bets
                             .filter((b: BetType) => {
+                                // Usar el type (nombre) como fuente principal de verdad
+                                // Esto evita depender de IDs hardcodeados
                                 const isLoteria = isLoteriaType(b.type || '', b.betTypeId);
                                 if (betTypeId) {
                                     return String(b.betTypeId) === String(betTypeId);

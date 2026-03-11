@@ -77,6 +77,7 @@ export class SyncWorkerCore {
         }
 
         const run = async (): Promise<SyncReport> => {
+            log.debug(`[TRIGGER_SYNC] Manual trigger started - isOnline: ${await isServerReachable()}`);
             const isOnline = await isServerReachable();
             WorkerStateManager.setOnline(isOnline);
 
@@ -250,7 +251,9 @@ export class SyncWorkerCore {
                         errors.push({ entityId: item.entityId, type: item.type, reason });
                         this.emitEvent('SYNC_ITEM_ERROR', item.type, {
                             entityId: item.entityId,
-                            error: reason
+                            error: reason,
+                            isFatal,
+                            attempts: item.attempts + 1
                         });
                     }
                 }
@@ -282,6 +285,9 @@ export class SyncWorkerCore {
     }
 
     private async processQueue(): Promise<void> {
+        log.warn('[SYNC_WORKER] processQueue was called but it should be disabled for auto-triggers');
+        return;
+
         const isOnline = await isServerReachable();
         WorkerStateManager.setOnline(isOnline);
 

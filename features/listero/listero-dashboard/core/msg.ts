@@ -3,6 +3,8 @@ import { FinancialSummary, DrawType, BetType } from '@/types';
 import { StatusFilter } from './core.types';
 import { DashboardUser } from './user.dto';
 
+import { Msg as PromotionMsg } from '../promotion/msg';
+
 export interface FinancialUpdate {
     type: string;
     timestamp: string;
@@ -19,7 +21,6 @@ export interface FinancialUpdate {
 export type Msg =
     | { type: 'FETCH_DATA_REQUESTED'; structureId?: string }
     | { type: 'DRAWS_RECEIVED'; webData: WebData<DrawType[]> }
-    | { type: 'SUMMARY_RECEIVED'; webData: WebData<FinancialSummary> }
     | { type: 'PENDING_BETS_LOADED'; bets: BetType[]; syncedBets?: BetType[] }
     | { type: 'REFRESH_CLICKED' }
     | { type: 'SET_USER_STRUCTURE'; id: string }
@@ -42,6 +43,7 @@ export type Msg =
     | { type: 'SETTINGS_CLICKED' }
     | { type: 'TOGGLE_BALANCE' }
     | { type: 'DAILY_SESSION_PREPARED'; success: boolean }
+    | { type: 'PROMOTION_MSG'; msg: PromotionMsg }
     | { type: 'NONE' };
 
 export const FETCH_DATA_REQUESTED = (structureId?: string): Msg => ({ type: 'FETCH_DATA_REQUESTED', structureId });
@@ -65,9 +67,10 @@ export const TOGGLE_BALANCE = (): Msg => ({ type: 'TOGGLE_BALANCE' });
 export const NONE = (): Msg => ({ type: 'NONE' });
 export const DAILY_SESSION_PREPARED = (payload: { success: boolean }): Msg => ({ type: 'DAILY_SESSION_PREPARED', success: payload.success });
 
+export const PROMOTION_MSG = (msg: PromotionMsg): Msg => ({ type: 'PROMOTION_MSG', msg });
+
 export const DRAWS_RECEIVED = (webData: WebData<DrawType[]>): Msg => ({ type: 'DRAWS_RECEIVED', webData });
-export const SUMMARY_RECEIVED = (webData: WebData<FinancialSummary>): Msg => ({ type: 'SUMMARY_RECEIVED', webData });
-export const PENDING_BETS_LOADED = (bets: PendingBet[], syncedBets?: PendingBet[]): Msg => ({ type: 'PENDING_BETS_LOADED', bets, syncedBets });
+export const PENDING_BETS_LOADED = (bets: BetType[], syncedBets?: BetType[]): Msg => ({ type: 'PENDING_BETS_LOADED', bets, syncedBets });
 export const FINANCIAL_UPDATE_RECEIVED = (update: FinancialUpdate): Msg => ({ type: 'FINANCIAL_UPDATE_RECEIVED', update });
 export const SSE_CONNECTED = (): Msg => ({ type: 'SSE_CONNECTED' });
 export const SSE_ERROR = (error: string): Msg => ({ type: 'SSE_ERROR', error });

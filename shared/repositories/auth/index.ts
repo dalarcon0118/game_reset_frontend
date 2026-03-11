@@ -114,15 +114,18 @@ class AuthRepositoryImpl implements IAuthRepository {
                     return onlineResult;
                 }
 
-                // Si falló por red (CONNECTION_ERROR), intentamos offline
-                if (onlineResult.error.type === AuthErrorType.CONNECTION_ERROR) {
-                    log.info('Online login failed due to connection, attempting offline validation', { username });
-                    return await this.performOfflineValidation(username, pin);
+                // Lógica Musashi: Si el error es de identidad (401/403), no intentamos offline.
+                // Para cualquier otro fallo (Red, 500, etc.), activamos el modo de supervivencia offline.
+                if (onlineResult.error.type === AuthErrorType.INVALID_CREDENTIALS) {
+                    log.warn('Online login failed with domain error (Invalid Credentials)', onlineResult.error);
+                    return onlineResult;
                 }
 
-                // Si falló por credenciales inválidas u otro error de dominio, retornamos el error online
-                log.warn('Online login failed with domain error', onlineResult.error);
-                return onlineResult;
+                log.info('Online login failed due to availability/server error, attempting offline validation', { 
+                    username, 
+                    errorType: onlineResult.error.type 
+                });
+                return await this.performOfflineValidation(username, pin);
             }
 
             // Si el servidor no es alcanzable, intentamos offline directamente

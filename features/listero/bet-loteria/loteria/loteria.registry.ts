@@ -43,13 +43,19 @@ export const LoteriaRegistryFeature: BetFeature = {
         return { loteria: type?.id?.toString() || null };
     },
 
-    transformBets: (bets: BetType[]): Partial<ListData> => {
-        log.debug('transformBets', bets);
+    transformBets: (bets: BetType[], identifiedBetTypes?: Record<string, string | null>): Partial<ListData> => {
+        log.debug('transformBets', { betCount: bets.length, identifiedBetTypes });
         const loteria: LoteriaBet[] = [];
+
+        // Extraer los IDs de lotería identificados
+        const knownLoteriaIds = identifiedBetTypes?.loteria
+            ? [identifiedBetTypes.loteria]
+            : undefined;
+
         bets.forEach(bet => {
-            // Priority 1: Check by betTypeId if we have it (should be the standard)
+            // Priority 1: Check against identified betTypes from backend
             // Priority 2: Robust string check via helper
-            const isLoteria = isLoteriaType(bet.type || '', bet.betTypeId);
+            const isLoteria = isLoteriaType(bet.type || '', bet.betTypeId, knownLoteriaIds);
 
             if (isLoteria) {
                 loteria.push({

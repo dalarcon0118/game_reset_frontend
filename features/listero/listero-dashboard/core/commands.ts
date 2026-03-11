@@ -9,13 +9,11 @@ import { ensureError } from '@/shared/utils/error';
 import {
     PENDING_BETS_LOADED,
     DRAWS_RECEIVED,
-    SUMMARY_RECEIVED,
     AUTH_TOKEN_UPDATED,
     DAILY_SESSION_PREPARED,
     NONE
 } from './msg';
 import { prepareDailySessionUseCase } from './use-cases/prepare-daily-session.use-case';
-import { fetchSummaryUseCase } from './use-cases/fetch-summary.use-case';
 
 const log = logger.withTag('DASHBOARD_COMMANDS');
 
@@ -76,28 +74,6 @@ export const fetchDrawsCmd = (structureId: string | null): Cmd => {
     });
 };
 
-export const fetchSummaryCmd = (structureId: string | null): Cmd => {
-    console.log('[DEBUG] fetchSummaryCmd: LLAMADO con structureId =', structureId);
-    if (!structureId || structureId === '0') {
-        console.log('[DEBUG] fetchSummaryCmd: RETORNANDO Cmd.none');
-        return Cmd.none;
-    }
-
-    return Cmd.task({
-        task: async () => {
-            return await fetchSummaryUseCase(structureId);
-        },
-        onSuccess: (data) => {
-            return SUMMARY_RECEIVED({ type: 'Success', data });
-        },
-        onFailure: (error) => {
-            return SUMMARY_RECEIVED({ type: 'Failure', error: ensureError(error) });
-        },
-        label: 'FETCH_SUMMARY'
-    });
-};
-
-
 export const loadPendingBetsCmd = (): Cmd => {
     return Cmd.task({
         task: async () => {
@@ -119,9 +95,13 @@ export const updateAuthTokenCmd = (): Cmd => {
     return Cmd.task({
         task: async () => {
             const token = await apiClient.getAuthToken();
-            return token || '';
+            if (!token) throw new Error('Token not available yet');
+            return token;
         },
-        onSuccess: (token) => AUTH_TOKEN_UPDATED(token),
-        onFailure: () => NONE()
+        onSuccess: (token) => ({ type: 'AUTH_TOKEN_UPDATED', token }),
+        onFailure: (error) => {
+            log.warn('Could not update auth token - keeping existing', error);
+            return { type: 'NONE' };
+        }
     });
 };

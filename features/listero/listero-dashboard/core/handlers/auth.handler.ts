@@ -2,7 +2,9 @@ import { Model } from '../model';
 import { Msg } from '../msg';
 import { Cmd, ret, singleton, Return, RemoteData } from '@/shared/core/tea-utils';
 import { handleAuthUserSynced as logicHandleAuthUserSynced } from '../logic';
-import { fetchDrawsCmd, fetchSummaryCmd, updateAuthTokenCmd, loadPendingBetsCmd, prepareDailySessionCmd } from '../commands';
+import { fetchDrawsCmd, updateAuthTokenCmd, loadPendingBetsCmd, prepareDailySessionCmd } from '../commands';
+import { fetchPromotionsCmd } from '../../promotion/commands';
+import { PROMOTION_MSG } from '../msg';
 import { logger } from '@/shared/utils/logger';
 import { DashboardUser } from '../user.dto';
 
@@ -39,14 +41,13 @@ const triggerInitialLoad = (model: Model): Return<Model, Msg> => {
     }
 
     // 2. Data Status: Check if we need to fetch
-    const needsFetch = model.draws.type === 'NotAsked' || model.summary.type === 'NotAsked';
+    const needsFetch = model.draws.type === 'NotAsked';
     console.log('[DEBUG] triggerInitialLoad: needsFetch =', needsFetch);
 
     log.debug('triggerInitialLoad check', {
         userStructureId: model.userStructureId,
         hasToken: !!model.authToken,
         drawsType: model.draws.type,
-        summaryType: model.summary.type,
         needsFetch
     });
 
@@ -63,8 +64,7 @@ const triggerInitialLoad = (model: Model): Return<Model, Msg> => {
     const loadingModel: Model = {
         ...model,
         status: { type: 'LOADING_DATA' },
-        draws: RemoteData.loading(),
-        summary: RemoteData.loading()
+        draws: RemoteData.loading()
     };
 
     return ret(
@@ -73,8 +73,8 @@ const triggerInitialLoad = (model: Model): Return<Model, Msg> => {
             // Update token in parallel to ensure freshness
             updateAuthTokenCmd(),
             fetchDrawsCmd(model.userStructureId),
-            fetchSummaryCmd(model.userStructureId),
-            loadPendingBetsCmd()
+            loadPendingBetsCmd(),
+            Cmd.map(PROMOTION_MSG, fetchPromotionsCmd())
         ])
     );
 };
@@ -93,7 +93,7 @@ export const AuthHandler = {
         }
 
         // If we need to fetch data, we first prepare the daily session
-        const needsFetch = nextModel.draws.type === 'NotAsked' || nextModel.summary.type === 'NotAsked';
+        const needsFetch = nextModel.draws.type === 'NotAsked';
         console.log('[DEBUG] handleAuthUserSynced: needsFetch =', needsFetch);
         if (needsFetch) {
             console.log('[DEBUG] handleAuthUserSynced: LLAMANDO triggerDailyPreparation');
@@ -111,6 +111,11 @@ export const AuthHandler = {
     },
 
     handleAuthTokenUpdated: (model: Model, token: string): Return<Model, Msg> => {
+        if (!token) {
+            log.warn('Received empty token in AUTH_TOKEN_UPDATED - ignoring update');
+            return singleton(model);
+        }
+
         if (model.authToken === token) {
             // Even if token is same, we should check if load is pending
             // (e.g. if structure arrived after token was set)
@@ -122,7 +127,7 @@ export const AuthHandler = {
     },
 
     handleSetUserStructure: (model: Model, id: string): Return<Model, Msg> => {
-        return ret({ ...model, userStructureId: id }, [fetchDrawsCmd(id), fetchSummaryCmd(id), loadPendingBetsCmd()] as Cmd);
+        return ret({ ...model, userStructureId: id }, [fetchDrawsCmd(id), loadPendingBetsCmd()] as Cmd);
     },
 
     handleToggleBalance: (model: Model): Return<Model, Msg> => {
