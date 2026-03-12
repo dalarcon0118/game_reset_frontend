@@ -15,6 +15,9 @@
       "@features/*": [
         "features/*"
       ],
+      "@kernel/*": [
+        "core/*"
+      ],
       "@core/*": [
         "shared/core/*"
       ]

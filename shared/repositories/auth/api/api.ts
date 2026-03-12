@@ -1,5 +1,5 @@
-import apiClient from '../../../services/api_client/api_client';
-import settings from '../../../../config/settings';
+import { apiClient } from '../../../services/api_client';
+import { settings } from '../../../../config/settings';
 import { logger } from '../../../utils/logger';
 import { BackendLoginResponseCodec, decodeOrFallback } from '../codecs/codecs';
 import { BackendLoginResponse, User } from '../types/types';
@@ -28,5 +28,18 @@ export const AuthApi = {
 
   getMe: async (): Promise<User> => {
     return await apiClient.get<User>(settings.api.endpoints.me());
+  },
+
+  refresh: async (refreshToken: string): Promise<BackendLoginResponse> => {
+    const response = await apiClient.post<any>(settings.api.endpoints.refresh(), { refresh: refreshToken }, { skipAuthHandler: true });
+
+    // Validar la respuesta con io-ts (mismo codec que login ya que retorna tokens)
+    const validatedResponse = decodeOrFallback(BackendLoginResponseCodec, response, 'refresh');
+
+    if (validatedResponse !== response) {
+      log.warn('Refresh response validation failed', { original: response, validated: validatedResponse });
+    }
+
+    return validatedResponse as BackendLoginResponse;
   }
 };

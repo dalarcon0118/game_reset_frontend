@@ -1,8 +1,8 @@
-import { createElmStore } from '@/shared/core/engine/engine';
+import { createElmStore } from '@core/engine/engine';
 import { Model } from './model';
 import { update, subscriptions } from './update';
-import { effectHandlers } from '@/shared/core/tea-utils';
-import { createLoggerMiddleware } from '@/shared/core/middlewares/logger.middleware';
+import { effectHandlers } from '@core/tea-utils';
+import { createLoggerMiddleware } from '@core/middlewares/logger.middleware';
 import { FETCH_NOTIFICATIONS_REQUESTED } from './msg';
 
 // Initial model

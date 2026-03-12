@@ -1,6 +1,6 @@
 // Auth state types - core authentication model
 export { User } from '../../../../shared/repositories/auth';
-import { WebData } from '@/shared/core/tea-utils';
+import { WebData } from '@core/tea-utils';
 
 /**
  * Single Source of Truth for Session Status.

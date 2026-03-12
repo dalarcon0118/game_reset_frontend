@@ -1,5 +1,5 @@
 import { ParletBet, CentenaBet, FijosCorridosBet, ExtendedDrawType, GameType } from '@/types';
-import { WebData } from '@/shared/core/tea-utils';
+import { WebData } from '@core/tea-utils';
 
 // ============================================================================
 // Core Domain Models

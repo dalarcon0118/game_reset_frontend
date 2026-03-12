@@ -5,7 +5,7 @@ import { AuthMsgType } from '@/features/auth/store/types';
 import { update as updateDashboard } from '@/features/colector/dashboard/core/update';
 import { Model as DashboardModel, DashboardStats } from '@/features/colector/dashboard/core/model';
 import { Msg as DashboardMsg } from '@/features/colector/dashboard/core/msg';
-import { RemoteData } from '@/shared/core/tea-utils';
+import { RemoteData } from '@core/tea-utils';
 
 const feature = loadFeature('./tests/features/colector/colector.feature');
 

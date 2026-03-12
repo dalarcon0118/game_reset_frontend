@@ -1,11 +1,11 @@
 import { Model } from './model';
-import { Sub } from '@/shared/core/tea-utils';
+import { Sub } from '@core/tea-utils';
 import { SYNC_STATE, BATCH_OFFLINE_UPDATE, DrawTotalsUpdate } from './msg';
 import { logger } from '@/shared/utils/logger';
 import { extractHostState, createDrawsHash, HostStatePayload } from './host.adapter';
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
 import { TimerRepository } from '@/shared/repositories/system/time/timer.repository';
-import { offlineEventBus } from '@/shared/core/offline-storage/instance';
+import { offlineEventBus } from '@core/offline-storage/instance';
 
 const log = logger.withTag('DRAWS_LIST_PLUGIN_SUBS');
 

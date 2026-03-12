@@ -1,6 +1,6 @@
 import { DrawService } from '@/shared/services/draw';
 import { DrawApi } from '@/shared/services/draw/api';
-import { offlineStorage } from '@/shared/core/offline-storage/instance';
+import { offlineStorage } from '@core/offline-storage/instance';
 import { storageClient } from '@/shared/services/storage_client';
 
 // Mock dependencies

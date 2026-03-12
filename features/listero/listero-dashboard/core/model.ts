@@ -1,4 +1,4 @@
-import { WebData } from '@/shared/core/tea-utils';
+import { WebData } from '@core/tea-utils';
 import { FinancialSummary, DrawType, BetType } from '@/types';
 import { StatusFilter, DailyTotals } from './core.types';
 import { DashboardUser } from './user.dto';

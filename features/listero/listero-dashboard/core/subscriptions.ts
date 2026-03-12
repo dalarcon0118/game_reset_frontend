@@ -1,8 +1,8 @@
 import { Model } from './model';
-import { SubDescriptor, Sub } from '@/shared/core/tea-utils';
+import { SubDescriptor, Sub } from '@core/tea-utils';
 import { Msg } from './msg';
 import { useAuthStore } from '@features/auth';
-import { pluginEventBus } from '@/shared/core/plugins/plugin.event_bus';
+import { pluginEventBus } from '@core/plugins/plugin.event_bus';
 
 export const subscriptions = (model: Model): SubDescriptor<Msg> => {
     // Sincronización automática con el store de Auth para cambios de usuario

@@ -1,4 +1,4 @@
-import { Cmd } from '@/shared/core/tea-utils';
+import { Cmd } from '@core/tea-utils';
 import { drawRepository } from '@/shared/repositories/draw';
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
 import apiClient from '@/shared/services/api_client';

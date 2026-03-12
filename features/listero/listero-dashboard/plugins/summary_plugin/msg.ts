@@ -1,4 +1,4 @@
-import { createMsg, WebData } from '@/shared/core/tea-utils';
+import { createMsg, WebData } from '@core/tea-utils';
 import { FinancialSummary, SummaryPluginContext } from './domain/models';
 
 export const INIT_CONTEXT = createMsg<'INIT_CONTEXT', SummaryPluginContext>('INIT_CONTEXT');

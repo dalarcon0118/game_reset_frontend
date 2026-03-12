@@ -101,12 +101,12 @@ export class CredentialProvider {
     }
 
     const result = await ResultAsync.fromPromise(
-      this.performRefreshRequest(refreshToken),
+      repoRes.value.refresh(),
       (e: any) => e instanceof Error ? e : new Error(String(e))
-    ).andThen(tokens => ResultAsync.fromPromise(
-      this.persistTokens(tokens),
-      () => new Error('FAILED_TO_PERSIST_TOKENS')
-    ));
+    ).map(res => {
+      if (!res.success) throw new Error(res.error.message);
+      return res.data?.accessToken || '';
+    });
 
     this.isRefreshing = false;
 
@@ -116,52 +116,10 @@ export class CredentialProvider {
     } else {
       this.log.error('Refresh failed', { error: result.error.message });
       this.notifySubscribers('');
-      if (this.sessionExpiredHandler) {
-        this.sessionExpiredHandler();
-      }
+      // No necesitamos llamar a sessionExpiredHandler aquí porque AuthRepository ya notificó a sus listeners
     }
 
     return result;
-  }
-
-  private async performRefreshRequest(refreshToken: string): Promise<{ access: string; refresh: string | null }> {
-    const url = `${this.settings.api.baseUrl}${this.settings.api.endpoints.refresh()}`;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.settings.api.timeoutProfiles.FAST);
-    let response: Response;
-
-    try {
-      response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ refresh: refreshToken }),
-        signal: controller.signal
-      });
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new ApiClientError('Refresh token request timeout', 408, { detail: 'REFRESH_TIMEOUT' });
-      }
-      throw error;
-    } finally {
-      clearTimeout(timeoutId);
-    }
-
-    if (!response.ok) {
-      let errorData: ApiClientErrorData = { detail: `Error ${response.status}` };
-      try { errorData = await response.json(); } catch { }
-      throw new ApiClientError(errorData.message || 'Error en refresh token', response.status, errorData);
-    }
-
-    const data = await response.json();
-    if (!data?.access) throw new Error('INVALID_REFRESH_RESPONSE');
-
-    return { access: data.access, refresh: data.refresh ?? null };
-  }
-
-  private async persistTokens(tokens: { access: string; refresh: string | null }): Promise<string> {
-    const repo = this.authRepo._unsafeUnwrap();
-    await repo.saveToken(tokens.access, tokens.refresh || undefined);
-    return tokens.access;
   }
 
   private notifySubscribers(token: string) {

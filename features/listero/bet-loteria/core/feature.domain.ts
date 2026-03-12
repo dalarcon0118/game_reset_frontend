@@ -1,6 +1,6 @@
 import { LoteriaFeatureModel } from './feature.types';
 import { LoteriaBet, DrawType, GameType } from '@/types';
-import { WebData, RemoteData } from '@/shared/core/tea-utils';
+import { WebData, RemoteData } from '@core/tea-utils';
 import { LoteriaState } from '../loteria/loteria.types';
 import { calculateLoteriaFixedAmount, DEFAULT_LOTERIA_FIXED_AMOUNT } from '../loteria/loteria.domain';
 

@@ -1,4 +1,4 @@
-import { WebData, RemoteData } from '@/shared/core/tea-utils';
+import { WebData, RemoteData } from '@core/tea-utils';
 
 /**
  * Voucher Message Types

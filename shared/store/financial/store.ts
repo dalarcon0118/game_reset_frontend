@@ -1,8 +1,8 @@
-import { createTEAModule } from '@/shared/core/engine';
+import { createTEAModule } from '@core/engine';
 import { Model, initialModel } from './model';
 import { Msg } from './msg';
 import { update } from './update';
-import { Sub } from '@/shared/core/tea-utils';
+import { Sub } from '@core/tea-utils';
 import { useDrawersStore } from '@/features/colector/drawers/core/store';
 import { useListeriasStore } from '@/features/banker/listerias/core/store';
 

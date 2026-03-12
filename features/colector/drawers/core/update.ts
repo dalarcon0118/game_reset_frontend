@@ -7,7 +7,7 @@ import {
     RemoteData,
     singleton,
     ret
-} from '@/shared/core/tea-utils';
+} from '@core/tea-utils';
 import { structureRepository } from '@/shared/repositories/structure';
 import { logger } from '@/shared/utils/logger';
 

@@ -1,5 +1,5 @@
 import { AuthModel } from './types';
-import { RemoteData } from '@/shared/core/tea-utils';
+import { RemoteData } from '@core/tea-utils';
 
 export const initialAuthModel: AuthModel = {
     // Auth state

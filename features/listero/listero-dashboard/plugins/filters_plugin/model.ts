@@ -1,4 +1,4 @@
-import { PluginContext } from '@/shared/core/plugins/plugin.types';
+import { PluginContext } from '@core/plugins/plugin.types';
 
 export interface FilterOption {
   label: string;

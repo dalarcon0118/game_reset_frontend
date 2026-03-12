@@ -1,8 +1,8 @@
-import { createElmStore } from '@/shared/core/engine/engine';
+import { createElmStore } from '@core/engine/engine';
 import { Model } from './model';
 import { Msg } from './msg';
 import { update } from './update';
-import { RemoteData, RemoteDataHttp, Cmd } from '@/shared/core/tea-utils';
+import { RemoteData, RemoteDataHttp, Cmd } from '@core/tea-utils';
 import { structureRepository } from '@/shared/repositories/structure';
 
 

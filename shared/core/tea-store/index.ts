@@ -5,7 +5,7 @@
  * with full CRUD operations, built on the existing TEA architecture patterns.
  * 
  * @example
- * import { useTEAStore, Entity, TEAStoreConfig } from '@/shared/core/tea-store';
+ * import { useTEAStore, Entity, TEAStoreConfig } from '@core/tea-store';
  * 
  * interface User extends Entity {
  *     id: string;

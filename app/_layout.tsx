@@ -3,7 +3,6 @@ import { Stack } from 'expo-router';
 import { View, TouchableOpacity, Text, StyleSheet, Alert } from 'react-native';
 import { DevTools } from '../config/init';
 import { AppProviders } from '../providers/AppProviders';
-import { useAppBootstrap } from '../hooks/useAppBootstrap';
 import { GlobalErrorBoundary } from '../components/GlobalErrorBoundary';
 import { ErrorBoundary as SharedErrorBoundary } from '../shared/components/error_boundary';
 import { useAuthNavigation } from '../hooks/useAuthNavigation';
@@ -15,12 +14,6 @@ import setings from '../config/settings';
 export { GlobalErrorBoundary as ErrorBoundary };
 
 export default function RootLayout() {
-  const isKernelReady = useAppBootstrap();
-
-  if (!isKernelReady) {
-    return null; // Native splash screen handles visibility
-  }
-
   return (
     <GlobalErrorBoundary>
       <AppProviders>

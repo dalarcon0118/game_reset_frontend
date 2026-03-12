@@ -1,4 +1,4 @@
-import { WebData } from '@/shared/core/tea-utils';
+import { WebData } from '@core/tea-utils';
 import { AppNotification, NotificationPreferences, Model } from './model';
 
 export type Msg =

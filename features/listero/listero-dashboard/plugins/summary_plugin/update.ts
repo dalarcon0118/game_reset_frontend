@@ -1,6 +1,6 @@
 import { Model } from './model';
 import * as Msg from './msg';
-import { Return, ret, Cmd, RemoteDataHttp, RemoteData, WebData } from '@/shared/core/tea-utils';
+import { Return, ret, Cmd, RemoteDataHttp, RemoteData, WebData } from '@core/tea-utils';
 import { match } from 'ts-pattern';
 import { FinancialSummary as DomainFinancialSummary, SummaryPluginContext } from './domain/models';
 import { calculateFinancials } from './domain/logic';

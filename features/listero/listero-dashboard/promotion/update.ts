@@ -1,7 +1,7 @@
 import { match, P } from 'ts-pattern';
 import { PromotionState } from './model';
 import { Msg } from './msg';
-import { Return, singleton, ret, RemoteData } from '@/shared/core/tea-utils';
+import { Return, singleton, ret, RemoteData } from '@core/tea-utils';
 import { fetchPromotionsCmd } from './commands';
 
 export function update(msg: Msg, model: PromotionState): Return<PromotionState, Msg> {

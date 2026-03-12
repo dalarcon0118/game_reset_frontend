@@ -1,7 +1,7 @@
 import { Result } from 'neverthrow';
 import { BetType } from '@/types';
 import { ListBetsFilters } from '@/shared/services/bet/types';
-import { SyncStatus } from '@/shared/core/offline-storage/types';
+import { SyncStatus } from '@core/offline-storage/types';
 import { BackendChildStructure, BackendListeroDetails } from '@/shared/services/structure/types';
 
 export type ChildStructure = BackendChildStructure;

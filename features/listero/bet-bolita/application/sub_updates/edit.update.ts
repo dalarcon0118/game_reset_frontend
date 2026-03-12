@@ -1,7 +1,7 @@
 import { match } from 'ts-pattern';
 import { BolitaModel } from '../../domain/models/bolita.types';
 import { EditMsg, EditMsgType } from '../../domain/models/bolita.messages';
-import { Return, singleton } from '@/shared/core/tea-utils';
+import { Return, singleton } from '@core/tea-utils';
 
 export const updateEdit = (model: BolitaModel, msg: EditMsg): Return<BolitaModel, EditMsg> => {
     return match<EditMsg, Return<BolitaModel, EditMsg>>(msg)

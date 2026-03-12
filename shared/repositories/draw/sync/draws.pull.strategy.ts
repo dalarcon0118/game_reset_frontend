@@ -1,6 +1,6 @@
 import { 
     SyncStrategy 
-} from '@/shared/core/offline-storage/types';
+} from '@core/offline-storage/types';
 import { DrawApi } from '../api/api';
 import { DrawOfflineAdapter } from '../adapters/draw.offline.adapter';
 import { logger } from '@/shared/utils/logger';

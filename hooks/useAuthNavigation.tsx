@@ -8,7 +8,7 @@ import { navigationRef } from '../shared/navigation/navigation_service';
 import { logger } from '../shared/utils/logger';
 import { Button } from '@ui-kitten/components';
 import { ArrowLeft } from "lucide-react-native";
-import { AppKernel } from '../shared/core/architecture/kernel';
+import { RoleNavigationPolicy } from '../core/core_module/policies/role_navigation.policy';
 
 // Rutas públicas que no requieren autenticación
 const PUBLIC_ROUTES = ['/login', '/register', '/forgot-password', '(auth)/login'];
@@ -67,8 +67,8 @@ export function useAuthNavigation() {
 
       // Redirect to dashboard if on public/login pages or root
       if (isPublicRoute || isRoot) {
-        // AppKernel decides where the user should go
-        const targetPath = AppKernel.navigationStrategy.getHomeRoute(user);
+        // Decide where the user should go based on role policy
+        const targetPath = RoleNavigationPolicy.getHomeRoute(user);
         
         if (targetPath) {
           logger.info(`Redirecting authenticated user to dashboard: ${targetPath}`, 'RootLayout');
@@ -77,8 +77,8 @@ export function useAuthNavigation() {
       } else {
         // Enforce role-based access control for protected routes
         // If the user tries to access a route not allowed for their role, redirect home
-        if (!AppKernel.navigationStrategy.canAccess(user, pathname)) {
-          const targetPath = AppKernel.navigationStrategy.getHomeRoute(user);
+        if (!RoleNavigationPolicy.canAccess(user, pathname)) {
+          const targetPath = RoleNavigationPolicy.getHomeRoute(user);
           logger.warn(`Access denied for user ${user.role} to ${pathname}. Redirecting to ${targetPath}`, 'RootLayout');
           router.replace(targetPath as any);
         }
@@ -98,8 +98,8 @@ export function useAuthNavigation() {
   const handleBackPress = useCallback(() => {
     logger.debug('Back button pressed', 'RootLayout', { pathname });
     
-    // Check if Kernel has a specific back strategy for this route/user
-    const customBackPath = AppKernel.navigationStrategy.getBackPath(user, pathname);
+    // Check if there is a specific back strategy for this route/user
+    const customBackPath = RoleNavigationPolicy.getBackPath(user, pathname);
     
     if (customBackPath) {
       router.push(customBackPath as any);

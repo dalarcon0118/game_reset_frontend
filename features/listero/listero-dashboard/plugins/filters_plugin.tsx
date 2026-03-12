@@ -1,6 +1,6 @@
 import React from 'react';
 import { FiltersComponent } from './filters_plugin/view';
-import { Plugin, SlotProps } from '@/shared/core/plugins/plugin.types';
+import { Plugin, SlotProps } from '@core/plugins/plugin.types';
 import { defaultConfig } from './filters_plugin/model';
 
 const FiltersPluginComponent: React.FC<SlotProps> = ({ context }) => {

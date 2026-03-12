@@ -1,6 +1,6 @@
 import { match } from 'ts-pattern';
 import { EditMsgType, EditMsg, Model as EditModel } from './types';
-import { Return, singleton, Cmd } from '@/shared/core/tea-utils';
+import { Return, singleton, Cmd } from '@core/tea-utils';
 
 export interface EditContextModel {
     editSession: EditModel;

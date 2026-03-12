@@ -1,4 +1,4 @@
-import { WebData } from '@/shared/core/tea-utils';
+import { WebData } from '@core/tea-utils';
 
 export interface Promotion {
     id: number;

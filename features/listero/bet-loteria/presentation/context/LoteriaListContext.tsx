@@ -5,7 +5,7 @@ import { selectLoteriaList, selectFixedAmount, selectDrawDetails } from '../../u
 import { groupBetsByReceipt } from '../../components/loteria/loteria_column.impl';
 import { LoteriaGroup } from '../../components/loteria/loteria_column.types';
 import { LoteriaFeatMsg, INIT, REFRESH_BETS } from '../../loteria/loteria.types';
-import { WebData } from '@/shared/core/tea-utils';
+import { WebData } from '@core/tea-utils';
 import { LoteriaBet } from '@/types';
 import { useAuth } from '@features/auth';
 

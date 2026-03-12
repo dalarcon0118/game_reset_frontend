@@ -1,4 +1,4 @@
-import { ModuleLoader } from '@/shared/core/loader/module_loader';
+import { ModuleLoader } from '@core/loader/module_loader';
 import { ListeroModule } from '@/features/config/listero/module';
 
 // Mock logger
@@ -46,7 +46,7 @@ describe('Listero Module Loading', () => {
 
   it('should load ListeroModule without hanging', async () => {
     // Re-import after resetModules
-    const { ModuleLoader } = require('@/shared/core/loader/module_loader');
+    const { ModuleLoader } = require('@core/loader/module_loader');
     const { ListeroModule } = require('@/features/config/listero/module');
 
     console.log('Starting ListeroModule load test...');

@@ -1,7 +1,7 @@
-import { Sub } from '@/shared/core/tea-utils';
+import { Sub } from '@core/tea-utils';
 import { Model } from './model';
 import { Msg, GET_FINANCIAL_BETS } from './msg';
-import { offlineEventBus } from '@/shared/core/offline-storage/instance';
+import { offlineEventBus } from '@core/offline-storage/instance';
 import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('SUMMARY_PLUGIN_SUBSCRIPTIONS');

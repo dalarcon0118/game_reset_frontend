@@ -11,7 +11,7 @@ import { ManagementState } from './management/core/types';
 import { VoucherModel as SuccessState } from '@/features/listero/bet-workspace/success/core/domain/success.types';
 import { RewardsModel as RewardsCache } from '@/features/listero/bet-workspace/rewards/core/model';
 import { RulesModel as RulesCache } from '@/features/listero/bet-workspace/rules/core/model';
-import { WebData } from '@/shared/core/tea-utils';
+import { WebData } from '@core/tea-utils';
 import { ListData as LocalListData, BetSummary as LocalBetSummary } from './core/types';
 
 export type { CreateSession, EditSession };

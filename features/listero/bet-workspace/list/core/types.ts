@@ -1,5 +1,5 @@
 import { ParletBet, CentenaBet, LoteriaBet } from '@/types';
-import { WebData, RemoteData } from '@/shared/core/tea-utils';
+import { WebData, RemoteData } from '@core/tea-utils';
 import { ListData } from '../../core/types';
 
 export interface ListState {

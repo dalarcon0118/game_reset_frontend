@@ -8,7 +8,7 @@ import { useTheme } from '@shared/hooks/use_theme';
 import { useDrawersStore } from '../core';
 import { SET_SELECTED_DATE, REFRESH_CLICKED, NAVIGATE_BACK, REPORT_CLICKED, CONFIRM_DRAW, NAVIGATE_DATE } from '../core/msg';
 import { ListeroDetails } from '@/shared/services/structure';
-import { RemoteData } from '@/shared/core/tea-utils';
+import { RemoteData } from '@core/tea-utils';
 
 interface ListeroDetailContentProps {
   details: ListeroDetails | null;

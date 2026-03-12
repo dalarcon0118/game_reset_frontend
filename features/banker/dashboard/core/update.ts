@@ -8,7 +8,7 @@ import {
     RemoteData,
     singleton,
     ret
-} from '@/shared/core/tea-utils';
+} from '@core/tea-utils';
 import { BankerDashboardService } from '../../services/banker_dashboard_service';
 import { useAuthStore } from '@/features/auth/store/store';
 import * as config from '@/config';

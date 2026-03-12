@@ -8,7 +8,7 @@ import {
     RemoteData,
     singleton,
     ret
-} from '@/shared/core/tea-utils';
+} from '@core/tea-utils';
 import { structureRepository, ChildStructure } from '@/shared/repositories/structure';
 import { financialRepository, FinancialKeys } from '@/shared/repositories/financial/ledger.repository';
 

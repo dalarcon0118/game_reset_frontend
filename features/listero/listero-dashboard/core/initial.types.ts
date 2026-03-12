@@ -1,4 +1,4 @@
-import { Cmd, RemoteData, Return } from '@/shared/core/tea-utils';
+import { Cmd, RemoteData, Return } from '@core/tea-utils';
 import { Model } from './model';
 import { Msg, PROMOTION_MSG } from './msg';
 import { PromotionState } from '../promotion/model';

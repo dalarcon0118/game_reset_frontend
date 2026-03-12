@@ -1,9 +1,9 @@
 import React, { useEffect } from 'react';
 import { ActivityIndicator, View, TouchableOpacity } from 'react-native';
 import { match } from 'ts-pattern';
-import { RemoteData } from '@/shared/core/tea-utils';
+import { RemoteData } from '@core/tea-utils';
 import { Label, Flex } from '@/shared/components';
-import { PluginContext } from '@/shared/core/plugins/plugin.types';
+import { PluginContext } from '@core/plugins/plugin.types';
 import DrawItem from './views/draw_item';
 import { useDrawsListPluginStore, selectModel, selectDispatch, selectInit } from './store';
 import { REFRESH_CLICKED, RULES_CLICKED, REWARDS_CLICKED, BETS_LIST_CLICKED, CREATE_BET_CLICKED, INIT_CONTEXT } from './msg';

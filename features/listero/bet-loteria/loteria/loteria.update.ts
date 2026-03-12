@@ -1,7 +1,7 @@
 import { match } from 'ts-pattern';
 import { LoteriaMsg, LoteriaState } from './loteria.types';
 import * as Msg from './loteria.types';
-import { Return, singleton } from '@/shared/core/tea-utils';
+import { Return, singleton } from '@core/tea-utils';
 
 /**
  * Pure update function for Loteria component.

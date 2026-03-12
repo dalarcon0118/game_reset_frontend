@@ -1,5 +1,5 @@
 import { ValidationRule, RewardRule } from '@/shared/services/rules';
-import { RemoteData, WebData } from '@/shared/core/tea-utils';
+import { RemoteData, WebData } from '@core/tea-utils';
 
 export interface UnifiedRule {
     id: string;

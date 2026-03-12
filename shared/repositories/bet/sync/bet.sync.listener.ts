@@ -1,7 +1,7 @@
-import { offlineEventBus } from '@/shared/core/offline-storage/event_bus';
+import { offlineEventBus } from '@core/offline-storage/event_bus';
 import { IBetStorage } from '../bet.ports';
 import { logger } from '@/shared/utils/logger';
-import { DomainEvent } from '@/shared/core/offline-storage/types';
+import { DomainEvent } from '@core/offline-storage/types';
 
 const log = logger.withTag('BetSyncListener');
 

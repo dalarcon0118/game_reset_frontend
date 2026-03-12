@@ -1,6 +1,6 @@
 import React from 'react';
 import { DrawsListComponent } from './draws_list_plugin/view';
-import { Plugin, SlotProps } from '@/shared/core/plugins/plugin.types';
+import { Plugin, SlotProps } from '@core/plugins/plugin.types';
 import { defaultConfig } from './draws_list_plugin/model';
 
 const DrawsListPluginComponent: React.FC<SlotProps> = ({ context }) => {

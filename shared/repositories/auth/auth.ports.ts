@@ -4,6 +4,7 @@ export interface IAuthApi {
     login(username: string, pin: string): Promise<AuthResult>;
     logout(): Promise<void>;
     getMe(): Promise<User>;
+    refresh(refreshToken: string): Promise<AuthResult>;
 }
 
 export interface IAuthRepository {
@@ -11,13 +12,26 @@ export interface IAuthRepository {
     logout(): Promise<void>;
     getUserIdentity(): Promise<User | null>;
     checkAuth(): Promise<void>;
+
     // Token management
     saveToken(access: string, refresh?: string): Promise<void>;
     getToken(): Promise<{ access: string | null; refresh: string | null; isOffline?: boolean }>;
     clearToken(): Promise<void>;
 
     onSessionChange(callback: (user: User | null) => void): () => void;
+    onSessionExpired(callback: (reason: string) => void): () => void;
+    onTokenRefreshed(callback: (token: string) => void): () => void;
+
+    /** Notificación imperativa de expiración (puente para ApiClient) */
+    notifySessionExpired(reason: string): void;
+
     getLastUsername(): Promise<string | null>;
+
+    // Coordination
+    resetExitFlag(): void;
+    getIsExiting(): boolean;
+    setExiting(value: boolean): void;
+    hydrate(): Promise<User | null>;
 }
 
 export interface IAuthStorage {

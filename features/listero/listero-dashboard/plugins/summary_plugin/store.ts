@@ -1,9 +1,9 @@
-import { createElmStore } from '@/shared/core/engine/engine';
-import { effectHandlers } from '@/shared/core/tea-utils';
+import { createElmStore } from '@core/engine/engine';
+import { effectHandlers } from '@core/tea-utils';
 import { initialModel } from './model';
 import { update } from './update';
 import { subscriptions } from './subscriptions';
-import { createLoggerMiddleware } from '@/shared/core/middlewares/logger.middleware';
+import { createLoggerMiddleware } from '@core/middlewares/logger.middleware';
 import { Model } from './model';
 import { Msg } from './msg';
 

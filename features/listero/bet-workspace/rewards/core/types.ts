@@ -1,4 +1,4 @@
-import { createMsg } from '@/shared/core/tea-utils';
+import { createMsg } from '@core/tea-utils';
 import { WinningRecord } from '@/types';
 import { UnifiedRulesResponse } from '@/shared/services/rules';
 

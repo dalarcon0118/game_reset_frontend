@@ -1,4 +1,4 @@
-import { createElmStore } from '@/shared/core/engine/engine';
+import { createElmStore } from '@core/engine/engine';
 import { Model, Msg } from './types';
 import { update, init, subscriptions } from './update';
 

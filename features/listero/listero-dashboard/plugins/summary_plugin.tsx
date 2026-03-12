@@ -1,6 +1,6 @@
 import React from 'react';
 import { SummaryComponent } from './summary_plugin/view';
-import { Plugin, SlotProps } from '@/shared/core/plugins/plugin.types';
+import { Plugin, SlotProps } from '@core/plugins/plugin.types';
 
 const SummaryPluginComponent: React.FC<SlotProps> = ({ context }) => {
   return <SummaryComponent context={context} />;

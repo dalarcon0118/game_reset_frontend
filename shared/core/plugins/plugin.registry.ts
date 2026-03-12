@@ -6,7 +6,7 @@ import {
 import { AppKernel } from '../architecture/kernel';
 import { logger } from '../../utils/logger';
 import { pluginEventBus } from './plugin.event_bus';
-import storageClient from '@/shared/core/offline-storage/storage_client';
+import storageClient from '@core/offline-storage/storage_client';
 import { Registry } from '../utils/registry';
 
 const log = logger.withTag('PLUGIN_REGISTRY');

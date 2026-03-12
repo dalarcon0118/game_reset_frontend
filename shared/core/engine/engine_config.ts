@@ -17,9 +17,9 @@ export interface EngineGlobalConfig {
  * 
  * @example
  * // En el root de la aplicación (_layout.tsx o App.tsx):
- * import { elmEngine } from '@/shared/core/engine/engine_config';
- * import { effectHandlers } from '@/shared/core/effect_handlers';
- * import { MiddlewareRegistry } from '@/shared/core/middleware_registry';
+ * import { elmEngine } from '@core/engine/engine_config';
+ * import { effectHandlers } from '@core/effect_handlers';
+ * import { MiddlewareRegistry } from '@core/middleware_registry';
  * 
  * elmEngine.configure({
  *     effectHandlers,

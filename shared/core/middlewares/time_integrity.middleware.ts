@@ -1,4 +1,4 @@
-import { TeaMiddleware } from '@/shared/core/tea-utils/middleware.types';
+import { TeaMiddleware } from '@core/tea-utils/middleware.types';
 import { TimerRepository } from '@/shared/repositories/system/time/timer.repository';
 import { useAuthStore } from '@/features/auth/store/store';
 import { AuthMsgType } from '@/features/auth/store/types/messages.types';

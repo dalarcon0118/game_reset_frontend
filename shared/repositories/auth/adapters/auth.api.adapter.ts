@@ -73,5 +73,49 @@ export const authApiAdapter: IAuthApi = {
 
     async getMe(): Promise<User> {
         return await apiClient.get<User>(settings.api.endpoints.me());
+    },
+
+    async refresh(refreshToken: string): Promise<AuthResult> {
+        try {
+            const response = await apiClient.post<any>(
+                settings.api.endpoints.refresh(),
+                { refresh: refreshToken },
+                { skipAuthHandler: true }
+            );
+
+            const validated = decodeOrFallback(BackendLoginResponseCodec, response, 'refresh');
+
+            if (!validated.access) {
+                return {
+                    success: false,
+                    error: {
+                        type: AuthErrorType.SERVER_ERROR,
+                        message: 'Respuesta de refresh inválida: falta token'
+                    }
+                };
+            }
+
+            return {
+                success: true,
+                data: {
+                    user: validated.user as User,
+                    accessToken: validated.access,
+                    refreshToken: validated.refresh || refreshToken,
+                    isOffline: false
+                }
+            };
+        } catch (error: any) {
+            log.warn('Token refresh failed', { error: error.message, status: error.status });
+
+            const isInvalidToken = error.status === 401 || error.status === 403;
+
+            return {
+                success: false,
+                error: {
+                    type: isInvalidToken ? AuthErrorType.SESSION_EXPIRED : AuthErrorType.SERVER_ERROR,
+                    message: error.message || 'Error al refrescar token'
+                }
+            };
+        }
     }
 };

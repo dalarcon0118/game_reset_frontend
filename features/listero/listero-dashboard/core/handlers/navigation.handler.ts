@@ -1,6 +1,6 @@
 import { Model } from '../model';
 import { Msg } from '../msg';
-import { Cmd, ret, singleton, Return } from '@/shared/core/tea-utils';
+import { Cmd, ret, singleton, Return } from '@core/tea-utils';
 import { routes } from '@/config';
 import { logger } from '@/shared/utils/logger';
 

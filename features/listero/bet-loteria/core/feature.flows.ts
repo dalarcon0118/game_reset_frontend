@@ -1,7 +1,7 @@
 import { match } from 'ts-pattern';
 import { okAsync, ResultAsync, err } from 'neverthrow';
 import { LoteriaFeatureModel, FeatureMsg } from './feature.types';
-import { Return, ret, Cmd, WebData, RemoteData, RemoteDataHttp } from '@/shared/core/tea-utils';
+import { Return, ret, Cmd, WebData, RemoteData, RemoteDataHttp } from '@core/tea-utils';
 import { LoteriaDomain } from './feature.domain';
 import { LoteriaBet, GameType } from '@/types';
 import { initialModel } from './feature.initial';

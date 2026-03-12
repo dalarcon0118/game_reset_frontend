@@ -9,7 +9,7 @@ import {
     FETCH_RULES_SUCCEEDED,
     FETCH_RULES_FAILED
 } from './types';
-import { Cmd, Return, ret, singleton, RemoteData } from '@/shared/core/tea-utils';
+import { Cmd, Return, ret, singleton, RemoteData } from '@core/tea-utils';
 import { winningRepository } from '@/shared/repositories/winning';
 import { rulesRepository } from '@/shared/repositories/rules';
 import { logger } from '@/shared/utils/logger';

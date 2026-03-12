@@ -1,8 +1,8 @@
 import { match } from 'ts-pattern';
 import { Model, Msg, RuleUpdateFormData } from './types';
-import { UpdateResult } from '@/shared/core/engine';
+import { UpdateResult } from '@core/engine';
 import { ValidationRuleService } from '@/shared/services/validation_rule';
-import { singleton, ret, Return, Sub, SubDescriptor, Cmd } from '@/shared/core/tea-utils';
+import { singleton, ret, Return, Sub, SubDescriptor, Cmd } from '@core/tea-utils';
 import { useAuthStore } from '@/features/auth/store/store';
 import { logger } from '@/shared/utils/logger';
 

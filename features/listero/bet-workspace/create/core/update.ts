@@ -1,7 +1,7 @@
 import { match } from 'ts-pattern';
 import { CreateMsgType, CreateMsg, Model as CreateModel } from './types';
 import { GameTypeCodes } from '@/constants/bet';
-import { Return, singleton, ret, RemoteData, Cmd } from '@/shared/core/tea-utils';
+import { Return, singleton, ret, RemoteData, Cmd } from '@core/tea-utils';
 import { DrawService } from '@/shared/services/draw';
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
 import { BetRegistry } from '../../core/registry';

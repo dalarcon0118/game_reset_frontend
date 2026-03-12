@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo } from 'react';
 import { UseBoundStore, StoreApi } from 'zustand';
-import { createElmStore } from '@/shared/core/engine/engine';
-import { Cmd, Sub } from '@/shared/core/tea-utils';
+import { createElmStore } from '@core/engine/engine';
+import { Cmd, Sub } from '@core/tea-utils';
 import { updateFeature } from './feature.update';
 import { LoteriaFeatureModel, FeatureMsg } from './feature.types';
 import { initialModel } from './feature.initial';

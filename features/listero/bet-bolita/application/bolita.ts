@@ -16,7 +16,7 @@ import {
     CONFIRM_INPUT
 } from '../domain/models/bolita.messages';
 import { BolitaModel } from '../domain/models/bolita.types';
-import { Return, singleton } from '@/shared/core/tea-utils';
+import { Return, singleton } from '@core/tea-utils';
 import { updateParlet, updateFijos, updateCentena, updateList, updateEdit } from './sub_updates';
 import { BolitaFlows } from './bolita.flows';
 import logger from '@/shared/utils/logger';

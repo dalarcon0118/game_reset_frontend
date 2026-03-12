@@ -5,7 +5,6 @@ import { updateAuth } from './update';
 import { authSubscriptions } from './subscriptions';
 import { createElmStore } from '@/shared/core/engine/engine';
 import { RemoteData } from '@/shared/core/tea-utils';
-import { SessionCoordinator } from '@/shared/auth/session/session.coordinator';
 import { AuthRepository } from '@/shared/repositories/auth';
 import { logger } from '@/shared/utils/logger';
 
@@ -18,15 +17,6 @@ export const useAuthStore = createElmStore<AuthModel, AuthMsg>({
     subscriptions: authSubscriptions,
 }
 
-);
-
-// Initialize SessionCoordinator after store creation
-SessionCoordinator.initialize(
-    AuthRepository,
-    settings,
-    logger.withTag('SessionCoordinator'),
-    () => useAuthStore.getState().model.status as any,
-    (msg) => useAuthStore.getState().dispatch(msg)
 );
 
 // Define the store type for selectors

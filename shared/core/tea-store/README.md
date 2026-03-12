@@ -17,7 +17,7 @@ A generic, reusable CRUD component built on the TEA (The Elm Architecture) patte
 TEAStore is part of the shared core. Import it from:
 
 ```typescript
-import { useTEAStore, Entity, TEAStoreConfig } from '@/shared/core/tea-store';
+import { useTEAStore, Entity, TEAStoreConfig } from '@core/tea-store';
 ```
 
 ## Quick Start
@@ -25,7 +25,7 @@ import { useTEAStore, Entity, TEAStoreConfig } from '@/shared/core/tea-store';
 ### 1. Define Your Entity
 
 ```typescript
-import { Entity } from '@/shared/core/tea-store';
+import { Entity } from '@core/tea-store';
 
 interface User extends Entity {
     id: string;
@@ -64,8 +64,8 @@ const userService = {
 ### 3. Use the Hook in Your Component
 
 ```typescript
-import { useTEAStore, TEAStoreConfig } from '@/shared/core/tea-store';
-import { RemoteData } from '@/shared/core/remote.data';
+import { useTEAStore, TEAStoreConfig } from '@core/tea-store';
+import { RemoteData } from '@core/remote.data';
 
 const userConfig: TEAStoreConfig<User> = {
     fetchAll: userService.fetchAll,
@@ -202,9 +202,9 @@ Convenience methods provided by the hook:
 If you need more control, you can create the store manually:
 
 ```typescript
-import { createTEAStoreUpdate } from '@/shared/core/tea-store';
-import { createElmStore } from '@/shared/core/engine';
-import { effectHandlers } from '@/shared/core/effect_handlers';
+import { createTEAStoreUpdate } from '@core/tea-store';
+import { createElmStore } from '@core/engine';
+import { effectHandlers } from '@core/effect_handlers';
 
 const { initial, update } = createTEAStoreUpdate<User>(userConfig);
 const store = createElmStore(initial, update);

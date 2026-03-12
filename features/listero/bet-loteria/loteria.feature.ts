@@ -1,4 +1,4 @@
-import { Feature, FeatureAdapter } from '@/shared/core/architecture/interfaces';
+import { Feature, FeatureAdapter } from '@core/architecture/interfaces';
 import { LoteriaFeatureModel, FeatureMsg } from './core/feature.types';
 import { updateFeature } from './core/feature.update';
 import { initialModel } from './core/store'; // Assuming initialModel is exported from store or types

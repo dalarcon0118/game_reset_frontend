@@ -1,4 +1,4 @@
-import { OfflineStorageKeyManager } from '@/shared/core/offline-storage/utils';
+import { OfflineStorageKeyManager } from '@core/offline-storage/utils';
 
 /**
  * Helpers para la generación de llaves de almacenamiento offline del dominio de Apuestas (Bets).

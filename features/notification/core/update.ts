@@ -8,7 +8,7 @@ import {
     RemoteData,
     singleton,
     ret
-} from '@/shared/core/tea-utils';
+} from '@core/tea-utils';
 import { useAuthStore } from '@/features/auth/store/store';
 import { logger } from '@/shared/utils/logger';
 import { notificationRepository } from '@/shared/repositories/notification';

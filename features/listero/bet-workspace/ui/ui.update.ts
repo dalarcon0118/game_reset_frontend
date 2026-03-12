@@ -1,7 +1,7 @@
 import { match } from 'ts-pattern';
 import { Model } from '../model';
 import { UiMsgType, UiMsg } from './ui.types';
-import { Return, singleton } from '@/shared/core/tea-utils';
+import { Return, singleton } from '@core/tea-utils';
 
 export const updateUi = (model: Model, msg: UiMsg): Return<Model, UiMsg> => {
     return match<UiMsg, Return<Model, UiMsg>>(msg)

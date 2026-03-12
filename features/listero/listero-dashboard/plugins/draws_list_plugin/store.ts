@@ -1,11 +1,11 @@
-import { createElmStore } from '@/shared/core/engine/engine';
-import { effectHandlers } from '@/shared/core/tea-utils';
+import { createElmStore } from '@core/engine/engine';
+import { effectHandlers } from '@core/tea-utils';
 import { initialModel, Model } from './model';
 import { update } from './update';
 import { subscriptions } from './subscriptions';
 import { Msg } from './msg';
-import { Cmd } from '@/shared/core';
-import { createLoggerMiddleware } from '@/shared/core/middlewares/logger.middleware';
+import { Cmd } from '@core';
+import { createLoggerMiddleware } from '@core/middlewares/logger.middleware';
 // 1. Declarar variable local nula
 let dashboardStoreInstance: ReturnType<typeof createElmStore<Model, Msg>> | null = null;
 // 2. Crear una función getter

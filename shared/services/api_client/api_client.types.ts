@@ -60,5 +60,7 @@ export interface IAuthRepository {
   clearToken(): Promise<void>;
 
   onSessionChange(callback: (user: any | null) => void): () => void;
+  onSessionExpired(callback: (reason: string) => void): () => void;
+  onTokenRefreshed(callback: (token: string) => void): () => void;
   getLastUsername(): Promise<string | null>;
 }

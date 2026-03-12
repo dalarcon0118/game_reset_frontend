@@ -1,4 +1,4 @@
-import { createMsg, WebData } from '@/shared/core/tea-utils';
+import { createMsg, WebData } from '@core/tea-utils';
 
 import { DrawsListPluginConfig } from './model';
 import { Draw } from './core/types';

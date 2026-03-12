@@ -3,7 +3,7 @@
  * Estas funciones son puras y no dependen de la infraestructura de almacenamiento.
  */
 import { BetDomainModel } from './bet.types';
-import { SYNC_CONSTANTS } from '@/shared/core/offline-storage/types';
+import { SYNC_CONSTANTS } from '@core/offline-storage/types';
 
 export const BetMaintenancePolicies = {
     /**

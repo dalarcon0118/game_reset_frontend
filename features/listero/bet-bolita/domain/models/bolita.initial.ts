@@ -1,4 +1,4 @@
-import { RemoteData } from '@/shared/core/tea-utils';
+import { RemoteData } from '@core/tea-utils';
 import {
     BolitaModel,
     ParletModel,

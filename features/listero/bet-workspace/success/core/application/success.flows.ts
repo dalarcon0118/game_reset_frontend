@@ -1,4 +1,4 @@
-import { ret, singleton, Return, Cmd, RemoteData } from '@/shared/core/tea-utils';
+import { ret, singleton, Return, Cmd, RemoteData } from '@core/tea-utils';
 import {
     VoucherModel,
     VoucherMsg,

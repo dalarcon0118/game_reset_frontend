@@ -1,5 +1,5 @@
 import { BetDomainModel } from './bet.types';
-import { WorkerStatus } from '@/shared/core/offline-storage/types';
+import { WorkerStatus } from '@core/offline-storage/types';
 
 export interface OfflineSyncBetView {
     offlineId: string;

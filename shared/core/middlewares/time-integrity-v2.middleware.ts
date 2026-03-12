@@ -1,9 +1,9 @@
-import { TeaMiddleware } from '@/shared/core/tea-utils/middleware.types';
+import { TeaMiddleware } from '@core/tea-utils/middleware.types';
 import { TimerRepository } from '@/shared/repositories/system/time/timer.repository';
 import { AuthMsgType } from '@/features/auth/store/types/messages.types';
 import { logger } from '@/shared/utils/logger';
-import { ValidationResult } from '@/shared/core/policies/time-integrity.policy';
-import { SessionSecurityCoordinator } from '@/shared/core/coordinators/session-security.coordinator';
+import { ValidationResult } from '@core/policies/time-integrity.policy';
+import { securityService } from '@core/core_module/services/security.service';
 
 const log = logger.withTag('TIME_INTEGRITY_MW_V2');
 
@@ -131,8 +131,7 @@ export const createTimeIntegrityMiddleware = (): TeaMiddleware<any, any> => {
 
             // Only act if we found a violation and it should trigger action
             if (timeMeta.timeIntegrityViolation) {
-                const coordinator = SessionSecurityCoordinator.getInstance();
-                coordinator.handleTimeIntegrityViolation(timeMeta.timeIntegrityViolation);
+                securityService.handleTimeIntegrityViolation(timeMeta.timeIntegrityViolation);
 
                 // Clear the violation to prevent re-processing
                 timeMeta.timeIntegrityViolation = undefined;

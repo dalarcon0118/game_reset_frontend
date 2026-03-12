@@ -1,4 +1,4 @@
-import { WebData } from '@/shared/core/tea-utils';
+import { WebData } from '@core/tea-utils';
 import { ChildStructure } from '@/shared/services/structure';
 
 export interface Model {

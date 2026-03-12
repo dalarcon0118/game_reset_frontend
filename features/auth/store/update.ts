@@ -2,7 +2,6 @@
 import { AuthModel, AuthMsg, AuthMsgType } from './types';
 import { Cmd, RemoteData, RemoteDataHttp } from '@/shared/core/tea-utils';
 import { AuthRepository, AuthErrorType, User, AuthSession } from '@/shared/repositories/auth';
-import { SessionCoordinator } from '@/shared/auth/session/session.coordinator';
 import { logger } from '../../../shared/utils/logger';
 import { match } from 'ts-pattern';
 
@@ -21,8 +20,8 @@ const mapAuthError = (type: AuthErrorType, defaultMessage: string): string => {
 const loginCmd = (username: string, pin: string): Cmd => {
     return RemoteDataHttp.fetch<AuthSession, AuthMsg>(
         async () => {
-            // Reset exit flag in coordinator when starting login
-            SessionCoordinator.getInstance().resetExitFlag();
+            // Reset exit flag in repository when starting login
+            AuthRepository.resetExitFlag();
             const result = await AuthRepository.login(username, pin);
             if (result.success) {
                 return result.data;
@@ -38,12 +37,11 @@ const loginCmd = (username: string, pin: string): Cmd => {
     );
 };
 
-// Check auth status command using Coordinator
+// Check auth status command using Repository
 const checkAuthStatusCmd = (): Cmd => {
     return Cmd.task(async () => {
-        const coordinator = SessionCoordinator.getInstance();
-        await coordinator.hydrate();
-    }, 'CHECK_AUTH_STATUS_COORDINATOR');
+        await AuthRepository.hydrate();
+    }, 'CHECK_AUTH_STATUS_REPOSITORY');
 };
 
 // Logout command

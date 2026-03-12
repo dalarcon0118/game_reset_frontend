@@ -1,4 +1,4 @@
-import { createElmStore } from '@/shared/core/engine/engine';
+import { createElmStore } from '@core/engine/engine';
 import { VoucherModel, VoucherMsg, initialVoucherModel } from './core/domain/success.types';
 import { updateVoucher } from './core/application/success';
 import { logger } from '@/shared/utils/logger';

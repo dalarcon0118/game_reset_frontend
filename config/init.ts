@@ -5,7 +5,7 @@ import Constants from 'expo-constants';
 import { EventSourcePolyfill } from 'event-source-polyfill';
 import { logger } from '../shared/utils/logger';
 import { registerReactNativeEvents } from '../shared/react-native-events';
-import storageClient from '@/shared/core/offline-storage/storage_client';
+import storageClient from '@core/offline-storage/storage_client';
 import { authStorageAdapter } from '../shared/repositories/auth/adapters/auth.storage.adapter';
 
 const log = logger.withTag('INIT');

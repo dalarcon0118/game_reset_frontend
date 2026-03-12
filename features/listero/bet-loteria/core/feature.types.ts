@@ -1,5 +1,5 @@
 import { LoteriaFeatMsg, LoteriaState } from '../loteria/loteria.types';
-import { WebData, RemoteData } from '@/shared/core/tea-utils';
+import { WebData, RemoteData } from '@core/tea-utils';
 import { LoteriaBet, DrawType, BetType, GameType } from '@/types';
 import { UnifiedRulesResponse, ValidationRule, RewardRule } from '@/shared/services/rules';
 

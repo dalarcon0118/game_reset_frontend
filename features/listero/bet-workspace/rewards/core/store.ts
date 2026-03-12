@@ -1,5 +1,5 @@
-import { createElmStore } from '@/shared/core/engine/engine';
-import { Sub } from '@/shared/core/tea-utils';
+import { createElmStore } from '@core/engine/engine';
+import { Sub } from '@core/tea-utils';
 import { RewardsModel, initialRewardsModel } from './model';
 import { RewardsMsg } from './types';
 import { updateRewards } from './update';

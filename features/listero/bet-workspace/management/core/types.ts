@@ -1,5 +1,5 @@
 import { GameType, BetType, DrawType } from '@/types';
-import { WebData, RemoteData } from '@/shared/core/tea-utils';
+import { WebData, RemoteData } from '@core/tea-utils';
 
 export interface ManagementState {
     drawDetails: WebData<DrawType>;

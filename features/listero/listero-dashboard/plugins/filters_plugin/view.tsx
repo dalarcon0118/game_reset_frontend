@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { ScrollView, TouchableOpacity, View } from 'react-native';
 import { Label } from '@/shared/components';
-import { PluginContext } from '@/shared/core/plugins/plugin.types';
+import { PluginContext } from '@core/plugins/plugin.types';
 import { useFiltersPluginStore } from './store';
 import { SELECT_FILTER } from './msg';
 import { styles } from './styles';

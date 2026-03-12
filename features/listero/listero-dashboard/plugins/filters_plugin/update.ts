@@ -1,8 +1,8 @@
 import { FiltersPluginConfig, Model } from './model';
 import * as Msg from './msg';
-import { Return, ret, Cmd } from '@/shared/core/tea-utils';
+import { Return, ret, Cmd } from '@core/tea-utils';
 import { match } from 'ts-pattern';
-import { PluginContext } from '@/shared/core/plugins/plugin.types';
+import { PluginContext } from '@core/plugins/plugin.types';
 
 export const update = (model: Model, msg: Msg.Msg): Return<Model, Msg.Msg> => {
   return match<Msg.Msg, Return<Model, Msg.Msg>>(msg)

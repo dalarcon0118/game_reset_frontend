@@ -7,7 +7,7 @@ import {
     RemoteData,
     singleton,
     ret
-} from '@/shared/core/tea-utils';
+} from '@core/tea-utils';
 import { FinancialRepository, financialRepository } from '@/shared/repositories/financial';
 
 const fetchSummaryCmd = (nodeId: number): Cmd => {

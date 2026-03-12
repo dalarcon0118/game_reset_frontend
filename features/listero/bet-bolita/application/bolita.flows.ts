@@ -12,8 +12,8 @@ import {
     CLOSE_KEYBOARD,
     CONFIRM_INPUT
 } from '../domain/models/bolita.messages';
-import { Return, ret, singleton, Cmd, RemoteData } from '@/shared/core/tea-utils';
-import { RemoteDataHttp } from '@/shared/core/tea-utils/remote.data.http';
+import { Return, ret, singleton, Cmd, RemoteData } from '@core/tea-utils';
+import { RemoteDataHttp } from '@core/tea-utils/remote.data.http';
 import { BolitaImpl } from '../domain/bolita.impl';
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
 import { logger } from '@/shared/utils/logger';

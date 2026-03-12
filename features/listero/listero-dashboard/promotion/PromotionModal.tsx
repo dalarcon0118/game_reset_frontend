@@ -1,7 +1,7 @@
 import React from 'react';
 import { Modal, View, StyleSheet, TouchableOpacity, Text, ActivityIndicator } from 'react-native';
 import { PromotionSlider } from './PromotionSlider';
-import { WebData } from '@/shared/core/tea-utils';
+import { WebData } from '@core/tea-utils';
 import { Promotion } from './model';
 import { match } from 'ts-pattern';
 

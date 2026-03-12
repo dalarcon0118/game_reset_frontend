@@ -1,6 +1,6 @@
 import { Model } from '../model';
 import { Msg } from '../msg';
-import { Cmd, ret, singleton, Return, RemoteData } from '@/shared/core/tea-utils';
+import { Cmd, ret, singleton, Return, RemoteData } from '@core/tea-utils';
 import { handleAuthUserSynced as logicHandleAuthUserSynced } from '../logic';
 import { fetchDrawsCmd, updateAuthTokenCmd, loadPendingBetsCmd, prepareDailySessionCmd } from '../commands';
 import { fetchPromotionsCmd } from '../../promotion/commands';

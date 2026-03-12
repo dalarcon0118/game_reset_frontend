@@ -3,7 +3,7 @@ import * as Crypto from 'expo-crypto';
 import { BetDomainModel, BetRepositoryResult } from '../bet.types';
 import { IBetStorage, IBetApi } from '../bet.ports';
 import { BetLogic } from '../bet.logic';
-import { offlineEventBus } from '@/shared/core/offline-storage/instance';
+import { offlineEventBus } from '@core/offline-storage/instance';
 import { drawRepository } from '../../draw';
 import { GameType, BetType } from '@/types';
 import { isServerReachable } from '@/shared/utils/network';

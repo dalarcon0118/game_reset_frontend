@@ -1,5 +1,5 @@
-import { createElmStore } from '@/shared/core/engine/engine';
-import { effectHandlers } from '@/shared/core/tea-utils';
+import { createElmStore } from '@core/engine/engine';
+import { effectHandlers } from '@core/tea-utils';
 import { ProfileModel, ProfileMsg } from './profile.types';
 import { updateProfile, init } from './profile.update';
 

@@ -23,7 +23,7 @@
  * - getTotalByDrawId(id): Total filtrado por sorteo
  */
 
-import { offlineStorage } from '@/shared/core/offline-storage/instance';
+import { offlineStorage } from '@core/offline-storage/instance';
 import { SystemOfflineKeys } from './financial.offline.keys';
 import { logger } from '@/shared/utils/logger';
 import { TimerRepository } from '../system/time/timer.repository';

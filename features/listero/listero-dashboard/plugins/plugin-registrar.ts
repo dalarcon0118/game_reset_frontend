@@ -5,8 +5,8 @@
  * Debe importarse cuando se carga el dashboard para que los slots funcionen.
  */
 
-import { PluginManager } from '@/shared/core/plugins/plugin.registry';
-import { Plugin } from '@/shared/core/plugins/plugin.types';
+import { PluginManager } from '@core/plugins/plugin.registry';
+import { Plugin } from '@core/plugins/plugin.types';
 
 // Importar todos los plugins del dashboard
 import { DrawsListPlugin } from './draws_list_plugin';

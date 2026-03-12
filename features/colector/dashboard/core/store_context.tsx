@@ -1,10 +1,10 @@
 import React, { createContext, useContext, useMemo, useEffect } from 'react';
 import { UseBoundStore, StoreApi } from 'zustand';
-import { createElmStore } from '@/shared/core/engine/engine';
+import { createElmStore } from '@core/engine/engine';
 import { Model } from './model';
 import { Msg } from './msg';
 import { update, subscriptions } from './update';
-import { RemoteData } from '@/shared/core/tea-utils';
+import { RemoteData } from '@core/tea-utils';
 
 // Tipo para el estado del store
 interface StoreState {

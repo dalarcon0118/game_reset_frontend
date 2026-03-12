@@ -6,8 +6,8 @@ import { AuthResult, AuthSession, User, AuthErrorType } from '../types/types';
 import { hashString } from '../../../utils/crypto';
 import { logger } from '../../../utils/logger';
 import { offlineStorage } from '../../../core/offline-storage/instance';
-import { STORAGE_TTL } from '@/shared/core/offline-storage/types';
-import storageClient from '@/shared/core/offline-storage/storage_client';
+import { STORAGE_TTL } from '@core/offline-storage/types';
+import storageClient from '@core/offline-storage/storage_client';
 
 const log = logger.withTag('AUTH_STORAGE_ADAPTER');
 const isWeb = Platform.OS === 'web';

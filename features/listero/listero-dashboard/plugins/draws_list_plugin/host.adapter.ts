@@ -1,7 +1,7 @@
 import * as t from 'io-ts';
 import * as E from 'fp-ts/Either';
 import { PathReporter } from 'io-ts/PathReporter';
-import { RemoteData, WebData } from '@/shared/core/tea-utils';
+import { RemoteData, WebData } from '@core/tea-utils';
 import { logger } from '@/shared/utils/logger';
 import { DRAW_FILTER, DrawCodec, Draw } from './core/types';
 import { FinancialSummary } from '@/types';

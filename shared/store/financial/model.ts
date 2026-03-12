@@ -1,4 +1,4 @@
-import { Cmd, WebData } from '@/shared/core/tea-utils';
+import { Cmd, WebData } from '@core/tea-utils';
 import { NodeFinancialSummary, FinancialRepository } from '@/shared/repositories/financial';
 import { FinancialSummary } from '@/types';
 import { Any } from 'io-ts';

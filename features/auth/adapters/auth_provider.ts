@@ -1,5 +1,5 @@
-import { AuthProvider, LoginParams } from '@/shared/core/architecture/interfaces';
-import { AuthRepository, AuthResult } from '../../../shared/repositories/auth';
+import { AuthProvider, LoginParams, AuthResult as KernelAuthResult } from '@core/architecture/interfaces';
+import { AuthRepository, AuthErrorType } from '../../../shared/repositories/auth';
 import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('AUTH_PROVIDER');
@@ -10,26 +10,35 @@ const log = logger.withTag('AUTH_PROVIDER');
  * AuthRepository maneja el orchestramiento completo incluyendo fallback offline.
  */
 export const gameResetAuthProvider: AuthProvider = {
-    login: async (params: LoginParams): Promise<AuthResult> => {
+    login: async (params: LoginParams): Promise<KernelAuthResult> => {
         const { username, pin } = params;
         log.info('Delegating login to AuthRepository', { username });
 
         try {
             // AuthRepository maneja toda la lógica: online, offline, tokens, etc.
-            return await AuthRepository.login(username, pin);
+            const result = await AuthRepository.login(username, pin);
+            if (result.success) {
+                return { success: true, data: result.data };
+            }
+            return {
+                success: false,
+                error: {
+                    message: result.error.message,
+                    redirectTo: result.error.redirectTo
+                }
+            };
         } catch (error: any) {
             log.error('Unexpected error during login delegation', error);
             return {
                 success: false,
                 error: {
-                    name: 'UnexpectedError',
                     message: 'Ocurrió un error inesperado al iniciar sesión'
                 }
             };
         }
     },
 
-    logout: async (): Promise<AuthResult> => {
+    logout: async (): Promise<KernelAuthResult> => {
         log.info('Delegating logout to AuthRepository');
 
         try {
@@ -40,7 +49,6 @@ export const gameResetAuthProvider: AuthProvider = {
             return {
                 success: false,
                 error: {
-                    name: 'LogoutFailed',
                     message: 'Error al cerrar sesión'
                 }
             };
@@ -48,7 +56,7 @@ export const gameResetAuthProvider: AuthProvider = {
     },
 
     checkError: async (error: any) => {
-        // Handled globally by bootstrap.ts
+        // Handled globally by CoreModule
         return;
     },
 

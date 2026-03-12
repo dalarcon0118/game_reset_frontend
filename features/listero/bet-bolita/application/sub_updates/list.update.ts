@@ -1,7 +1,7 @@
 import { match } from 'ts-pattern';
 import { BolitaModel } from '../../domain/models/bolita.types';
 import { ListMsg, ListMsgType } from '../../domain/models/bolita.messages';
-import { Return, ret, singleton, Cmd, RemoteData } from '@/shared/core/tea-utils';
+import { Return, ret, singleton, Cmd, RemoteData } from '@core/tea-utils';
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
 import { BolitaImpl } from '../../domain/bolita.impl';
 

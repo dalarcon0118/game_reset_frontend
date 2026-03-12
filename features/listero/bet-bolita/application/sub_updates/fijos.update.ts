@@ -2,7 +2,7 @@ import { match } from 'ts-pattern';
 import { ok, err, Result } from 'neverthrow';
 import { BolitaModel } from '../../domain/models/bolita.types';
 import { FijosMsg } from '../../domain/models/bolita.messages';
-import { Return, ret, singleton, Cmd } from '@/shared/core/tea-utils';
+import { Return, ret, singleton, Cmd } from '@core/tea-utils';
 import { BolitaImpl } from '../../domain/bolita.impl';
 import { logger } from '@/shared/utils/logger';
 import {

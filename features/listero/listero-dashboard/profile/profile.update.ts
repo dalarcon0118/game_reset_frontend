@@ -1,6 +1,6 @@
 import { match } from 'ts-pattern';
 import { ProfileModel, ProfileMsg, ProfileMsgType, initialProfileModel, UserProfile, Incident, DEFAULT_USER_PROFILE } from './profile.types';
-import { Return, ret, RemoteDataHttp, RemoteData, Cmd } from '@/shared/core/tea-utils';
+import { Return, ret, RemoteDataHttp, RemoteData, Cmd } from '@core/tea-utils';
 import apiClient from '@/shared/services/api_client';
 import settings from '@/config/settings';
 import { User } from '@/features/auth/store/types/auth.types';

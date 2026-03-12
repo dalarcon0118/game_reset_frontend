@@ -1,6 +1,6 @@
 import { match } from 'ts-pattern';
 import { Model } from '../model';
-import { Return, singleton, ret, Cmd } from '@/shared/core/tea-utils';
+import { Return, singleton, ret, Cmd } from '@core/tea-utils';
 import { updateCreate } from '../create/core/update';
 import { updateEdit } from '../edit/core/update';
 import { updateList } from '../list/core/update';

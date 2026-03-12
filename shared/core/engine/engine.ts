@@ -51,7 +51,7 @@ export const createElmStore = <TModel, TMsg>(
         // The real error will happen when a Cmd is executed if handlers are still missing.
         logger.error(
             '[TEA_ENGINE] CRITICAL: No effectHandlers available during store creation. ' +
-            'This will cause Cmd execution to fail. Check your bootstrap.ts configuration.',
+            'This will cause Cmd execution to fail. Check your CoreModule configuration.',
             'ENGINE_INIT'
         );
     }

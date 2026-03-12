@@ -1,5 +1,5 @@
 import { createTimeIntegrityMiddleware } from '../time-integrity-v2.middleware';
-import { SessionSecurityCoordinator } from '@/shared/core/coordinators/session-security.coordinator';
+import { securityService } from '@core/core_module/services/security.service';
 import { TimerRepository } from '@/shared/repositories/system/time/timer.repository';
 
 jest.mock('@/shared/repositories/system/time/timer.repository');
@@ -94,22 +94,22 @@ describe('TimeIntegrityMiddleware v2 Integration', () => {
 
     mockMeta.timeIntegrityViolation = violation;
 
-    const coordinatorSpy = jest.spyOn(SessionSecurityCoordinator.getInstance(), 'handleTimeIntegrityViolation');
+    const securitySpy = jest.spyOn(securityService, 'handleTimeIntegrityViolation');
 
     safeAfterUpdate(mockModel, mockMsg, mockModel, undefined, mockMeta);
 
-    expect(coordinatorSpy).toHaveBeenCalledWith(violation);
+    expect(securitySpy).toHaveBeenCalledWith(violation);
     expect(mockMeta.timeIntegrityViolation).toBeUndefined(); // Should be cleared
   });
 
   it('should not process violations if none detected', () => {
     mockMeta.timeIntegrityViolation = undefined;
 
-    const coordinatorSpy = jest.spyOn(SessionSecurityCoordinator.getInstance(), 'handleTimeIntegrityViolation');
+    const securitySpy = jest.spyOn(securityService, 'handleTimeIntegrityViolation');
 
     safeAfterUpdate(mockModel, mockMsg, mockModel, undefined, mockMeta);
 
-    expect(coordinatorSpy).not.toHaveBeenCalled();
+    expect(securitySpy).not.toHaveBeenCalled();
   });
 
   it('should deduplicate based on traceId', async () => {

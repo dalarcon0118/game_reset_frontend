@@ -1,7 +1,7 @@
 import { match } from 'ts-pattern';
 import { RulesModel } from './model';
 import { RulesMsg, FETCH_RULES_REQUESTED, REFRESH_RULES_REQUESTED, FETCH_RULES_SUCCEEDED, FETCH_RULES_FAILED, SHOW_RULES_DRAWER, HIDE_RULES_DRAWER, SELECT_RULE, CLEAR_SELECTION } from './types';
-import { Cmd, Return, ret, singleton, RemoteData } from '@/shared/core/tea-utils';
+import { Cmd, Return, ret, singleton, RemoteData } from '@core/tea-utils';
 
 export interface RulesContextModel {
     rulesSession: RulesModel;

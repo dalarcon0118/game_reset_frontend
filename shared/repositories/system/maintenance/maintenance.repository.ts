@@ -1,4 +1,4 @@
-import { offlineStorage } from '@/shared/core/offline-storage/instance';
+import { offlineStorage } from '@core/offline-storage/instance';
 import { SystemOfflineKeys } from '@/shared/repositories/financial/financial.offline.keys';
 
 /**

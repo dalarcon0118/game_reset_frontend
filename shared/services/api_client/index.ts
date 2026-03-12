@@ -3,7 +3,6 @@ import { ITimerRepository, IAuthRepository } from './api_client.types';
 import { ApiClient } from './api_client';
 import settings from '../../../config/settings';
 import { logger } from '../../utils/logger';
-import { SessionCoordinator } from '../../auth/session/session.coordinator';
 
 export { ApiClient };
 export * from './api_client.types';
@@ -25,7 +24,6 @@ export const apiClient = new ApiClient(
         }
         return _authRepo;
     },
-    () => SessionCoordinator.getInstance(),
     TimerRepository as unknown as ITimerRepository,
     settings,
     log

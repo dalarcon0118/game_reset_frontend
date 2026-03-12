@@ -1,7 +1,7 @@
 import { Model, DrawsListPluginConfig, DrawFinancialTotals, financialSelectors } from './model';
 import * as Msg from './msg';
 import { DrawTotalsUpdate } from './msg';
-import { Return, ret, Cmd, RemoteData } from '@/shared/core/tea-utils';
+import { Return, ret, Cmd, RemoteData } from '@core/tea-utils';
 import { match } from 'ts-pattern';
 import { FilterDrawsUseCase } from './application/useCases/filter-draws.use-case';
 import { StatusFilter, Draw } from './core/types';

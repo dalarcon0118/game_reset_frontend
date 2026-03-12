@@ -1,4 +1,4 @@
-import { Cmd } from '@/shared/core/tea-utils';
+import { Cmd } from '@core/tea-utils';
 import { promotionApi } from '@/shared/services/promotion/api';
 import { PROMOTIONS_RECEIVED } from './msg';
 import { ensureError } from '@/shared/utils/error';

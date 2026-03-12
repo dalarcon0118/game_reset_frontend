@@ -7,13 +7,13 @@ import {
 } from 'react-native';
 import { match } from 'ts-pattern';
 import { useShallow } from 'zustand/shallow';
-import { RemoteData } from '@/shared/core/tea-utils';
+import { RemoteData } from '@core/tea-utils';
 import { Label } from '@/shared/components';
 import Header from '../views/header';
 import { useDashboardStore, useListeroDashboardStoreApi } from '../store';
 import { REFRESH_CLICKED, PROMOTION_MSG } from '../core/msg';
 import { CLOSE_PROMOTIONS_MODAL } from '../promotion/msg';
-import { Slot } from '@/shared/core/plugins';
+import { Slot } from '@core/plugins';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDashboardLifecycle } from '../core/lifecycle';
 import { PromotionModal } from '../promotion/PromotionModal';

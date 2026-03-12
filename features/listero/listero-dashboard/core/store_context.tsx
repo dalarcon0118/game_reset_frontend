@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useMemo, useEffect, ReactNode } from 'react';
 import { UseBoundStore, StoreApi } from 'zustand';
-import { createElmStore } from '@/shared/core/engine/engine';
+import { createElmStore } from '@core/engine/engine';
 import { Model } from './model';
 import { Msg } from './msg';
 import { update } from './update';

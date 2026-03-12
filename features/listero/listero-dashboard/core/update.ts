@@ -1,7 +1,7 @@
 import { match, P } from 'ts-pattern';
 import { Model } from './model';
 import { Msg } from './msg';
-import { Cmd, Return, ret } from '@/shared/core/tea-utils';
+import { Cmd, Return, ret } from '@core/tea-utils';
 import { logger } from '@/shared/utils/logger';
 
 import { updateAuthTokenCmd } from './commands';

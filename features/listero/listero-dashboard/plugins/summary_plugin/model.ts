@@ -1,4 +1,4 @@
-import { RemoteData } from '@/shared/core/tea-utils';
+import { RemoteData } from '@core/tea-utils';
 import { FinancialSummary, SummaryPluginContext } from './domain/models';
 
 export interface DailyTotals {

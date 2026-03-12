@@ -1,7 +1,7 @@
 import { BackendDraw, BetType } from '../api/types/types';
-import { offlineStorage } from '@/shared/core/offline-storage/instance';
+import { offlineStorage } from '@core/offline-storage/instance';
 import { DrawOfflineKeys } from '../draw.offline.keys';
-import { STORAGE_TTL } from '@/shared/core/offline-storage/types';
+import { STORAGE_TTL } from '@core/offline-storage/types';
 
 /**
  * Adaptador de almacenamiento offline para Sorteos (Draws)

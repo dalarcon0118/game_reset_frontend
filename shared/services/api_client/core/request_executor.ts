@@ -8,7 +8,6 @@ import {
   RequestOptions
 } from '../api_client.types';
 import { CredentialProvider } from './credential_provider';
-import { SessionCoordinator } from '@/shared/auth/session/session.coordinator';
 import { SessionPolicy } from '@/shared/auth/session/session.policy';
 import { SessionPolicyContext } from '@/shared/auth/session/session.types';
 import { CacheManager } from './cache_manager';
@@ -41,7 +40,6 @@ type RetryRequestFn = <T>(endpoint: string, options: RequestOptions) => Promise<
 export class RequestExecutor {
   constructor(
     private credentialProvider: CredentialProvider,
-    private coordinatorGetter: () => SessionCoordinator,
     private cacheManager: CacheManager,
     private errorManager: ErrorManager,
     private transport: Transport,
@@ -58,16 +56,38 @@ export class RequestExecutor {
     if (cached !== null) return cached;
 
     if (this.shouldAttemptAuth(endpoint, context.fetchOptions)) {
-      const coordinator = this.coordinatorGetter();
-      await coordinator.onRequestAuthCheck(
-        endpoint,
-        this.isPublicEndpoint(endpoint),
-        true,
-        this.runPreventiveRefresh.bind(this)
-      );
+      await this.checkAndRefreshBeforeRequest(endpoint);
     }
 
     return this.executeWithRetry<T>(context);
+  }
+
+  /**
+   * Verifica si el token está próximo a expirar y realiza un refresh preventivo si es necesario.
+   */
+  private async checkAndRefreshBeforeRequest(endpoint: string): Promise<void> {
+    const token = await this.credentialProvider.getAccessToken();
+    const tokenState = SessionPolicy.resolveTokenState(token);
+
+    // Obtener estado real de red para la política de sesión
+    const netInfo = await NetInfo.fetch();
+    const networkConnected = !!(netInfo.isConnected && netInfo.isInternetReachable);
+
+    const context: SessionPolicyContext = {
+      status: 'AUTHENTICATED', // Asumimos autenticado si estamos aquí
+      tokenState,
+      networkConnected,
+      endpoint,
+      isPublicEndpoint: false
+    };
+
+    if (SessionPolicy.shouldAttemptRefresh(context)) {
+      this.log.info('[PREVENTIVE-REFRESH] Token about to expire, refreshing...', { endpoint });
+      const refreshResult = await this.credentialProvider.refreshCredentials();
+      if (refreshResult.isErr()) {
+        this.log.warn('[PREVENTIVE-REFRESH] Refresh failed, letting request proceed to trigger 401 if needed', { error: refreshResult.error.message });
+      }
+    }
   }
 
   private buildRequestContext(endpoint: string, options: RequestOptions): RequestContext {
@@ -249,7 +269,7 @@ export class RequestExecutor {
     const networkConnected = !!(netInfo.isConnected && netInfo.isInternetReachable);
 
     const context: SessionPolicyContext = {
-      status: this.coordinatorGetter().getCurrentStatus(),
+      status: 'AUTHENTICATED', // Simplificación para la política
       tokenState,
       networkConnected,
       isPublicEndpoint: options.skipAuth
@@ -302,17 +322,27 @@ export class RequestExecutor {
 
     this.log.warn(`Auth error ${status} on ${context.endpoint}`);
 
-    const coordinator = this.coordinatorGetter();
-    const authOutcome = await coordinator.onAuthError(error, context.endpoint);
+    // Solo intentamos refresh reactivo para errores 401
+    if (status === 401) {
+      this.log.info(`[REACTIVE-REFRESH] Attempting to refresh token after 401...`, { endpoint: context.endpoint });
+      const refreshResult = await this.credentialProvider.refreshCredentials();
 
-    if (authOutcome.retry) {
-      this.log.info(`Retrying request after auth error handling`, { endpoint: context.endpoint });
-      try {
-        const data = await this.retryRequest<T>(context.endpoint, context.options);
-        return { type: 'success', data };
-      } catch (retryError) {
-        return { type: 'throw', error: retryError };
+      if (refreshResult.isOk()) {
+        this.log.info(`[REACTIVE-REFRESH] Success, retrying request`, { endpoint: context.endpoint });
+        try {
+          const data = await this.retryRequest<T>(context.endpoint, context.options);
+          return { type: 'success', data };
+        } catch (retryError) {
+          return { type: 'throw', error: retryError };
+        }
       }
+    }
+
+    // Si llegamos aquí, el refresh falló o no era un 401. 
+    // Invocamos el handler global si existe (CoreModule se encargará del logout/signal)
+    const globalHandler = this.getErrorHandler();
+    if (globalHandler) {
+      await globalHandler(error, context.endpoint, context.options);
     }
 
     return null;
@@ -320,11 +350,6 @@ export class RequestExecutor {
 
   private shouldRetryServerError(status: number, attempt: number, retryCount: number): boolean {
     return status >= 500 && attempt < retryCount;
-  }
-
-  private async runPreventiveRefresh(): Promise<string | null> {
-    const result = await this.credentialProvider.refreshCredentials();
-    return result.isOk() ? result.value : null;
   }
 
   private handleTimeSync(response: Response) {

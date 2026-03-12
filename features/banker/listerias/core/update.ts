@@ -10,9 +10,9 @@ import {
     singleton,
     ret,
     Return
-} from '@/shared/core/tea-utils';
+} from '@core/tea-utils';
 import { structureRepository, ChildStructure } from '@/shared/repositories/structure';
-import { UpdateResult } from '@/shared/core/engine/engine';
+import { UpdateResult } from '@core/engine/engine';
 import * as config from '@/config';
 
 export const subscriptions = (_model: Model): SubDescriptor<Msg> => {

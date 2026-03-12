@@ -1,6 +1,6 @@
 import { IBetStorage } from '../bet.ports';
 import { BetDomainModel } from '../bet.types';
-import { offlineStorage } from '@/shared/core/offline-storage/instance';
+import { offlineStorage } from '@core/offline-storage/instance';
 import { BetOfflineKeys } from '../bet.offline.keys';
 
 /**

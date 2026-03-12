@@ -1,7 +1,7 @@
 import { match } from 'ts-pattern';
 import { ListMsgType, ListMsg, ListState } from './types';
 import { ListData } from '../../core/types';
-import { Cmd, Return, ret, singleton, RemoteData } from '@/shared/core/tea-utils';
+import { Cmd, Return, ret, singleton, RemoteData } from '@core/tea-utils';
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
 import { logger } from '@/shared/utils/logger';
 import { BetRegistry } from '../../core/registry';

@@ -1,10 +1,10 @@
-import { createElmStore } from '@/shared/core/engine/engine';
-import { createTestMiddleware } from '@/shared/core/middlewares/test.middleware';
+import { createElmStore } from '@core/engine/engine';
+import { createTestMiddleware } from '@core/middlewares/test.middleware';
 import { update } from '@/features/listero/listero-dashboard/core/update';
 import { Msg } from '@/features/listero/listero-dashboard/core/msg';
 import { Model } from '@/features/listero/listero-dashboard/core/model';
 import { initialState } from '@/features/listero/listero-dashboard/core/initial.types';
-import { effectHandlers } from '@/shared/core/tea-utils';
+import { effectHandlers } from '@core/tea-utils';
 import apiClient from '@/shared/services/api_client/api_client';
 import { AuthRepository, User } from '@/shared/repositories/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';

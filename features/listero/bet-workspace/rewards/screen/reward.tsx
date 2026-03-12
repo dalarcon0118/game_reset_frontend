@@ -7,7 +7,7 @@ import { useRewards } from '../use_rewards';
 import LayoutConstants from '@/constants/layout';
 import Colors from '@/constants/colors';
 import { useColorScheme } from 'react-native';
-import { RemoteData } from '@/shared/core/tea-utils';
+import { RemoteData } from '@core/tea-utils';
 
 interface RewardScreenProps {
     drawId: string;

@@ -9,7 +9,6 @@ import {
 } from './api_client.types';
 import { ApiClientError } from './api_client.errors';
 import { CredentialProvider } from './core/credential_provider';
-import { SessionCoordinator } from '@/shared/auth/session/session.coordinator';
 import { SessionPolicy } from '@/shared/auth/session/session.policy';
 import { TokenState } from '@/shared/auth/session/session.types';
 import { CacheManager } from './core/cache_manager';
@@ -30,7 +29,6 @@ export class ApiClient {
 
   constructor(
     authRepoGetter: () => IAuthRepository,
-    coordinatorGetter: () => SessionCoordinator,
     timerRepo: ITimerRepository,
     settings: ISettings,
     private log: ILogger
@@ -39,7 +37,6 @@ export class ApiClient {
     this.errorManager = new ErrorManager(log);
     this.requestExecutor = new RequestExecutor(
       this.credentialProvider,
-      coordinatorGetter,
       this.cacheManager,
       this.errorManager,
       this.transport,

@@ -2,7 +2,7 @@ import {
     SyncStrategy,
     SyncQueueItem,
     SyncOutcome
-} from '@/shared/core/offline-storage/types';
+} from '@core/offline-storage/types';
 import { BetApiAdapter } from '../adapters/bet.api.adapter';
 import { logger } from '@/shared/utils/logger';
 

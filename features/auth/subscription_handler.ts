@@ -1,6 +1,6 @@
-import { Sub, SubDescriptor } from '@/shared/core/tea-utils';
+import { Sub, SubDescriptor } from '@core/tea-utils';
 import { useAuthStore } from './store/store';
-import { SubscriptionHandler } from '@/shared/core/architecture/kernel';
+import { SubscriptionHandler } from '@core/architecture/kernel';
 import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('AUTH_SUB_HANDLER');
