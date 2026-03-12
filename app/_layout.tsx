@@ -3,6 +3,8 @@ import { Stack } from 'expo-router';
 import { View, TouchableOpacity, Text, StyleSheet, Alert } from 'react-native';
 import { DevTools } from '../config/init';
 import { AppProviders } from '../providers/AppProviders';
+import { useAuthV1 } from '../features/auth/v1';
+import { AuthStatus } from '../shared/auth/v1/model';
 import { GlobalErrorBoundary } from '../components/GlobalErrorBoundary';
 import { ErrorBoundary as SharedErrorBoundary } from '../shared/components/error_boundary';
 import { useAuthNavigation } from '../hooks/useAuthNavigation';
@@ -18,11 +20,22 @@ export default function RootLayout() {
     <GlobalErrorBoundary>
       <AppProviders>
         <SharedErrorBoundary name="RootLayout">
-          <RootLayoutInner />
+          <RootLayoutContent />
         </SharedErrorBoundary>
       </AppProviders>
     </GlobalErrorBoundary>
   );
+}
+
+function RootLayoutContent() {
+  const { status } = useAuthV1();
+  const isHydrating = status === AuthStatus.IDLE || status === AuthStatus.BOOTSTRAPPING;
+
+  if (isHydrating) {
+    return null; // Mantiene el splash screen o pantalla en blanco hasta que el AuthModuleV1 esté listo
+  }
+
+  return <RootLayoutInner />;
 }
 
 function RootLayoutInner() {

@@ -1,7 +1,8 @@
 import React, { useEffect, useCallback, useMemo } from 'react';
 import { usePathname, useRouter, useNavigationContainerRef } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useAuth } from '../shared/context/auth_context';
+import { useAuthV1 } from '../features/auth/v1';
+import { AuthStatus } from '../shared/auth/v1/model';
 import { useNotificationStore, selectNotificationDispatch } from '../features/notification/core/store';
 import { FETCH_NOTIFICATIONS_REQUESTED } from '../features/notification/core/msg';
 import { navigationRef } from '../shared/navigation/navigation_service';
@@ -14,7 +15,8 @@ import { RoleNavigationPolicy } from '../core/core_module/policies/role_navigati
 const PUBLIC_ROUTES = ['/login', '/register', '/forgot-password', '(auth)/login'];
 
 export function useAuthNavigation() {
-  const { isAuthenticated, isLoading, user, logout } = useAuth();
+  const { isAuthenticated, status, user, logout } = useAuthV1();
+  const isLoading = status === AuthStatus.BOOTSTRAPPING || status === AuthStatus.REFRESHING;
   const pathname = usePathname();
   const router = useRouter();
   ////const notificationDispatch = useNotificationStore(selectNotificationDispatch);

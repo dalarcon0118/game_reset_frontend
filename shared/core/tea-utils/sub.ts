@@ -3,7 +3,7 @@
  * Permite escuchar eventos externos de forma declarativa basándose en el estado del Modelo.
  */
 
-export type SubType = 'NONE' | 'EVERY' | 'BATCH' | 'WATCH_STORE' | 'SSE' | 'EVENT' | 'CUSTOM' | 'KERNEL_HANDLER';
+export type SubType = 'NONE' | 'EVERY' | 'BATCH' | 'WATCH_STORE' | 'SSE' | 'EVENT' | 'CUSTOM';
 
 export interface SubDescriptor<Msg> {
     type: SubType;
@@ -99,23 +99,5 @@ export const Sub = {
     ): SubDescriptor<Msg> => ({
         type: 'EVENT',
         payload: { event, target, msgCreator, id }
-    }),
-
-    /**
-     * Delega la creación de la suscripción al Kernel.
-     * Esto permite que los features soliciten suscripciones abstractas (ej: 'AUTH_SYNC')
-     * sin conocer los detalles de implementación (ej: qué store usar).
-     * 
-     * @param handlerId El ID del handler registrado en el Kernel.
-     * @param params Parámetros necesarios para el handler (ej: map de mensajes).
-     * @param id Identificador único para esta instancia de suscripción.
-     */
-    kernel: <Msg>(
-        handlerId: string,
-        params: any,
-        id: string
-    ): SubDescriptor<Msg> => ({
-        type: 'KERNEL_HANDLER',
-        payload: { handlerId, params, id }
     })
 };

@@ -4,10 +4,6 @@ import { Alert } from 'react-native';
 import { handleHttp, HttpPayload } from '../effects/http.effect';
 import { handleNavigation, NavigationPayload } from '../effects/navigation.effect';
 import { handleTask, TaskPayload } from '../effects/task.effect';
-import {
-    handleResource,
-    ResourcePayload,
-} from '../effects/resource.effect';
 import { EffectRegistry, EffectModule } from './effect_registry';
 
 /**
@@ -51,19 +47,10 @@ export const CoreEffectsModule: EffectModule = {
     },
 };
 
-export const ResourceEffectsModule: EffectModule = {
-    namespace: '', // Intencionalmente sin namespace por compatibilidad actual
-    handlers: {
-        RESOURCE: (payload: any, dispatch: (msg: any) => void) =>
-            handleResource(payload as ResourcePayload, dispatch),
-    },
-};
-
 // Los módulos se registran explícitamente en el bootstrap de la aplicación.
 // Pero para evitar condiciones de carrera con la inicialización de stores a nivel de módulo,
 // los registramos aquí también como fallback o inicialización temprana.
 EffectRegistry.register(CoreEffectsModule);
-EffectRegistry.register(ResourceEffectsModule);
 
 /**
  * Proxy dinámico para mantener la interfaz original `effectHandlers` que usa el Engine.

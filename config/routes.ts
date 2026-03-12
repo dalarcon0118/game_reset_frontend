@@ -32,5 +32,4 @@ export const AppRoots: Record<UserRole | string, string> = {
   banker: BANKER_ROOT,
 };
 
-// Deprecated: Use AppRoots with AppKernel instead
 export const roleToScreenMap = AppRoots;

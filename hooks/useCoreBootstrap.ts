@@ -1,6 +1,6 @@
 
 import { useEffect } from 'react';
-import { CoreModule } from '../shared/core/core_module';
+import { CoreModule } from '../core/core_module';
 
 /**
  * Hook para disparar la inicialización del CoreModule.

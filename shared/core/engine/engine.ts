@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import { SubDescriptor } from '../tea-utils/sub';
 import { logger } from '../../utils/logger';
 import { globalEventRegistry } from '../tea-utils/events';
-import { AppKernel } from '../architecture/kernel';
 import { Return } from '../tea-utils/return';
 import { TeaMiddleware, TeaMiddlewareCodec } from '../tea-utils/middleware.types';
 import { MiddlewareRegistry } from '../tea-utils/middleware_registry';
@@ -465,47 +464,7 @@ export const createElmStore = <TModel, TMsg>(
                 }
             }
 
-            if (sub.type === 'KERNEL_HANDLER') {
-                const { id, handlerId, params } = sub.payload;
-                if (!activeSubs.has(id)) {
-                    logger.debug(`Starting kernel sub: ${id} (${handlerId})`, 'ENGINE');
-                    const handler = AppKernel.getSubscriptionHandler(handlerId);
 
-                    if (handler) {
-                        try {
-                            const innerSub = handler.createSubscription(params);
-
-                            // Validate inner sub
-                            if (!innerSub || typeof innerSub !== 'object') {
-                                logger.error(`Invalid inner subscription from handler: ${handlerId}`, 'ENGINE');
-                                return;
-                            }
-
-                            // KERNEL_HANDLER must resolve to an atomic subscription (not BATCH)
-                            // to maintain ID consistency.
-                            if (innerSub.type === 'BATCH') {
-                                logger.warn(`KERNEL_HANDLER ${handlerId} returned BATCH, which is not supported for atomic subscriptions. Use multiple subscriptions instead.`, 'ENGINE');
-                                return;
-                            }
-
-                            // Override ID to match the parent subscription ID
-                            // This ensures that activeSubs tracks it under the requested ID
-                            if (innerSub.payload) {
-                                // Create a shallow copy to avoid mutating the original descriptor if reused
-                                const subToProcess = { ...innerSub, payload: { ...innerSub.payload, id } };
-                                processSub(subToProcess, dispatch);
-                            } else {
-                                logger.error(`Inner subscription has no payload: ${handlerId}`, 'ENGINE');
-                            }
-
-                        } catch (e) {
-                            logger.error(`Error creating subscription from handler: ${handlerId}`, 'ENGINE', e);
-                        }
-                    } else {
-                        logger.warn(`No handler registered for subscription: ${handlerId}`, 'ENGINE');
-                    }
-                }
-            }
 
             if (sub.type === 'CUSTOM') {
                 const { id, subscribe } = sub.payload;
@@ -544,7 +503,7 @@ export const createElmStore = <TModel, TMsg>(
         const getActiveIds = (sub: SubDescriptor<TMsg>, ids: Set<string> = new Set()): Set<string> => {
             if (sub.type === 'BATCH') {
                 sub.payload.forEach((s: SubDescriptor<TMsg>) => getActiveIds(s, ids));
-            } else if ((sub.type === 'EVERY' || sub.type === 'WATCH_STORE' || sub.type === 'SSE' || sub.type === 'EVENT' || sub.type === 'CUSTOM' || sub.type === 'KERNEL_HANDLER') && sub.payload.id) {
+            } else if ((sub.type === 'EVERY' || sub.type === 'WATCH_STORE' || sub.type === 'SSE' || sub.type === 'EVENT' || sub.type === 'CUSTOM') && sub.payload.id) {
                 ids.add(sub.payload.id);
             }
             return ids;

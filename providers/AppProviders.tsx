@@ -7,7 +7,7 @@ import { ApplicationProvider, IconRegistry } from '@ui-kitten/components';
 import { EvaIconsPack } from '@ui-kitten/eva-icons';
 import * as SplashScreen from 'expo-splash-screen';
 import { AuthProviderV1 } from '../features/auth/v1';
-import { CoreModule } from '../shared/core/core_module';
+import { CoreModule } from '../core/core_module';
 import { BottomDrawerProvider } from '../components/ui/use_bottom_drawer';
 import { useCoreBootstrap } from '../hooks/useCoreBootstrap';
 

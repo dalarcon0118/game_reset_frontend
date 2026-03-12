@@ -4,7 +4,7 @@ import { UserRole } from '../../../data/mock_data';
 /**
  * RoleNavigationPolicy
  * 
- * Centraliza la lógica de navegación basada en roles que anteriormente residía en el AppKernel.
+ * Centraliza la lógica de navegación basada en roles.
  * Define a qué ruta debe ir cada usuario y valida si tiene permiso para acceder a una ruta.
  */
 export const RoleNavigationPolicy = {

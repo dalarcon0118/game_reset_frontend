@@ -3,7 +3,7 @@ import { TimerRepository } from '@/shared/repositories/system/time/timer.reposit
 import { AuthMsgType } from '@/features/auth/store/types/messages.types';
 import { logger } from '@/shared/utils/logger';
 import { ValidationResult } from '@core/policies/time-integrity.policy';
-import { securityService } from '@core/core_module/services/security.service';
+import { securityService } from '../../../core/core_module/services/security.service';
 
 const log = logger.withTag('TIME_INTEGRITY_MW_V2');
 

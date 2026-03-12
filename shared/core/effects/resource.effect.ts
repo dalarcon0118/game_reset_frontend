@@ -1,5 +1,5 @@
 import { logger } from '../../utils/logger';
-import { AppKernel } from '../architecture/kernel';
+import apiClient from '../../services/api_client';
 import { RemoteData, WebData } from '../tea-utils/remote.data';
 
 const log = logger.withTag('RESOURCE_EFFECT');
@@ -51,19 +51,19 @@ export async function handleResource(payload: ResourcePayload, dispatch: (msg: a
     let data;
     switch (payload.operation) {
       case 'LIST':
-        data = await AppKernel.dataProvider.getList(resource, payload.params);
+        data = await apiClient.get(resource, { queryParams: payload.params });
         break;
       case 'GET_ONE':
-        data = await AppKernel.dataProvider.getOne(resource, payload.id);
+        data = await apiClient.get(`${resource}/${payload.id}/`);
         break;
       case 'CREATE':
-        data = await AppKernel.dataProvider.create(resource, payload.variables);
+        data = await apiClient.post(resource, payload.variables);
         break;
       case 'UPDATE':
-        data = await AppKernel.dataProvider.update(resource, payload.id, payload.variables);
+        data = await apiClient.put(`${resource}/${payload.id}/`, payload.variables);
         break;
       case 'DELETE':
-        data = await AppKernel.dataProvider.delete(resource, payload.id);
+        data = await apiClient.delete(`${resource}/${payload.id}/`);
         break;
       default:
         throw new Error(`Unknown resource operation: ${(payload as any).operation}`);
