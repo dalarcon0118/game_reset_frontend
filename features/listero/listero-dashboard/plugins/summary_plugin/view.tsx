@@ -1,4 +1,5 @@
-import React from 'react';
+import { useEffect } from 'react';
+
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Card, Button } from '@ui-kitten/components';
 import { Eye, EyeOff, PiggyBank, Wallet, FileText, TrendingUp, BarChart3 } from 'lucide-react-native';
@@ -8,22 +9,30 @@ import { RemoteData } from '@core/tea-utils';
 import { formatCurrency } from '@/shared/utils/formatters';
 import { styles } from './styles';
 import { SummaryPluginContext } from './domain/models';
+import logger from '@/shared/utils/logger';
 
 interface SummaryComponentProps {
   context: SummaryPluginContext;
 }
 
 export const SummaryComponent: React.FC<SummaryComponentProps> = ({ context }) => {
+  const log = logger.withTag('SummaryComponent');
   const { model, dispatch } = useSummaryPluginStore();
 
   // Inicializar el contexto solo una vez al montar el componente
-  React.useEffect(() => {
+  useEffect(() => {
     const shouldInit = context && (!model.context || model.context?.hostStore !== context.hostStore);
     if (shouldInit) {
       dispatch(INIT_CONTEXT(context));
     }
   }, [context, dispatch]); // Removed model.context from dependencies
 
+  useEffect(() => {
+    // Solicitar datos financieros al inicializar el contexto
+    log.error('SummaryComponent: model.contextError', model.contextError);
+  }, [model.contextError, model.context]); // Added model.context to dependencies
+
+  // Si hay un error en el contexto, mostrarlo
   if (model.contextError) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>

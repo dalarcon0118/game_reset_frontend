@@ -9,6 +9,8 @@ import { setAuthRepository } from '../../services/api_client';
 import { SessionPolicy } from '@/shared/auth/session/session.policy';
 import { TokenState } from '@/shared/auth/session/session.types';
 
+import { TimerRepository } from '../system/time/timer.repository';
+
 const log = logger.withTag('AUTH_REPOSITORY');
 
 export { AuthApi } from './api/api';
@@ -48,7 +50,7 @@ class AuthRepositoryImpl implements IAuthRepository {
      * Retorna si se está en proceso de salida/expiración.
      */
     getIsExiting(): boolean {
-        return this.isExiting;
+        return this.isExiting || this.isLoggingOut;
     }
 
     /**
@@ -85,10 +87,8 @@ class AuthRepositoryImpl implements IAuthRepository {
             if (user && isValid) {
                 log.info('Session hydrated successfully', { username: user.username, tokenState });
 
-                // Si el token está expirado, notificamos para que la UI sepa que debe refrescar
-                if (tokenState === TokenState.EXPIRED) {
-                    this.notifyExpiredListeners('SESSION_EXPIRED');
-                }
+                // Ya no notificamos expiración inmediata aquí. 
+                // Dejamos que el sistema intente el refresh de forma natural cuando sea necesario.
 
                 this.notifySessionListeners(user);
                 return user;
@@ -269,21 +269,58 @@ class AuthRepositoryImpl implements IAuthRepository {
                     return onlineResult;
                 }
 
-                // Lógica Musashi: Si el error es de identidad (401/403), no intentamos offline.
-                // Para cualquier otro fallo (Red, 500, etc.), activamos el modo de supervivencia offline.
+                // Lógica Musashi: 
+                // 1. Si el error es de identidad (401/403), no intentamos offline.
                 if (!onlineResult.success && onlineResult.error.type === AuthErrorType.INVALID_CREDENTIALS) {
                     log.warn('Online login failed with domain error (Invalid Credentials)', onlineResult.error);
                     return onlineResult;
                 }
 
-                log.info('Online login failed due to availability/server error, attempting offline validation', {
+                // 2. Si el error es del servidor (500), bloqueamos el acceso.
+                // No podemos confiar en la sesión local si el servidor está inestable.
+                if (!onlineResult.success && onlineResult.error.type === AuthErrorType.SERVER_ERROR) {
+                    log.error('Online login failed due to Server Error (500), blocking access', onlineResult.error);
+                    return onlineResult;
+                }
+
+                // 3. Verificación de integridad de tiempo antes de permitir fallback offline.
+                // Si el reloj local es inconsistente, no podemos permitir el modo offline.
+                const timeIntegrity = await TimerRepository.validateIntegrity(Date.now());
+                if (timeIntegrity.status !== 'ok') {
+                    log.error('Time integrity violation detected, blocking offline fallback', {
+                        status: timeIntegrity.status,
+                        reason: timeIntegrity.reason
+                    });
+                    return {
+                        success: false,
+                        error: {
+                            type: AuthErrorType.UNKNOWN_ERROR,
+                            message: 'Integridad de tiempo violada. Por favor sincronice su reloj o conecte a internet.'
+                        }
+                    };
+                }
+
+                // Para cualquier otro fallo (Red, etc.), activamos el modo de supervivencia offline.
+                log.info('Online login failed due to connectivity, attempting offline validation', {
                     username,
                     errorType: !onlineResult.success ? onlineResult.error.type : 'N/A'
                 });
                 return await this.performOfflineValidation(username, pin);
             }
 
-            // Si el servidor no es alcanzable, intentamos offline directamente
+            // Si el servidor no es alcanzable, intentamos offline directamente pero validamos integridad de tiempo primero
+            const timeIntegrity = await TimerRepository.validateIntegrity(Date.now());
+            if (timeIntegrity.status !== 'ok') {
+                log.error('Server unreachable and time integrity violation detected, blocking offline validation');
+                return {
+                    success: false,
+                    error: {
+                        type: AuthErrorType.UNKNOWN_ERROR,
+                        message: 'No hay conexión y el reloj es inconsistente. Conecte a internet para resincronizar.'
+                    }
+                };
+            }
+
             log.info('Server unreachable (fast-check), attempting offline validation', { username });
             return await this.performOfflineValidation(username, pin);
 
@@ -310,10 +347,16 @@ class AuthRepositoryImpl implements IAuthRepository {
     }
 
     async logout(): Promise<void> {
+        if (this.isLoggingOut) {
+            log.debug('Logout already in progress, skipping duplicate call');
+            return;
+        }
         this.isLoggingOut = true;
         try {
             log.info('Performing logout');
+            // Intentamos notificar al servidor, pero no esperamos si falla
             this.api.logout().catch(err => log.warn('Remote logout failed', err));
+
             await this.storage.clearSession();
             this.notifySessionListeners(null);
             log.info('Local logout completed');

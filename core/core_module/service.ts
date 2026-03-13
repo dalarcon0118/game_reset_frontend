@@ -1,10 +1,5 @@
 import { AuthRepository } from '@shared/repositories/auth';
 import { apiClient } from '@shared/services/api_client';
-import { MiddlewareRegistry } from '@core/tea-utils/middleware_registry';
-import { createLoggerMiddleware } from '@core/middlewares/logger.middleware';
-import { createTimeIntegrityMiddleware } from '@core/middlewares/time-integrity-v2.middleware';
-import { elmEngine } from '@core/engine/engine_config';
-import { effectHandlers } from '@core/tea-utils/effect_handlers';
 import { CoreMsg } from './msg';
 
 /**
@@ -16,19 +11,14 @@ import { CoreMsg } from './msg';
 export const CoreService = {
   /**
    * Inicializa la infraestructura base (Middlewares y Engine).
+   * La configuración del motor ahora es síncrona en bootstrap.ts.
    * Retorna true si existe una sesión activa tras la hidratación.
    */
   async initializeInfrastructure(): Promise<boolean> {
-    // 1. Configurar Infraestructura Base
-    MiddlewareRegistry.register(createLoggerMiddleware());
-    MiddlewareRegistry.register(createTimeIntegrityMiddleware());
+    // La infraestructura base (Engine, Middlewares) se configura
+    // automáticamente vía side-effect import en el CoreModule.
 
-    elmEngine.configure({
-      effectHandlers,
-      middlewares: MiddlewareRegistry.getGlobals()
-    });
-
-    // 2. Verificar estado inicial de la sesión mediante hidratación
+    // 1. Verificar estado inicial de la sesión mediante hidratación
     const user = await AuthRepository.hydrate();
     return !!user;
   },

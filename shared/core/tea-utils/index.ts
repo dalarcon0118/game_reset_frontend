@@ -9,3 +9,4 @@ export * from './middleware.types';
 export * from './middleware_registry';
 export * from './msg';
 export * from './effect_registry';
+export * from './signal_bus';

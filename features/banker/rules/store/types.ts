@@ -1,5 +1,5 @@
 import { ValidationRule } from '../../../../types/rules';
-import { User } from '../../../../features/auth/store/types/auth.types';
+import { User } from '@/shared/repositories/auth/types/types';
 
 export interface Rule {
     id: string;

@@ -8,7 +8,7 @@ import { BolitaEntryColumns } from '../components/BolitaEntryColumns';
 import { BolitaKeyboardManager } from '../components/bolita_keyboard_manager';
 import { useBolitaStore, selectBolitaModel, selectDispatch } from '../store';
 import { REQUEST_SAVE_ALL_BETS, SET_USER_CONTEXT } from '../../domain/models/bolita.messages';
-import { useAuth } from '@/shared/context/auth_context';
+import { useAuth } from '@/features/auth';
 
 import { logger } from '@/shared/utils/logger';
 

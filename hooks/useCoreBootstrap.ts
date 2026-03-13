@@ -20,6 +20,7 @@ export function useCoreBootstrap() {
   return {
     bootstrapped: status === 'READY',
     initializing: status === 'INITIALIZING',
+    status,
     error
   };
 }

@@ -1,5 +1,6 @@
 import { logger } from '../../utils/logger';
 import { WebData } from './remote.data';
+import { GlobalMsg } from './signal_bus';
 import {
   ResourceListPayload,
   ResourceGetOnePayload,
@@ -83,6 +84,16 @@ export const DeleteMsg = <T>(
 
 export const Cmd = {
   none: null,
+
+  /**
+   * Envía un mensaje global (broadcast) que puede ser escuchado por cualquier
+   * suscriptor usando Sub.receiveMsg.
+   * Útil para comunicación desacoplada entre módulos.
+   */
+  sendMsg: (msg: GlobalMsg): CommandDescriptor => ({
+    type: 'SEND_MSG',
+    payload: msg
+  }),
 
   http: (
     config: {

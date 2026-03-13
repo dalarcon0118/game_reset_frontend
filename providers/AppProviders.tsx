@@ -10,6 +10,9 @@ import { AuthProviderV1 } from '../features/auth/v1';
 import { CoreModule } from '../core/core_module';
 import { BottomDrawerProvider } from '../components/ui/use_bottom_drawer';
 import { useCoreBootstrap } from '../hooks/useCoreBootstrap';
+import { logger } from '../shared/utils/logger';
+
+const log = logger.withTag('CORE_INITIALIZER');
 
 interface AppProvidersProps {
   children: React.ReactNode;
@@ -19,12 +22,17 @@ interface AppProvidersProps {
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 const CoreInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { bootstrapped } = useCoreBootstrap();
+  const { bootstrapped, status } = useCoreBootstrap();
   
+  React.useEffect(() => {
+    log.debug('Bootstrap state updated', { bootstrapped, status });
+  }, [bootstrapped, status]);
+
   if (!bootstrapped) {
-    return null; // Mantiene el splash screen activo
+    log.debug('Core not bootstrapped yet, but mounting children to preserve stores');
   }
 
+  log.info('Core infrastructure ready or mounting, rendering children', { bootstrapped });
   return <>{children}</>;
 };
 

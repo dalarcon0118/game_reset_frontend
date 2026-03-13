@@ -1,11 +1,14 @@
 import { SessionPolicyContext, TokenState, SessionStatus } from './session.types';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('SESSION_POLICY');
 
 /**
  * SessionPolicy: Reglas puras para la toma de decisiones de autenticación.
  * Esta clase NO realiza I/O, es 100% determinística y testeable.
  */
 export class SessionPolicy {
-    private static REFRESH_SKEW_SECONDS = 60; // Margen de seguridad para refresh
+    private static REFRESH_SKEW_SECONDS = 10; // Margen de seguridad para refresh
 
     /**
      * Determina el estado de un token JWT o marcador offline.
@@ -18,14 +21,23 @@ export class SessionPolicy {
         try {
             const parts = token.split('.');
             if (parts.length < 2) return TokenState.INVALID;
-            
+
             // Decodificar payload con manejo de padding base64
             let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
             while (base64.length % 4) base64 += '=';
-            
+
             const payload = JSON.parse(this.atob(base64));
             const now = Math.floor(Date.now() / 1000);
-            
+
+            log.info('Token resolution details', {
+                tokenStart: token.substring(0, 20) + '...',
+                payloadExp: payload.exp,
+                currentTime: now,
+                timeRemaining: payload.exp - now,
+                refreshSkew: this.REFRESH_SKEW_SECONDS,
+                isExpiredSkew: (payload.exp - now) < this.REFRESH_SKEW_SECONDS
+            });
+
             if (payload.exp - now < this.REFRESH_SKEW_SECONDS) {
                 return TokenState.EXPIRED;
             }
@@ -108,7 +120,7 @@ export class SessionPolicy {
 
             if (str.length % 4 === 1) throw new Error("'atob' failed");
 
-            for (let bc = 0, bs = 0, buffer, i = 0; (buffer = str.charAt(i++)); ) {
+            for (let bc = 0, bs = 0, buffer, i = 0; (buffer = str.charAt(i++));) {
                 buffer = chars.indexOf(buffer);
                 if (buffer === -1) continue;
                 // eslint-disable-next-line no-bitwise

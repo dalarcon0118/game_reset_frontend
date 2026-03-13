@@ -1,4 +1,7 @@
 
+// 1. Bootstrapping de Infraestructura (Side-effect)
+import '../bootstrap';
+
 import { createTEAModule } from '@core/engine/tea_module';
 import { initialModel, CoreModel } from './model';
 import { CoreMsg } from './msg';

@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useMemo, ReactNode } from 'react';
+import React, { createContext, useContext, useMemo, ReactNode, useEffect } from 'react';
 import { createElmStore, ElmStoreConfig } from './engine';
 import { UseBoundStore, StoreApi } from 'zustand';
+import { storeRegistry } from './store_registry';
 
 /**
  * TEA Module Definition
@@ -46,8 +47,16 @@ export function createTEAModule<TModel, TMsg>(
 
     const Provider: React.FC<{ children: ReactNode }> = ({ children }) => {
         // The store is created ONLY when the Provider is mounted.
-        // It's also cleaned up automatically when unmounted if the engine supports it.
         const store = useMemo(() => createElmStore(def), []);
+
+        // Registro y desregistro automático del store en el StoreRegistry
+        useEffect(() => {
+            storeRegistry.register(def.name, store);
+            return () => {
+                store.getState().cleanup?.();
+                storeRegistry.unregister(def.name);
+            };
+        }, [store]);
 
         return <Context.Provider value={store as any}>{children}</Context.Provider>;
     };

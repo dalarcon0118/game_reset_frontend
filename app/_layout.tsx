@@ -28,13 +28,9 @@ export default function RootLayout() {
 }
 
 function RootLayoutContent() {
-  const { status } = useAuthV1();
-  const isHydrating = status === AuthStatus.IDLE || status === AuthStatus.BOOTSTRAPPING;
-
-  if (isHydrating) {
-    return null; // Mantiene el splash screen o pantalla en blanco hasta que el AuthModuleV1 esté listo
-  }
-
+  // Ya no bloqueamos aquí basándonos en AuthModuleV1.
+  // El bloqueo real ocurre en CoreInitializer (AppProviders.tsx)
+  // que espera a que la infraestructura base esté lista.
   return <RootLayoutInner />;
 }
 

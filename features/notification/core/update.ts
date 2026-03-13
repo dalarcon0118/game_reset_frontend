@@ -9,7 +9,7 @@ import {
     singleton,
     ret
 } from '@core/tea-utils';
-import { useAuthStore } from '@/features/auth/store/store';
+import { AuthModuleV1 } from '@/features/auth/v1/adapters/auth_provider';
 import { logger } from '@/shared/utils/logger';
 import { notificationRepository } from '@/shared/repositories/notification';
 import apiClient from '@/shared/services/api_client';
@@ -19,7 +19,7 @@ const log = logger.withTag('NOTIFICATION_CORE');
 export const subscriptions = (model: Model) => {
     // Sync with Auth store for user changes
     const authSub = Sub.watchStore(
-        useAuthStore,
+        'AuthModuleV1', // Usamos el ID del módulo registrado en StoreRegistry
         (state: any) => state?.model?.user ?? state?.user,
         (user) => ({ type: 'AUTH_USER_SYNCED', user }),
         'notification-auth-sync'

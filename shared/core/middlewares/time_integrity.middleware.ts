@@ -1,21 +1,30 @@
 import { TeaMiddleware } from '@core/tea-utils/middleware.types';
 import { TimerRepository } from '@/shared/repositories/system/time/timer.repository';
-import { useAuthStore } from '@/features/auth/store/store';
-import { AuthMsgType } from '@/features/auth/store/types/messages.types';
+import { ValidationResult } from '@/shared/core/policies/time-integrity.policy';
 import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('TIME_INTEGRITY_MW');
 
 /**
+ * Interface for the Security Coordinator required by the middleware.
+ * This prevents direct coupling to a specific implementation.
+ */
+export interface TimeIntegritySecurityCoordinator {
+    isLoggingOut: () => boolean;
+    hasActiveSession: () => Promise<boolean>;
+    handleViolation: (result: ValidationResult) => void;
+}
+
+/**
  * Middleware that validates time integrity before any state update.
  * If fraud is detected, it triggers a global session expiration.
  * 
- * IMPORTANT: Skips validation for offline sessions to prevent false positives
- * when the device has been asleep or in background for extended periods.
+ * ARCHITECTURE: Follows Dependency Injection (DI) to remain pure and decoupled.
  */
-export const createTimeIntegrityMiddleware = (): TeaMiddleware<any, any> => {
+export const createTimeIntegrityMiddleware = (
+    coordinator: TimeIntegritySecurityCoordinator
+): TeaMiddleware<any, any> => {
     // Local cache for the current transaction ID to avoid redundant validations
-    // within the same TEA message processing cycle (across multiple stores).
     let lastProcessedTraceId: string | null = null;
 
     return {
@@ -23,44 +32,33 @@ export const createTimeIntegrityMiddleware = (): TeaMiddleware<any, any> => {
 
         beforeUpdate: async (model, msg, meta) => {
             // 1. TraceID Deduplication
-            // If we already validated for this specific traceId, skip.
             if (meta.traceId && meta.traceId === lastProcessedTraceId) {
                 return;
             }
             lastProcessedTraceId = meta.traceId;
 
             // 2. Auth Guards
-            // Skip validation for auth-related messages to avoid loops
             const msgType = (msg as any).type;
             if (
-                msgType === AuthMsgType.SESSION_EXPIRED ||
-                msgType === AuthMsgType.LOGOUT_REQUESTED ||
-                msgType === AuthMsgType.USER_CHANGED || // FIX: Prevent infinite loop during logout
+                msgType === 'SESSION_EXPIRED' ||
+                msgType === 'LOGOUT_REQUESTED' ||
+                msgType === 'SESSION_CHANGED' ||
                 msgType?.startsWith('LOGIN_')
             ) {
                 return;
             }
 
             try {
-                // Check if we have an offline session - skip validation to avoid false positives
-                // when the device has been asleep or in background for extended periods
-                const authState = useAuthStore.getState();
-
-                // FIX: Prevent infinite loop by checking if already in expired/logging out state
-                if (authState?.model?.status === 'EXPIRED' || authState?.model?.status === 'LOGGING_OUT') {
-                    log.debug('Skipping time integrity validation - session already expired/logging out');
+                // Check if we are already in logout process to avoid loops
+                if (coordinator.isLoggingOut()) {
+                    log.debug('Skipping time integrity validation - logout in progress');
                     return;
                 }
 
-                const token = authState?.model?.loginResponse;
-
-                // If login response is a success with offline token, skip validation
-                if (token && token.type === 'Success') {
-                    // Check if it's an offline session by looking at the user data
-                    // or by checking if there's a stored offline indicator
-                    // For now, we'll skip validation if we have a successful login
-                    // This is a safety measure for offline-first scenarios
-                    log.debug('Skipping time integrity validation for authenticated session');
+                // Check if we have an active session
+                const hasSession = await coordinator.hasActiveSession();
+                if (!hasSession) {
+                    log.debug('Skipping time integrity validation - no active session');
                     return;
                 }
 
@@ -73,9 +71,12 @@ export const createTimeIntegrityMiddleware = (): TeaMiddleware<any, any> => {
                         msgType
                     }, 'BUSINESS', 'HIGH');
 
-                    // Force session expiration
-                    const authDispatch = useAuthStore.getState().dispatch;
-                    authDispatch({ type: AuthMsgType.SESSION_EXPIRED });
+                    // Force session expiration via Coordinator
+                    coordinator.handleViolation({
+                        status: 'violation',
+                        reason: result.reason || 'Time fraud detected',
+                        violationType: result.status === 'backward' ? 'backward_jump' : 'forward_jump'
+                    });
                 }
             } catch (error) {
                 log.error('Error during time integrity validation', error);

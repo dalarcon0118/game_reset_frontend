@@ -1,9 +1,10 @@
 import { match } from 'ts-pattern';
 import { ProfileModel, ProfileMsg, ProfileMsgType, initialProfileModel, UserProfile, Incident, DEFAULT_USER_PROFILE } from './profile.types';
 import { Return, ret, RemoteDataHttp, RemoteData, Cmd } from '@core/tea-utils';
+import { GlobalSignals } from '@/config/signals';
 import apiClient from '@/shared/services/api_client';
 import settings from '@/config/settings';
-import { User } from '@/features/auth/store/types/auth.types';
+import { User } from '@/shared/repositories/auth/types/types';
 import { hashString } from '@/shared/utils/crypto';
 
 // Fetch real profile data from me endpoint using RemoteDataHttp
@@ -65,8 +66,7 @@ export const updateProfile = (model: ProfileModel, msg: ProfileMsg): [ProfileMod
                     ...model,
                     user: RemoteData.notAsked<any, UserProfile>(),
                     userData: DEFAULT_USER_PROFILE,
-                    incidents: RemoteData.notAsked<any, Incident[]>(),
-                    isLoggingOut: false
+                    incidents: RemoteData.notAsked<any, Incident[]>()
                 },
                 []
             );
@@ -125,10 +125,11 @@ export const updateProfile = (model: ProfileModel, msg: ProfileMsg): [ProfileMod
         .with({ type: ProfileMsgType.SUBMIT_LOGOUT }, () => {
             return ret({
                 ...model,
-                isLoggingOut: true,
                 user: RemoteData.notAsked<any, UserProfile>(),
                 incidents: RemoteData.notAsked<any, Incident[]>()
-            }, []);
+            }, [
+                Cmd.sendMsg(GlobalSignals.LOGOUT())
+            ]);
         })
         .with({ type: ProfileMsgType.CHANGE_PASSWORD_REQUESTED }, () => {
             return ret(model, [

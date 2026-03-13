@@ -75,11 +75,14 @@ export default function DashboardScreen() {
                     hostStore={storeApi}
                 />
                 
-                <Slot 
-                    name="dashboard.summary" 
-                    contextData={model} 
-                    hostStore={storeApi}
-                />
+                {model.userStructureId ? (
+                    <Slot 
+                        name="dashboard.summary" 
+                        contextData={model} 
+                        hostStore={storeApi}
+                    />
+                ) : null}
+                
                 <Slot name="dashboard.summary_bottom" />
                 
                 <Slot 

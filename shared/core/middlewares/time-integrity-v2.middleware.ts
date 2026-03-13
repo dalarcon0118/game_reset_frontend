@@ -1,140 +1,96 @@
 import { TeaMiddleware } from '@core/tea-utils/middleware.types';
-import { TimerRepository } from '@/shared/repositories/system/time/timer.repository';
-import { AuthMsgType } from '@/features/auth/store/types/messages.types';
 import { logger } from '@/shared/utils/logger';
 import { ValidationResult } from '@core/policies/time-integrity.policy';
-import { securityService } from '../../../core/core_module/services/security.service';
 
 const log = logger.withTag('TIME_INTEGRITY_MW_V2');
 
 /**
- * Pure TEA middleware for time integrity validation.
- * 
- * ARCHITECTURE PRINCIPLES:
- * 1. No side effects in beforeUpdate - only validation
- * 2. Uses meta object to pass violation data to afterUpdate
- * 3. Delegates security decisions to SessionSecurityCoordinator
- * 4. Respects TEA purity by avoiding direct store access
- * 
- * This solves the infinite loop issue by:
- * - Not dispatching messages from within the middleware
- * - Using meta object to communicate violations
- * - Centralizing security decisions
+ * TimeIntegrityConfig
+ * Configuración inyectada para el middleware de integridad de tiempo.
+ * Proporciona total inversión de control al orquestador.
+ */
+export interface TimeIntegrityConfig {
+    /** Determina si un mensaje requiere validación de integridad de tiempo */
+    isProtected: (msg: any) => boolean;
+    /** Ejecuta la lógica de validación de integridad de tiempo */
+    checkIntegrity: () => Promise<ValidationResult>;
+    /** Callback ejecutado cuando se detecta una violación */
+    onViolation: (result: ValidationResult) => void;
+}
+
+/**
+ * TimeIntegrityMeta
+ * Interfaz para el objeto meta utilizado por el middleware para persistir
+ * el estado de la validación entre beforeUpdate y afterUpdate.
  */
 export interface TimeIntegrityMeta {
     timeIntegrityViolation?: ValidationResult;
     timeIntegrityChecked?: boolean;
+    traceId?: string;
 }
 
-const BET_COMMIT_MSG_TYPES = [
-    'CONFIRM_SAVE_BETS',
-    'CONFIRM_SAVE_ALL_BETS',
-    'SAVE_ALL_BETS',
-    'SAVE_BETS_REQUESTED',
-    'SAVE_BETS'
-];
-
-const getMsgType = (msg: any): string | undefined => {
-    if (!msg) return undefined;
-    return msg.payload?.type || msg.type;
-};
-
-const isBetCommitMessage = (msg: any): boolean => {
-    const msgType = getMsgType(msg);
-    return !!msgType && BET_COMMIT_MSG_TYPES.some((type) => msgType === type);
-};
-
-const toValidationResult = (status: 'backward' | 'jump', reason?: string, deltaMs?: number): ValidationResult => {
-    return {
-        status: 'violation',
-        reason: reason || 'Time integrity violation',
-        violationType: status === 'backward' ? 'backward_jump' : 'forward_jump',
-        jumpMs: typeof deltaMs === 'number' ? Math.abs(deltaMs) : undefined
-    };
-};
-
-export const createTimeIntegrityMiddleware = (): TeaMiddleware<any, any> => {
-    // Local cache for the current transaction ID to avoid redundant validations
+/**
+ * Middleware de Integridad de Tiempo (V2 - Arquitectura Desacoplada)
+ * 
+ * PRINCIPIOS ARQUITECTÓNICOS:
+ * 1. SRP (Single Responsibility Principle): Solo valida la integridad del tiempo.
+ * 2. Inversión de Control: El middleware no sabe qué mensajes proteger ni cómo reaccionar.
+ * 3. Desacoplamiento: No depende de features de negocio ni de servicios imperativos.
+ * 
+ * @param config Configuración inyectada para definir protección y reacción.
+ */
+export const createTimeIntegrityMiddleware = (config: TimeIntegrityConfig): TeaMiddleware<any, any> => {
+    // Cache local para el último traceId procesado y evitar validaciones redundantes
     let lastProcessedTraceId: string | null = null;
 
     return {
         id: 'time-integrity-v2',
 
         beforeUpdate: async (model, msg, meta) => {
-            // Initialize meta object if not exists
             const timeMeta = meta as TimeIntegrityMeta;
 
-            // 1. TraceID Deduplication
-            if (meta.traceId && meta.traceId === lastProcessedTraceId) {
+            // 1. Deduplicación por TraceID
+            if (timeMeta.traceId && timeMeta.traceId === lastProcessedTraceId) {
                 timeMeta.timeIntegrityChecked = true;
                 return;
             }
-            lastProcessedTraceId = meta.traceId;
+            lastProcessedTraceId = timeMeta.traceId || null;
 
-            const msgType = getMsgType(msg);
-            const shouldSkip = [
-                AuthMsgType.SESSION_EXPIRED,
-                AuthMsgType.LOGOUT_REQUESTED,
-                AuthMsgType.USER_CHANGED, // This was causing the infinite loop!
-                'LOGIN_',
-                'AUTH_'
-            ].some(skipType =>
-                msgType === skipType || msgType?.startsWith(skipType)
-            );
+            // 2. Verificación de Protección (Inversión de Control)
+            // Delegamos la decisión de si el mensaje debe ser validado a la configuración.
+            const isProtected = config.isProtected(msg);
 
-            if (shouldSkip) {
+            if (!isProtected) {
                 timeMeta.timeIntegrityChecked = true;
                 return;
             }
 
-            if (!isBetCommitMessage(msg)) {
-                timeMeta.timeIntegrityChecked = true;
-                return;
-            }
-
-            // Check if user is in a state that should skip validation
-            const authStatus = (model as any)?.auth?.status;
-            const shouldSkipForState = ['EXPIRED', 'LOGGING_OUT', 'ANONYMOUS'].includes(authStatus);
-
-            if (shouldSkipForState) {
-                timeMeta.timeIntegrityChecked = true;
-                return;
-            }
-
+            // 3. Ejecución de la Validación (Inversión de Control)
+            // Delegamos la validación a la función inyectada.
             try {
-                const integrity = await TimerRepository.validateIntegrity(Date.now());
-                const result =
-                    integrity.status === 'ok'
-                        ? ({ status: 'ok' } as const)
-                        : toValidationResult(integrity.status, integrity.reason, integrity.deltaMs);
+                const result = await config.checkIntegrity();
 
-                timeMeta.timeIntegrityChecked = true;
-                timeMeta.timeIntegrityViolation = result.status === 'violation' ? result : undefined;
+                if (result.status !== 'ok') {
+                    // Guardamos la violación en meta para referencia interna
+                    timeMeta.timeIntegrityViolation = result;
 
-                if (result.status === 'violation') {
                     log.warn('Time integrity violation detected (pure validation)', {
                         violationType: result.violationType,
                         reason: result.reason,
                         jumpMs: result.jumpMs,
-                        msgType
+                        msgType: (msg as any).type
                     });
+
+                    // 4. Reacción (Inversión de Control)
+                    // Delegamos la reacción a la configuración inyectada.
+                    config.onViolation(result);
                 }
+
+                timeMeta.timeIntegrityChecked = true;
 
             } catch (error) {
                 log.error('Error during time integrity validation', error);
                 timeMeta.timeIntegrityChecked = true;
-            }
-        },
-
-        afterUpdate: (prevModel, msg, nextModel, cmd, meta) => {
-            const timeMeta = meta as TimeIntegrityMeta;
-
-            // Only act if we found a violation and it should trigger action
-            if (timeMeta.timeIntegrityViolation) {
-                securityService.handleTimeIntegrityViolation(timeMeta.timeIntegrityViolation);
-
-                // Clear the violation to prevent re-processing
-                timeMeta.timeIntegrityViolation = undefined;
             }
         }
     };

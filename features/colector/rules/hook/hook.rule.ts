@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ValidationRuleService, ValidationRule } from '@shared/services/validation_rule';
 import { logger } from '@/shared/utils/logger';
-import { useAuth } from '@/shared/context/auth_context';
+import { useAuth } from '@/features/auth';
 
 const log = logger.withTag('COLECTOR_RULES_HOOK');
 

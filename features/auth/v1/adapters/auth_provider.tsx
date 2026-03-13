@@ -9,7 +9,7 @@ import { AuthMsg } from '@/shared/auth/v1/msg';
  * Gestiona el ciclo de vida del store dentro de React para evitar singletons.
  */
 export const AuthModuleV1 = createTEAModule<AuthModel, AuthMsg>({
-    name: 'AuthV1',
+    name: 'AuthModuleV1',
     initial: AuthServiceV1.initial,
     update: AuthServiceV1.update,
     subscriptions: AuthServiceV1.subscriptions

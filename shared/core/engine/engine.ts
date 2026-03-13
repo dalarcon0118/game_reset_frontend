@@ -1,7 +1,8 @@
-import { create } from 'zustand';
+import { create, StoreApi } from 'zustand';
 import { SubDescriptor } from '../tea-utils/sub';
 import { logger } from '../../utils/logger';
 import { globalEventRegistry } from '../tea-utils/events';
+import { globalSignalBus } from '../tea-utils/signal_bus';
 import { Return } from '../tea-utils/return';
 import { TeaMiddleware, TeaMiddlewareCodec } from '../tea-utils/middleware.types';
 import { MiddlewareRegistry } from '../tea-utils/middleware_registry';
@@ -10,6 +11,7 @@ import { PathReporter } from 'io-ts/PathReporter';
 import { Cmd, CommandDescriptor } from '../tea-utils/cmd';
 import { elmEngine } from './engine_config';
 import { effectHandlers as fallbackEffectHandlers } from '../tea-utils/effect_handlers';
+import { storeRegistry } from './store_registry';
 
 // La estructura que debe devolver cualquier función 'update'
 export type UpdateResult<TModel, TMsg> = [TModel, Cmd] | Return<TModel, TMsg>;
@@ -202,7 +204,13 @@ export const createElmStore = <TModel, TMsg>(
                 }
 
                 const handlersToUse = finalEffectHandlers || fallbackEffectHandlers;
-                const handler = handlersToUse && (handlersToUse as any)[singleCmd.type];
+                const handler = (handlersToUse as any)[singleCmd.type];
+
+                // --- Special Case: Global Signals (TEA-Agnostic) ---
+                if (singleCmd.type === 'SEND_MSG') {
+                    globalSignalBus.send(singleCmd.payload);
+                    return;
+                }
 
                 if (singleCmd && handler) {
                     try {
@@ -253,6 +261,9 @@ export const createElmStore = <TModel, TMsg>(
             cleanup: () => {
                 // Default no-op, will be overridden if subscriptions exist
                 logger.debug('Engine cleanup: No subscriptions to clean', 'ENGINE_CLEANUP');
+                if (config.name) {
+                    storeRegistry.unregister(config.name);
+                }
             },
             dispatch: (msg: TMsg) => {
                 if (!msg) {
@@ -333,41 +344,53 @@ export const createElmStore = <TModel, TMsg>(
             }
 
             if (sub.type === 'WATCH_STORE') {
-                const { id, store: externalStore, selector, msgCreator } = sub.payload;
+                const { id, store: externalStoreRef, selector, msgCreator } = sub.payload;
                 if (!activeSubs.has(id)) {
+                    // Intenta resolver el store (puede ser una referencia directa o un ID de string)
+                    let externalStore: StoreApi<any> | undefined;
+
+                    if (typeof externalStoreRef === 'string') {
+                        externalStore = storeRegistry.get(externalStoreRef);
+                    } else if (externalStoreRef && typeof (externalStoreRef as any).getState === 'function') {
+                        externalStore = externalStoreRef as StoreApi<any>;
+                    } else if (typeof externalStoreRef === 'function') {
+                        // Es un hook de React o una función factory, no podemos usarlo aquí directamente
+                        // Buscamos en el registro por si el store ya fue creado e indexado
+                        const possibleId = (externalStoreRef as any).displayName || (externalStoreRef as any).name;
+                        if (possibleId) {
+                            externalStore = storeRegistry.get(possibleId);
+                        }
+                    }
+
+                    if (!externalStore) {
+                        logger.warn(`WATCH_STORE sub "${id}" delayed: Store not found or not yet registered.`, 'ENGINE', { storeRef: externalStoreRef });
+                        // Re-intentar en el próximo tick o cuando el store se registre (implementación simplificada: esperar)
+                        return;
+                    }
+
                     logger.debug(`Starting reactive sub: ${id} (WATCH_STORE)`, 'ENGINE');
                     // Pre-calculamos el valor inicial
-                    const initialValue = selector(externalStore.getState().model || externalStore.getState());
+                    const initialState = externalStore.getState();
+                    const initialValue = selector(initialState.model || initialState);
                     let lastValue = initialValue;
 
-                    // Nos suscribimos a cambios futuros ANTES de disparar el mensaje inicial
-                    // para evitar loops si el dispatch provoca un re-render que procese subs
+                    // Nos suscribimos a cambios futuros
                     const unsubscribe = externalStore.subscribe((state: any) => {
                         const selectedValue = selector(state.model || state);
-                        // Solo disparamos si el valor seleccionado ha cambiado (shallow comparison)
-                        // y si el valor no es null/undefined (para evitar mensajes inválidos)
                         if (selectedValue !== lastValue && selectedValue != null) {
                             lastValue = selectedValue;
                             dispatch(msgCreator(selectedValue));
                         }
                     });
 
-                    // Registramos la subscripción ANTES del dispatch inicial
                     activeSubs.set(id, { type: 'WATCH_STORE', unsubscribe, lastValue });
 
-                    // Ahora disparamos el mensaje inicial de forma diferida (en el siguiente tick)
-                    // para evitar loops infinitos durante el ciclo de renderizado actual.
                     setTimeout(() => {
-                        // Verificamos que la suscripción siga activa antes de despachar
                         if (activeSubs.has(id)) {
                             const msg = msgCreator(initialValue);
-                            if (!msg) {
-                                logger.error(`msgCreator returned null for WATCH_STORE sub: ${id}`, 'ENGINE', { initialValue });
-                                return;
-                            }
-                            dispatch(msg);
+                            if (msg) dispatch(msg);
                         }
-                    }, 100); // Increased delay to prevent rapid repeated messages
+                    }, 100);
                 }
             }
 
@@ -466,6 +489,18 @@ export const createElmStore = <TModel, TMsg>(
 
 
 
+            if (sub.type === 'RECEIVE_MSG') {
+                const { id, signal, handler } = sub.payload;
+                const signalType = signal.toString();
+                if (!activeSubs.has(id)) {
+                    logger.debug(`Starting global signal sub: ${id} (${signalType})`, 'ENGINE');
+                    const unsubscribe = globalSignalBus.subscribe(signalType, (payload) => {
+                        handler(payload, dispatch);
+                    });
+                    activeSubs.set(id, { type: 'RECEIVE_MSG', unsubscribe });
+                }
+            }
+
             if (sub.type === 'CUSTOM') {
                 const { id, subscribe } = sub.payload;
                 if (!activeSubs.has(id)) {
@@ -481,7 +516,7 @@ export const createElmStore = <TModel, TMsg>(
                 if (!currentSubs.has(id)) {
                     if (sub.type === 'EVERY') {
                         clearInterval(sub.interval);
-                    } else if (sub.type === 'WATCH_STORE' || sub.type === 'EVENT' || sub.type === 'CUSTOM') {
+                    } else if (sub.type === 'WATCH_STORE' || sub.type === 'EVENT' || sub.type === 'CUSTOM' || sub.type === 'RECEIVE_MSG') {
                         sub.unsubscribe();
                     } else if (sub.type === 'SSE') {
                         logger.info(`Disconnecting SSE stream: ${id}`, 'ENGINE');

@@ -10,13 +10,12 @@ import {
     ret
 } from '@core/tea-utils';
 import { BankerDashboardService } from '../../services/banker_dashboard_service';
-import { useAuthStore } from '@/features/auth/store/store';
-import * as config from '@/config';
+import { AuthModuleV1 } from '@/features/auth/v1/adapters/auth_provider';
 
 export const subscriptions = (model: Model) => {
     // Sincronización automática con el store de Auth
     const authSub = Sub.watchStore(
-        useAuthStore,
+        'AuthModuleV1',
         (state: any) => state?.model?.user ?? state?.user,
         (user) => ({ type: 'AUTH_USER_SYNCED', user }),
         'banker-dashboard-auth-sync'

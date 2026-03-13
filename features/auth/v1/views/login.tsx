@@ -6,6 +6,8 @@ import { COLORS } from '@/shared/components/constants';
 import { Flex } from '@/shared/components';
 import { useAuthV1 } from '../hooks/use_auth';
 
+import { logger } from '@/shared/utils/logger';
+
 // Custom dark theme colors for this screen
 const THEME = {
   background: '#141414', // Very dark/black
@@ -18,10 +20,14 @@ const THEME = {
   accent: COLORS.primary, // #00C48C
 };
 
+const log = logger.withTag('LOGIN_VIEW');
+
 export default function LoginScreen() {
   const {
     loginSession,
     isAuthenticating,
+    isHydrating,
+    status,
     error,
     login,
     updateUsername,
@@ -29,22 +35,57 @@ export default function LoginScreen() {
     dispatch
   } = useAuthV1();
 
+  // Log estado inicial al montar el componente
+  useEffect(() => {
+    log.info('LoginScreen montado - Estado inicial', { 
+      loginSession, 
+      status, 
+      isAuthenticating, 
+      isHydrating,
+      timestamp: new Date().toISOString()
+    });
+  }, []);
+
+  useEffect(() => {
+    log.debug('Auth state updated in LoginScreen', { status, isAuthenticating, isHydrating, loginSession });
+  }, [status, isAuthenticating, isHydrating, loginSession]);
+
   // Local UI state (not part of TEA - just for component behavior)
   const [tempUsername, setTempUsername] = useState('');
   const [isEditingUser, setIsEditingUser] = useState(false);
 
   useEffect(() => {
-    if (loginSession.pin.length === 6) {
+    log.debug('useEffect login trigger ejecutándose', { 
+      pinLength: loginSession.pin.length, 
+      isAuthenticating, 
+      isHydrating,
+      pinValue: loginSession.pin,
+      willTrigger: loginSession.pin.length === 6 && !isAuthenticating && !isHydrating
+    });
+    
+    if (loginSession.pin.length === 6 && !isAuthenticating && !isHydrating) {
+      log.info('Disparando login automático - PIN de 6 dígitos detectado', { 
+        username: loginSession.username,
+        pinLength: loginSession.pin.length 
+      });
       handleLogin(loginSession.pin);
     }
-  }, [loginSession.pin]);
+  }, [loginSession.pin, isAuthenticating, isHydrating]);
 
   const handleLogin = async (currentPin: string) => {
+    log.info('handleLogin ejecutándose', { 
+      username: loginSession.username, 
+      pinLength: currentPin.length,
+      hasUsername: !!loginSession.username 
+    });
+    
     if (!loginSession.username) {
+      log.warn('Login bloqueado: falta username');
       setIsEditingUser(true);
       return;
     }
     // TEA: Dispatch login action (handled by TEA store)
+    log.info('Disparando LOGIN_REQUESTED al TEA store', { username: loginSession.username });
     login(loginSession.username, currentPin);
   };
 
@@ -57,13 +98,23 @@ export default function LoginScreen() {
   };
 
   const handlePress = (val: string) => {
+    log.debug('handlePress ejecutándose', { val, isKeypadDisabled, currentPinLength: loginSession.pin.length });
+    if (isKeypadDisabled) {
+      log.warn('Tecla presionada pero keypad deshabilitado');
+      return;
+    }
     // TEA: Dispatch PIN update (limited to 6 digits)
     if (loginSession.pin.length < 6) {
-      updatePin(loginSession.pin + val);
+      const newPin = loginSession.pin + val;
+      log.info('Actualizando PIN', { previousPin: loginSession.pin, newPin, newLength: newPin.length });
+      updatePin(newPin);
+    } else {
+      log.warn('PIN ya tiene 6 dígitos, ignorando tecla');
     }
   };
 
   const handleDelete = () => {
+    if (isKeypadDisabled) return;
     // TEA: Dispatch PIN update (remove last digit)
     updatePin(loginSession.pin.slice(0, -1));
   };
@@ -84,7 +135,7 @@ export default function LoginScreen() {
     );
   };
 
-  const isKeypadDisabled = isAuthenticating || isEditingUser;
+  const isKeypadDisabled = isAuthenticating || isHydrating || isEditingUser;
 
   const renderKey = (val: string) => (
     <TouchableOpacity
@@ -158,7 +209,7 @@ export default function LoginScreen() {
 
         <Flex vertical align="center" gap={40} style={{ width: '100%' }}>
           <View style={{ height: 40, justifyContent: 'center', width: '100%', alignItems: 'center', paddingHorizontal: 20 }}>
-            {isAuthenticating ? (
+            {isAuthenticating || isHydrating ? (
               <ActivityIndicator color={THEME.accent} />
             ) : error ? (
               <Text status="danger" category="p2" style={{ textAlign: 'center', fontWeight: '600' }}>{error}</Text>

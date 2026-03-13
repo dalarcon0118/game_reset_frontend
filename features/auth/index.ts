@@ -1,5 +1,9 @@
-// Auth feature exports - TEA-based authentication module
-export { useAuth } from './hooks/use_auth';
-export { useAuthStore, selectAuthModel, selectAuthDispatch, selectIsAuthenticated, selectCurrentUser, selectAuthError, selectAuthLoading } from './store/store';
-export type { AuthModel, AuthMsg, AuthMsgType, User } from './store/types';
-export type { UserRole } from '../../data/mock_data';
+/**
+ * Auth Feature Facade
+ * 
+ * Este archivo actúa como el punto de entrada principal para la funcionalidad de autenticación.
+ * Actualmente delega toda la implementación a la versión v1, asegurando una transición
+ * suave y centralizada.
+ */
+
+export * from './v1';

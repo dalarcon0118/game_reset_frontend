@@ -3,7 +3,9 @@
  * Permite escuchar eventos externos de forma declarativa basándose en el estado del Modelo.
  */
 
-export type SubType = 'NONE' | 'EVERY' | 'BATCH' | 'WATCH_STORE' | 'SSE' | 'EVENT' | 'CUSTOM';
+import { MsgCreator } from './msg';
+
+export type SubType = 'NONE' | 'EVERY' | 'BATCH' | 'WATCH_STORE' | 'SSE' | 'EVENT' | 'CUSTOM' | 'RECEIVE_MSG';
 
 export interface SubDescriptor<Msg> {
     type: SubType;
@@ -11,6 +13,22 @@ export interface SubDescriptor<Msg> {
 }
 
 export const Sub = {
+    /**
+     * Suscribe el store a un mensaje global (broadcast) enviado vía Cmd.sendMsg.
+     * Útil para comunicación desacoplada entre módulos.
+     * @param signal El creador de mensaje global (Signal) a escuchar.
+     * @param handler Función que recibe el payload global y el dispatch interno.
+     * @param id Identificador único para la subscripción.
+     */
+    receiveMsg: <Msg, P>(
+        signal: MsgCreator<string, P>,
+        handler: (payload: P, dispatch: (msg: Msg) => void) => void,
+        id: string
+    ): SubDescriptor<Msg> => ({
+        type: 'RECEIVE_MSG',
+        payload: { signal, handler, id }
+    }),
+
     /**
      * Permite crear una subscripción personalizada con lógica imperativa.
      * Útil para APIs que no encajan en los otros tipos (ej: Firebase, Offline Services).
@@ -69,13 +87,13 @@ export const Sub = {
 
     /**
      * Observa cambios en un store externo de Zustand.
-     * @param store El store de Zustand a observar.
+     * @param store El store de Zustand a observar, o un string con el ID registrado en StoreRegistry.
      * @param selector Función para seleccionar la parte del estado a observar.
      * @param msgCreator Función que crea un mensaje a partir del valor seleccionado.
      * @param id Identificador único para la subscripción.
      */
     watchStore: <Msg, TState, TSelected>(
-        store: any,
+        store: any | string,
         selector: (state: TState) => TSelected,
         msgCreator: (selected: TSelected) => Msg,
         id: string

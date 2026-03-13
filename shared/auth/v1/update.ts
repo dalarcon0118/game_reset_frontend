@@ -1,9 +1,37 @@
-import { AuthModel, AuthStatus, Tokens } from './model';
-import { AuthMsg } from './msg';
+import { match } from 'ts-pattern';
+import { AuthModel, AuthStatus } from './model';
+import {
+    AuthMsg,
+    BOOTSTRAP_STARTED,
+    INITIAL_SESSION_CHECK_REQUESTED,
+    SESSION_HYDRATED,
+    SESSION_CHANGED,
+    LOGIN_REQUESTED,
+    LOGIN_SUCCEEDED,
+    LOGIN_FAILED,
+    LOGIN_USERNAME_UPDATED,
+    LOGIN_PIN_UPDATED,
+    LOGOUT_REQUESTED,
+    LOGOUT_COMPLETED,
+    AUTH_ERROR_DETECTED,
+    REFRESH_STARTED,
+    REFRESH_SUCCEEDED,
+    REFRESH_FAILED,
+    SESSION_EXPIRED as SESSION_EXPIRED_MSG,
+    GLOBAL_SIGNAL_RECEIVED
+} from './msg';
 import { Return, singleton, ret } from '../../core/tea-utils/return';
 import { Cmd } from '../../core/tea-utils/cmd';
 import { RemoteDataHttp } from '../../core/tea-utils/remote.data.http';
 import { AuthRepository } from '../../repositories/auth';
+import { logger } from '../../utils/logger';
+import { GLOBAL_LOGOUT } from '@/config/signals';
+
+const log = logger.withTag('AUTH_V1_UPDATE');
+
+// ID de instancia para detectar re-creaciones del store
+const STORE_INSTANCE_ID = Math.random().toString(36).substring(7).toUpperCase();
+log.debug(`AuthModuleV1.update loaded - Instance: #${STORE_INSTANCE_ID}`);
 
 /**
  * Update Function (v1)
@@ -12,61 +40,35 @@ import { AuthRepository } from '../../repositories/auth';
  * El SSOT es el AuthRepository; este update solo proyecta el estado.
  */
 export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMsg> {
-    switch (msg.type) {
-        case 'BOOTSTRAP_STARTED':
-            return ret(
-                { ...model, status: AuthStatus.BOOTSTRAPPING },
-                RemoteDataHttp.fetch(
-                    async () => {
-                        const user = await AuthRepository.hydrate();
-                        const { access, refresh } = await AuthRepository.getToken();
-                        return { access, refresh, user };
-                    },
-                    (result) => {
-                        if (result.type === 'Success' && result.data.user && result.data.access) {
-                            return {
-                                type: 'SESSION_HYDRATED',
-                                user: result.data.user,
-                                tokens: { access: result.data.access, refresh: result.data.refresh || undefined },
-                                isOffline: false // Inicia asumiendo online
-                            };
-                        }
-                        return {
-                            type: 'SESSION_HYDRATED',
-                            user: null,
-                            tokens: null,
-                            isOffline: false
-                        };
-                    },
-                    'AUTH_BOOTSTRAP'
-                )
-            );
+    log.debug(`[${STORE_INSTANCE_ID}] Processing message: ${msg.type}`, {
+        currentStatus: model.status,
+        hasUser: !!model.user
+    });
 
-        case 'SESSION_HYDRATED':
-            if (msg.tokens) {
-                return singleton({
-                    ...model,
-                    status: AuthStatus.AUTHENTICATED,
-                    user: msg.user,
-                    tokens: msg.tokens,
-                    isOffline: msg.isOffline
-                });
-            }
-            return singleton({
-                ...model,
-                status: AuthStatus.UNAUTHENTICATED,
-                user: null,
-                tokens: null
-            });
+    return match<AuthMsg, Return<AuthModel, AuthMsg>>(msg)
+        .with(BOOTSTRAP_STARTED.type(), () => {
+            log.info('Bootstrap started received in AuthV1');
+            return singleton({ ...model, status: AuthStatus.BOOTSTRAPPING });
+        })
 
-        case 'SESSION_CHANGED':
+        .with(INITIAL_SESSION_CHECK_REQUESTED.type(), () => {
+            log.warn('INITIAL_SESSION_CHECK_REQUESTED ignored (Deprecated in favor of SSOT Subscriptions)');
+            return singleton(model);
+        })
+
+        .with(SESSION_HYDRATED.type(), () => {
+            log.warn('SESSION_HYDRATED ignored (Deprecated in favor of SESSION_CHANGED from SSOT Subscriptions)');
+            return singleton(model);
+        })
+
+        .with(SESSION_CHANGED.type(), ({ payload }) => {
             // Reacción directa a cambios en el repositorio (SSOT)
-            if (msg.user) {
+            if (payload.user) {
                 return singleton({
                     ...model,
-                    status: msg.isOffline ? AuthStatus.AUTHENTICATED_OFFLINE : AuthStatus.AUTHENTICATED,
-                    user: msg.user,
-                    isOffline: msg.isOffline
+                    status: payload.isOffline ? AuthStatus.AUTHENTICATED_OFFLINE : AuthStatus.AUTHENTICATED,
+                    user: payload.user,
+                    isOffline: payload.isOffline
                 });
             }
             return singleton({
@@ -75,88 +77,96 @@ export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMs
                 user: null,
                 tokens: null
             });
+        })
 
-        case 'LOGIN_REQUESTED':
+        .with(LOGIN_REQUESTED.type(), ({ payload }) => {
             return ret(
-                { ...model, status: AuthStatus.BOOTSTRAPPING, error: null },
+                { ...model, status: AuthStatus.AUTHENTICATING, error: null },
                 RemoteDataHttp.fetch(
-                    () => AuthRepository.login(msg.username, msg.pin),
+                    () => AuthRepository.login(payload.username, payload.pin),
                     (result) => {
                         if (result.type === 'Success') {
                             if (result.data.success) {
-                                return {
-                                    type: 'LOGIN_SUCCEEDED',
+                                return LOGIN_SUCCEEDED({
                                     user: result.data.data.user,
                                     tokens: {
                                         access: result.data.data.accessToken,
                                         refresh: result.data.data.refreshToken
                                     },
                                     isOffline: result.data.data.isOffline
-                                };
+                                });
                             }
-                            return { type: 'LOGIN_FAILED', error: result.data.error.message };
+                            return LOGIN_FAILED({ error: result.data.error.message });
                         }
-                        return { type: 'LOGIN_FAILED', error: 'Error de conexión' };
+                        return LOGIN_FAILED({ error: 'Error de conexión' });
                     },
                     'AUTH_LOGIN'
                 )
             );
+        })
 
-        case 'LOGIN_SUCCEEDED':
+        .with(LOGIN_SUCCEEDED.type(), ({ payload }) => {
             // El repositorio ya guardó la sesión, v1 solo actualiza el estado local
             return singleton({
                 ...model,
-                status: msg.isOffline ? AuthStatus.AUTHENTICATED_OFFLINE : AuthStatus.AUTHENTICATED,
-                user: msg.user,
-                tokens: msg.tokens,
-                isOffline: msg.isOffline,
+                status: payload.isOffline ? AuthStatus.AUTHENTICATED_OFFLINE : AuthStatus.AUTHENTICATED,
+                user: payload.user,
+                tokens: payload.tokens,
+                isOffline: payload.isOffline,
                 error: null,
                 loginSession: { ...model.loginSession, pin: '' } // Limpiar PIN al entrar
             });
+        })
 
-        case 'LOGIN_FAILED':
+        .with(LOGIN_FAILED.type(), ({ payload }) => {
             return singleton({
                 ...model,
                 status: AuthStatus.UNAUTHENTICATED,
-                error: msg.error,
+                error: payload.error,
                 loginSession: { ...model.loginSession, pin: '' } // Limpiar PIN al fallar
             });
+        })
 
-        case 'LOGIN_USERNAME_UPDATED':
+        .with(LOGIN_USERNAME_UPDATED.type(), ({ payload }) => {
             return singleton({
                 ...model,
-                loginSession: { ...model.loginSession, username: msg.username }
+                loginSession: { ...model.loginSession, username: payload.username }
             });
+        })
 
-        case 'LOGIN_PIN_UPDATED':
+        .with(LOGIN_PIN_UPDATED.type(), ({ payload }) => {
             return singleton({
                 ...model,
-                loginSession: { ...model.loginSession, pin: msg.pin }
+                loginSession: { ...model.loginSession, pin: payload.pin }
             });
+        })
 
-        case 'LOGOUT_REQUESTED':
+        .with(LOGOUT_REQUESTED.type(), () => {
             return ret(
                 { ...model, status: AuthStatus.LOGGING_OUT },
                 RemoteDataHttp.fetch(
                     () => AuthRepository.logout(),
-                    () => ({ type: 'LOGOUT_COMPLETED' }),
+                    () => LOGOUT_COMPLETED(),
                     'AUTH_LOGOUT'
                 )
             );
+        })
 
-        case 'LOGOUT_COMPLETED':
+        .with(LOGOUT_COMPLETED.type(), () => {
             return ret(
                 { ...model, status: AuthStatus.UNAUTHENTICATED, user: null, tokens: null },
                 Cmd.navigate({ pathname: '/login', method: 'replace' })
             );
+        })
 
-        case 'AUTH_ERROR_DETECTED':
-            if (msg.status === 401 && model.tokens?.refresh) {
-                return update(model, { type: 'REFRESH_STARTED' });
+        .with(AUTH_ERROR_DETECTED.type(), ({ payload }) => {
+            if (payload.status === 401 && model.tokens?.refresh) {
+                return update(model, REFRESH_STARTED());
             }
-            return update(model, { type: 'SESSION_EXPIRED', reason: 'Error de autenticación' });
+            return update(model, SESSION_EXPIRED_MSG({ reason: 'Error de autenticación' }));
+        })
 
-        case 'REFRESH_STARTED':
+        .with(REFRESH_STARTED.type(), () => {
             if (model.status === AuthStatus.REFRESHING || !model.tokens?.refresh) {
                 return singleton(model);
             }
@@ -166,37 +176,38 @@ export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMs
                     () => AuthRepository.refresh(),
                     (result) => {
                         if (result.type === 'Success' && result.data.success) {
-                            return {
-                                type: 'REFRESH_SUCCEEDED',
+                            return REFRESH_SUCCEEDED({
                                 tokens: {
                                     access: result.data.data.accessToken,
                                     refresh: result.data.data.refreshToken || model.tokens?.refresh
                                 }
-                            };
+                            });
                         }
-                        return {
-                            type: 'REFRESH_FAILED',
+                        return REFRESH_FAILED({
                             error: result.type === 'Failure' ? String(result.error) : 'Refresh failed'
-                        };
+                        });
                     },
                     'AUTH_REFRESH'
                 )
             );
+        })
 
-        case 'REFRESH_SUCCEEDED':
+        .with(REFRESH_SUCCEEDED.type(), ({ payload }) => {
             return singleton({
                 ...model,
                 status: AuthStatus.AUTHENTICATED,
                 tokens: {
-                    access: msg.tokens.access,
-                    refresh: msg.tokens.refresh || model.tokens?.refresh || ''
+                    access: payload.tokens.access,
+                    refresh: payload.tokens.refresh || model.tokens?.refresh || ''
                 }
             });
+        })
 
-        case 'REFRESH_FAILED':
-            return update(model, { type: 'SESSION_EXPIRED', reason: msg.error });
+        .with(REFRESH_FAILED.type(), ({ payload }) => {
+            return update(model, SESSION_EXPIRED_MSG({ reason: payload.error }));
+        })
 
-        case 'SESSION_EXPIRED':
+        .with(SESSION_EXPIRED_MSG.type(), () => {
             // El SSOT (AuthRepository) ya notificó la expiración.
             // CoreModule se encarga de llamar a logout().
             // v1 solo proyecta el estado de expiración para la UI y navega al login.
@@ -204,8 +215,16 @@ export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMs
                 { ...model, status: AuthStatus.EXPIRED, user: null, tokens: null },
                 Cmd.navigate({ pathname: '/login', method: 'replace' })
             );
+        })
 
-        default:
-            return singleton(model);
-    }
+        .with(GLOBAL_SIGNAL_RECEIVED.type(), ({ payload }) => {
+            return match(payload.payload)
+                .with({ type: GLOBAL_LOGOUT.kind }, () => {
+                    log.info('Global Logout signal received in AuthV1');
+                    return update(model, LOGOUT_REQUESTED());
+                })
+                .otherwise(() => singleton(model));
+        })
+
+        .otherwise(() => singleton(model));
 }

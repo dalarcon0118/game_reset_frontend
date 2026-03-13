@@ -7,7 +7,6 @@ import { Key, LogOut, ChevronRight, ArrowLeft } from 'lucide-react-native';
 import { useProfileStore, selectProfileModel, selectDispatch, selectInit } from '../store';
 import { ProfileMsgType } from '../profile.types';
 import { RemoteData } from '@core/tea-utils';
-import { useAuth } from '../../../../auth/hooks/use_auth';
 import { IncidentList } from '../components/incident_list';
 import LayoutConstants from '@/constants/layout';
 
@@ -18,8 +17,6 @@ interface ProfileScreenProps {
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ showHeader = true }) => {
     const model = useProfileStore(selectProfileModel);
     const dispatch = useProfileStore(selectDispatch);
-    const init = useProfileStore(selectInit);
-    const { logout } = useAuth();
     const router = useRouter();
 
     useEffect(() => {
@@ -29,13 +26,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ showHeader = true 
         dispatch({ type: ProfileMsgType.FETCH_INCIDENTS_REQUESTED });
     }, [dispatch]);
 
-    const { user, isLoggingOut } = model;
-
-    useEffect(() => {
-        if (isLoggingOut) {
-            logout();
-        }
-    }, [isLoggingOut, logout]);
+    const { user } = model;
 
     const handleLogout = () => {
         dispatch({ type: ProfileMsgType.LOGOUT_REQUESTED });

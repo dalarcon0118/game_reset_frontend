@@ -5,10 +5,16 @@ import { CoreMsg } from './msg';
 import { Cmd } from '@core/tea-utils/cmd';
 import { AuthRepository } from '@shared/repositories/auth';
 import { CoreService } from './service';
+import { logger } from '../../shared/utils/logger';
+
+const log = logger.withTag('CORE_MODULE_UPDATE');
 
 export function update(model: CoreModel, msg: CoreMsg): Return<CoreModel, CoreMsg> {
+  log.debug(`Processing core message: ${msg.type}`, { bootstrapStatus: model.bootstrapStatus });
+
   switch (msg.type) {
     case 'BOOTSTRAP_STARTED': {
+      log.info('Core bootstrap started');
       if (model.bootstrapStatus === 'INITIALIZING') {
         return singleton(model);
       }
@@ -16,21 +22,31 @@ export function update(model: CoreModel, msg: CoreMsg): Return<CoreModel, CoreMs
       return ret(
         { ...model, bootstrapStatus: 'INITIALIZING', error: null },
         Cmd.task({
-          task: () => CoreService.initializeInfrastructure(),
-          onSuccess: (hasSession: boolean): CoreMsg => ({
-            type: 'BOOTSTRAP_COMPLETED',
-            payload: hasSession ? 'AUTHENTICATED' : 'UNAUTHENTICATED'
-          }),
-          onFailure: (error: any): CoreMsg => ({
-            type: 'BOOTSTRAP_FAILED',
-            payload: String(error)
-          }),
+          task: () => {
+            log.debug('CoreService.initializeInfrastructure() task starting...');
+            return CoreService.initializeInfrastructure();
+          },
+          onSuccess: (hasSession: boolean): CoreMsg => {
+            log.info('Core infrastructure initialized', { hasSession });
+            return {
+              type: 'BOOTSTRAP_COMPLETED',
+              payload: hasSession ? 'AUTHENTICATED' : 'UNAUTHENTICATED'
+            };
+          },
+          onFailure: (error: any): CoreMsg => {
+            log.error('Core infrastructure initialization failed', error);
+            return {
+              type: 'BOOTSTRAP_FAILED',
+              payload: String(error)
+            };
+          },
           label: 'INITIALIZE_INFRASTRUCTURE'
         })
       );
     }
 
     case 'BOOTSTRAP_COMPLETED':
+      log.info('Core bootstrap completed', { sessionStatus: msg.payload });
       return ret(
         {
           ...model,
@@ -39,9 +55,18 @@ export function update(model: CoreModel, msg: CoreMsg): Return<CoreModel, CoreMs
         },
         Cmd.batch([
           Cmd.task({
-            task: (dispatch) => CoreService.setupApiHandlers(dispatch),
-            onSuccess: () => ({ type: 'NO_OP' } as any),
-            onFailure: () => ({ type: 'NO_OP' } as any),
+            task: (dispatch) => {
+              log.debug('Setting up API handlers...');
+              return CoreService.setupApiHandlers(dispatch);
+            },
+            onSuccess: () => {
+              log.info('API handlers setup completed');
+              return { type: 'NO_OP' } as any;
+            },
+            onFailure: (err) => {
+              log.error('API handlers setup failed', err);
+              return { type: 'NO_OP' } as any;
+            },
             label: 'SETUP_API_HANDLERS'
           })
         ])

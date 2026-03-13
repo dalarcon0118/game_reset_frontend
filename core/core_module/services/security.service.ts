@@ -47,6 +47,20 @@ export class SecurityService {
   }
 
   /**
+   * Verifica si la sesión está en proceso de salida.
+   */
+  isLoggingOut(): boolean {
+    return AuthRepository.getIsExiting();
+  }
+
+  /**
+   * Verifica si hay una sesión activa de forma rápida.
+   */
+  async hasActiveSession(): Promise<boolean> {
+    return AuthRepository.hasSession();
+  }
+
+  /**
    * Determina si una violación de tiempo debe forzar un logout.
    */
   private shouldForceLogout(result: ValidationResult): boolean {

@@ -3,6 +3,7 @@ import * as Msg from './msg';
 import { Return, ret, Cmd } from '@core/tea-utils';
 import { match } from 'ts-pattern';
 import { PluginContext } from '@core/plugins/plugin.types';
+import { DASHBOARD_FILTER_CHANGED } from '@/config/signals';
 
 export const update = (model: Model, msg: Msg.Msg): Return<Model, Msg.Msg> => {
   return match<Msg.Msg, Return<Model, Msg.Msg>>(msg)
@@ -28,18 +29,12 @@ function handleInitContext(
 
 function handleSelectFilter(model: Model, value: string): Return<Model, Msg.Msg> {
   const nextModel = { ...model, statusFilter: value };
-  if (!model.context) return ret(nextModel, Cmd.none);
-
+  
+  // Enviamos la señal global para que cualquier interesado (como el Dashboard) se actualice.
+  // Esto reemplaza el uso del EventBus imperativo por señales puras de TEA.
   return ret(
     nextModel,
-    Cmd.task({
-      task: async () => {
-        model.context!.events.publish(model.config.eventName, value);
-        return null;
-      },
-      onSuccess: () => Msg.NOOP(),
-      onFailure: () => Msg.NOOP()
-    })
+    Cmd.sendMsg(DASHBOARD_FILTER_CHANGED(value))
   );
 }
 

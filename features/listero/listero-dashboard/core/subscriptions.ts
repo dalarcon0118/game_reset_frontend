@@ -1,13 +1,13 @@
 import { Model } from './model';
 import { SubDescriptor, Sub } from '@core/tea-utils';
 import { Msg } from './msg';
-import { useAuthStore } from '@features/auth';
-import { pluginEventBus } from '@core/plugins/plugin.event_bus';
+import { DASHBOARD_FILTER_CHANGED } from '@/config/signals';
 
 export const subscriptions = (model: Model): SubDescriptor<Msg> => {
     // Sincronización automática con el store de Auth para cambios de usuario
+    // Usamos el ID del módulo registrado en StoreRegistry para mantener la pureza TEA
     const authSub = Sub.watchStore(
-        useAuthStore,
+        'AuthModuleV1',
         (state: any) => {
             const user = state?.model?.user ?? state?.user;
             // Transformar User a DashboardUser extrayendo structureId del objeto nested
@@ -21,12 +21,14 @@ export const subscriptions = (model: Model): SubDescriptor<Msg> => {
         'listero-dashboard-auth-sync'
     );
 
-    // Escucha eventos de filtrado desde los plugins (ej: FiltersPlugin)
-    const filterSub = Sub.custom<Msg>((dispatch) => {
-        return pluginEventBus.subscribe('dashboard:filter_changed', (filter) => {
+    // Escucha señales globales para cambios de filtros (Pub/Sub desacoplado)
+    const filterSub = Sub.receiveMsg(
+        DASHBOARD_FILTER_CHANGED,
+        (filter, dispatch) => {
             dispatch({ type: 'STATUS_FILTER_CHANGED', filter });
-        });
-    }, 'listero-dashboard-filter-sync');
+        },
+        'listero-dashboard-filter-sync'
+    );
 
     return Sub.batch([authSub, filterSub]);
 };

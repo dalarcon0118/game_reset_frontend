@@ -3,7 +3,7 @@ import { Model, Msg, RuleUpdateFormData } from './types';
 import { UpdateResult } from '@core/engine';
 import { ValidationRuleService } from '@/shared/services/validation_rule';
 import { singleton, ret, Return, Sub, SubDescriptor, Cmd } from '@core/tea-utils';
-import { useAuthStore } from '@/features/auth/store/store';
+import { AuthModuleV1 } from '@/features/auth/v1/adapters/auth_provider';
 import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('BANKER_RULES_UPDATE');
@@ -41,7 +41,7 @@ export const init = (): UpdateResult<Model, Msg> => {
 export const subscriptions = (_model: Model): SubDescriptor<Msg> => {
     // Sincronización automática con el store de Auth
     const authSub = Sub.watchStore(
-        useAuthStore,
+        'AuthModuleV1',
         (state: any) => state.model?.user || state.user,
         (user) => ({ type: 'AUTH_USER_SYNCED', user }),
         'banker-rules-auth-sync'

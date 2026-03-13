@@ -1,5 +1,12 @@
 import { AuthModuleV1 } from '../adapters/auth_provider';
 import { AuthStatus } from '@/shared/auth/v1/model';
+import {
+    BOOTSTRAP_STARTED,
+    LOGIN_REQUESTED,
+    LOGOUT_REQUESTED,
+    LOGIN_USERNAME_UPDATED,
+    LOGIN_PIN_UPDATED
+} from '@/shared/auth/v1/msg';
 
 /**
  * useAuthV1
@@ -14,18 +21,20 @@ export const useAuthV1 = () => {
         user: model.user,
         status: model.status,
         isAuthenticated: model.status === AuthStatus.AUTHENTICATED || model.status === AuthStatus.AUTHENTICATED_OFFLINE,
-        isAuthenticating: model.status === AuthStatus.BOOTSTRAPPING || model.status === AuthStatus.REFRESHING,
+        isAuthenticating: model.status === AuthStatus.AUTHENTICATING || model.status === AuthStatus.REFRESHING,
+        isHydrating: model.status === AuthStatus.BOOTSTRAPPING,
+        isLoading: model.status === AuthStatus.AUTHENTICATING || model.status === AuthStatus.REFRESHING || model.status === AuthStatus.BOOTSTRAPPING,
         isOffline: model.isOffline,
         error: model.error,
         loginSession: model.loginSession,
 
         // Acciones
-        bootstrap: () => dispatch({ type: 'BOOTSTRAP_STARTED' }),
-        login: (username: string, pin: string) => dispatch({ type: 'LOGIN_REQUESTED', username, pin }),
-        logout: () => dispatch({ type: 'LOGOUT_REQUESTED' }),
+        bootstrap: () => dispatch(BOOTSTRAP_STARTED()),
+        login: (username: string, pin: string) => dispatch(LOGIN_REQUESTED({ username, pin })),
+        logout: () => dispatch(LOGOUT_REQUESTED()),
 
-        updateUsername: (username: string) => dispatch({ type: 'LOGIN_USERNAME_UPDATED', username }),
-        updatePin: (pin: string) => dispatch({ type: 'LOGIN_PIN_UPDATED', pin }),
+        updateUsername: (username: string) => dispatch(LOGIN_USERNAME_UPDATED({ username })),
+        updatePin: (pin: string) => dispatch(LOGIN_PIN_UPDATED({ pin })),
 
         // Utilidades de autorización
         hasRole: (role: string): boolean => model.user?.role === role,

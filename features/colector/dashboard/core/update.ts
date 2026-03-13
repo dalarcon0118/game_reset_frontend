@@ -12,12 +12,12 @@ import {
 import { structureRepository, ChildStructure } from '@/shared/repositories/structure';
 import { financialRepository, FinancialKeys } from '@/shared/repositories/financial/ledger.repository';
 
-import { useAuthStore } from '@/features/auth/store/store';
+import { AuthModuleV1 } from '@/features/auth/v1/adapters/auth_provider';
 
 export const subscriptions = (model: Model) => {
     // Sincronización automática con el store de Auth
     const authSub = Sub.watchStore(
-        useAuthStore,
+        'AuthModuleV1',
         (state: any) => state?.model?.user ?? state?.user,
         (user) => AUTH_USER_SYNCED(user),
         'colector-dashboard-auth-sync'
