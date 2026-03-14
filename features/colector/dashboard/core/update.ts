@@ -11,6 +11,7 @@ import {
 } from '@core/tea-utils';
 import { structureRepository, ChildStructure } from '@/shared/repositories/structure';
 import { financialRepository, FinancialKeys } from '@/shared/repositories/financial/ledger.repository';
+import { TimerRepository } from '@/shared/repositories/system/time';
 
 import { AuthModuleV1 } from '@/features/auth/v1/adapters/auth_provider';
 
@@ -38,8 +39,9 @@ const fetchStatsCmd = (structureId: string | null): Cmd => {
     if (!structureId || structureId === '0') return Cmd.none;
     return RemoteDataHttp.fetch(
         async () => {
+            const trustedNow = TimerRepository.getTrustedNow(Date.now());
             const filter = FinancialKeys.forStructure(structureId);
-            const aggregation = await financialRepository.getAggregation(filter);
+            const aggregation = await financialRepository.getAggregation(trustedNow, filter);
             const commissions = aggregation.credits * 0.10; // 10% hardcoded for now or from config
             const stats: DashboardStats = {
                 total: aggregation.count,

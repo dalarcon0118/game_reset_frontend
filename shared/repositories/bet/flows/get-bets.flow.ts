@@ -5,7 +5,7 @@ import { ListBetsFilters } from '@/shared/services/bet/types';
 import { drawRepository } from '../../draw';
 import { mapBackendBetToFrontend, mapPendingBetsToFrontend } from '@/shared/services/bet/mapper';
 import { logger } from '@/shared/utils/logger';
-import { TimerRepository } from '@/shared/repositories/system/time/timer.repository';
+import { TimerRepository } from '@/shared/repositories/system/time';
 
 const log = logger.withTag('GetBetsFlow');
 

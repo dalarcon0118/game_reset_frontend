@@ -1,32 +1,27 @@
-import { TimerRepository } from '../../repositories/system/time/timer.repository';
-import { ITimerRepository, IAuthRepository } from './api_client.types';
+import { TokenStoragePort, IAuthRepository, ISettings, ILogger } from './api_client.types';
 import { ApiClient } from './api_client';
-import settings from '../../../config/settings';
-import { logger } from '../../utils/logger';
 
 export { ApiClient };
 export * from './api_client.types';
 export * from './api_client.errors';
 
-const log = logger.withTag('API_CLIENT');
+let _tokenStorage: TokenStoragePort | null = null;
 
-let _authRepo: IAuthRepository | null = null;
-
+/**
+ * Global configuration helper for the API Client.
+ * Injected from the core module during bootstrap.
+ */
 export const setAuthRepository = (repo: IAuthRepository) => {
-    _authRepo = repo;
+    _tokenStorage = repo;
 };
 
 export const apiClient = new ApiClient(
     () => {
-        if (!_authRepo) {
-            log.warn('AuthRepository accessed before initialization');
-            throw new Error('AuthRepository not initialized');
+        if (!_tokenStorage) {
+            throw new Error('TokenStorage accessed before initialization');
         }
-        return _authRepo;
-    },
-    TimerRepository as unknown as ITimerRepository,
-    settings,
-    log
+        return _tokenStorage;
+    }
 );
 
 export default apiClient;

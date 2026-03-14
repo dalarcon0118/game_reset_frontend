@@ -14,25 +14,25 @@ export const TimePolicy = {
     },
 
     /**
-     * Checks if the clock has moved backwards.
+     * Creates new synchronization metadata.
      */
-    detectBackward(lastClient: number, currentClient: number, thresholdMs: number = 0): boolean {
-        // If current client time is less than last recorded client time (with a small threshold)
-        return currentClient < (lastClient - thresholdMs);
+    createMetadata(params: {
+        serverNow: number;
+        clientNow: number;
+        systemNow: number;
+    }): TimeMetadata {
+        const offset = this.computeOffset(params.serverNow, params.clientNow);
+        return {
+            lastServerTime: params.serverNow,
+            lastClientTime: params.clientNow,
+            serverTimeOffset: offset,
+            lastSyncAt: params.systemNow
+        };
     },
 
     /**
-     * Checks if the clock has jumped forward unexpectedly.
-     */
-    detectJump(lastClient: number, currentClient: number, maxJumpMs: number): boolean {
-        const delta = currentClient - lastClient;
-        // If the gap since last activity is larger than expected max jump
-        // and we haven't synced in between.
-        return delta > maxJumpMs;
-    },
-
-    /**
-     * Evaluates integrity based on current client time and stored metadata.
+     * Evaluates integrity based on the difference since last sync.
+     * If the current client time is BEFORE the last recorded sync time, it's a backward fraud.
      */
     evaluateIntegrity(
         currentClient: number,
@@ -43,33 +43,46 @@ export const TimePolicy = {
             return { status: 'ok', deltaMs: 0 };
         }
 
-        const delta = currentClient - metadata.lastClientTime;
+        const elapsedSinceSync = currentClient - metadata.lastClientTime;
 
-        // Check for backward clock manipulation
-        if (this.detectBackward(metadata.lastClientTime, currentClient, config.maxBackwardMs)) {
+        // 1. Detección de Retroceso (Fraude): El reloj del cliente está antes que el ancla del servidor
+        if (elapsedSinceSync < -config.maxBackwardMs) {
             return {
                 status: 'backward',
-                deltaMs: delta,
-                reason: `Clock moved backwards by ${Math.abs(delta)}ms`
+                deltaMs: elapsedSinceSync,
+                reason: `Clock manipulated backwards by ${Math.abs(elapsedSinceSync)}ms since last sync`
             };
         }
 
-        // Check for forward jumps
-        if (this.detectJump(metadata.lastClientTime, currentClient, config.maxJumpMs)) {
+        // 2. Detección de Salto (Fraude): El reloj del cliente saltó demasiado hacia adelante
+        if (elapsedSinceSync > config.maxJumpMs) {
             return {
                 status: 'jump',
-                deltaMs: delta,
-                reason: `Unexpected clock jump of ${delta}ms`
+                deltaMs: elapsedSinceSync,
+                reason: `Unexpected clock jump of ${elapsedSinceSync}ms since last sync`
             };
         }
 
-        return { status: 'ok', deltaMs: delta };
+        return { status: 'ok', deltaMs: elapsedSinceSync };
     },
 
     /**
-     * Calculates the "trusted" virtual server time.
+     * Calculates the trusted virtual server time based on last sync.
      */
-    getTrustedNow(currentClient: number, offset: number): number {
-        return currentClient + offset;
+    getTrustedNow(currentClient: number, metadata: TimeMetadata): number {
+        const elapsed = currentClient - metadata.lastClientTime;
+        // TrustedTime = LastServerTime + RealElapsedTime
+        return metadata.lastServerTime + elapsed;
+    },
+
+    /**
+     * Formats a timestamp into a UTC YYYY-MM-DD string.
+     */
+    formatUTCDate(timestamp: number): string {
+        try {
+            return new Date(timestamp).toISOString().split('T')[0];
+        } catch (error) {
+            return '1970-01-01';
+        }
     }
 };

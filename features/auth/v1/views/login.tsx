@@ -5,6 +5,7 @@ import { Lock, Edit2 } from 'lucide-react-native';
 import { COLORS } from '@/shared/components/constants';
 import { Flex } from '@/shared/components';
 import { useAuthV1 } from '../hooks/use_auth';
+import { SESSION_EXPIRED as SESSION_EXPIRED_MSG } from '@/shared/auth/v1/msg';
 
 import { logger } from '@/shared/utils/logger';
 
@@ -32,6 +33,7 @@ export default function LoginScreen() {
     login,
     updateUsername,
     updatePin,
+    hydrateLoginContext,
     dispatch
   } = useAuthV1();
 
@@ -44,6 +46,12 @@ export default function LoginScreen() {
       isHydrating,
       timestamp: new Date().toISOString()
     });
+    
+    // Si estamos en IDLE, iniciamos la hidratación para cargar el último usuario
+    if (status === 'IDLE') {
+      log.info('Disparando hidratación de contexto desde LoginScreen');
+      hydrateLoginContext();
+    }
   }, []);
 
   useEffect(() => {
@@ -224,7 +232,7 @@ export default function LoginScreen() {
 
           <TouchableOpacity
             activeOpacity={0.7}
-            onPress={() => dispatch({ type: 'SESSION_EXPIRED', reason: 'forgot_pin' })}
+            onPress={() => dispatch(SESSION_EXPIRED_MSG({ reason: 'forgot_pin' }))}
           >
             <Text style={styles.forgotPin}>¿Olvidaste tu PIN?</Text>
           </TouchableOpacity>

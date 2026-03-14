@@ -1,6 +1,11 @@
 import { AuthRepository } from '@shared/repositories/auth';
 import { apiClient } from '@shared/services/api_client';
+import { TimerRepository } from '@shared/repositories/system/time';
+import settings from '../../config/settings';
+import { logger } from '@shared/utils/logger';
 import { CoreMsg } from './msg';
+
+const log = logger.withTag('CORE_SERVICE');
 
 /**
  * CoreService
@@ -15,10 +20,19 @@ export const CoreService = {
    * Retorna true si existe una sesión activa tras la hidratación.
    */
   async initializeInfrastructure(): Promise<boolean> {
+    // 1. Configurar dependencias globales del API Client (Inyección Explícita)
+    apiClient.config({
+      settings,
+      log: logger.withTag('API_CLIENT'),
+      timeSync: TimerRepository,
+      timeIntegrity: TimerRepository,
+      tokenStorageGetter: () => AuthRepository
+    });
+
     // La infraestructura base (Engine, Middlewares) se configura
     // automáticamente vía side-effect import en el CoreModule.
 
-    // 1. Verificar estado inicial de la sesión mediante hidratación
+    // 2. Verificar estado inicial de la sesión mediante hidratación
     const user = await AuthRepository.hydrate();
     return !!user;
   },

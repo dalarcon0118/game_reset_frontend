@@ -1,6 +1,7 @@
-import { TimePolicy } from '@/shared/repositories/system/time/time.policy';
+import { TimerRepository } from '@/shared/repositories/system/time';
 import { logger } from '@/shared/utils/logger';
 import { TimeMetadata } from '@/shared/repositories/system/time/time.types';
+
 
 const log = logger.withTag('TIME_INTEGRITY_POLICY');
 
@@ -40,10 +41,11 @@ export class TimeIntegrityPolicy {
     const finalConfig = { ...this.DEFAULT_CONFIG, ...config };
 
     try {
-      const result = TimePolicy.evaluateIntegrity(clientNow, metadata, {
+      const result = TimerRepository.evaluateIntegrity(clientNow, metadata, {
         maxJumpMs: finalConfig.maxJumpMs,
         maxBackwardMs: finalConfig.maxBackwardMs
       });
+
 
       if (result.status === 'ok') {
         return { status: 'ok' };

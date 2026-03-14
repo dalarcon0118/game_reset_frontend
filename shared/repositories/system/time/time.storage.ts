@@ -10,6 +10,10 @@ let cachedMetadata: TimeMetadata | null = null;
 let lastPersistAt: number = 0;
 const PERSIST_THROTTLE_MS = 5000; // Only persist to disk every 5 seconds maximum
 
+type SetMetadataOptions = {
+    forcePersist?: boolean;
+};
+
 /**
  * Storage adapter for TimeMetadata using the global OfflineStorage instance.
  */
@@ -24,12 +28,12 @@ export const TimeStorage = {
         try {
             const key = SystemOfflineKeys.config('system', 'time_metadata');
             const data = await offlineStorage.get<TimeMetadata>(key);
-            
+
             // Populate cache for future calls
             if (data) {
                 cachedMetadata = data;
             }
-            
+
             return data;
         } catch (error) {
             log.error('Error reading time metadata from storage', error);
@@ -40,19 +44,20 @@ export const TimeStorage = {
     /**
      * Persists time metadata.
      */
-    async setMetadata(metadata: TimeMetadata): Promise<void> {
+    async setMetadata(metadata: TimeMetadata, options: SetMetadataOptions = {}): Promise<void> {
         // Update memory cache immediately
         cachedMetadata = metadata;
 
         const now = Date.now();
         // Only write to persistent storage if the throttle period has passed
-        if (now - lastPersistAt < PERSIST_THROTTLE_MS) {
+        if (!options.forcePersist && now - lastPersistAt < PERSIST_THROTTLE_MS) {
             return;
         }
 
         try {
             const key = SystemOfflineKeys.config('system', 'time_metadata');
-            await offlineStorage.set(key, metadata);
+            const { anchorMonotonicMs, ...persistableMetadata } = metadata;
+            await offlineStorage.set(key, persistableMetadata);
             lastPersistAt = now;
         } catch (error) {
             log.error('Error saving time metadata to storage', error);

@@ -20,7 +20,6 @@ import {
 } from '../loteria/loteria.types';
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
 import { BetQuery } from '@/shared/repositories/bet/bet.query';
-import { TimerRepository } from '@/shared/repositories/system/time/timer.repository';
 import { drawRepository } from '@/shared/repositories/draw';
 import { logger } from '@/shared/utils/logger';
 import { BET_TYPE_KEYS, isLoteriaType } from '@/shared/types/bet_types';
@@ -176,58 +175,39 @@ export const FeatureFlows = {
     fetchExistingBets: (drawId: string, betTypeId?: string | null): Cmd => {
         log.debug('FETCH_EXISTING_BETS', { drawId, betTypeId });
         return RemoteDataHttp.fetch<LoteriaBet[], FeatureMsg>(
-            () => {
-                return ResultAsync.fromPromise(
-                    TimerRepository.getTrustedNow(Date.now()),
-                    (e) => e instanceof Error ? e : new Error('Time sync failed')
-                )
-                    .andThen((trustedNow) => {
-                        // Filtrar solo por drawId (sin filtro de fecha)
-                        const query = BetQuery.create()
-                            .forDraw(drawId)
-                            .build();
+            async () => {
+                // Filtrar solo por drawId (sin filtro de fecha)
+                const query = BetQuery.create()
+                    .forDraw(drawId)
+                    .build();
 
-                        return ResultAsync.fromPromise(
-                            betRepository.getBets(query),
-                            (e) => e instanceof Error ? e : new Error(String(e))
-                        ).andThen(result => {
-                            log.info(`[LOTERIA_FLOW] Fetching bets for Draw: ${drawId}`, { filterDate: query.date });
-                            return result;
-                        }); // betRepository.getBets already returns a Result
-                    })
-                    .map((bets) => {
-                        // Extraer los IDs de lotería conocidos del modelo
-                        // NOTA: Esto es un workaround porque no tenemos acceso directo al modelo aquí
-                        // La forma correcta sería pasar los betTypes identificados como parámetro
-                        return bets
-                            .filter((b: BetType) => {
-                                // Usar el type (nombre) como fuente principal de verdad
-                                // Esto evita depender de IDs hardcodeados
-                                const isLoteria = isLoteriaType(b.type || '', b.betTypeId);
-                                if (betTypeId) {
-                                    return String(b.betTypeId) === String(betTypeId);
-                                }
-                                return isLoteria;
-                            })
-                            .map((b: BetType) => ({
-                                id: b.id,
-                                bet: b.numbers,
-                                amount: b.amount,
-                                receiptCode: b.receiptCode,
-                                betTypeid: b.betTypeId,
-                                drawid: b.draw
-                            })) as unknown as LoteriaBet[];
-                    })
-                    .match(
-                        (data) => {
-                            log.debug('FETCH_EXISTING_BETS_SUCCESS', { drawId, totalBets: data.length });
-                            return data;
-                        },
-                        (error) => {
-                            log.error('FETCH_EXISTING_BETS_ERROR', { drawId, error: error.message });
-                            throw error;
+                const betsResult = await betRepository.getBets(query);
+
+                if (betsResult.isErr()) {
+                    throw betsResult.error;
+                }
+
+                const bets = betsResult.value;
+                log.info(`[LOTERIA_FLOW] Fetching bets for Draw: ${drawId}`, { filterDate: query.date });
+
+                const mapped = bets
+                    .filter((b: BetType) => {
+                        const isLoteria = isLoteriaType(b.type || '', b.betTypeId);
+                        if (betTypeId) {
+                            return String(b.betTypeId) === String(betTypeId);
                         }
-                    );
+                        return isLoteria;
+                    })
+                    .map((b: BetType) => ({
+                        id: b.id,
+                        bet: b.numbers,
+                        amount: b.amount,
+                        receiptCode: b.receiptCode,
+                        betTypeid: b.betTypeId,
+                        drawid: String(b.drawId || '')
+                    })) as unknown as LoteriaBet[];
+
+                return mapped;
             },
             (response) => ({ type: 'FETCH_EXISTING_BETS_RESPONSE', response })
         );

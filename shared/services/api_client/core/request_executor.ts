@@ -4,7 +4,8 @@ import {
   ErrorHandler,
   ILogger,
   ISettings,
-  ITimerRepository,
+  TimeSyncPort,
+  TimeIntegrityPort,
   RequestOptions
 } from '../api_client.types';
 import { CredentialProvider } from './credential_provider';
@@ -16,7 +17,7 @@ import { Transport } from '../infra/transport';
 
 type RequestExecutionOptions = Omit<
   RequestOptions,
-  'cacheTTL' | 'retryCount' | 'abortSignal' | 'timeoutProfile' | 'skipAuthHandler' | 'silentErrors'
+  'cacheTTL' | 'retryCount' | 'abortSignal' | 'timeoutProfile' | 'skipAuthHandler' | 'silentErrors' | 'skipTimeIntegrity'
 >;
 
 type RequestContext = {
@@ -33,7 +34,8 @@ type RequestContext = {
 type AttemptOutcome<T> =
   | { type: 'success'; data: T }
   | { type: 'retry'; error: unknown }
-  | { type: 'throw'; error: unknown };
+  | { type: 'throw'; error: unknown }
+  | { type: 'blocked'; reason: string };
 
 type RetryRequestFn = <T>(endpoint: string, options: RequestOptions) => Promise<T>;
 
@@ -43,7 +45,8 @@ export class RequestExecutor {
     private cacheManager: CacheManager,
     private errorManager: ErrorManager,
     private transport: Transport,
-    private timerRepo: ITimerRepository,
+    private timeSync: TimeSyncPort | null,
+    private timeIntegrity: TimeIntegrityPort | null,
     private settings: ISettings,
     private log: ILogger,
     private getErrorHandler: () => ErrorHandler | null,
@@ -54,6 +57,23 @@ export class RequestExecutor {
     const context = this.buildRequestContext(endpoint, options);
     const cached = this.getCachedResponse<T>(context);
     if (cached !== null) return cached;
+
+    // CA-03: Time Integrity Middleware
+    if (!options.skipTimeIntegrity && this.timeIntegrity) {
+      const integrity = await this.timeIntegrity.validateIntegrity(Date.now());
+      if (integrity.status !== 'ok') {
+        this.log.error('[TIME-INTEGRITY] Request blocked due to time manipulation', {
+          endpoint,
+          status: integrity.status,
+          reason: integrity.reason
+        });
+        throw new ApiClientError(
+          'TIME_INTEGRITY_VIOLATION',
+          `Time integrity compromised: ${integrity.status}. ${integrity.reason || ''}`,
+          403
+        );
+      }
+    }
 
     if (this.shouldAttemptAuth(endpoint, context.fetchOptions)) {
       await this.checkAndRefreshBeforeRequest(endpoint);
@@ -354,8 +374,8 @@ export class RequestExecutor {
 
   private handleTimeSync(response: Response) {
     const serverDate = response.headers.get('Date');
-    if (serverDate && response.ok && this.timerRepo) {
-      this.timerRepo.ingestServerDate(serverDate, Date.now()).catch(e => {
+    if (serverDate && response.ok && this.timeSync) {
+      this.timeSync.ingestServerDate(serverDate, Date.now()).catch((e: unknown) => {
         this.log.error('Failed to ingest server date', e);
       });
     }

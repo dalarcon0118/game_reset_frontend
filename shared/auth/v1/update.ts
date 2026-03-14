@@ -2,7 +2,7 @@ import { match } from 'ts-pattern';
 import { AuthModel, AuthStatus } from './model';
 import {
     AuthMsg,
-    BOOTSTRAP_STARTED,
+    HYDRATE_LOGIN_CONTEXT_REQUESTED,
     INITIAL_SESSION_CHECK_REQUESTED,
     SESSION_HYDRATED,
     SESSION_CHANGED,
@@ -46,9 +46,20 @@ export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMs
     });
 
     return match<AuthMsg, Return<AuthModel, AuthMsg>>(msg)
-        .with(BOOTSTRAP_STARTED.type(), () => {
-            log.info('Bootstrap started received in AuthV1');
-            return singleton({ ...model, status: AuthStatus.BOOTSTRAPPING });
+        .with(HYDRATE_LOGIN_CONTEXT_REQUESTED.type(), () => {
+            log.info('Hydrate login context requested in AuthV1');
+            return ret(
+                { ...model, status: AuthStatus.BOOTSTRAPPING },
+                RemoteDataHttp.fetch(
+                    () => AuthRepository.getLastUsername(),
+                    (result) => {
+                        const username = result.type === 'Success' ? result.data : '';
+                        log.info('Last username hydrated during bootstrap', { username });
+                        return LOGIN_USERNAME_UPDATED({ username: username || '' });
+                    },
+                    'AUTH_HYDRATE_USERNAME'
+                )
+            );
         })
 
         .with(INITIAL_SESSION_CHECK_REQUESTED.type(), () => {

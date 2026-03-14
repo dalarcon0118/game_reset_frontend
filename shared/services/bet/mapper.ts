@@ -5,7 +5,7 @@ import { logger } from '@/shared/utils/logger';
 import { BET_TYPE_KEYS, BetTypeKind, normalizeBetType, normalizeNumbers, BET_TYPE_ID_MAP } from '@/shared/types/bet_types';
 import { GameType } from '@/types';
 
-import { TimerRepository } from '@/shared/repositories/system/time/timer.repository';
+import { TimerRepository } from '@/shared/repositories/system/time';
 
 const log = logger.withTag('BET_MAPPER');
 

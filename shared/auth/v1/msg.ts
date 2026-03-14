@@ -2,7 +2,7 @@ import { GlobalMsg, createMsg, MsgCreator } from '../../core/tea-utils';
 import { User } from '../../repositories/auth/types/types';
 import { Tokens } from './model';
 
-export const BOOTSTRAP_STARTED = createMsg<'BOOTSTRAP_STARTED'>('BOOTSTRAP_STARTED');
+export const HYDRATE_LOGIN_CONTEXT_REQUESTED = createMsg<'HYDRATE_LOGIN_CONTEXT_REQUESTED'>('HYDRATE_LOGIN_CONTEXT_REQUESTED');
 export const INITIAL_SESSION_CHECK_REQUESTED = createMsg<'INITIAL_SESSION_CHECK_REQUESTED'>('INITIAL_SESSION_CHECK_REQUESTED');
 export const SESSION_HYDRATED = createMsg<'SESSION_HYDRATED', { user: User | null; tokens: Tokens | null; isOffline: boolean }>('SESSION_HYDRATED');
 export const SESSION_CHANGED = createMsg<'SESSION_CHANGED', { user: User | null; isOffline: boolean }>('SESSION_CHANGED');
@@ -21,7 +21,7 @@ export const SESSION_EXPIRED = createMsg<'SESSION_EXPIRED', { reason?: string }>
 export const GLOBAL_SIGNAL_RECEIVED = createMsg<'GLOBAL_SIGNAL_RECEIVED', { payload: GlobalMsg }>('GLOBAL_SIGNAL_RECEIVED');
 
 export type AuthMsg =
-    | ReturnType<typeof BOOTSTRAP_STARTED>
+    | ReturnType<typeof HYDRATE_LOGIN_CONTEXT_REQUESTED>
     | ReturnType<typeof INITIAL_SESSION_CHECK_REQUESTED>
     | ReturnType<typeof SESSION_HYDRATED>
     | ReturnType<typeof SESSION_CHANGED>

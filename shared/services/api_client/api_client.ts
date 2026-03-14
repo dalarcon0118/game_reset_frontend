@@ -2,8 +2,9 @@
 import {
   RequestOptions,
   ErrorHandler,
-  IAuthRepository,
-  ITimerRepository,
+  TokenStoragePort,
+  TimeSyncPort,
+  TimeIntegrityPort,
   ILogger,
   ISettings
 } from './api_client.types';
@@ -15,6 +16,14 @@ import { CacheManager } from './core/cache_manager';
 import { ErrorManager } from './core/error_manager';
 import { RequestExecutor } from './core/request_executor';
 import { Transport } from './infra/transport';
+
+export interface ApiClientConfig {
+  tokenStorageGetter?: () => TokenStoragePort;
+  timeSync?: TimeSyncPort;
+  timeIntegrity?: TimeIntegrityPort;
+  settings?: ISettings;
+  log?: ILogger;
+}
 
 // --- API Client Class ---
 
@@ -28,24 +37,33 @@ export class ApiClient {
   private errorHandler: ErrorHandler | null = null;
 
   constructor(
-    authRepoGetter: () => IAuthRepository,
-    timerRepo: ITimerRepository,
-    settings: ISettings,
-    private log: ILogger
+    private tokenStorageGetter: () => TokenStoragePort,
+    private settings: ISettings | null = null,
+    private log: ILogger | null = null,
+    private timeSync?: TimeSyncPort,
+    private timeIntegrity?: TimeIntegrityPort
   ) {
-    this.credentialProvider = new CredentialProvider(authRepoGetter, settings, log);
-    this.errorManager = new ErrorManager(log);
-    this.requestExecutor = new RequestExecutor(
-      this.credentialProvider,
-      this.cacheManager,
-      this.errorManager,
-      this.transport,
-      timerRepo,
-      settings,
-      log,
-      () => this.errorHandler,
-      <T>(endpoint: string, options: RequestOptions) => this.request<T>(endpoint, options)
-    );
+    if (settings && log) {
+      this.credentialProvider = new CredentialProvider(tokenStorageGetter, settings, log);
+      this.errorManager = new ErrorManager(log);
+      this.requestExecutor = new RequestExecutor(
+        this.credentialProvider,
+        this.cacheManager,
+        this.errorManager,
+        this.transport,
+        timeSync || null,
+        timeIntegrity || null,
+        settings,
+        log,
+        () => this.errorHandler,
+        <T>(endpoint: string, options: RequestOptions) => this.request<T>(endpoint, options)
+      );
+    } else {
+      // Lazy initialization on first config() call
+      this.credentialProvider = null as any;
+      this.errorManager = null as any;
+      this.requestExecutor = null as any;
+    }
 
     // Bind methods to prevent 'undefined' when called from destructuring or early imports
     this.request = this.request.bind(this);
@@ -58,6 +76,57 @@ export class ApiClient {
     this.setSessionExpiredHandler = this.setSessionExpiredHandler.bind(this);
     this.setupAuthErrorHandler = this.setupAuthErrorHandler.bind(this);
     this.isTokenExpired = this.isTokenExpired.bind(this);
+    this.config = this.config.bind(this);
+  }
+
+  /**
+   * Configures global dependencies for the API Client.
+   * This allows decoupled injection from core modules.
+   */
+  config(config: ApiClientConfig) {
+    if (config.log) {
+      this.log = config.log;
+    }
+    if (config.tokenStorageGetter) {
+      this.tokenStorageGetter = config.tokenStorageGetter;
+    }
+    if (config.timeSync) {
+      this.timeSync = config.timeSync;
+    }
+    if (config.timeIntegrity) {
+      this.timeIntegrity = config.timeIntegrity;
+    }
+    if (config.settings) {
+      this.settings = config.settings;
+    }
+
+    if (!this.settings || !this.log) {
+      throw new Error('[API_CLIENT] Cannot configure without settings and log');
+    }
+
+    this.credentialProvider = new CredentialProvider(
+      this.tokenStorageGetter,
+      this.settings,
+      this.log
+    );
+
+    this.errorManager = new ErrorManager(this.log);
+
+    // Update RequestExecutor with new dependencies
+    this.requestExecutor = new RequestExecutor(
+      this.credentialProvider,
+      this.cacheManager,
+      this.errorManager,
+      this.transport,
+      this.timeSync || null,
+      this.timeIntegrity || null,
+      this.settings,
+      this.log,
+      () => this.errorHandler,
+      <T>(endpoint: string, options: RequestOptions) => this.request<T>(endpoint, options)
+    );
+
+    this.log.info('[API_CLIENT] Global configuration updated');
   }
 
   // --- Public Handlers ---
@@ -67,6 +136,7 @@ export class ApiClient {
   }
 
   setSessionExpiredHandler(handler: () => void) {
+    if (!this.log) return;
     if (!this.credentialProvider) {
       this.log.error('credentialProvider is undefined in setSessionExpiredHandler');
       return;
@@ -76,6 +146,7 @@ export class ApiClient {
 
   setupAuthErrorHandler(logoutCallback: () => Promise<void>) {
     this.setErrorHandler(async (error: ApiClientError, endpoint: string) => {
+      if (!this.log) return { retry: false };
       if (error.status === 401 || error.status === 403) {
         this.log.info('Authentication failed, logging out user', { status: error.status, endpoint });
         try {
@@ -93,12 +164,13 @@ export class ApiClient {
   // --- Core Methods ---
 
   async request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
+    if (!this.requestExecutor || !this.credentialProvider || !this.log || !this.settings) {
+      throw new Error('[API_CLIENT] ApiClient accessed before global configuration (config())');
+    }
     //Logs just the part of the enpoint after the base url
-    const endpointWithoutBase = endpoint.replace(this.credentialProvider.getSettings().api.baseUrl, '');
-    this.log.debug('[Request-Started]', endpointWithoutBase, options);
-    const response = await this.requestExecutor.run<T>(endpoint, options);
-    this.log.debug('[Request-Completed]', endpointWithoutBase);
-    return response;
+    const endpointWithoutBase = endpoint.replace(this.settings.api.baseUrl, '');
+    this.log.info(`[API_CLIENT] Request starting: ${endpointWithoutBase}`);
+    return this.requestExecutor.run<T>(endpoint, options);
   }
 
   // --- Convenience Methods ---
@@ -131,8 +203,8 @@ export class ApiClient {
   }
 
   async getAuthToken(): Promise<string | null> {
-    if (!this.credentialProvider) {
-      this.log.warn('credentialProvider is undefined in getAuthToken');
+    if (!this.credentialProvider || !this.log) {
+      if (this.log) this.log.warn('credentialProvider is undefined in getAuthToken');
       return null;
     }
     return this.credentialProvider.getAccessToken();

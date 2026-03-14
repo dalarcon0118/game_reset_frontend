@@ -5,11 +5,12 @@ import { IBetStorage, IBetApi } from '../bet.ports';
 import { BetLogic } from '../bet.logic';
 import { offlineEventBus } from '@core/offline-storage/instance';
 import { drawRepository } from '../../draw';
+import { financialRepository, FinancialKeys } from '../../financial';
 import { GameType, BetType } from '@/types';
 import { isServerReachable } from '@/shared/utils/network';
 import { mapBackendBetToFrontend, mapSinglePendingBetToFrontend } from '@/shared/services/bet/mapper';
 import { logger } from '@/shared/utils/logger';
-import { TimerRepository } from '../../system/time/timer.repository';
+import { TimerRepository } from '@/shared/repositories/system/time';
 
 const log = logger.withTag('PlaceBetFlow');
 
@@ -18,14 +19,25 @@ const log = logger.withTag('PlaceBetFlow');
  */
 const validateBusinessRules = (
     betData: Omit<BetDomainModel, 'externalId' | 'status' | 'timestamp'>,
-    allBets: BetDomainModel[]
+    allBets: BetDomainModel[],
+    clientNow: number
 ): Result<Omit<BetDomainModel, 'externalId' | 'status' | 'timestamp'>, Error> => {
+    // 1. Integridad de Tiempo (CA-03)
+    const integrity = TimerRepository.validateIntegrity(clientNow);
+    if (integrity.status !== 'ok') {
+        const errorMsg = integrity.status === 'backward'
+            ? 'FRAUDE_TIEMPO: Se detectó un retroceso en el reloj del dispositivo.'
+            : 'FRAUDE_TIEMPO: Se detectó un salto inusual en el reloj del dispositivo.';
+        return err(new Error(errorMsg));
+    }
+
+    // 2. Bloqueo por Sincronización Pendiente
     const { blocked } = BetLogic.isAppBlocked(allBets);
     if (blocked) return err(new Error('APUESTA_BLOQUEADA: Debes sincronizar antes de continuar.'));
 
+    // 3. Monto y Estructura
     const amount = Number(betData.amount) || 0;
     if (amount <= 0) return err(new Error(`ERROR_CRITICO: Monto inválido (${betData.amount})`));
-
     if (!betData.ownerStructure) return err(new Error('ERROR_CRITICO: ownerStructure es obligatorio'));
 
     return ok(betData);
@@ -168,14 +180,43 @@ export const placeBetFlow = async (
     };
 
     const allBets = await storage.getAll();
-    const trustedNow = await TimerRepository.getTrustedNow(Date.now());
+    const clientNow = Date.now();
+    const trustedNow = TimerRepository.getTrustedNow(clientNow);
 
     // Functional Builder orchestration using ResultAsync (neverthrow)
     return okAsync(betWithCode)
-        .andThen(data => ResultAsync.fromPromise(Promise.resolve(validateBusinessRules(data, allBets)), e => e as Error))
+        .andThen(data => {
+            const validationResult = validateBusinessRules(data, allBets, clientNow);
+            return validationResult.isOk() ? okAsync(validationResult.value) : errAsync(validationResult.error);
+        })
         .andThen(data => {
             const bet = prepareBet(data, trustedNow);
             return ResultAsync.fromPromise(storage.save(bet).then(() => bet), e => e as Error);
+        })
+        .andThen(bet => {
+            // Registrar transacción financiera (Crédito)
+            const origin = FinancialKeys.forBet(
+                String(bet.ownerStructure || ''),
+                String(bet.drawId || ''),
+                bet.externalId || ''
+            );
+
+            return ResultAsync.fromPromise(
+                (async () => {
+                    try {
+                        await financialRepository.addCredit(
+                            origin,
+                            Number(bet.amount),
+                            trustedNow,
+                            { betId: bet.externalId, receiptCode: bet.receiptCode }
+                        );
+                    } catch (error) {
+                        log.error('Error recording financial transaction', error);
+                    }
+                    return bet;
+                })(),
+                e => e as Error
+            );
         })
         .andThen(bet => {
             notifyBatchCreated([bet], trustedNow);
@@ -191,7 +232,7 @@ export const placeBetFlow = async (
 export const placeBatchFlow = async (
     betsData: Omit<BetDomainModel, 'externalId' | 'status' | 'timestamp'>[],
     storage: IBetStorage,
-    api: IBetApi
+    _api: IBetApi
 ): Promise<Result<BetType[], Error>> => {
     // Generar un único receiptCode para todo el batch si no viene ya uno
     const commonReceiptCode = BetLogic.generateReceiptCode();
@@ -202,12 +243,13 @@ export const placeBatchFlow = async (
 
     // Cargar contexto UNA SOLA VEZ para evitar O(N^2) y redundancia de I/O
     const allBets = await storage.getAll();
-    const trustedNow = await TimerRepository.getTrustedNow(Date.now());
+    const clientNow = Date.now();
+    const trustedNow = TimerRepository.getTrustedNow(clientNow);
 
     return okAsync(betsWithCommonCode)
         .andThen(dataList => {
             // Validación en memoria (Ultra-rápida)
-            const validations = dataList.map(data => validateBusinessRules(data, allBets));
+            const validations = dataList.map(data => validateBusinessRules(data, allBets, clientNow));
             const combined = Result.combine(validations);
             return combined.isOk() ? okAsync(combined.value) : errAsync(combined.error);
         })
@@ -217,6 +259,31 @@ export const placeBatchFlow = async (
             // Guardado en lote (Una sola operación de I/O)
             return ResultAsync.fromPromise(
                 storage.saveBatch(preparedBets).then(() => preparedBets),
+                e => e as Error
+            );
+        })
+        .andThen(savedList => {
+            // Registrar transacciones financieras en lote
+            const financialTransactions = savedList.map(bet => ({
+                origin: FinancialKeys.forBet(
+                    String(bet.ownerStructure || ''),
+                    String(bet.drawId || ''),
+                    bet.externalId || ''
+                ),
+                amount: Number(bet.amount),
+                type: 'credit' as const,
+                metadata: { betId: bet.externalId, receiptCode: bet.receiptCode }
+            }));
+
+            return ResultAsync.fromPromise(
+                (async () => {
+                    try {
+                        await financialRepository.addTransactions(financialTransactions, trustedNow);
+                    } catch (error) {
+                        log.error('Error recording financial batch transactions', error);
+                    }
+                    return savedList;
+                })(),
                 e => e as Error
             );
         })

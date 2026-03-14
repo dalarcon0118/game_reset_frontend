@@ -1,6 +1,6 @@
 import { Result, ok, err, ResultAsync } from 'neverthrow';
 import { ApiClientError, ApiClientErrorData } from '../api_client.errors';
-import { IAuthRepository, ILogger, ISettings } from '../api_client.types';
+import { TokenStoragePort, ILogger, ISettings } from '../api_client.types';
 
 /**
  * CredentialProvider: Proveedor de credenciales STATELESS.
@@ -13,7 +13,7 @@ export class CredentialProvider {
   private sessionExpiredHandler: (() => void) | null = null;
 
   constructor(
-    private authRepoGetter: () => IAuthRepository,
+    private tokenStorageGetter: () => TokenStoragePort,
     private settings: ISettings,
     private log: ILogger
   ) {
@@ -28,19 +28,19 @@ export class CredentialProvider {
   }
 
   async persistCredentials(access: string, refresh: string): Promise<void> {
-    const repoRes = this.authRepo;
+    const repoRes = this.tokenStorage;
     if (repoRes.isOk()) {
       await repoRes.value.saveToken(access, refresh);
     }
   }
 
-  private get authRepo(): Result<IAuthRepository, Error> {
+  private get tokenStorage(): Result<TokenStoragePort, Error> {
     try {
-      const repo = this.authRepoGetter();
-      if (!repo) return err(new Error('AuthRepository not available'));
-      return ok(repo);
+      const storage = this.tokenStorageGetter();
+      if (!storage) return err(new Error('TokenStorage not available'));
+      return ok(storage);
     } catch (error) {
-      return err(new Error('AuthRepository not initialized'));
+      return err(new Error('TokenStorage not initialized'));
     }
   }
 
@@ -48,7 +48,7 @@ export class CredentialProvider {
    * Obtiene el token de acceso actual desde el almacenamiento.
    */
   async getAccessToken(): Promise<string | null> {
-    const repoRes = this.authRepo;
+    const repoRes = this.tokenStorage;
     if (repoRes.isErr()) return null;
 
     try {
@@ -64,7 +64,7 @@ export class CredentialProvider {
    * Obtiene el token de refresh actual desde el almacenamiento.
    */
   async getRefreshToken(): Promise<string | null> {
-    const repoRes = this.authRepo;
+    const repoRes = this.tokenStorage;
     if (repoRes.isErr()) return null;
 
     try {

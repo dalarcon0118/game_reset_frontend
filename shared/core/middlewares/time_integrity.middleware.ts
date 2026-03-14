@@ -1,5 +1,5 @@
 import { TeaMiddleware } from '@core/tea-utils/middleware.types';
-import { TimerRepository } from '@/shared/repositories/system/time/timer.repository';
+import { TimerRepository } from '@/shared/repositories/system/time';
 import { ValidationResult } from '@/shared/core/policies/time-integrity.policy';
 import { logger } from '@/shared/utils/logger';
 

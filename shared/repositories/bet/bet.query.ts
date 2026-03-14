@@ -1,5 +1,5 @@
 import { ListBetsFilters } from '@/shared/services/bet/types';
-import { TimerRepository } from '@/shared/repositories/system/time/timer.repository';
+import { TimerRepository } from '@/shared/repositories/system/time';
 
 /**
  * Fluent API Builder for Bet Filters.

@@ -1,7 +1,7 @@
 import { AuthModuleV1 } from '../adapters/auth_provider';
 import { AuthStatus } from '@/shared/auth/v1/model';
 import {
-    BOOTSTRAP_STARTED,
+    HYDRATE_LOGIN_CONTEXT_REQUESTED,
     LOGIN_REQUESTED,
     LOGOUT_REQUESTED,
     LOGIN_USERNAME_UPDATED,
@@ -29,7 +29,7 @@ export const useAuthV1 = () => {
         loginSession: model.loginSession,
 
         // Acciones
-        bootstrap: () => dispatch(BOOTSTRAP_STARTED()),
+        hydrateLoginContext: () => dispatch(HYDRATE_LOGIN_CONTEXT_REQUESTED()),
         login: (username: string, pin: string) => dispatch(LOGIN_REQUESTED({ username, pin })),
         logout: () => dispatch(LOGOUT_REQUESTED()),
 

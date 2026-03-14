@@ -5,6 +5,7 @@ import { settings } from '@/config/settings';
 import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('TIMER_REPOSITORY');
+const CROSS_SESSION_BACKWARD_TOLERANCE_MS = 3000;
 
 const getMonotonicNow = (): number | null => {
     const perf = globalThis.performance;
@@ -28,10 +29,34 @@ const resolveTrustedClientNow = (clientNow: number, metadata: TimeMetadata): num
     return metadata.lastClientTime + elapsed;
 };
 
+const detectCrossSessionBackward = (clientNow: number, metadata: TimeMetadata): TimeIntegrityResult | null => {
+    const backwardDelta = metadata.lastSyncAt - clientNow;
+    if (backwardDelta > CROSS_SESSION_BACKWARD_TOLERANCE_MS) {
+        return {
+            status: 'backward',
+            deltaMs: -backwardDelta,
+            reason: `Clock moved backwards by ${Math.round(backwardDelta)}ms since last trusted sync`
+        };
+    }
+    return null;
+};
+
 /**
  * Single Source of Truth for trusted time and integrity validation.
  */
 export const TimerRepository = {
+    /**
+     * Evaluates integrity based on current client time and provided metadata.
+     * Pure function moved from TimePolicy to the Repository facade.
+     */
+    evaluateIntegrity(
+        currentClient: number,
+        metadata: TimeMetadata | null,
+        config: { maxJumpMs: number; maxBackwardMs: number }
+    ): TimeIntegrityResult {
+        return TimePolicy.evaluateIntegrity(currentClient, metadata, config);
+    },
+
     /**
      * Ingests server date from HTTP header and updates synchronization metadata.
      * @param dateHeader Value of the 'Date' header from server response.
@@ -58,7 +83,7 @@ export const TimerRepository = {
                 lastSyncAt: Date.now()
             };
 
-            await TimeStorage.setMetadata(metadata);
+            await TimeStorage.setMetadata(metadata, { forcePersist: true });
             log.debug('Time synchronized with server', {
                 serverTime: serverDate.toISOString(),
                 offsetMs: offset
@@ -76,6 +101,17 @@ export const TimerRepository = {
         const metadata = await TimeStorage.getMetadata();
         if (!metadata) {
             return { status: 'ok', deltaMs: 0 };
+        }
+
+        const crossSessionViolation = detectCrossSessionBackward(clientNow, metadata);
+        if (crossSessionViolation) {
+            log.warn('Cross-session backward time detected', {
+                reason: crossSessionViolation.reason,
+                deltaMs: crossSessionViolation.deltaMs,
+                clientNow,
+                lastSyncAt: metadata.lastSyncAt
+            });
+            return crossSessionViolation;
         }
 
         const trustedClientNow = resolveTrustedClientNow(clientNow, metadata);

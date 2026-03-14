@@ -2,7 +2,7 @@ import { maintenanceRepository, IMaintenanceRepository } from '@/shared/reposito
 import { betRepository, BetRepository } from '@/shared/repositories/bet/bet.repository';
 import { drawRepository } from '@/shared/repositories/draw';
 import { logger } from '@/shared/utils/logger';
-import { TimerRepository } from '@/shared/repositories/system/time/timer.repository';
+import { TimerRepository } from '@/shared/repositories/system/time';
 
 const log = logger.withTag('PREPARE_DAILY_SESSION');
 
@@ -38,8 +38,8 @@ export const prepareDailySessionUseCase = async (
     deps: Dependencies = defaultDeps
 ): Promise<boolean> => {
     try {
-        const today = await deps.timerRepo.getTrustedNow(Date.now())
-            .then(ts => new Date(ts).toISOString().split('T')[0]);
+        const timestamp = deps.timerRepo.getTrustedNow(Date.now());
+        const today = new Date(timestamp).toISOString().split('T')[0];
 
         console.log('[DEBUG] prepareDailySessionUseCase: Iniciando preparación para', today);
 

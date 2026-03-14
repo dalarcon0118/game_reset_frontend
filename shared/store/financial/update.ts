@@ -9,17 +9,19 @@ import {
     ret
 } from '@core/tea-utils';
 import { FinancialRepository, financialRepository } from '@/shared/repositories/financial';
+import { TimerRepository } from '@/shared/repositories/system/time';
 
 const fetchSummaryCmd = (nodeId: number): Cmd => {
     return RemoteDataHttp.fetch(
         async () => {
-            const aggregation = await financialRepository.getAggregation(`structure:${nodeId}`);
+            const trustedNow = await TimerRepository.getTrustedNow(Date.now());
+            const aggregation = await financialRepository.getAggregation(trustedNow, `structure:${nodeId}`);
             return {
                 nodeId,
                 totalCollected: aggregation.credits,
                 totalPaid: aggregation.debits,
                 netResult: aggregation.total,
-                date: new Date().toISOString().split('T')[0]
+                date: new Date(trustedNow).toISOString().split('T')[0]
             };
         },
         (webData) => ({ type: 'SUMMARY_RECEIVED', nodeId, webData })
@@ -29,7 +31,8 @@ const fetchSummaryCmd = (nodeId: number): Cmd => {
 const fetchDrawSummaryCmd = (drawId: number): Cmd => {
     return RemoteDataHttp.fetch(
         async () => {
-            const aggregation = await financialRepository.getAggregation(`structure:0:draw:${drawId}`);
+            const trustedNow = TimerRepository.getTrustedNow(Date.now());
+            const aggregation = await financialRepository.getAggregation(trustedNow, `structure:0:draw:${drawId}`);
 
             // Return a zeroed summary if no data
             if (aggregation.count === 0) {
@@ -38,7 +41,7 @@ const fetchDrawSummaryCmd = (drawId: number): Cmd => {
                     premiumsPaid: 0,
                     netResult: 0,
                     draw: { id: drawId } as any,
-                    date: new Date().toISOString().split('T')[0],
+                    date: new Date(trustedNow).toISOString().split('T')[0],
                     level: 'DRAW'
                 };
             }
@@ -48,7 +51,7 @@ const fetchDrawSummaryCmd = (drawId: number): Cmd => {
                 premiumsPaid: aggregation.debits,
                 netResult: aggregation.total,
                 draw: { id: drawId } as any,
-                date: new Date().toISOString().split('T')[0],
+                date: new Date(trustedNow).toISOString().split('T')[0],
                 level: 'DRAW'
             };
         },

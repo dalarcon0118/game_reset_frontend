@@ -26,7 +26,6 @@
 import { offlineStorage } from '@core/offline-storage/instance';
 import { SystemOfflineKeys } from './financial.offline.keys';
 import { logger } from '@/shared/utils/logger';
-import { TimerRepository } from '../system/time/timer.repository';
 
 const log = logger.withTag('FinancialRepository');
 
@@ -49,30 +48,38 @@ function notifyListeners(): void {
 // ============================================================================
 
 /**
- * Obtiene la llave del ledger para una fecha específica (default: hoy confiable)
+ * Formatea un timestamp UTC a una cadena YYYY-MM-DD
+ * (Lógica pura y pasiva para determinar la llave de almacenamiento)
  */
-async function getStorageKey(date?: string): Promise<string> {
-    if (date) return SystemOfflineKeys.ledger(date);
-
-    const trustedNow = await TimerRepository.getTrustedNow(Date.now());
-    const d = TimerRepository.formatUTCDate(trustedNow);
-    return SystemOfflineKeys.ledger(d);
+function formatUTCDate(timestamp: number): string {
+    try {
+        return new Date(timestamp).toISOString().split('T')[0];
+    } catch (error) {
+        return '1970-01-01';
+    }
 }
 
 /**
- * Suscribe un listener a cambios en el ledger del día actual
+ * Obtiene la llave del ledger para una fecha o timestamp específico
  */
-export function onLedgerChange(listener: Listener): () => void {
+function getStorageKey(dateOrTimestamp: string | number): string {
+    if (typeof dateOrTimestamp === 'string') {
+        return SystemOfflineKeys.ledger(dateOrTimestamp);
+    }
+
+    const dateStr = formatUTCDate(dateOrTimestamp);
+    return SystemOfflineKeys.ledger(dateStr);
+}
+
+/**
+ * Suscribe un listener a cambios en el ledger para una fecha específica
+ */
+export function onLedgerChange(listener: Listener, timestamp: number = Date.now()): () => void {
     listeners.add(listener);
 
-    let currentKey = '';
+    const currentKey = getStorageKey(timestamp);
 
-    // Inicializar la llave actual de forma asíncrona
-    getStorageKey().then(key => {
-        currentKey = key;
-    });
-
-    // Suscribirse a cambios en la llave de hoy
+    // Suscribirse a cambios en la llave indicada
     const unsubscribe = offlineStorage.subscribe((event) => {
         if (event.type === 'ENTITY_CHANGED' && event.entity === currentKey) {
             notifyListeners();
@@ -145,11 +152,11 @@ export interface FinancialAggregation {
 }
 
 /**
- * Obtiene todas las transacciones del storage local para una fecha específica
+ * Obtiene todas las transacciones del storage local para un momento específico
  */
-async function getAllTransactions(date?: string): Promise<Transaction[]> {
+async function getAllTransactions(timestamp: number): Promise<Transaction[]> {
     try {
-        const key = await getStorageKey(date);
+        const key = getStorageKey(timestamp);
         const data = await offlineStorage.get<Transaction[]>(key);
 
         if (data && Array.isArray(data)) {
@@ -164,10 +171,10 @@ async function getAllTransactions(date?: string): Promise<Transaction[]> {
 }
 
 /**
- * Guarda todas las transacciones en storage local para una fecha específica
+ * Guarda todas las transacciones en storage local para un momento específico
  */
-async function saveAllTransactions(transactions: Transaction[], date?: string): Promise<void> {
-    const key = await getStorageKey(date);
+async function saveAllTransactions(transactions: Transaction[], timestamp: number): Promise<void> {
+    const key = getStorageKey(timestamp);
     await offlineStorage.set(key, transactions);
 }
 
@@ -184,8 +191,12 @@ export class FinancialRepository {
     /**
      * Registra una nueva transacción
      * @param transaction - Transacción a registrar (sin timestamp)
+     * @param timestamp - Timestamp confiable de la transacción
      */
-    async addTransaction(transaction: Pick<Transaction, 'origin' | 'amount' | 'type' | 'metadata'>): Promise<void> {
+    async addTransaction(
+        transaction: Pick<Transaction, 'origin' | 'amount' | 'type' | 'metadata'>,
+        timestamp: number
+    ): Promise<void> {
         // Critical Validation: Amount > 0
         if (transaction.amount <= 0) {
             const errorMsg = `ERROR_CRITICO_FINANCIERO: Intento de registrar transacción con monto <= 0 (${transaction.amount}). Origen: ${transaction.origin}`;
@@ -200,17 +211,16 @@ export class FinancialRepository {
             throw new Error(errorMsg);
         }
 
-        const transactions = await getAllTransactions();
-        const trustedNow = await TimerRepository.getTrustedNow(Date.now());
+        const transactions = await getAllTransactions(timestamp);
 
         const newTransaction: Transaction = {
             ...transaction,
-            timestamp: trustedNow
+            timestamp
         };
 
         transactions.push(newTransaction);
 
-        await saveAllTransactions(transactions);
+        await saveAllTransactions(transactions, timestamp);
         notifyListeners();
 
         log.debug('Transaction added', {
@@ -223,8 +233,12 @@ export class FinancialRepository {
     /**
      * Registra múltiples transacciones en lote
      * @param transactions - Array de transacciones
+     * @param timestamp - Timestamp confiable para el lote
      */
-    async addTransactions(transactions: Pick<Transaction, 'origin' | 'amount' | 'type' | 'metadata'>[]): Promise<void> {
+    async addTransactions(
+        transactions: Pick<Transaction, 'origin' | 'amount' | 'type' | 'metadata'>[],
+        timestamp: number
+    ): Promise<void> {
         // Critical Validation for batch
         for (let i = 0; i < transactions.length; i++) {
             const t = transactions[i];
@@ -235,8 +249,7 @@ export class FinancialRepository {
             }
         }
 
-        const allTransactions = await getAllTransactions();
-        const timestamp = Date.now();
+        const allTransactions = await getAllTransactions(timestamp);
 
         const newTransactions = transactions.map(t => ({
             ...t,
@@ -244,7 +257,7 @@ export class FinancialRepository {
         }));
 
         allTransactions.push(...newTransactions);
-        await saveAllTransactions(allTransactions);
+        await saveAllTransactions(allTransactions, timestamp);
         notifyListeners();
 
         log.debug('Transactions batch added', { count: transactions.length });
@@ -253,16 +266,17 @@ export class FinancialRepository {
     /**
      * Elimina transacciones por origen (prefijo)
      * Útil para eliminar todas las transacciones de un sorteo
+     * @param timestamp - Timestamp confiable
      * @param originPrefix - Prefijo del origen a eliminar (ej: "drawId:")
      */
-    async removeTransactionsByOrigin(originPrefix: string): Promise<number> {
-        const allTransactions = await getAllTransactions();
+    async removeTransactionsByOrigin(timestamp: number, originPrefix: string): Promise<number> {
+        const allTransactions = await getAllTransactions(timestamp);
         const initialCount = allTransactions.length;
 
         const filtered = allTransactions.filter(t => !t.origin.startsWith(originPrefix));
         const removed = initialCount - filtered.length;
 
-        await saveAllTransactions(filtered);
+        await saveAllTransactions(filtered, timestamp);
         notifyListeners();
 
         log.debug('Transactions removed', { prefix: originPrefix, count: removed });
@@ -271,14 +285,15 @@ export class FinancialRepository {
 
     /**
      * Elimina una transacción específica por origen exacto
+     * @param timestamp - Timestamp confiable
      * @param origin - Origen exacto de la transacción
      */
-    async removeTransaction(origin: string): Promise<boolean> {
-        const allTransactions = await getAllTransactions();
+    async removeTransaction(timestamp: number, origin: string): Promise<boolean> {
+        const allTransactions = await getAllTransactions(timestamp);
         const filtered = allTransactions.filter(t => t.origin !== origin);
 
         if (filtered.length < allTransactions.length) {
-            await saveAllTransactions(filtered);
+            await saveAllTransactions(filtered, timestamp);
             notifyListeners();
             log.debug('Transaction removed', { origin });
             return true;
@@ -293,10 +308,11 @@ export class FinancialRepository {
 
     /**
      * Obtiene el total de transacciones (créditos - débitos)
+     * @param timestamp - Timestamp confiable
      * @param originFilter? - Filtrar por prefijo de origen (ej: "31:")
      */
-    async getTotal(originFilter?: string): Promise<number> {
-        const transactions = await this.getTransactions(originFilter);
+    async getTotal(timestamp: number, originFilter?: string): Promise<number> {
+        const transactions = await this.getTransactions(timestamp, originFilter);
         return transactions.reduce((sum, t) => {
             return sum + (t.type === 'credit' ? t.amount : -t.amount);
         }, 0);
@@ -304,10 +320,11 @@ export class FinancialRepository {
 
     /**
      * Obtiene la suma de créditos (entradas)
+     * @param timestamp - Timestamp confiable
      * @param originFilter? - Filtrar por prefijo de origen
      */
-    async getCredits(originFilter?: string): Promise<number> {
-        const transactions = await this.getTransactions(originFilter);
+    async getCredits(timestamp: number, originFilter?: string): Promise<number> {
+        const transactions = await this.getTransactions(timestamp, originFilter);
         return transactions
             .filter(t => t.type === 'credit')
             .reduce((sum, t) => sum + t.amount, 0);
@@ -315,10 +332,11 @@ export class FinancialRepository {
 
     /**
      * Obtiene la suma de débitos (salidas)
+     * @param timestamp - Timestamp confiable
      * @param originFilter? - Filtrar por prefijo de origen
      */
-    async getDebits(originFilter?: string): Promise<number> {
-        const transactions = await this.getTransactions(originFilter);
+    async getDebits(timestamp: number, originFilter?: string): Promise<number> {
+        const transactions = await this.getTransactions(timestamp, originFilter);
         return transactions
             .filter(t => t.type === 'debit')
             .reduce((sum, t) => sum + t.amount, 0);
@@ -326,32 +344,33 @@ export class FinancialRepository {
 
     /**
      * Obtiene el neto (créditos - débitos)
+     * @param timestamp - Timestamp confiable
      * @param originFilter? - Filtrar por prefijo de origen
      */
-    async getNet(originFilter?: string): Promise<number> {
-        const credits = await this.getCredits(originFilter);
-        const debits = await this.getDebits(originFilter);
-        return credits - debits;
+    async getNet(timestamp: number, originFilter?: string): Promise<number> {
+        return this.getTotal(timestamp, originFilter);
     }
 
     /**
      * Obtiene las comisiones calculadas sobre los créditos
+     * @param timestamp - Timestamp confiable
      * @param rate - Tasa de comisión (default: 0.10 = 10%)
      * @param originFilter? - Filtrar por prefijo de origen
      */
-    async getCommissions(rate: number = 0.10, originFilter?: string): Promise<number> {
-        const credits = await this.getCredits(originFilter);
+    async getCommissions(timestamp: number, rate: number = 0.10, originFilter?: string): Promise<number> {
+        const credits = await this.getCredits(timestamp, originFilter);
         return credits * rate;
     }
 
     /**
-     * Obtiene breakdown detallado de totales (créditos y débitos) agrupados por drawId
+     * Obtiene breakdown detallado agrupado por drawId
+     * @param timestamp - Timestamp confiable
      * @param drawIds - Lista opcional de IDs de sorteos para filtrar
      * @param originFilter - Opcional: Filtro por prefijo de origen (ej: structure:ID)
      * @returns Objeto con drawId como clave y objeto con credits, debits y net como valor
      */
-    async getDetailedTotalsGroupedByDrawId(drawIds?: string[], originFilter?: string): Promise<Record<string, { credits: number; debits: number; net: number; count: number }>> {
-        const transactions = await this.getTransactions(originFilter);
+    async getDetailedTotalsGroupedByDrawId(timestamp: number, drawIds?: string[], originFilter?: string): Promise<Record<string, { credits: number; debits: number; net: number; count: number }>> {
+        const transactions = await this.getTransactions(timestamp, originFilter);
         const grouped: Record<string, { credits: number; debits: number; net: number; count: number }> = {};
 
         const filterSet = drawIds ? new Set(drawIds) : null;
@@ -387,20 +406,22 @@ export class FinancialRepository {
     /**
      * Obtiene el total de transacciones filtrado por drawId
      * Busca transacciones con origen "drawId:*"
+     * @param timestamp - Timestamp confiable
      * @param drawId - ID del sorteo
      */
-    async getTotalByDrawId(drawId: string): Promise<number> {
-        return this.getTotal(`${drawId}:`);
+    async getTotalByDrawId(timestamp: number, drawId: string): Promise<number> {
+        return this.getTotal(timestamp, `${drawId}:`);
     }
 
     /**
      * Obtiene breakdown de totales agrupados por drawId, opcionalmente filtrado por una lista de IDs y un prefijo de origen
+     * @param timestamp - Timestamp confiable
      * @param drawIds - Lista opcional de IDs de sorteos para filtrar
      * @param originFilter - Opcional: Filtro por prefijo de origen (ej: structure:ID)
      * @returns Objeto con drawId como clave y total como valor
      */
-    async getTotalsGroupedByDrawId(drawIds?: string[], originFilter?: string): Promise<Record<string, number>> {
-        const transactions = await this.getTransactions(originFilter);
+    async getTotalsGroupedByDrawId(timestamp: number, drawIds?: string[], originFilter?: string): Promise<Record<string, number>> {
+        const transactions = await this.getTransactions(timestamp, originFilter);
         const grouped: Record<string, number> = {};
 
         // Convertir array a Set para búsqueda O(1) si hay muchos IDs
@@ -431,10 +452,11 @@ export class FinancialRepository {
 
     /**
      * Obtiene agregación completa
+     * @param timestamp - Timestamp confiable
      * @param originFilter? - Filtrar por prefijo de origen
      */
-    async getAggregation(originFilter?: string): Promise<FinancialAggregation> {
-        const transactions = await this.getTransactions(originFilter);
+    async getAggregation(timestamp: number, originFilter?: string): Promise<FinancialAggregation> {
+        const transactions = await this.getTransactions(timestamp, originFilter);
 
         const credits = transactions
             .filter(t => t.type === 'credit')
@@ -458,10 +480,11 @@ export class FinancialRepository {
 
     /**
      * Obtiene todas las transacciones
+     * @param timestamp - Timestamp confiable
      * @param originFilter? - Filtrar por prefijo de origen
      */
-    async getTransactions(originFilter?: string): Promise<Transaction[]> {
-        const all = await getAllTransactions();
+    async getTransactions(timestamp: number, originFilter?: string): Promise<Transaction[]> {
+        const all = await getAllTransactions(timestamp);
 
         if (!originFilter) return all;
 
@@ -470,10 +493,11 @@ export class FinancialRepository {
 
     /**
      * Obtiene transacciones de un sorteo específico
+     * @param timestamp - Timestamp confiable
      * @param drawId - ID del sorteo
      */
-    async getTransactionsByDrawId(drawId: string): Promise<Transaction[]> {
-        return this.getTransactions(`${drawId}:`);
+    async getTransactionsByDrawId(timestamp: number, drawId: string): Promise<Transaction[]> {
+        return this.getTransactions(timestamp, `${drawId}:`);
     }
 
     // ============================================================================
@@ -481,19 +505,20 @@ export class FinancialRepository {
     // ============================================================================
 
     /**
-     * Limpia todas las transacciones
-     * Útil para testing o reset
+     * Limpia todas las transacciones de un momento específico
+     * @param timestamp - Timestamp confiable
      */
-    async clearAll(): Promise<void> {
-        await saveAllTransactions([]);
-        log.info('All transactions cleared');
+    async clearAll(timestamp: number): Promise<void> {
+        await saveAllTransactions([], timestamp);
+        log.info('Transactions cleared for timestamp', { timestamp });
     }
 
     /**
      * Obtiene el conteo de transacciones
+     * @param timestamp - Timestamp confiable
      */
-    async getCount(): Promise<number> {
-        const transactions = await getAllTransactions();
+    async getCount(timestamp: number): Promise<number> {
+        const transactions = await getAllTransactions(timestamp);
         return transactions.length;
     }
 
@@ -552,28 +577,34 @@ export class FinancialRepository {
 
     /**
      * Crea una transacción de crédito (entrada de dinero)
-     * Método helper para facilitar uso
+     * @param origin - Origen de la transacción
+     * @param amount - Monto
+     * @param timestamp - Timestamp confiable
+     * @param metadata - Metadatos opcionales
      */
-    async addCredit(origin: string, amount: number, metadata?: Record<string, unknown>): Promise<void> {
+    async addCredit(origin: string, amount: number, timestamp: number, metadata?: Record<string, unknown>): Promise<void> {
         await this.addTransaction({
             origin,
             amount,
             type: 'credit',
             metadata
-        });
+        }, timestamp);
     }
 
     /**
      * Crea una transacción de débito (salida de dinero)
-     * Método helper para facilitar uso
+     * @param origin - Origen de la transacción
+     * @param amount - Monto
+     * @param timestamp - Timestamp confiable
+     * @param metadata - Metadatos opcionales
      */
-    async addDebit(origin: string, amount: number, metadata?: Record<string, unknown>): Promise<void> {
+    async addDebit(origin: string, amount: number, timestamp: number, metadata?: Record<string, unknown>): Promise<void> {
         await this.addTransaction({
             origin,
             amount,
             type: 'debit',
             metadata
-        });
+        }, timestamp);
     }
 }
 

@@ -2,6 +2,7 @@
 export interface RequestOptions extends RequestInit {
   skipAuthHandler?: boolean;
   skipAuth?: boolean; // New flag to skip token validation and attachment
+  skipTimeIntegrity?: boolean; // New flag to skip time integrity check (e.g. for public endpoints or sync)
   silentErrors?: boolean; // New flag to suppress error logging for expected failures
   cacheTTL?: number; // In milliseconds
   retryCount?: number;
@@ -45,20 +46,26 @@ export interface ISettings {
 }
 
 // Minimal interface for Time ingestion to avoid circular dependency
-export interface ITimerRepository {
+export interface TimeSyncPort {
   ingestServerDate(dateHeader: string | null, clientNow: number): Promise<void>;
 }
 
-export interface IAuthRepository {
+export interface TimeIntegrityPort {
+  validateIntegrity(clientNow: number): Promise<{ status: 'ok' | 'backward' | 'jump'; reason?: string }>;
+}
+
+// Minimal interface for Token management to avoid business logic coupling
+export interface TokenStoragePort {
+  getToken(): Promise<{ access: string | null; refresh: string | null }>;
+  saveToken(access: string, refresh?: string): Promise<void>;
+  clearToken(): Promise<void>;
+}
+
+export interface IAuthRepository extends TokenStoragePort {
   login(username: string, pin: string): Promise<any>;
   logout(): Promise<void>;
   getUserIdentity(): Promise<any | null>;
   checkAuth(): Promise<void>;
-  // Token management
-  saveToken(access: string, refresh?: string): Promise<void>;
-  getToken(): Promise<{ access: string | null; refresh: string | null }>;
-  clearToken(): Promise<void>;
-
   onSessionChange(callback: (user: any | null) => void): () => void;
   onSessionExpired(callback: (reason: string) => void): () => void;
   onTokenRefreshed(callback: (token: string) => void): () => void;
