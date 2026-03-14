@@ -1,4 +1,4 @@
-import { offlineEventBus } from '@core/offline-storage/event_bus';
+import { offlineEventBus } from '@/shared/core/offline-storage/instance';
 import { IBetStorage } from '../bet.ports';
 import { logger } from '@/shared/utils/logger';
 import { DomainEvent } from '@core/offline-storage/types';

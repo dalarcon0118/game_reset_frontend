@@ -51,7 +51,7 @@ export interface TimeSyncPort {
 }
 
 export interface TimeIntegrityPort {
-  validateIntegrity(clientNow: number): Promise<{ status: 'ok' | 'backward' | 'jump'; reason?: string }>;
+  validateIntegrity(clientNow: number): { status: 'ok' | 'backward' | 'jump'; deltaMs?: number } | Promise<{ status: 'ok' | 'backward' | 'jump'; deltaMs?: number }>;
 }
 
 // Minimal interface for Token management to avoid business logic coupling

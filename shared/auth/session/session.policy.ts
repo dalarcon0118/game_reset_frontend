@@ -13,7 +13,7 @@ export class SessionPolicy {
     /**
      * Determina el estado de un token JWT o marcador offline.
      */
-    static resolveTokenState(token: string | null): TokenState {
+    static resolveTokenState(token: string | null, trustedNow?: number): TokenState {
         if (!token) return TokenState.ABSENT;
         if (token === 'offline-token') return TokenState.OFFLINE_MARKER;
         if (!token.includes('.')) return TokenState.INVALID;
@@ -27,7 +27,9 @@ export class SessionPolicy {
             while (base64.length % 4) base64 += '=';
 
             const payload = JSON.parse(this.atob(base64));
-            const now = Math.floor(Date.now() / 1000);
+            
+            // Usar tiempo confiable si se proporciona, de lo contrario fallback a Date.now()
+            const now = Math.floor((trustedNow || Date.now()) / 1000);
 
             log.info('Token resolution details', {
                 tokenStart: token.substring(0, 20) + '...',
@@ -35,7 +37,8 @@ export class SessionPolicy {
                 currentTime: now,
                 timeRemaining: payload.exp - now,
                 refreshSkew: this.REFRESH_SKEW_SECONDS,
-                isExpiredSkew: (payload.exp - now) < this.REFRESH_SKEW_SECONDS
+                isExpiredSkew: (payload.exp - now) < this.REFRESH_SKEW_SECONDS,
+                usingTrustedTime: !!trustedNow
             });
 
             if (payload.exp - now < this.REFRESH_SKEW_SECONDS) {

@@ -1,7 +1,7 @@
 import { Sub } from '@core/tea-utils';
 import { Model } from './model';
 import { Msg, GET_FINANCIAL_BETS } from './msg';
-import { offlineEventBus } from '@core/offline-storage/instance';
+import { dashboardService } from '../../services/dashboard.service';
 import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('SUMMARY_PLUGIN_SUBSCRIPTIONS');
@@ -13,22 +13,14 @@ export const subscriptions = (model: Model) => {
   }
 
   return Sub.custom((dispatch) => {
-    // Suscribirse a cambios en las apuestas (on-demand desde betRepository)
-    // en lugar del ledger separado
-    const unsubscribe = offlineEventBus.subscribe((event) => {
-      // Escuchar eventos de cambios en apuestas
-      if (event.type === 'SYNC_ITEM_SUCCESS' && event.entity === 'bet') {
-        log.debug('Bet change detected, triggering financial recalculation', event);
-        dispatch(GET_FINANCIAL_BETS());
-      }
+    log.info('Subscribing to DashboardService for financial updates');
 
-      // También escuchar otros eventos de cambio de entidad
-      if (event.type === 'ENTITY_CHANGED' && event.entity?.includes('bet')) {
-        log.debug('Entity changed for bets, triggering financial recalculation', event);
-        dispatch(GET_FINANCIAL_BETS());
-      }
+    // Suscribirse a la invalidación del Dashboard orquestada por el servicio
+    const unsubscribe = dashboardService.onDashboardInvalided(() => {
+      log.debug('Dashboard invalidated, triggering financial recalculation');
+      dispatch(GET_FINANCIAL_BETS());
     });
 
     return unsubscribe;
-  }, 'summary-bets-watch');
+  }, 'summary-dashboard-watch');
 };

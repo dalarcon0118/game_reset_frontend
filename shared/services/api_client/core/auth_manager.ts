@@ -1,18 +1,25 @@
 import { Result, ok, err, ResultAsync, okAsync } from 'neverthrow';
 import { ApiClientError, ApiClientErrorData } from '../api_client.errors';
 import { IAuthRepository, ILogger, ISettings } from '../api_client.types';
+import { SessionPolicy } from '../../../auth/session/session.policy';
+import { TokenState } from '../../../auth/session/session.types';
 
 export class AuthManager {
   private currentAccessToken: string | null = null;
   private isRefreshing = false;
   private refreshSubscribers: ((token: string) => void)[] = [];
   private onSessionExpired: (() => void) | null = null;
+  private trustedNowGetter: (() => number) | null = null;
 
   constructor(
     private authRepoGetter: () => IAuthRepository,
     private settings: ISettings,
     private log: ILogger
   ) { }
+
+  setTrustedNowGetter(getter: () => number) {
+    this.trustedNowGetter = getter;
+  }
 
   private get authRepo(): Result<IAuthRepository, Error> {
     try {
@@ -57,17 +64,14 @@ export class AuthManager {
   private getRefreshToken(): ResultAsync<string, Error> {
     return ResultAsync.fromPromise(
       (async () => {
-        const repo = this.authRepo._unsafeUnwrap(); // Internal use only
-        const { refresh } = await repo.getToken();
+        const repoRes = this.authRepo;
+        if (repoRes.isErr()) throw repoRes.error;
+        const { refresh } = await repoRes.value.getToken();
         if (!refresh) throw new Error('NO_REFRESH_TOKEN');
-        return refresh;
+        return refresh as string;
       })(),
-      () => new Error('FAILED_TO_GET_REFRESH_TOKEN')
-    ).orElse(err => {
-      // Re-map specifically for missing token
-      if (err.message === 'NO_REFRESH_TOKEN') return errAsync(err);
-      return errAsync(err);
-    });
+      (e: any) => e instanceof Error ? e : new Error(String(e))
+    );
   }
 
   private validateRefreshToken(token: string): Result<string, Error> {
@@ -88,8 +92,8 @@ export class AuthManager {
     }
 
     this.isRefreshing = true;
-    return ResultAsync.fromPromise(
-      (async () => {
+    const p = (async () => {
+      try {
         const url = `${this.settings.api.baseUrl}${this.settings.api.endpoints.refresh()}`;
         const response = await fetch(url, {
           method: 'POST',
@@ -106,12 +110,16 @@ export class AuthManager {
         const data = await response.json();
         if (!data?.access) throw new Error('INVALID_REFRESH_RESPONSE');
 
-        return { access: data.access, refresh: data.refresh ?? null };
-      })(),
+        return { access: data.access as string, refresh: (data.refresh ?? null) as string | null };
+      } finally {
+        this.isRefreshing = false;
+      }
+    })();
+
+    return ResultAsync.fromPromise(
+      p,
       (e: any) => e instanceof Error ? e : new Error(String(e))
-    ).finally(() => {
-      this.isRefreshing = false;
-    });
+    );
   }
 
   private persistNewTokens(tokens: { access: string; refresh: string | null }): ResultAsync<string, Error> {
@@ -179,20 +187,15 @@ export class AuthManager {
    * Declarative implementation with safety checks.
    */
   isTokenExpired(token: string | null): boolean {
-    if (!token || !token.includes('.')) {
-      // SI NO HAY TOKEN, NO ESTÁ "EXPIRADO" EN EL SENTIDO DE NECESITAR REFRESH,
-      // SIMPLEMENTE NO EXISTE SESIÓN.
-      return false;
+    const trustedNow = this.trustedNowGetter ? this.trustedNowGetter() : undefined;
+    const state = SessionPolicy.resolveTokenState(token, trustedNow);
+    
+    if (state === TokenState.EXPIRED) {
+      this.log.debug('[AuthManager] Token is expired according to policy');
+      return true;
     }
-
-    return this.decodeToken(token)
-      .map(payload => {
-        const now = Math.floor(Date.now() / 1000);
-        const isExpired = payload.exp - now < 60; // 60s buffer
-        if (isExpired) this.log.debug('[AuthManager] Token is expired or near expiration');
-        return isExpired;
-      })
-      .unwrapOr(true); // Si falla el decode, asumimos que no sirve (expirado)
+    
+    return false;
   }
 
   private decodeToken(token: string): Result<any, Error> {
@@ -244,5 +247,7 @@ export class AuthManager {
 }
 
 // Helper for errAsync since neverthrow version might vary
-const errAsync = <T, E>(e: E): ResultAsync<T, E> => ResultAsync.fromSafePromise(Promise.resolve(err(e)));
+const errAsync = <T, E>(e: E): ResultAsync<T, E> => {
+  return ResultAsync.fromPromise(Promise.reject(e), (err: any) => err as E);
+};
 

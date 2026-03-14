@@ -222,4 +222,17 @@ export class ApiClient {
     await this.credentialProvider.clearCredentials();
     this.cacheManager.clear();
   }
+
+  /**
+   * Expone la funcionalidad de traducción de errores del ErrorManager
+   * para su uso externo (ej: CoreService)
+   */
+  translateError(status: number, technicalMessage?: string): string {
+    if (!this.errorManager) {
+      this.log?.warn('ErrorManager not initialized, returning fallback message');
+      return 'Ocurrió un error inesperado.';
+    }
+
+    return this.errorManager.translateError(status, technicalMessage);
+  }
 }

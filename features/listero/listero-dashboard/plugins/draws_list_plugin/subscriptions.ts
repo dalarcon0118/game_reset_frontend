@@ -5,7 +5,7 @@ import { logger } from '@/shared/utils/logger';
 import { extractHostState, createDrawsHash, HostStatePayload } from './host.adapter';
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
 import { TimerRepository } from '@/shared/repositories/system/time';
-import { offlineEventBus } from '@core/offline-storage/instance';
+import { dashboardService } from '../../services/dashboard.service';
 
 const log = logger.withTag('DRAWS_LIST_PLUGIN_SUBS');
 
@@ -120,25 +120,14 @@ export const subscriptions = (model: Model) => {
       'draws-list-plugin-sync'
     ),
 
-    // Nueva suscripción para calcular totales financieros on-demand desde BetRepository
-    // Reemplaza la suscripción anterior al Ledger
+    // Nueva suscripción para calcular totales financieros orquestada por DashboardService
     Sub.custom((dispatch) => {
-      log.info('Subscribing to Bet totals (on-demand calculation)');
+      log.info('Subscribing to DashboardService for Bet totals');
 
       recomputeAndDispatchFinancialTotals(dispatch);
 
-      const unsubscribe = offlineEventBus.subscribe((event) => {
-        const isBetSyncSuccess = event.type === 'SYNC_ITEM_SUCCESS' && event.entity === 'bet';
-        const isBetEntityChanged = event.type === 'ENTITY_CHANGED' && event.entity?.includes('bet');
-        if (!isBetSyncSuccess && !isBetEntityChanged) {
-          return;
-        }
-
-        log.debug('Financial totals trigger event', {
-          type: event.type,
-          entity: event.entity
-        });
-
+      const unsubscribe = dashboardService.onDashboardInvalided(() => {
+        log.debug('Dashboard invalidated, recomputing financial totals');
         recomputeAndDispatchFinancialTotals(dispatch);
       });
 

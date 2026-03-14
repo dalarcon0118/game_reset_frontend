@@ -65,12 +65,12 @@ export class RequestExecutor {
         this.log.error('[TIME-INTEGRITY] Request blocked due to time manipulation', {
           endpoint,
           status: integrity.status,
-          reason: integrity.reason
+          deltaMs: integrity.deltaMs
         });
         throw new ApiClientError(
-          'TIME_INTEGRITY_VIOLATION',
-          `Time integrity compromised: ${integrity.status}. ${integrity.reason || ''}`,
-          403
+          `Time integrity compromised: ${integrity.status}. Delta: ${integrity.deltaMs || 0}ms`,
+          403,
+          { errorType: 'TIME_INTEGRITY_VIOLATION' }
         );
       }
     }
@@ -148,6 +148,7 @@ export class RequestExecutor {
     const outcome = await this.executeAttempt<T>(context, attempt);
     if (outcome.type === 'success') return outcome.data;
     if (outcome.type === 'throw') throw outcome.error;
+    if (outcome.type === 'blocked') throw new Error(outcome.reason);
     if (attempt >= context.retryCount) throw outcome.error;
     return this.executeRetryLoop<T>(context, attempt + 1);
   }
@@ -272,16 +273,7 @@ export class RequestExecutor {
   private async prepareRequestConfig(options: RequestExecutionOptions): Promise<RequestInit> {
     this.log.debug('[Preparing request config...]', options);
 
-    let token = await this.credentialProvider.getAccessToken();
-
-    // RACE CONDITION FIX: Si no hay token en una petición privada, reintentar una vez tras 300ms
-    // Esto da tiempo al storage persistente (SecureStore/AsyncStorage) a terminar la escritura tras el login.
-    if (!token && !options.skipAuth) {
-      this.log.warn('[RACE-CONDITION-GUARD] No token found for private request, retrying in 300ms...');
-      await new Promise(resolve => setTimeout(resolve, 300));
-      token = await this.credentialProvider.getAccessToken();
-    }
-
+    const token = await this.credentialProvider.getAccessToken();
     const tokenState = SessionPolicy.resolveTokenState(token);
 
     // Obtener estado real de red para la política de sesión

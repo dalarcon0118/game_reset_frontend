@@ -3,6 +3,7 @@ import { CoreModel } from './model';
 import { CoreMsg } from './msg';
 import { Sub, SubDescriptor } from '@core/tea-utils/sub';
 import { AuthRepository, User } from '@shared/repositories/auth';
+import { offlineEventBus } from '@/shared/core/offline-storage/instance';
 
 /**
  * Define las suscripciones reactivas para el CoreModule.
@@ -29,6 +30,16 @@ export function subscriptions(model: CoreModel): SubDescriptor<CoreMsg> {
       });
     }, 'CORE_AUTH_EXPIRATION_SYNC'),
 
-    // Aquí podríamos añadir Sub.every para polling de salud o conectividad si fuera necesario
+    // 3. Suscripción a eventos de mantenimiento (SystemJanitor)
+    Sub.custom((dispatch) => {
+      return offlineEventBus.subscribe((event) => {
+        if (event.type === 'MAINTENANCE_COMPLETED') {
+          dispatch({
+            type: 'MAINTENANCE_COMPLETED',
+            payload: event.payload as { date: string; status: 'ready' }
+          });
+        }
+      });
+    }, 'CORE_MAINTENANCE_SYNC'),
   ]);
 }

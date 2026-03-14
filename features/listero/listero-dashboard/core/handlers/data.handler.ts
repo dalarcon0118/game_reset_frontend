@@ -149,6 +149,18 @@ export const DataHandler = {
         return singleton(model);
     },
 
+    handleDailySessionPrepared: (model: Model, success: boolean): Return<Model, Msg> => {
+        log.info('Daily session preparation completed', { success });
+        
+        // Si el mantenimiento fue exitoso, forzamos la carga de datos frescos
+        if (success && model.userStructureId) {
+            log.info('Triggering fresh data fetch after maintenance');
+            return DataHandler.handleFetchDataRequested(model, model.userStructureId);
+        }
+        
+        return singleton(model);
+    },
+
     handleFinancialUpdateReceived: (model: Model, update: FinancialUpdate): Return<Model, Msg> => {
         log.debug('Financial update received', { update });
 

@@ -66,6 +66,7 @@ export const settings = {
     endpoints: {
       public: [
         '/auth/login/token',
+        "/auth/token/",
         '/auth/register/',
         '/auth/login/refresh/',
         '/public/config',
@@ -92,7 +93,7 @@ export const settings = {
   },
   timeIntegrity: {
     maxJumpMs: 5 * 60 * 1000, // 5 minutes threshold for forward jumps
-    maxBackwardMs: 2000,      // 2 seconds tolerance for minor clock drifts/adjustments
+    maxBackwardMs: 5000,      // 5 seconds tolerance for minor clock drifts/adjustments
   },
   featureFlags: {
     enableNewDashboard: true,

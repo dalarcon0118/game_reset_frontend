@@ -65,28 +65,7 @@ export const update = (model: Model, msg: Msg): Return<Model, Msg> => {
             }
 
             log.info('AUTH_USER_SYNCED', { id: user.id, structureId: user.structureId });
-            const result = AuthHandler.handleAuthUserSynced(model, user);
-            const nextModel = result.model;
-            const nextCmd = result.cmd;
-
-            log.info('Auth Sync Result', {
-                drawsState: nextModel.draws.type,
-                userStructureId: nextModel.userStructureId,
-                hasCmd: !!nextCmd
-            });
-
-            // Add token update if structure changed
-            if (model.userStructureId !== nextModel.userStructureId) {
-                log.info('Structure changed, forcing token update');
-                return ret(
-                    nextModel,
-                    Cmd.batch([
-                        nextCmd || Cmd.none,
-                        updateAuthTokenCmd()
-                    ])
-                );
-            }
-            return result;
+            return AuthHandler.handleAuthUserSynced(model, user);
         })
         .with({ type: 'AUTH_TOKEN_UPDATED' }, ({ token }) => {
             // log.debug('AUTH_TOKEN_UPDATED');
@@ -98,8 +77,8 @@ export const update = (model: Model, msg: Msg): Return<Model, Msg> => {
         .with({ type: 'TOGGLE_BALANCE' }, () =>
             AuthHandler.handleToggleBalance(model)
         )
-        .with({ type: 'DAILY_SESSION_PREPARED' }, ({ success }) =>
-            AuthHandler.handleDailySessionPrepared(model, success)
+        .with({ type: 'SYSTEM_READY' }, ({ date }) =>
+            AuthHandler.handleSystemReady(model, date)
         )
 
         // Filter Handling

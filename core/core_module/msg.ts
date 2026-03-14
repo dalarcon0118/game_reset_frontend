@@ -20,5 +20,11 @@ export type CoreMsg =
   /** Cambio en el estado de red */
   | { type: 'NETWORK_STATUS_CHANGED'; payload: boolean }
 
+  /** Mantenimiento del sistema completado (SystemJanitor) */
+  | { type: 'MAINTENANCE_COMPLETED'; payload: { date: string; status: 'ready' } }
+
+  /** El contexto de usuario (perfil, estructura) está listo y verificado */
+  | { type: 'SESSION_CONTEXT_READY' }
+
   /** Trigger para reintento de inicialización */
   | { type: 'RETRY_BOOTSTRAP' };

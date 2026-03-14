@@ -1,6 +1,7 @@
 import { Cmd } from '@core/tea-utils';
 import { drawRepository } from '@/shared/repositories/draw';
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
+import { AuthRepository } from '@/shared/repositories/auth';
 import apiClient from '@/shared/services/api_client';
 import { BetType } from '@/types';
 import { logger } from '@/shared/utils/logger';
@@ -10,28 +11,27 @@ import {
     PENDING_BETS_LOADED,
     DRAWS_RECEIVED,
     AUTH_TOKEN_UPDATED,
-    DAILY_SESSION_PREPARED,
+    AUTH_USER_SYNCED,
     NONE
 } from './msg';
-import { prepareDailySessionUseCase } from './use-cases/prepare-daily-session.use-case';
+import { DashboardUser, adaptAuthUser } from './user.dto';
 
 const log = logger.withTag('DASHBOARD_COMMANDS');
 
-export const prepareDailySessionCmd = (): Cmd => {
+export const fetchUserDataCmd = (): Cmd => {
     return Cmd.task({
-        task: async () => {
-            console.log('[DEBUG] prepareDailySessionCmd: INICIANDO...');
-            const success = await prepareDailySessionUseCase();
-            console.log('[DEBUG] prepareDailySessionCmd: resultado =', success);
-            return success;
+        task: async (): Promise<DashboardUser | null> => {
+            log.info('Fetching user data for dashboard initialization...');
+            const user = await AuthRepository.hydrate();
+
+            if (!user) return null;
+
+            return adaptAuthUser(user);
         },
-        onSuccess: (success) => {
-            return DAILY_SESSION_PREPARED({ success });
-        },
+        onSuccess: (user) => AUTH_USER_SYNCED(user),
         onFailure: (error) => {
-            log.error('Unexpected error in prepareDailySessionCmd', error);
-            // Even if it fails, we signal it's done so the dashboard can try to load
-            return DAILY_SESSION_PREPARED({ success: false });
+            log.error('Failed to fetch user data', error);
+            return AUTH_USER_SYNCED(null);
         }
     });
 };

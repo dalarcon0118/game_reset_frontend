@@ -100,13 +100,38 @@ export class CredentialProvider {
       return err(new Error(refreshToken === 'offline-token' ? 'OFFLINE_SESSION' : 'NO_REFRESH_TOKEN'));
     }
 
+    const storage = this.tokenStorage;
+    if (storage.isErr()) {
+      this.isRefreshing = false;
+      this.notifySubscribers('');
+      return err(storage.error);
+    }
+
     const result = await ResultAsync.fromPromise(
-      repoRes.value.refresh(),
+      (async () => {
+        const url = `${this.settings.api.baseUrl}${this.settings.api.endpoints.refresh()}`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({ refresh: refreshToken }),
+        });
+
+        if (!response.ok) {
+          let errorData: ApiClientErrorData = { detail: `Error ${response.status}` };
+          try { errorData = await response.json(); } catch { }
+          throw new ApiClientError(errorData.message || 'Error en refresh token', response.status, errorData);
+        }
+
+        const data = await response.json();
+        if (!data?.access) throw new Error('INVALID_REFRESH_RESPONSE');
+
+        // Persistir nuevos tokens si vienen en la respuesta
+        await storage.value.saveToken(data.access, data.refresh || refreshToken);
+
+        return data.access as string;
+      })(),
       (e: any) => e instanceof Error ? e : new Error(String(e))
-    ).map(res => {
-      if (!res.success) throw new Error(res.error.message);
-      return res.data?.accessToken || '';
-    });
+    );
 
     this.isRefreshing = false;
 
@@ -131,7 +156,7 @@ export class CredentialProvider {
    * Limpia las credenciales del almacenamiento.
    */
   async clearCredentials(): Promise<void> {
-    const repoRes = this.authRepo;
+    const repoRes = this.tokenStorage;
     if (repoRes.isOk()) {
       await repoRes.value.clearToken();
     }

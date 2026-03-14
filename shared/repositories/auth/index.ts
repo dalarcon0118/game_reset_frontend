@@ -9,7 +9,7 @@ import { setAuthRepository } from '../../services/api_client';
 import { SessionPolicy } from '@/shared/auth/session/session.policy';
 import { TokenState } from '@/shared/auth/session/session.types';
 
-import { TimerRepository } from '../system/time/timer.repository';
+import { TimerRepository, ITimeRepository } from '../system/time';
 
 const log = logger.withTag('AUTH_REPOSITORY');
 
@@ -34,7 +34,8 @@ class AuthRepositoryImpl implements IAuthRepository {
 
     constructor(
         private api: IAuthApi = authApiAdapter,
-        private storage: IAuthStorage = authStorageAdapter
+        private storage: IAuthStorage = authStorageAdapter,
+        private timeRepo: ITimeRepository = TimerRepository
     ) {
         // SRP: Connectivity monitor removed from constructor.
     }
@@ -285,7 +286,7 @@ class AuthRepositoryImpl implements IAuthRepository {
 
                 // 3. Verificación de integridad de tiempo antes de permitir fallback offline.
                 // Si el reloj local es inconsistente, no podemos permitir el modo offline.
-                const timeIntegrity = await TimerRepository.validateIntegrity(Date.now());
+                const timeIntegrity = await this.timeRepo.validateIntegrity(Date.now());
                 if (timeIntegrity.status !== 'ok') {
                     log.error('Time integrity violation detected, blocking offline fallback', {
                         status: timeIntegrity.status,
@@ -309,7 +310,7 @@ class AuthRepositoryImpl implements IAuthRepository {
             }
 
             // Si el servidor no es alcanzable, intentamos offline directamente pero validamos integridad de tiempo primero
-            const timeIntegrity = await TimerRepository.validateIntegrity(Date.now());
+            const timeIntegrity = await this.timeRepo.validateIntegrity(Date.now());
             if (timeIntegrity.status !== 'ok') {
                 log.error('Server unreachable and time integrity violation detected, blocking offline validation');
                 return {

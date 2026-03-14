@@ -64,5 +64,13 @@ export const CoreService = {
       }
       return null;
     });
+  },
+
+  /**
+   * Traduce un error técnico a un mensaje amigable para el usuario.
+   * Delega la lógica al ApiClient/ErrorManager.
+   */
+  translateError(status: number, technicalMessage?: string): string {
+    return apiClient.translateError(status, technicalMessage);
   }
 };

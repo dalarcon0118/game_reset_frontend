@@ -92,6 +92,7 @@ export interface IBetRepository {
     hasCriticalPendingBets(beforeTimestamp: number): Promise<boolean>;
     getAllRawBets(): Promise<BetDomainModel[]>;
     resetSyncStatus(offlineId: string): Promise<void>;
+    onBetChanged(callback: () => void): () => void;
 
     // Agregaciones crudas (SSOT) - No incluyen lógica de negocio
     getFinancialSummary(todayStart: number, structureId?: string): Promise<RawBetTotals>;

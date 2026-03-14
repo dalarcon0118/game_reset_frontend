@@ -6,11 +6,12 @@ import { createMsg } from '@core/tea-utils';
  */
 export const GLOBAL_LOGOUT = createMsg<'LOGOUT'>('LOGOUT');
 export const DASHBOARD_FILTER_CHANGED = createMsg<'DASHBOARD_FILTER_CHANGED', string>('DASHBOARD_FILTER_CHANGED');
-
+export const SYSTEM_READY = createMsg<'SYSTEM_READY', { date: string }>('SYSTEM_READY');
 
 export const GLOBAL = createMsg<'GLOBAL', typeof GLOBAL_LOGOUT._type>('GLOBAL');
 
 export const GlobalSignals = {
     LOGOUT: GLOBAL_LOGOUT,
     DASHBOARD_FILTER_CHANGED,
+    SYSTEM_READY,
 } as const;

@@ -10,8 +10,12 @@ export interface TimeMetadata {
     lastClientTime: number;
     /** (ServerTime - ClientTime) in ms */
     serverTimeOffset: number;
-    /** When this metadata was last updated */
+    /** The monotonic time in ms when the last server sync occurred (performance.now()) */
+    anchorMonotonicMs?: number;
+    /** The real system date when the metadata was last updated/verified */
     lastSyncAt: number;
+    /** The last known trusted server time, used to detect backward jumps between sessions */
+    lastKnownGoodServerTime?: number;
 }
 
 /**
@@ -31,4 +35,3 @@ export interface TimeIntegrityResult {
     deltaMs: number;
     reason?: string;
 }
-

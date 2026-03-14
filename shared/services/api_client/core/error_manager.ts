@@ -1,11 +1,46 @@
 import { ApiClientError, ApiClientErrorData } from '../api_client.errors';
 import { ILogger, RequestOptions } from '../api_client.types';
 
+// Mapa de traducción de errores HTTP a mensajes user-friendly
+const ERROR_TRANSLATION_MAP: Record<number, string> = {
+  400: 'Solicitud inválida. Por favor, verifica los datos ingresados.',
+  401: 'Sesión expirada. Por favor, inicia sesión nuevamente.',
+  403: 'No tienes permisos para realizar esta acción.',
+  404: 'El recurso solicitado no fue encontrado.',
+  408: 'Tiempo de espera agotado. Por favor, intenta nuevamente.',
+  429: 'Demasiadas solicitudes. Por favor, espera un momento.',
+  500: 'Error interno del servidor. Por favor, intenta más tarde.',
+  502: 'Servicio no disponible. Por favor, intenta más tarde.',
+  503: 'Servicio en mantenimiento. Por favor, intenta más tarde.',
+  504: 'Tiempo de espera agotado. Por favor, intenta nuevamente.',
+};
+
 export class ErrorManager {
   private consecutiveFailures = 0;
   private readonly FAILURE_THRESHOLD = 3;
 
-  constructor(private log: ILogger) {}
+  constructor(private log: ILogger) { }
+
+  /**
+   * Traduce un código de error HTTP a un mensaje user-friendly
+   */
+  public translateError(status: number, technicalMessage?: string): string {
+    // Verificar si hay una traducción específica para el código
+    const translatedMessage = ERROR_TRANSLATION_MAP[status];
+    if (translatedMessage) {
+      return translatedMessage;
+    }
+
+    // Para códigos no mapeados, usar categorías generales
+    if (status >= 400 && status < 500) {
+      return 'Error en la solicitud. Por favor, verifica los datos e intenta nuevamente.';
+    } else if (status >= 500) {
+      return 'Error del servidor. Por favor, intenta más tarde.';
+    }
+
+    // Fallback a mensaje técnico si no hay traducción
+    return technicalMessage || 'Ocurrió un error inesperado.';
+  }
 
   async handleResponseError(
     response: Response,
@@ -48,10 +83,12 @@ export class ErrorManager {
       });
     }
 
+    const userFriendlyMessage = this.translateError(response.status, errorData.message);
     const error = new ApiClientError(
       errorData.message || `HTTP error! status: ${response.status}`,
       response.status,
-      errorData
+      errorData,
+      userFriendlyMessage
     );
 
     if (response.status === 429) {

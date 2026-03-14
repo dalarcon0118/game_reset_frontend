@@ -16,6 +16,11 @@ export interface TimeSyncPort {
  */
 export interface TimeIntegrityPort {
     validateIntegrity(clientNow: number): TimeIntegrityResult;
+    evaluateIntegrity(
+        clientNow: number,
+        metadata: TimeMetadata | null,
+        config: { maxJumpMs: number; maxBackwardMs: number }
+    ): TimeIntegrityResult;
     getStatus(): 'ok' | 'backward' | 'jump';
 }
 
@@ -58,10 +63,17 @@ export const createTimerRepository = (store?: TimeStore): ITimeRepository => {
                 return { status: 'ok', deltaMs: 0 };
             }
 
-            const result = TimePolicy.evaluateIntegrity(clientNow, metadata.data, {
-                maxJumpMs: settings.timeIntegrity.maxJumpMs,
-                maxBackwardMs: settings.timeIntegrity.maxBackwardMs
-            });
+            const currentMonotonic = TimePolicy.getMonotonicNow();
+
+            const result = TimePolicy.evaluateIntegrity(
+                clientNow,
+                metadata.data,
+                {
+                    maxJumpMs: settings.timeIntegrity.maxJumpMs,
+                    maxBackwardMs: settings.timeIntegrity.maxBackwardMs
+                },
+                currentMonotonic
+            );
 
             // Notificamos al store si hay una violación para cambiar el estado global de 'status'
             if (result.status !== 'ok') {
@@ -69,6 +81,15 @@ export const createTimerRepository = (store?: TimeStore): ITimeRepository => {
             }
 
             return result;
+        },
+
+        evaluateIntegrity: (clientNow, metadata, config) => {
+            return TimePolicy.evaluateIntegrity(
+                clientNow,
+                metadata,
+                config,
+                TimePolicy.getMonotonicNow()
+            );
         },
 
         getStatus: () => selectTimeStatus(internalStore.getState()),

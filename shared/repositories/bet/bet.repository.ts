@@ -15,6 +15,7 @@ import { getFinancialSummaryFlow, getTotalsByDrawIdFlow } from './flows/financia
 import { BetStorageAdapter } from './adapters/bet.storage.adapter';
 import { BetApiAdapter } from './adapters/bet.api.adapter';
 import { BetSyncListener } from './sync/bet.sync.listener';
+import { offlineEventBus } from '@/shared/core/offline-storage/instance';
 
 const log = logger.withTag('BetRepository');
 
@@ -25,6 +26,7 @@ const log = logger.withTag('BetRepository');
 export class BetRepository implements IBetRepository {
     private readonly log = log;
     private readonly syncListener: BetSyncListener;
+    private readonly subscribers: Set<() => void> = new Set();
 
     constructor(
         private readonly storage: IBetStorage,
@@ -33,6 +35,34 @@ export class BetRepository implements IBetRepository {
         // Iniciar el listener de eventos de sincronización para mantener el syncContext actualizado
         this.syncListener = new BetSyncListener(this.storage);
         this.syncListener.start();
+
+        // Suscribirse a los eventos del bus para notificar a nuestros suscriptores
+        offlineEventBus.subscribe((event) => {
+            const isBetSync = (event.type === 'SYNC_ITEM_SUCCESS' || event.type === 'SYNC_ITEM_ERROR') && event.entity === 'bet';
+            const isBetChange = event.type === 'ENTITY_CHANGED' && event.entity?.includes('bet');
+
+            if (isBetSync || isBetChange) {
+                this.notifySubscribers();
+            }
+        });
+    }
+
+    /**
+     * Suscripción pasiva a cambios en las apuestas
+     */
+    onBetChanged(callback: () => void): () => void {
+        this.subscribers.add(callback);
+        return () => this.subscribers.delete(callback);
+    }
+
+    private notifySubscribers(): void {
+        this.subscribers.forEach(cb => {
+            try {
+                cb();
+            } catch (error) {
+                this.log.error('Error in subscriber callback', error);
+            }
+        });
     }
 
     /**
@@ -251,7 +281,7 @@ export class BetRepository implements IBetRepository {
             return toDelete.length;
         } catch (error) {
             this.log.error('Error in bet cleanup', error);
-            return 0;
+            throw error; // Propagamos el error para que el Janitor lo detecte
         }
     }
 

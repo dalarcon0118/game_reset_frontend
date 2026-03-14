@@ -1,27 +1,10 @@
 import { Model } from './model';
 import { SubDescriptor, Sub } from '@core/tea-utils';
-import { Msg } from './msg';
-import { DASHBOARD_FILTER_CHANGED } from '@/config/signals';
+import { Msg, SYSTEM_READY as SYSTEM_READY_MSG } from './msg';
+import { DASHBOARD_FILTER_CHANGED, SYSTEM_READY } from '@/config/signals';
 
 export const subscriptions = (model: Model): SubDescriptor<Msg> => {
-    // Sincronización automática con el store de Auth para cambios de usuario
-    // Usamos el ID del módulo registrado en StoreRegistry para mantener la pureza TEA
-    const authSub = Sub.watchStore(
-        'AuthModuleV1',
-        (state: any) => {
-            const user = state?.model?.user ?? state?.user;
-            // Transformar User a DashboardUser extrayendo structureId del objeto nested
-            return user ? {
-                ...user,
-                structureId: user.structure?.id,
-                commissionRate: user.structure?.commission_rate ?? 0
-            } : null;
-        },
-        (user) => ({ type: 'AUTH_USER_SYNCED', user }),
-        'listero-dashboard-auth-sync'
-    );
-
-    // Escucha señales globales para cambios de filtros (Pub/Sub desacoplado)
+    // 1. Escucha señales globales para cambios de filtros
     const filterSub = Sub.receiveMsg(
         DASHBOARD_FILTER_CHANGED,
         (filter, dispatch) => {
@@ -30,5 +13,25 @@ export const subscriptions = (model: Model): SubDescriptor<Msg> => {
         'listero-dashboard-filter-sync'
     );
 
-    return Sub.batch([authSub, filterSub]);
+    // 3. Escucha la señal global SYSTEM_READY emitida por el CoreModule
+    const systemReadySub = Sub.receiveMsg(
+        SYSTEM_READY,
+        (payload, dispatch) => {
+            dispatch(SYSTEM_READY_MSG({ date: payload.date }));
+        },
+        'listero-dashboard-system-ready'
+    );
+
+    // 4. Sincronización con el estado isSystemReady del CoreModule (Idempotencia)
+    // Esto previene perder la señal si el mantenimiento terminó antes de que el Dashboard montara.
+    const coreReadySub = Sub.watchStore(
+        'Core',
+        (state: any) => state?.model?.isSystemReady ?? false,
+        (isReady) => isReady
+            ? SYSTEM_READY_MSG({ date: new Date().toISOString().split('T')[0] })
+            : { type: 'NONE' },
+        'listero-dashboard-core-ready-sync'
+    );
+
+    return Sub.batch([filterSub, systemReadySub, coreReadySub]);
 };

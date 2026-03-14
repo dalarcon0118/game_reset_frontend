@@ -42,7 +42,7 @@ export type Msg =
     | { type: 'NOTIFICATIONS_CLICKED' }
     | { type: 'SETTINGS_CLICKED' }
     | { type: 'TOGGLE_BALANCE' }
-    | { type: 'DAILY_SESSION_PREPARED'; success: boolean }
+    | { type: 'SYSTEM_READY'; date: string }
     | { type: 'PROMOTION_MSG'; msg: PromotionMsg }
     | { type: 'NONE' };
 
@@ -65,7 +65,7 @@ export const NOTIFICATIONS_CLICKED = (): Msg => ({ type: 'NOTIFICATIONS_CLICKED'
 export const SETTINGS_CLICKED = (): Msg => ({ type: 'SETTINGS_CLICKED' });
 export const TOGGLE_BALANCE = (): Msg => ({ type: 'TOGGLE_BALANCE' });
 export const NONE = (): Msg => ({ type: 'NONE' });
-export const DAILY_SESSION_PREPARED = (payload: { success: boolean }): Msg => ({ type: 'DAILY_SESSION_PREPARED', success: payload.success });
+export const SYSTEM_READY = (payload: { date: string }): Msg => ({ type: 'SYSTEM_READY', date: payload.date });
 
 export const PROMOTION_MSG = (msg: PromotionMsg): Msg => ({ type: 'PROMOTION_MSG', msg });
 

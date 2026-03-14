@@ -2,7 +2,7 @@ import { Model } from '../model';
 import { Msg } from '../msg';
 import { Cmd, ret, singleton, Return, RemoteData } from '@core/tea-utils';
 import { handleAuthUserSynced as logicHandleAuthUserSynced } from '../logic';
-import { fetchDrawsCmd, updateAuthTokenCmd, loadPendingBetsCmd, prepareDailySessionCmd } from '../commands';
+import { fetchDrawsCmd, loadPendingBetsCmd, fetchUserDataCmd } from '../commands';
 import { fetchPromotionsCmd } from '../../promotion/commands';
 import { PROMOTION_MSG } from '../msg';
 import { logger } from '@/shared/utils/logger';
@@ -10,68 +10,38 @@ import { DashboardUser } from '../user.dto';
 
 const log = logger.withTag('DASHBOARD_AUTH_HANDLER');
 
-const triggerDailyPreparation = (model: Model): Return<Model, Msg> => {
-    // STATE MACHINE GUARD: Solo permitir preparación si estamos en IDLE
-    if (model.status.type !== 'IDLE') {
-        log.debug('triggerDailyPreparation skipped: Already in progress or ready', { currentStatus: model.status.type });
-        return singleton(model);
-    }
-
-    log.info('Triggering daily session preparation before load...');
-    return ret(
-        { ...model, status: { type: 'PREPARING_SESSION' } },
-        prepareDailySessionCmd()
-    );
-};
-
 const triggerInitialLoad = (model: Model): Return<Model, Msg> => {
-    // STATE MACHINE GUARD: Solo permitir carga si venimos de PREPARING_SESSION o ya estamos en LOADING_DATA
-    const canLoad = model.status.type === 'PREPARING_SESSION' || model.status.type === 'LOADING_DATA';
-
-    if (!canLoad && model.status.type !== 'IDLE') {
-        log.debug('triggerInitialLoad skipped: Invalid state transition', { currentStatus: model.status.type });
+    // STATE MACHINE GUARD: Solo permitir carga si estamos en LOADING_DATA
+    if (model.status.type !== 'LOADING_DATA') {
+        log.debug('triggerInitialLoad skipped: Must be in LOADING_DATA state', { currentStatus: model.status.type });
         return singleton(model);
     }
 
     // 1. Basic Requirement: We need a user structure.
     if (!model.userStructureId) {
-        console.log('[DEBUG] triggerInitialLoad: SALTADO - No userStructureId');
         log.debug('triggerInitialLoad skipped: No userStructureId');
         return singleton(model);
     }
 
     // 2. Data Status: Check if we need to fetch
-    const needsFetch = model.draws.type === 'NotAsked';
-    console.log('[DEBUG] triggerInitialLoad: needsFetch =', needsFetch);
-
-    log.debug('triggerInitialLoad check', {
-        userStructureId: model.userStructureId,
-        hasToken: !!model.authToken,
-        drawsType: model.draws.type,
-        needsFetch
-    });
+    const needsFetch = model.draws.type === 'NotAsked' || model.draws.type === 'Failure';
 
     if (!needsFetch) {
-        console.log('[DEBUG] triggerInitialLoad: SALTADO - No needsFetch');
         return singleton(model);
     }
 
     // 3. Ready to Fetch:
-    console.log('[DEBUG] triggerInitialLoad: PROCEDIENDO A FETCH - Structure ready');
-    log.info('Structure ready. Triggering initial fetch (parallel with token update).');
+    log.info('Ready for initial fetch.');
 
-    // Set to loading immediately to prevent duplicate fetches
-    const loadingModel: Model = {
+    // Set draws to loading
+    const finalModel: Model = {
         ...model,
-        status: { type: 'LOADING_DATA' },
         draws: RemoteData.loading()
     };
 
     return ret(
-        loadingModel,
+        finalModel,
         Cmd.batch([
-            // Update token in parallel to ensure freshness
-            updateAuthTokenCmd(),
             fetchDrawsCmd(model.userStructureId),
             loadPendingBetsCmd(),
             Cmd.map(PROMOTION_MSG, fetchPromotionsCmd())
@@ -81,33 +51,33 @@ const triggerInitialLoad = (model: Model): Return<Model, Msg> => {
 
 export const AuthHandler = {
     handleAuthUserSynced: (model: Model, user: DashboardUser | null): Return<Model, Msg> => {
-        console.log('[DEBUG] handleAuthUserSynced: INICIANDO con user =', user ? user.id : 'null');
-        console.log('[DEBUG] handleAuthUserSynced: user.structureId =', user?.structureId);
-        // We rely on the logic handler to decide if we need to reset data
         const nextModel = logicHandleAuthUserSynced(model, user);
-        console.log('[DEBUG] handleAuthUserSynced: nextModel.userStructureId =', nextModel.userStructureId);
 
-        if (!nextModel.userStructureId) {
-            console.log('[DEBUG] handleAuthUserSynced: RETORNANDO sin fetch - No userStructureId');
-            return singleton(nextModel);
+        // Si estamos en LOADING_DATA y acabamos de recibir el structureId, disparamos la carga
+        if (nextModel.status.type === 'LOADING_DATA' && nextModel.userStructureId) {
+            log.info('User data synced while in LOADING_DATA state. Triggering initial load.');
+            return triggerInitialLoad(nextModel);
         }
 
-        // If we need to fetch data, we first prepare the daily session
-        const needsFetch = nextModel.draws.type === 'NotAsked';
-        console.log('[DEBUG] handleAuthUserSynced: needsFetch =', needsFetch);
-        if (needsFetch) {
-            console.log('[DEBUG] handleAuthUserSynced: LLAMANDO triggerDailyPreparation');
-            return triggerDailyPreparation(nextModel);
-        }
-
-        console.log('[DEBUG] handleAuthUserSynced: LLAMANDO triggerInitialLoad');
-        return triggerInitialLoad(nextModel);
+        return singleton(nextModel);
     },
 
-    handleDailySessionPrepared: (model: Model, success: boolean): Return<Model, Msg> => {
-        console.log('[DEBUG] handleDailySessionPrepared: success =', success);
-        log.info('Daily session prepared, now triggering initial load', { success });
-        return triggerInitialLoad(model);
+    handleSystemReady: (model: Model, date: string): Return<Model, Msg> => {
+        log.info('SYSTEM_READY received from CoreModule. Context is guaranteed.', { date });
+
+        const loadingModel: Model = {
+            ...model,
+            status: { type: 'LOADING_DATA' }
+        };
+
+        // Si ya tenemos el ID, procedemos.
+        if (loadingModel.userStructureId) {
+            return triggerInitialLoad(loadingModel);
+        }
+
+        // Si no lo tenemos (lo normal tras el refactor SSOT), lo pedimos al repositorio
+        log.info('SYSTEM_READY: userStructureId missing in model. Fetching from AuthRepository...');
+        return ret(loadingModel, fetchUserDataCmd());
     },
 
     handleAuthTokenUpdated: (model: Model, token: string): Return<Model, Msg> => {
@@ -116,14 +86,12 @@ export const AuthHandler = {
             return singleton(model);
         }
 
-        if (model.authToken === token) {
-            // Even if token is same, we should check if load is pending
-            // (e.g. if structure arrived after token was set)
-            return triggerInitialLoad(model);
-        }
-
         const nextModel = { ...model, authToken: token };
-        return triggerInitialLoad(nextModel);
+
+        // Si estábamos esperando preparación de sesión, podemos continuar si ya tenemos el token
+        // Pero la regla es: esperar a MAINTENANCE_COMPLETED
+        log.info('Auth token updated, session preparation continues...');
+        return singleton(nextModel);
     },
 
     handleSetUserStructure: (model: Model, id: string): Return<Model, Msg> => {

@@ -11,13 +11,15 @@ export class ApiClientError extends Error {
   status: number;
   data: ApiClientErrorData;
   errorType: string;
+  userMessage?: string; // Mensaje traducido para el usuario
 
-  constructor(message: string, status: number, data: ApiClientErrorData) {
+  constructor(message: string, status: number, data: ApiClientErrorData, userMessage?: string) {
     super(message);
     this.name = 'ApiClientError';
     this.status = status;
     this.data = data;
     this.errorType = data.error_type || 'UnknownError';
+    this.userMessage = userMessage;
     Object.setPrototypeOf(this, ApiClientError.prototype);
   }
 }

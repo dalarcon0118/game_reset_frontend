@@ -15,46 +15,96 @@ export const TimePolicy = {
         return serverNow - clientNow;
     },
 
+    getMonotonicNow(): number | undefined {
+        const perf = globalThis.performance;
+        if (perf && typeof perf.now === 'function') {
+            return perf.now();
+        }
+        return undefined;
+    },
+
     createMetadata(params: {
         serverNow: number;
         clientNow: number;
         systemNow: number;
+        monotonicNow?: number;
     }): TimeMetadata {
         const offset = this.computeOffset(params.serverNow, params.clientNow);
         return {
             lastServerTime: params.serverNow,
             lastClientTime: params.clientNow,
             serverTimeOffset: offset,
-            lastSyncAt: params.systemNow
+            anchorMonotonicMs: params.monotonicNow,
+            lastSyncAt: params.systemNow,
+            lastKnownGoodServerTime: params.serverNow
         };
     },
 
     evaluateIntegrity(
         currentClient: number,
         metadata: TimeMetadata | null,
-        config: { maxJumpMs: number; maxBackwardMs: number }
+        config: { maxJumpMs: number; maxBackwardMs: number },
+        currentMonotonic?: number
     ): TimeIntegrityResult {
         if (!metadata) {
             return { status: 'ok', deltaMs: 0 };
         }
 
+        // 1. Cross-Session Backward Check (Last Known Good Time)
+        // Si el tiempo actual confiable (calculado) es menor que el último tiempo bueno conocido en disco,
+        // hay una manipulación de reloj entre sesiones o un borrado de caché selectivo.
+        if (metadata.lastKnownGoodServerTime) {
+            const currentTrustedServerTime = this.getTrustedNow(currentClient, metadata);
+            if (currentTrustedServerTime < metadata.lastKnownGoodServerTime - config.maxBackwardMs) {
+                return {
+                    status: 'backward',
+                    deltaMs: currentTrustedServerTime - metadata.lastKnownGoodServerTime,
+                    reason: `Cross-session manipulation detected: Current trusted time is behind Last Known Good Time`
+                };
+            }
+        }
+
+        // 2. Dual-Anchor Validation (Reloj Monotónico)
+        if (typeof metadata.anchorMonotonicMs === 'number' && typeof currentMonotonic === 'number') {
+            const elapsedHardware = currentMonotonic - metadata.anchorMonotonicMs;
+            const elapsedSystem = currentClient - metadata.lastClientTime;
+            const clockDrift = elapsedHardware - elapsedSystem;
+
+            if (clockDrift > config.maxBackwardMs) {
+                return {
+                    status: 'backward',
+                    deltaMs: -clockDrift,
+                    reason: `System clock manipulated backwards by ${Math.round(clockDrift)}ms relative to hardware clock`
+                };
+            }
+
+            if (clockDrift < -config.maxJumpMs) {
+                return {
+                    status: 'jump',
+                    deltaMs: Math.abs(clockDrift),
+                    reason: `System clock jumped forward by ${Math.round(Math.abs(clockDrift))}ms relative to hardware clock`
+                };
+            }
+
+            return { status: 'ok', deltaMs: elapsedHardware };
+        }
+
+        // 2. Fallback: Validación Legacy (Reloj de Pared)
         const elapsedSinceSync = currentClient - metadata.lastClientTime;
 
-        // 1. Detección de Retroceso (Fraude)
         if (elapsedSinceSync < -config.maxBackwardMs) {
             return {
                 status: 'backward',
                 deltaMs: elapsedSinceSync,
-                reason: `Clock manipulated backwards by ${Math.abs(elapsedSinceSync)}ms since last sync`
+                reason: `Legacy check: Clock manipulated backwards by ${Math.abs(elapsedSinceSync)}ms`
             };
         }
 
-        // 2. Detección de Salto (Fraude)
         if (elapsedSinceSync > config.maxJumpMs) {
             return {
                 status: 'jump',
                 deltaMs: elapsedSinceSync,
-                reason: `Unexpected clock jump of ${elapsedSinceSync}ms since last sync`
+                reason: `Legacy check: Unexpected clock jump of ${elapsedSinceSync}ms (No hardware anchor)`
             };
         }
 
@@ -103,7 +153,8 @@ export const update = (msg: Msg, model: TimeModel): Return<TimeModel, Msg> => {
             const nextMetadata = TimePolicy.createMetadata({
                 serverNow,
                 clientNow,
-                systemNow
+                systemNow,
+                monotonicNow: TimePolicy.getMonotonicNow()
             });
 
             return ret(
@@ -130,10 +181,41 @@ export const update = (msg: Msg, model: TimeModel): Return<TimeModel, Msg> => {
 
             if (model.metadata.type === 'Success') {
                 const metadata = model.metadata.data;
-                const result = TimePolicy.evaluateIntegrity(clientNow, metadata, {
-                    maxJumpMs: settings.timeIntegrity.maxJumpMs,
-                    maxBackwardMs: settings.timeIntegrity.maxBackwardMs
-                });
+                const result = TimePolicy.evaluateIntegrity(
+                    clientNow,
+                    metadata,
+                    {
+                        maxJumpMs: settings.timeIntegrity.maxJumpMs,
+                        maxBackwardMs: settings.timeIntegrity.maxBackwardMs
+                    },
+                    TimePolicy.getMonotonicNow()
+                );
+
+                // Si la integridad es OK, actualizamos el Last Known Good Time en el modelo y persistimos
+                if (result.status === 'ok') {
+                    const trustedNow = TimePolicy.getTrustedNow(clientNow, metadata);
+                    const nextMetadata: TimeMetadata = {
+                        ...metadata,
+                        lastKnownGoodServerTime: Math.max(metadata.lastKnownGoodServerTime || 0, trustedNow)
+                    };
+
+                    return ret(
+                        {
+                            ...model,
+                            status: 'ok',
+                            metadata: RemoteData.success<string, TimeMetadata>(nextMetadata)
+                        },
+                        Cmd.batch([
+                            Cmd.ofMsg(Msg.integrityValidated(result)),
+                            Cmd.task({
+                                task: () => TimeStorage.setMetadata(nextMetadata),
+                                onSuccess: () => Msg.metadataSaved(),
+                                onFailure: (err) => Msg.errorOccurred(String(err)),
+                                label: 'UpdateLastKnownGoodTime'
+                            })
+                        ])
+                    );
+                }
 
                 return ret(
                     { ...model, status: result.status },
