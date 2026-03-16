@@ -2,21 +2,19 @@ import React, { useEffect, useCallback, useMemo } from 'react';
 import { usePathname, useRouter, useNavigationContainerRef } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useAuthV1 } from '../features/auth/v1';
-import { AuthStatus } from '../shared/auth/v1/model';
-import { useNotificationStore, selectNotificationDispatch } from '../features/notification/core/store';
-import { FETCH_NOTIFICATIONS_REQUESTED } from '../features/notification/core/msg';
+import { CoreModule } from '../core/core_module';
+
 import { navigationRef } from '../shared/navigation/navigation_service';
 import { logger } from '../shared/utils/logger';
 import { Button } from '@ui-kitten/components';
 import { ArrowLeft } from "lucide-react-native";
-import { RoleNavigationPolicy } from '../core/core_module/policies/role_navigation.policy';
 
 // Rutas públicas que no requieren autenticación
 const PUBLIC_ROUTES = ['/login', '/register', '/forgot-password', '(auth)/login'];
 
 export function useAuthNavigation() {
-  const { isAuthenticated, status, user, logout } = useAuthV1();
-  const isLoading = status === AuthStatus.BOOTSTRAPPING || status === AuthStatus.REFRESHING;
+  const { isAuthenticated, status, user, logout, isLoading } = useAuthV1();
+  const navigationPolicy = CoreModule.useStore(state => state.model.navigationPolicy);
   const pathname = usePathname();
   const router = useRouter();
   ////const notificationDispatch = useNotificationStore(selectNotificationDispatch);
@@ -48,20 +46,15 @@ export function useAuthNavigation() {
 
     // NEW: Block navigation during session hydration to prevent race conditions
     // The coordinator might be verifying the token; don't redirect yet.
-    if (!isAuthenticated && !user && !isLoading) {
-      // Check if we are in the middle of a hydration process in the store
-      // We check isLoading as a proxy for HYDRATING in the base case,
-      // but if the store is in a specific HYDRATING status, we should wait.
-      if (isLoading) {
-        logger.debug('Skipping navigation - session is hydrating', 'RootLayout');
-        return;
-      }
+    if (!isAuthenticated && !user && isLoading) {
+      logger.debug('Skipping navigation - session is hydrating/loading', 'RootLayout');
+      return;
     }
 
     const isPublicRoute = PUBLIC_ROUTES.some(route => pathname?.includes(route.replace('/', '')));
     const isRoot = pathname === '/' || pathname === '/index';
 
-    if (isAuthenticated && user) {
+    if (isAuthenticated && user && navigationPolicy) {
       // User is authenticated
       
       // Initialize notifications
@@ -70,7 +63,7 @@ export function useAuthNavigation() {
       // Redirect to dashboard if on public/login pages or root
       if (isPublicRoute || isRoot) {
         // Decide where the user should go based on role policy
-        const targetPath = RoleNavigationPolicy.getHomeRoute(user);
+        const targetPath = navigationPolicy.getHomeRoute(user);
         
         if (targetPath) {
           logger.info(`Redirecting authenticated user to dashboard: ${targetPath}`, 'RootLayout');
@@ -79,8 +72,8 @@ export function useAuthNavigation() {
       } else {
         // Enforce role-based access control for protected routes
         // If the user tries to access a route not allowed for their role, redirect home
-        if (!RoleNavigationPolicy.canAccess(user, pathname)) {
-          const targetPath = RoleNavigationPolicy.getHomeRoute(user);
+        if (!navigationPolicy.canAccess(user, pathname)) {
+          const targetPath = navigationPolicy.getHomeRoute(user);
           logger.warn(`Access denied for user ${user.role} to ${pathname}. Redirecting to ${targetPath}`, 'RootLayout');
           router.replace(targetPath as any);
         }
@@ -94,21 +87,21 @@ export function useAuthNavigation() {
          router.replace('/login');
       }
     }
-  }, [isLoading, isAuthenticated, user, pathname, router]);
+  }, [isLoading, isAuthenticated, user, pathname, router, navigationPolicy]);
 
   // 4. Back Button Handler
   const handleBackPress = useCallback(() => {
     logger.debug('Back button pressed', 'RootLayout', { pathname });
     
     // Check if there is a specific back strategy for this route/user
-    const customBackPath = RoleNavigationPolicy.getBackPath(user, pathname);
+    const customBackPath = navigationPolicy?.getBackPath(user, pathname);
     
     if (customBackPath) {
       router.push(customBackPath as any);
     } else {
       router.back();
     }
-  }, [pathname, router, user]);
+  }, [pathname, router, user, navigationPolicy]);
 
   const BackButton = useMemo(() => {
     return (

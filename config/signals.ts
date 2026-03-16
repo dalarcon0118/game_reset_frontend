@@ -5,6 +5,7 @@ import { createMsg } from '@core/tea-utils';
  * Se utilizan vía Cmd.sendMsg y Sub.receiveMsg.
  */
 export const GLOBAL_LOGOUT = createMsg<'LOGOUT'>('LOGOUT');
+export const GLOBAL_LOGIN = createMsg<'LOGIN', { username: string; pin: string }>('LOGIN');
 export const DASHBOARD_FILTER_CHANGED = createMsg<'DASHBOARD_FILTER_CHANGED', string>('DASHBOARD_FILTER_CHANGED');
 export const SYSTEM_READY = createMsg<'SYSTEM_READY', { date: string }>('SYSTEM_READY');
 
@@ -12,6 +13,7 @@ export const GLOBAL = createMsg<'GLOBAL', typeof GLOBAL_LOGOUT._type>('GLOBAL');
 
 export const GlobalSignals = {
     LOGOUT: GLOBAL_LOGOUT,
+    LOGIN: GLOBAL_LOGIN,
     DASHBOARD_FILTER_CHANGED,
     SYSTEM_READY,
 } as const;

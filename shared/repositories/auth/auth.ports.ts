@@ -46,4 +46,5 @@ export interface IAuthStorage {
     saveLastUsername(username: string): Promise<void>;
     getLastUsername(): Promise<string | null>;
     getUserProfile(): Promise<User | null>;
+    getOfflineProfile(): Promise<User | null>;
 }

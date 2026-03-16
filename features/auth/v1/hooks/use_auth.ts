@@ -1,11 +1,8 @@
 import { AuthModuleV1 } from '../adapters/auth_provider';
 import { AuthStatus } from '@/shared/auth/v1/model';
 import {
-    HYDRATE_LOGIN_CONTEXT_REQUESTED,
     LOGIN_REQUESTED,
-    LOGOUT_REQUESTED,
-    LOGIN_USERNAME_UPDATED,
-    LOGIN_PIN_UPDATED
+    LOGOUT_REQUESTED
 } from '@/shared/auth/v1/msg';
 
 /**
@@ -26,15 +23,10 @@ export const useAuthV1 = () => {
         isLoading: model.status === AuthStatus.AUTHENTICATING || model.status === AuthStatus.REFRESHING || model.status === AuthStatus.BOOTSTRAPPING,
         isOffline: model.isOffline,
         error: model.error,
-        loginSession: model.loginSession,
 
         // Acciones
-        hydrateLoginContext: () => dispatch(HYDRATE_LOGIN_CONTEXT_REQUESTED()),
         login: (username: string, pin: string) => dispatch(LOGIN_REQUESTED({ username, pin })),
         logout: () => dispatch(LOGOUT_REQUESTED()),
-
-        updateUsername: (username: string) => dispatch(LOGIN_USERNAME_UPDATED({ username })),
-        updatePin: (pin: string) => dispatch(LOGIN_PIN_UPDATED({ pin })),
 
         // Utilidades de autorización
         hasRole: (role: string): boolean => model.user?.role === role,

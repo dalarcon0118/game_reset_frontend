@@ -31,9 +31,13 @@ export const updateList = (model: BolitaModel, msg: ListMsg): Return<BolitaModel
             );
         })
         .with({ type: ListMsgType.FETCH_BETS_RECEIVED }, ({ webData }) => {
+            const summary = webData.type === 'Success'
+                ? BolitaImpl.calculation.calculateSummary(webData.data)
+                : model.listState.summary;
+
             return singleton({
                 ...model,
-                listState: { ...model.listState, remoteData: webData }
+                listState: { ...model.listState, remoteData: webData, summary }
             });
         })
         .with({ type: ListMsgType.REFRESH_BETS_REQUESTED }, ({ drawId }) => {
@@ -60,9 +64,13 @@ export const updateList = (model: BolitaModel, msg: ListMsg): Return<BolitaModel
             );
         })
         .with({ type: ListMsgType.REFRESH_BETS_RECEIVED }, ({ webData }) => {
+            const summary = webData.type === 'Success'
+                ? BolitaImpl.calculation.calculateSummary(webData.data)
+                : model.listState.summary;
+
             return singleton({
                 ...model,
-                listState: { ...model.listState, remoteData: webData, isRefreshing: false }
+                listState: { ...model.listState, remoteData: webData, summary, isRefreshing: false }
             });
         })
         .otherwise(() => singleton(model));

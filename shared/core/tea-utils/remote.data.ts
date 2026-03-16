@@ -93,8 +93,10 @@ const remoteDataHelpers = {
             failure: (err: E) => R;
             success: (data: A) => R;
         },
-        rd: RemoteData<E, A>
+        rd: RemoteData<E, A> | null | undefined
     ): R => {
+        if (!rd) return matchers.notAsked();
+
         switch (rd.type) {
             case 'NotAsked': return matchers.notAsked();
             case 'Loading': return matchers.loading();

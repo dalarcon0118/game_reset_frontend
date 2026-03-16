@@ -1,5 +1,6 @@
 import { AppRoots } from '../../../config/routes';
 import { UserRole } from '../../../data/mock_data';
+import { NavigationPolicy } from '../../../shared/navigation/navigation_policy.types';
 
 /**
  * RoleNavigationPolicy
@@ -7,7 +8,7 @@ import { UserRole } from '../../../data/mock_data';
  * Centraliza la lógica de navegación basada en roles.
  * Define a qué ruta debe ir cada usuario y valida si tiene permiso para acceder a una ruta.
  */
-export const RoleNavigationPolicy = {
+export const RoleNavigationPolicy: NavigationPolicy = {
   /**
    * Retorna la ruta inicial (Home) para un usuario basado en su rol.
    */

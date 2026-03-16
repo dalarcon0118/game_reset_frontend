@@ -26,5 +26,11 @@ export type CoreMsg =
   /** El contexto de usuario (perfil, estructura) está listo y verificado */
   | { type: 'SESSION_CONTEXT_READY' }
 
+  /** Acción sin efecto (usada para Cmd.task que no necesitan respuesta) */
+  | { type: 'NO_OP' }
+
+  /** Configuración de API handlers finalizada */
+  | { type: 'API_HANDLERS_READY' }
+
   /** Trigger para reintento de inicialización */
   | { type: 'RETRY_BOOTSTRAP' };

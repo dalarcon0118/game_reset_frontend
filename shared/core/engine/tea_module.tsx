@@ -17,10 +17,11 @@ export interface TeaModuleDef<TModel, TMsg> extends ElmStoreConfig<TModel, TMsg>
  */
 export interface TeaModuleInstance<TModel, TMsg> {
     name: string;
-    Provider: React.FC<{ children: ReactNode }>;
+    Provider: React.FC<{ children: ReactNode; initialParams?: any }>;
     useStore: <T = { model: TModel; dispatch: (msg: TMsg) => void }>(
         selector?: (state: { model: TModel; dispatch: (msg: TMsg) => void }) => T
     ) => T;
+    useStoreApi: () => UseBoundStore<StoreApi<{ model: TModel; dispatch: (msg: TMsg) => void }>>;
     useDispatch: () => (msg: TMsg) => void;
     definition: TeaModuleDef<TModel, TMsg>;
 }
@@ -45,13 +46,21 @@ export function createTEAModule<TModel, TMsg>(
 ): TeaModuleInstance<TModel, TMsg> {
     const Context = createContext<UseBoundStore<StoreApi<{ model: TModel; dispatch: (msg: TMsg) => void }>> | null>(null);
 
-    const Provider: React.FC<{ children: ReactNode }> = ({ children }) => {
+    const Provider: React.FC<{ children: ReactNode; initialParams?: any }> = ({ children, initialParams }) => {
         // The store is created ONLY when the Provider is mounted.
-        const store = useMemo(() => createElmStore(def), []);
+        // We register it IMMEDIATELY in useMemo to avoid race conditions (Sync Registration - Layer 1)
+        const store = useMemo(() => {
+            const s = createElmStore(def);
+            // Si hay initialParams, los pasamos al init del store
+            if (initialParams !== undefined) {
+                s.getState().init(initialParams);
+            }
+            storeRegistry.register(def.name, s);
+            return s;
+        }, [initialParams]);
 
-        // Registro y desregistro automático del store en el StoreRegistry
+        // Cleanup only (registration is now sync in useMemo)
         useEffect(() => {
-            storeRegistry.register(def.name, store);
             return () => {
                 store.getState().cleanup?.();
                 storeRegistry.unregister(def.name);
@@ -75,12 +84,24 @@ export function createTEAModule<TModel, TMsg>(
         return store(selector as any) as T;
     };
 
+    const useStoreApi = () => {
+        const store = useContext(Context);
+        if (!store) {
+            throw new Error(
+                `TEA Architecture Violation: ${def.name}Store.useStoreApi accessed without its Provider. ` +
+                `Wrap your component tree with <${def.name}Module.Provider />.`
+            );
+        }
+        return store as any;
+    };
+
     const useDispatch = () => useStore(s => s.dispatch);
 
     return {
         name: def.name,
         Provider,
         useStore,
+        useStoreApi,
         useDispatch,
         definition: def
     };

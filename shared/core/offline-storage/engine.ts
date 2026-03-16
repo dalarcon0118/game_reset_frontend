@@ -92,6 +92,13 @@ export class OfflineStorageCore {
 
     if (!envelope) return null;
 
+    // Si no tiene metadatos, asumimos que es un formato antiguo o inválido
+    if (!envelope.metadata) {
+      log.warn(`Key ${key} has no metadata, returning as raw data if possible`, { envelope });
+      // Si parece que los datos están en el nivel superior, los devolvemos
+      return (envelope as any).data || envelope as unknown as T;
+    }
+
     // Validar expiración
     if (envelope.metadata.expiresAt && envelope.metadata.expiresAt < this.ports.clock.now()) {
       log.info(`Key ${key} expired, removing...`);

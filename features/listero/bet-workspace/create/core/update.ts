@@ -4,7 +4,7 @@ import { GameTypeCodes } from '@/constants/bet';
 import { Return, singleton, ret, RemoteData, Cmd } from '@core/tea-utils';
 import { DrawService } from '@/shared/services/draw';
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
-import { BetRegistry } from '../../core/registry';
+import { GameRegistry } from '@/shared/core/registry/game_registry';
 import { BetMapper, BetPlacementCandidate } from '@/shared/repositories/bet/bet.mapper';
 import { normalizeBetType, normalizeBetTypeId, normalizeNumbers, normalizeOwnerStructure } from '@/shared/types/bet_types';
 
@@ -28,14 +28,12 @@ export const initCreate = <M extends CreateContextModel>(model: M): Return<M, Cr
 // Helper functions for business logic
 export const getMaxLength = (gameTypeCode: GameTypeCodes | string | null): number => {
     if (!gameTypeCode) return 2;
-    const feature = BetRegistry.getFeatureForType(gameTypeCode);
-    return feature ? feature.getMaxLength(gameTypeCode) : 2;
+    return GameRegistry.getMaxLength(gameTypeCode);
 };
 
 export const isValidBetNumbers = (numbers: string, gameTypeCode: GameTypeCodes | string | null): boolean => {
     if (!numbers || !gameTypeCode) return false;
-    const feature = BetRegistry.getFeatureForType(gameTypeCode);
-    return feature ? feature.isValidInput(numbers, gameTypeCode) : false;
+    return GameRegistry.isValidInput(numbers, gameTypeCode);
 };
 
 const clearSessionData = (createSession: CreateModel): CreateModel => ({

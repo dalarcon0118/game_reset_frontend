@@ -9,7 +9,10 @@ const log = logger.withTag('BOLITA_AMOUNT_HELPERS');
  */
 export const updateSummary = (model: BolitaModel): BolitaModel => ({
     ...model,
-    summary: BolitaImpl.calculation.calculateSummary(model)
+    summary: {
+        ...model.summary,
+        ...BolitaImpl.calculation.calculateSummary(model.entrySession)
+    }
 });
 
 /**

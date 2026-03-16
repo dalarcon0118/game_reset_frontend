@@ -6,6 +6,7 @@ import { fetchDrawsCmd, loadPendingBetsCmd } from '../commands';
 import { match, P } from 'ts-pattern';
 import { DrawType, BetType } from '@/types';
 import { logger } from '@/shared/utils/logger';
+import { GameRegistry } from '@/shared/core/registry/game_registry';
 
 const log = logger.withTag('DASHBOARD_DATA_HANDLER');
 
@@ -95,6 +96,9 @@ export const DataHandler = {
             )
             // 2. Success Case: Update draws and recalculate derived state
             .with({ type: 'Success', data: P.select() }, (data) => {
+                // Sincronizar el registro de juegos con los datos recibidos del backend
+                GameRegistry.syncWithBackend(data);
+
                 const { filteredDraws, dailyTotals } = recalculateDashboardState(
                     data,
                     null, // No external summary needed
@@ -151,13 +155,13 @@ export const DataHandler = {
 
     handleDailySessionPrepared: (model: Model, success: boolean): Return<Model, Msg> => {
         log.info('Daily session preparation completed', { success });
-        
+
         // Si el mantenimiento fue exitoso, forzamos la carga de datos frescos
         if (success && model.userStructureId) {
             log.info('Triggering fresh data fetch after maintenance');
             return DataHandler.handleFetchDataRequested(model, model.userStructureId);
         }
-        
+
         return singleton(model);
     },
 

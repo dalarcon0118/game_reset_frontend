@@ -12,11 +12,11 @@ import { Label } from '@/shared/components';
 import Header from '../views/header';
 import { useDashboardStore, useListeroDashboardStoreApi } from '../store';
 import { REFRESH_CLICKED, PROMOTION_MSG } from '../core/msg';
-import { CLOSE_PROMOTIONS_MODAL } from '../promotion/msg';
+import { CLOSE_PROMOTIONS_MODAL, PARTICIPATE_CLICKED } from '../../../../shared/components/promotion/msg';
 import { Slot } from '@core/plugins';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDashboardLifecycle } from '../core/lifecycle';
-import { PromotionModal } from '../promotion/PromotionModal';
+import { PromotionModal } from '../../../../shared/components/promotion/PromotionModal';
 
 export default function DashboardScreen() {
     
@@ -96,6 +96,7 @@ export default function DashboardScreen() {
                 isVisible={model.promotion.showPromotionsModal}
                 promotions={model.promotion.promotions}
                 onClose={() => dispatch(PROMOTION_MSG(CLOSE_PROMOTIONS_MODAL()))}
+                onParticipate={(promotion) => dispatch(PROMOTION_MSG(PARTICIPATE_CLICKED(promotion)))}
             />
         </SafeAreaView>
     );

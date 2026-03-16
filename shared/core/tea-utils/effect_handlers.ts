@@ -77,5 +77,12 @@ export const effectHandlers = new Proxy(
                 }
             };
         },
+        ownKeys: (_) => {
+            return ['MSG', 'HTTP', 'TASK', 'NAVIGATE', 'ALERT'];
+        },
+        getOwnPropertyDescriptor: (_, prop) => ({
+            enumerable: true,
+            configurable: true,
+        }),
     }
 );

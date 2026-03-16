@@ -1,5 +1,6 @@
-import { RemoteData } from '@core/tea-utils';
+import { RemoteData, Cmd } from '@core/tea-utils';
 import { FinancialSummary, SummaryPluginContext } from './domain/models';
+import { Msg } from './msg';
 
 export interface DailyTotals {
   totalCollected: number;
@@ -19,18 +20,23 @@ export interface Model {
   contextError: string | null;
 }
 
-export const initialModel: Model = {
-  financialSummary: RemoteData.notAsked(),
-  dailyTotals: {
-    totalCollected: 0,
-    premiumsPaid: 0,
-    netResult: 0,
-    estimatedCommission: 0,
-    amountToRemit: 0
-  },
-  showBalance: true,
-  commissionRate: 0.1,
-  structureId: '1',
-  context: null,
-  contextError: null
+export const initialModel = (): [Model, Cmd] => {
+  return [
+    {
+      financialSummary: RemoteData.notAsked(),
+      dailyTotals: {
+        totalCollected: 0,
+        premiumsPaid: 0,
+        netResult: 0,
+        estimatedCommission: 0,
+        amountToRemit: 0
+      },
+      showBalance: true,
+      commissionRate: 0.1,
+      structureId: '1',
+      context: null,
+      contextError: null
+    },
+    Cmd.none
+  ];
 };

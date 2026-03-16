@@ -153,4 +153,21 @@ export interface LoteriaBet {
   drawid?: string | number;
 }
 
+export interface ListData {
+  fijosCorridos: FijosCorridosBet[];
+  parlets: ParletBet[];
+  centenas: CentenaBet[];
+  loteria: LoteriaBet[];
+}
+
+export interface BetSummary {
+  loteriaTotal: number;
+  parletsTotal: number;
+  centenasTotal: number;
+  grandTotal: number;
+  hasBets: boolean;
+  isSaving: boolean;
+  count: number;
+}
+
 export * from "./rules"

@@ -17,18 +17,12 @@ export enum AuthStatus {
     LOGGING_OUT = 'LOGGING_OUT',
 }
 
-export interface LoginSession {
-    username: string;
-    pin: string;
-}
-
 export interface AuthModel {
     status: AuthStatus;
     user: User | null;
     tokens: Tokens | null;
     error: string | null;
     isOffline: boolean;
-    loginSession: LoginSession;
 }
 
 export const initialModel: AuthModel = {
@@ -37,8 +31,4 @@ export const initialModel: AuthModel = {
     tokens: null,
     error: null,
     isOffline: false,
-    loginSession: {
-        username: '',
-        pin: '',
-    },
 };

@@ -1,6 +1,7 @@
 import { Result, ok, err } from 'neverthrow';
 import { BetPlacementInput } from './bet.types';
-import { normalizeBetType, normalizeBetTypeId, normalizeNumbers, normalizeOwnerStructure as normalizeOwnerStructureFn, BET_TYPE_ID_MAP } from '@/shared/types/bet_types';
+import { normalizeBetType, normalizeNumbers, normalizeOwnerStructure as normalizeOwnerStructureFn } from '@/shared/types/bet_types';
+import { GameRegistry } from '../../core/registry/game_registry';
 
 /**
  * Interfaz para candidato de apuesta durante la creación.
@@ -44,22 +45,20 @@ const normalizeOwnerStructure = (
  * Infiere el nombre del tipo de apuesta basándose en el betTypeId.
  * Si el candidate ya tiene un type definido, lo normaliza.
  * 
- * Usa el mapeo centralizado de bet_types.ts
+ * Usa GameRegistry para mapear el comportamiento.
  */
 const inferBetType = (candidate: BetPlacementCandidate): string => {
-    // PRIORIDAD 1: Si ya tiene type, normalizarlo
+    // PRIORIDAD 1: Si ya tiene type (ej: 'FIJO', 'PARLET'), usarlo directamente
     if (candidate.type) {
+        const typeStr = candidate.type.toUpperCase();
+        const strategy = GameRegistry.getStrategyByBetCode(typeStr);
+        if (strategy) {
+            return strategy.label;
+        }
         return normalizeBetType(candidate.type);
     }
 
-    // PRIORIDAD 2: Inferir desde betTypeId usando mapeo centralizado
-    const betTypeIdStr = String(candidate.betTypeId || '');
-    const mappedType = BET_TYPE_ID_MAP[betTypeIdStr];
-    if (mappedType) {
-        return mappedType;
-    }
-
-    // Default a Fijo
+    // PRIORIDAD 2: Si no tiene type, normalizarlo (fallback legacy)
     return 'Fijo';
 };
 
@@ -67,7 +66,7 @@ const inferBetType = (candidate: BetPlacementCandidate): string => {
  * Infiere el betTypeId canonical (string del ID del backend)
  */
 const inferBetTypeId = (candidate: BetPlacementCandidate): string => {
-    return normalizeBetTypeId(candidate.betTypeId);
+    return String(candidate.betTypeId || '');
 };
 
 export const BetMapper = {

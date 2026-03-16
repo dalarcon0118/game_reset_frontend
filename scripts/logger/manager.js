@@ -11,15 +11,31 @@ const { LogProcessor } = require('./processor');
 const rotator = require('./rotator');
 
 class LogManager {
-  constructor(logStream, logDir, logFile) {
-    this.logStream = logStream;
+  constructor(logDir) {
     this.logDir = logDir;
-    this.logFile = logFile;
     this.processor = new LogProcessor();
     this.buffer = ''; // Accumulator for log lines
     this.viewStreams = new Map(); // Map of viewName -> writeStream
+    this.layerStreams = new Map(); // Map of layerName -> writeStream
+    this.aiDigestStream = null; // Stream for structured AI context
+    this.contextBuffer = []; // Last 5 relevant lines (domain/msg)
     this.currentView = 'BOOT';
     this.previousView = null;
+
+    this.initLayerStreams();
+    this.initAIDigestStream();
+  }
+
+  initLayerStreams() {
+    ['errors', 'infra', 'domain', 'boot'].forEach(layer => {
+      const filePath = path.join(this.logDir, `${layer}.log`);
+      this.layerStreams.set(layer, rotator.createLogStream(filePath));
+    });
+  }
+
+  initAIDigestStream() {
+    const filePath = path.join(this.logDir, 'ai_digest.jsonl');
+    this.aiDigestStream = rotator.createLogStream(filePath);
   }
 
   /**
@@ -28,6 +44,7 @@ class LogManager {
    */
   getViewFilename(viewName) {
     if (!viewName || viewName === 'BOOT') return 'boot.log';
+    if (viewName === '/') return 'root.log';
 
     // Si es una ruta completa (empieza por /)
     if (viewName.includes('/')) {
@@ -51,7 +68,12 @@ class LogManager {
       'DASHBOARD': 'lister.dashboard.log',
       'TABS': 'lister.main.log'
     };
-    return nameMap[viewName] || `view_${viewName.toLowerCase()}.log`;
+
+    if (nameMap[viewName]) return nameMap[viewName];
+
+    // Sanitizar cualquier otro nombre para evitar caracteres de ruta
+    const sanitized = viewName.replace(/[\/\\]/g, '_').toLowerCase();
+    return `view_${sanitized}.log`;
   }
 
   /**
@@ -131,18 +153,21 @@ class LogManager {
         console.log('\n[Manager] "Reloading apps" detected. Clearing logs directory...');
         try {
           // 1. Close current streams
-          this.logStream.end();
           this.viewStreams.forEach(stream => stream.end());
           this.viewStreams.clear();
+          this.layerStreams.forEach(stream => stream.end());
+          this.layerStreams.clear();
+          if (this.aiDigestStream) this.aiDigestStream.end();
           
           // 2. Clear directory
           rotator.clearDirectory(this.logDir);
           
-          // 3. Re-initiate main stream
-          this.logStream = rotator.createLogStream(this.logFile);
+          // 3. Re-initiate streams
+          this.initLayerStreams();
+          this.initAIDigestStream();
           this.currentView = 'BOOT';
           this.processor.currentView = null;
-          console.log('[Manager] Log stream restarted successfully.');
+          console.log('[Manager] Log streams restarted successfully.');
         } catch (e) {
           console.error(`[Manager] Error during log reset: ${e.message}`);
         }
@@ -173,32 +198,51 @@ class LogManager {
             }
           }
 
-          const wasDumping = this.processor.isDumping;
           const processedLine = this.processor.process(cleanLine);
           const isDumping = this.processor.isDumping;
 
           if (processedLine) {
-            // Write to main log
-            this.logStream.write(processedLine + '\n');
-
-            // 4. Handle view-specific logs
-            if (this.processor.currentView) {
-              this.switchViewStream(this.processor.currentView);
-            } else if (this.currentView === 'BOOT') {
-              this.switchViewStream('BOOT');
-            }
-
-            const currentViewStream = this.viewStreams.get(this.currentView);
-            if (currentViewStream) {
-              currentViewStream.write(processedLine + '\n');
-            }
-
-            // Handle offline storage dump to offline.log
-            if ((wasDumping || isDumping) && this.logDir) {
-              const offlineLogPath = path.join(this.logDir, 'offline.log');
-              fs.appendFileSync(offlineLogPath, processedLine + '\n');
-            }
+          // 1. Write to Layer Log (Classification)
+          const layer = this.processor.currentLayer || 'boot';
+          const layerStream = this.layerStreams.get(layer);
+          if (layerStream) {
+            layerStream.write(processedLine + '\n');
           }
+
+          // 2. AI Digest & Context Management
+          if (layer === 'domain' || cleanLine.includes('MSG:')) {
+            this.contextBuffer.push(cleanLine);
+            if (this.contextBuffer.length > 5) this.contextBuffer.shift();
+          }
+
+          if (layer === 'errors') {
+            const digest = {
+              ts: new Date().toISOString(),
+              error: cleanLine,
+              view: this.currentView,
+              context: this.contextBuffer
+            };
+            this.aiDigestStream.write(JSON.stringify(digest) + '\n');
+          }
+
+          // 3. Handle view-specific logs (Classification by navigation)
+          if (this.processor.currentView) {
+            this.switchViewStream(this.processor.currentView);
+          } else if (this.currentView === 'BOOT') {
+            this.switchViewStream('BOOT');
+          }
+
+          const currentViewStream = this.viewStreams.get(this.currentView);
+          if (currentViewStream) {
+            currentViewStream.write(processedLine + '\n');
+          }
+
+          // 4. Handle offline storage dump to offline.log
+          if (isDumping && this.logDir) {
+            const offlineLogPath = path.join(this.logDir, 'offline.log');
+            fs.appendFileSync(offlineLogPath, processedLine + '\n');
+          }
+        }
         }
       }
     };
@@ -220,8 +264,43 @@ class LogManager {
           const isDumping = this.processor.isDumping;
 
           if (processedLine) {
-            this.logStream.write(processedLine + '\n');
-            if ((wasDumping || isDumping) && this.logDir) {
+            // 1. Write to Layer Log (Classification)
+            const layer = this.processor.currentLayer || 'boot';
+            const layerStream = this.layerStreams.get(layer);
+            if (layerStream) {
+              layerStream.write(processedLine + '\n');
+            }
+
+            // 2. AI Digest & Context Management
+            if (layer === 'domain' || cleanLine.includes('MSG:')) {
+              this.contextBuffer.push(cleanLine);
+              if (this.contextBuffer.length > 5) this.contextBuffer.shift();
+            }
+
+            if (layer === 'errors') {
+              const digest = {
+                ts: new Date().toISOString(),
+                error: cleanLine,
+                view: this.currentView,
+                context: this.contextBuffer
+              };
+              this.aiDigestStream.write(JSON.stringify(digest) + '\n');
+            }
+
+            // 3. Handle view-specific logs (Classification by navigation)
+            if (this.processor.currentView) {
+              this.switchViewStream(this.processor.currentView);
+            } else if (this.currentView === 'BOOT') {
+              this.switchViewStream('BOOT');
+            }
+
+            const currentViewStream = this.viewStreams.get(this.currentView);
+            if (currentViewStream) {
+              currentViewStream.write(processedLine + '\n');
+            }
+
+            // 4. Handle offline storage dump to offline.log
+            if (isDumping && this.logDir) {
               const offlineLogPath = path.join(this.logDir, 'offline.log');
               fs.appendFileSync(offlineLogPath, processedLine + '\n');
             }
@@ -230,7 +309,11 @@ class LogManager {
       }
       
       const flushMsg = this.processor.flush();
-      if (flushMsg) this.logStream.write(flushMsg);
+      if (flushMsg) {
+        const layer = this.processor.currentLayer || 'boot';
+        const layerStream = this.layerStreams.get(layer);
+        if (layerStream) layerStream.write(flushMsg);
+      }
       
       console.log(`[Manager] Process exited with code ${code}`);
       process.exit(code);

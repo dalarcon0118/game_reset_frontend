@@ -13,28 +13,29 @@
 
 import { logger } from '@/shared/utils/logger';
 
+import { GameRegistry } from '../core/registry/game_registry';
+
 const log = logger.withTag('BET_TYPES');
 
 /**
  * Mapeo canónico de IDs del backend a tipos de apuesta.
- * Estos IDs vienen del campo bet_type en el backend.
+ * @deprecated 🛑 SSOT VIOLATION: Se debe migrar al uso de GameRegistry.getCategoryByBetCode(code).
+ * Este mapa es estático y no refleja cambios en el backend sin una actualización de la App.
  */
 export const BET_TYPE_ID_MAP: Record<string, BetTypeKind> = {
-    // Lotería IDs
     '10': 'Lotería',
     '13': 'Lotería',
-    // Bolita IDs
     '1': 'Fijo',
     '2': 'Corrido',
     '3': 'Parlet',
     '4': 'Centena',
-    // Cuaterna / Semanales
     '5': 'Cuaterna Semanal',
     '6': 'Quiniela',
 };
 
 /**
  * Mapeo inverso: tipo -> ID del backend (para guardado)
+ * @deprecated 🛑 SSOT VIOLATION: Se debe migrar al uso de CÓDIGOS estables del backend.
  */
 export const BET_TYPE_TO_ID_MAP: Record<BetTypeKind, string> = {
     'Lotería': '10',
@@ -51,40 +52,43 @@ export const BET_TYPE_TO_ID_MAP: Record<BetTypeKind, string> = {
  * Normaliza el valor de type al formato canónico.
  * Maneja: tildes, mayúsculas, variants.
  */
-export const normalizeBetType = (value: string | undefined | null): BetTypeKind => {
-    if (!value) return 'Fijo';
+export const normalizeBetType = (type: string | number): BetTypeKind => {
+    const typeStr = String(type).toUpperCase();
 
-    const normalized = value
-        .toUpperCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '');
-
-    // Buscar coincidencia exacta
-    for (const [key, displayName] of Object.entries(BET_TYPE_KEYS)) {
-        const keyNormalized = key.toUpperCase();
-        const displayNormalized = displayName
-            .toUpperCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '');
-
-        if (normalized === keyNormalized || normalized === displayNormalized) {
-            return displayName;
-        }
+    // 1. Prioridad: GameRegistry (Contrato de Códigos Estables del Backend)
+    // Esto asegura que si el backend cambia el nombre pero mantiene el código, el frontend responda correctamente.
+    const category = GameRegistry.getCategoryByBetCode(typeStr);
+    if (category === 'loteria') return 'Lotería';
+    if (category === 'bolita') {
+        // Mapeo refinado para bolita basado en el código si es posible
+        if (typeStr === 'FIJO') return 'Fijo';
+        if (typeStr === 'PARLET') return 'Parlet';
+        if (typeStr === 'CORRIDO') return 'Corrido';
+        if (typeStr === 'CENTENA') return 'Centena';
+        return 'Fijo'; // Default bolita
     }
 
-    // Buscar por coincidencia parcial
-    if (normalized.includes('LOTERIA') || normalized.includes('CUATERNA')) {
-        return 'Lotería';
+    // 2. Prioridad: Mapa de IDs numéricos (Legacy SSOT del Backend)
+    // Solo se usa si no se reconoce el código alfanumérico.
+    if (BET_TYPE_ID_MAP[typeStr]) {
+        return BET_TYPE_ID_MAP[typeStr];
     }
-    if (normalized.includes('FIJO') && normalized.includes('CORRIDO')) {
-        return 'Fijo/Corrido';
-    }
-    if (normalized.includes('FIJO')) return 'Fijo';
-    if (normalized.includes('CORRIDO')) return 'Corrido';
-    if (normalized.includes('PARLET')) return 'Parlet';
-    if (normalized.includes('CENTENA')) return 'Centena';
 
-    return 'Fijo'; // Default
+    // 3. Coincidencia exacta con llaves canónicas
+    const exactMatch = Object.values(BET_TYPE_KEYS).find(
+        (key) => key.toUpperCase() === typeStr
+    );
+    if (exactMatch) return exactMatch as BetTypeKind;
+
+    // 4. Coincidencias parciales o alias (Case-insensitive)
+    if (typeStr.includes('PARLET')) return 'Parlet';
+    if (typeStr.includes('CENTENA')) return 'Centena';
+    if (typeStr.includes('CORRIDO')) return 'Corrido';
+    if (typeStr.includes('FIJO')) return 'Fijo';
+    if (typeStr.includes('LOT')) return 'Lotería';
+    if (typeStr.includes('CUAT')) return 'Lotería';
+
+    return 'Fijo';
 };
 
 /**

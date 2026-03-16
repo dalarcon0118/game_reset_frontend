@@ -11,11 +11,22 @@ export interface BolitaListData {
     fijosCorridos: FijosCorridosBet[];
 }
 
+export interface BolitaSummary {
+    fijosCorridosTotal: number;
+    parletsTotal: number;
+    centenasTotal: number;
+    grandTotal: number;
+    hasBets: boolean;
+    isSaving: boolean;
+    pendingReceiptCode: string | null;
+}
+
 export interface BolitaListState {
     remoteData: WebData<BolitaListData>;
     aliasFilter: string;
     isRefreshing: boolean;
     loadedDrawId: string | null;
+    summary: BolitaSummary;
 }
 
 export const PARLET_EDITING_TYPE = 'parlet';
@@ -88,13 +99,5 @@ export interface BolitaModel {
     editState: EditModel;
     listState: BolitaListState;
     entrySession: BolitaListData;
-    summary: {
-        fijosCorridosTotal: number;
-        parletsTotal: number;
-        centenasTotal: number;
-        grandTotal: number;
-        hasBets: boolean;
-        isSaving: boolean;
-        pendingReceiptCode: string | null;
-    };
+    summary: BolitaSummary;
 }

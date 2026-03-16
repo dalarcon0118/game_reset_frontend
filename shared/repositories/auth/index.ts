@@ -68,10 +68,11 @@ class AuthRepositoryImpl implements IAuthRepository {
         try {
             log.info('Hydrating session from storage...');
             const user = await this.storage.getUserProfile();
+            const offlineProfile = await this.storage.getOfflineProfile();
             const session = await this.storage.getSession();
 
             // Reintento rápido si hay token pero no perfil (evitar race conditions tras login)
-            if (!user && session.access) {
+            if (!user && !offlineProfile && session.access) {
                 log.warn('Access token found but no user profile, retrying in 300ms...');
                 await new Promise(resolve => setTimeout(resolve, 300));
                 const retryUser = await this.storage.getUserProfile();
@@ -85,17 +86,23 @@ class AuthRepositoryImpl implements IAuthRepository {
             const tokenState = SessionPolicy.resolveTokenState(session.access);
             const isValid = tokenState === TokenState.VALID || tokenState === TokenState.EXPIRED || tokenState === TokenState.OFFLINE_MARKER;
 
-            if (user && isValid) {
-                log.info('Session hydrated successfully', { username: user.username, tokenState });
+            if ((user || offlineProfile) && isValid) {
+                const currentUser = user || offlineProfile!;
+                log.info('Session hydrated successfully', {
+                    username: currentUser.username,
+                    tokenState,
+                    source: user ? 'active_profile' : 'offline_profile'
+                });
 
-                // Ya no notificamos expiración inmediata aquí. 
-                // Dejamos que el sistema intente el refresh de forma natural cuando sea necesario.
-
-                this.notifySessionListeners(user);
-                return user;
+                this.notifySessionListeners(currentUser);
+                return currentUser;
             }
 
-            log.info('No active or valid session found during hydration', { hasUser: !!user, tokenState });
+            log.info('No active or valid session found during hydration', {
+                hasUser: !!user,
+                hasOffline: !!offlineProfile,
+                tokenState
+            });
             this.notifySessionListeners(null);
             return null;
         } catch (error) {
@@ -389,8 +396,38 @@ class AuthRepositoryImpl implements IAuthRepository {
         }
     }
 
+    /**
+     * Retorna el último nombre de usuario conocido, priorizando la sesión activa
+     * y cayendo (fallback) al perfil offline si no hay sesión.
+     */
     async getLastUsername(): Promise<string | null> {
-        return await this.storage.getLastUsername();
+        try {
+            // 1. Intentar de la sesión/perfil activo primero
+            const activeProfile = await this.storage.getUserProfile();
+            if (activeProfile?.username) {
+                log.debug('Using username from active profile', { username: activeProfile.username });
+                return activeProfile.username;
+            }
+
+            // 2. Intentar del rastro del último usuario guardado explícitamente
+            const lastUser = await this.storage.getLastUsername();
+            if (lastUser) {
+                log.debug('Using username from last_username record', { username: lastUser });
+                return lastUser;
+            }
+
+            // 3. Fallback final al perfil offline
+            const offlineProfile = await this.storage.getOfflineProfile();
+            if (offlineProfile?.username) {
+                log.debug('Using username from offline profile fallback', { username: offlineProfile.username });
+                return offlineProfile.username;
+            }
+
+            return null;
+        } catch (error) {
+            log.error('Error retrieving last username from repository', error);
+            return null;
+        }
     }
 
     async saveLastUsername(username: string): Promise<void> {

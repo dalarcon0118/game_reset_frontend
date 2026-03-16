@@ -1,4 +1,5 @@
 import { create, StoreApi } from 'zustand';
+import { isDeepEqual } from '../../utils/comparison';
 import { SubDescriptor } from '../tea-utils/sub';
 import { logger } from '../../utils/logger';
 import { globalEventRegistry } from '../tea-utils/events';
@@ -29,33 +30,24 @@ export const createElmStore = <TModel, TMsg>(
     config: ElmStoreConfig<TModel, TMsg>
 ) => {
     const { initial, update, subscriptions, effectHandlers, middlewares } = config;
-    // Obtener effectHandlers globales si no se proporcionan
-    const globalEffectHandlers = elmEngine.getEffectHandlers();
-    const finalEffectHandlers: any = effectHandlers ?? globalEffectHandlers ?? fallbackEffectHandlers;
+
+    /**
+     * Resuelve los effectHandlers de forma dinámica para evitar race conditions.
+     * Prioridad: local (config) > global (elmEngine) > fallback (effectHandlers Proxy)
+     */
+    const resolveHandlers = () => {
+        const globalHandlers = elmEngine.getEffectHandlers() || {};
+        const localHandlers = effectHandlers || {};
+
+        return {
+            ...globalHandlers,
+            ...localHandlers
+        };
+    };
 
     // --- Lazy Validation & Resilience ---
-    // If we're using fallback because global hasn't been configured yet, log a warning (only in dev)
-    if (__DEV__ && !effectHandlers && !globalEffectHandlers && fallbackEffectHandlers) {
-        logger.debug(
-            '[TEA_ENGINE] Note: Using fallbackEffectHandlers. ' +
-            'Ensure elmEngine.configure() is called during app bootstrap if you want global custom handlers.',
-            'ENGINE_INIT'
-        );
-    }
-
-    const isValidEffectHandlers = !!finalEffectHandlers && (
-        typeof finalEffectHandlers === 'object' || typeof finalEffectHandlers === 'function'
-    );
-
-    if (!isValidEffectHandlers) {
-        // Instead of a fatal throw at creation, we'll log an error and use a dummy object
-        // The real error will happen when a Cmd is executed if handlers are still missing.
-        logger.error(
-            '[TEA_ENGINE] CRITICAL: No effectHandlers available during store creation. ' +
-            'This will cause Cmd execution to fail. Check your CoreModule configuration.',
-            'ENGINE_INIT'
-        );
-    }
+    // En el inicio de cada ciclo de comandos, el motor tiene acceso a los handlers más recientes
+    const isValidEffectHandlers = true; // Dinámico
 
     // Obtener middlewares globales de elmEngine
     const globalMiddlewares = elmEngine.getMiddlewares();
@@ -203,8 +195,13 @@ export const createElmStore = <TModel, TMsg>(
                     return;
                 }
 
-                const handlersToUse = finalEffectHandlers || fallbackEffectHandlers;
-                const handler = (handlersToUse as any)[singleCmd.type];
+                const handlersToUse = resolveHandlers();
+                let handler = (handlersToUse as any)[singleCmd.type];
+
+                // --- Fallback to global Proxy if not found in local/global ---
+                if (!handler && fallbackEffectHandlers) {
+                    handler = (fallbackEffectHandlers as any)[singleCmd.type];
+                }
 
                 // --- Special Case: Global Signals (TEA-Agnostic) ---
                 if (singleCmd.type === 'SEND_MSG') {
@@ -231,8 +228,10 @@ export const createElmStore = <TModel, TMsg>(
                     }
                 } else if (singleCmd) {
                     const errorMsg = `No handler found for Cmd type: ${singleCmd.type}`;
+                    const localAndGlobal = resolveHandlers();
                     logger.error(errorMsg, 'ENGINE_EXECUTION', {
-                        availableHandlers: handlersToUse ? Object.keys(handlersToUse) : 'none',
+                        localAndGlobalHandlers: Object.keys(localAndGlobal),
+                        hasFallback: !!fallbackEffectHandlers,
                         cmd: singleCmd
                     });
                 }
@@ -346,51 +345,68 @@ export const createElmStore = <TModel, TMsg>(
             if (sub.type === 'WATCH_STORE') {
                 const { id, store: externalStoreRef, selector, msgCreator } = sub.payload;
                 if (!activeSubs.has(id)) {
-                    // Intenta resolver el store (puede ser una referencia directa o un ID de string)
+                    // Función para activar la suscripción reactiva
+                    const activateWatch = (externalStore: StoreApi<any>) => {
+                        logger.debug(`Activating reactive sub: ${id} (WATCH_STORE)`, 'ENGINE');
+
+                        // Pre-calculamos el valor inicial
+                        const initialState = externalStore.getState();
+                        const initialValue = selector(initialState.model || initialState);
+                        let lastValue = initialValue;
+
+                        // Nos suscribimos a cambios futuros
+                        const unsubscribe = externalStore.subscribe((state: any) => {
+                            const selectedValue = selector(state.model || state);
+                            if (selectedValue != null && !isDeepEqual(selectedValue, lastValue)) {
+                                lastValue = selectedValue;
+                                const msg = msgCreator(selectedValue);
+                                if (msg) dispatch(msg);
+                            }
+                        });
+
+                        activeSubs.set(id, { type: 'WATCH_STORE', unsubscribe, lastValue });
+
+                        // Disparo inicial diferido
+                        setTimeout(() => {
+                            if (activeSubs.has(id)) {
+                                const msg = msgCreator(initialValue);
+                                if (msg) dispatch(msg);
+                            }
+                        }, 50);
+                    };
+
+                    // Intenta resolver el store (referencia directa o ID)
                     let externalStore: StoreApi<any> | undefined;
 
                     if (typeof externalStoreRef === 'string') {
                         externalStore = storeRegistry.get(externalStoreRef);
+
+                        // RESILIENCIA: Si no está, esperamos a que se registre
+                        if (!externalStore) {
+                            logger.info(`WATCH_STORE sub "${id}" waiting for store "${externalStoreRef}"...`, 'ENGINE');
+
+                            const unregisterListener = storeRegistry.subscribe((regId, regStore) => {
+                                if (regId === externalStoreRef && regStore) {
+                                    unregisterListener(); // Dejar de escuchar el registro
+                                    if (!activeSubs.has(id)) {
+                                        activateWatch(regStore);
+                                    }
+                                }
+                            });
+
+                            // Guardamos la suscripción al registro para poder limpiarla si el componente muere
+                            activeSubs.set(id, { type: 'WATCH_STORE_PENDING', unsubscribe: unregisterListener });
+                            return;
+                        }
                     } else if (externalStoreRef && typeof (externalStoreRef as any).getState === 'function') {
                         externalStore = externalStoreRef as StoreApi<any>;
-                    } else if (typeof externalStoreRef === 'function') {
-                        // Es un hook de React o una función factory, no podemos usarlo aquí directamente
-                        // Buscamos en el registro por si el store ya fue creado e indexado
-                        const possibleId = (externalStoreRef as any).displayName || (externalStoreRef as any).name;
-                        if (possibleId) {
-                            externalStore = storeRegistry.get(possibleId);
-                        }
                     }
 
-                    if (!externalStore) {
-                        logger.warn(`WATCH_STORE sub "${id}" delayed: Store not found or not yet registered.`, 'ENGINE', { storeRef: externalStoreRef });
-                        // Re-intentar en el próximo tick o cuando el store se registre (implementación simplificada: esperar)
-                        return;
+                    if (externalStore) {
+                        activateWatch(externalStore);
+                    } else {
+                        logger.warn(`WATCH_STORE sub "${id}" could not resolve store ref.`, 'ENGINE', { storeRef: externalStoreRef });
                     }
-
-                    logger.debug(`Starting reactive sub: ${id} (WATCH_STORE)`, 'ENGINE');
-                    // Pre-calculamos el valor inicial
-                    const initialState = externalStore.getState();
-                    const initialValue = selector(initialState.model || initialState);
-                    let lastValue = initialValue;
-
-                    // Nos suscribimos a cambios futuros
-                    const unsubscribe = externalStore.subscribe((state: any) => {
-                        const selectedValue = selector(state.model || state);
-                        if (selectedValue !== lastValue && selectedValue != null) {
-                            lastValue = selectedValue;
-                            dispatch(msgCreator(selectedValue));
-                        }
-                    });
-
-                    activeSubs.set(id, { type: 'WATCH_STORE', unsubscribe, lastValue });
-
-                    setTimeout(() => {
-                        if (activeSubs.has(id)) {
-                            const msg = msgCreator(initialValue);
-                            if (msg) dispatch(msg);
-                        }
-                    }, 100);
                 }
             }
 
@@ -563,9 +579,16 @@ export const createElmStore = <TModel, TMsg>(
 
             // Evitar re-procesamiento si los IDs de las subscripciones no han cambiado
             // Y si todas las subscripciones actuales están realmente activas
-            const idsChanged = currentIds.size !== lastIds.size ||
-                Array.from(currentIds).some(id => !lastIds.has(id)) ||
-                Array.from(currentIds).some(id => !activeSubs.has(id));
+            // CORRECCIÓN: Detectar el caso especial de "ninguna suscripción" → "suscripciones activas"
+            // Esto ocurre cuando el modelo se inicializa sin contexto y luego recibe el contexto vía INIT_CONTEXT
+            const hasCurrentSubs = currentIds.size > 0;
+            const wasEmptyBefore = lastIds.size === 0;
+            const hasActiveSubs = Array.from(currentIds).some(id => activeSubs.has(id));
+
+            const idsChanged =
+                currentIds.size !== lastIds.size ||
+                (hasCurrentSubs && !hasActiveSubs) ||
+                (hasCurrentSubs && wasEmptyBefore); // Re-ejecutar cuando se pasan de 0 a más suscripciones
 
             if (!idsChanged) {
                 return;

@@ -50,11 +50,22 @@ export const initialEditState: EditModel = {
     amountConfirmationDetails: null,
 };
 
+export const initialBolitaSummary: BolitaModel['summary'] = {
+    fijosCorridosTotal: 0,
+    parletsTotal: 0,
+    centenasTotal: 0,
+    grandTotal: 0,
+    hasBets: false,
+    isSaving: false,
+    pendingReceiptCode: null,
+};
+
 export const initialBolitaListState: BolitaListState = {
     remoteData: RemoteData.notAsked(),
     aliasFilter: '',
     isRefreshing: false,
     loadedDrawId: null,
+    summary: initialBolitaSummary,
 };
 
 export const initialBolitaListData: BolitaListData = {
@@ -74,13 +85,5 @@ export const initialBolitaModel: BolitaModel = {
     editState: initialEditState,
     listState: initialBolitaListState,
     entrySession: initialBolitaListData,
-    summary: {
-        fijosCorridosTotal: 0,
-        parletsTotal: 0,
-        centenasTotal: 0,
-        grandTotal: 0,
-        hasBets: false,
-        isSaving: false,
-        pendingReceiptCode: null,
-    },
+    summary: initialBolitaSummary,
 };

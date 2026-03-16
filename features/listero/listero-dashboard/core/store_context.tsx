@@ -1,11 +1,22 @@
-import React, { createContext, useContext, useMemo, useEffect, ReactNode } from 'react';
+import React, { ReactNode } from 'react';
 import { UseBoundStore, StoreApi } from 'zustand';
-import { createElmStore } from '@core/engine/engine';
+import { createTEAModule } from '@core/engine/tea_module';
 import { Model } from './model';
 import { Msg } from './msg';
 import { update } from './update';
 import { subscriptions } from './subscriptions';
 import { initialState as initial } from './initial.types';
+
+// ============================================================================
+// Module Definition
+// ============================================================================
+
+export const DashboardModule = createTEAModule<Model, Msg>({
+    name: 'ListeroDashboard',
+    initial,
+    update,
+    subscriptions
+});
 
 // ============================================================================
 // Types
@@ -20,45 +31,24 @@ interface StoreState {
 type StoreType = UseBoundStore<StoreApi<StoreState>>;
 
 // ============================================================================
-// Context
-// ============================================================================
-
-const ListeroDashboardContext = createContext<StoreType | undefined>(undefined);
-
-// ============================================================================
-// Store Factory
-// ============================================================================
-
-const createDashboardStore = () => {
-    return createElmStore<Model, Msg>({
-        initial,
-        update,
-        subscriptions
-    });
-};
-
-// ============================================================================
 // Provider Component
 // ============================================================================
 
 interface ListeroDashboardProviderProps {
     children: ReactNode;
+    initialParams?: any;
 }
 
-export const ListeroDashboardProvider: React.FC<ListeroDashboardProviderProps> = ({ children }) => {
-    const store = useMemo(() => createDashboardStore(), []);
-
-    useEffect(() => {
-        return () => {
-            // Cleanup subscriptions when the provider unmounts
-            store.getState().cleanup();
-        };
-    }, [store]);
-
+/**
+ * ListeroDashboardProvider
+ * Wraps the Dashboard with its own TEA store.
+ * Uses the standardized DashboardModule.Provider for automatic registration.
+ */
+export const ListeroDashboardProvider: React.FC<ListeroDashboardProviderProps> = ({ children, initialParams }) => {
     return (
-        <ListeroDashboardContext.Provider value={store}>
+        <DashboardModule.Provider initialParams={initialParams}>
             {children}
-        </ListeroDashboardContext.Provider>
+        </DashboardModule.Provider>
     );
 };
 
@@ -69,46 +59,23 @@ export const ListeroDashboardProvider: React.FC<ListeroDashboardProviderProps> =
 /**
  * Hook to access the dashboard store within the Provider.
  * Throws an error if used outside the provider.
- * 
- * Usage:
- * - useListeroDashboardStore() - returns full state { model, dispatch, cleanup }
- * - useListeroDashboardStore(state => state.model) - returns selected value
- * - useListeroDashboardStore.getStoreApi() - returns raw Zustand store
  */
 export function useListeroDashboardStore(): StoreState;
 export function useListeroDashboardStore<T>(selector: (state: StoreState) => T): T;
 export function useListeroDashboardStore<T>(selector?: (state: StoreState) => T): T | StoreState {
-    const store = useContext(ListeroDashboardContext);
-    
-    if (!store) {
-        throw new Error('useListeroDashboardStore must be used within ListeroDashboardProvider');
-    }
-    
-    // If no selector provided, return full state reactively
-    if (!selector) {
-        return store();
-    }
-    
-    return store(selector);
+    return DashboardModule.useStore(selector as any) as any;
 }
+
+/**
+ * Selectors for optimized re-renders
+ */
+export const selectDashboardModel = (state: StoreState) => state.model;
+export const selectDashboardDispatch = (state: StoreState) => state.dispatch;
 
 /**
  * Get the raw Zustand store API.
  * Useful for lifecycle management (cleanup, etc.)
  */
 export function useListeroDashboardStoreApi(): StoreType {
-    const store = useContext(ListeroDashboardContext);
-    
-    if (!store) {
-        throw new Error('useListeroDashboardStoreApi must be used within ListeroDashboardProvider');
-    }
-    
-    return store;
+    return DashboardModule.useStoreApi() as any;
 }
-
-// ============================================================================
-// Selectors (for compatibility)
-// ============================================================================
-
-export const selectDashboardModel = (state: StoreState) => state.model;
-export const selectDashboardDispatch = (state: StoreState) => state.dispatch;

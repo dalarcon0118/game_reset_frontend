@@ -151,10 +151,21 @@ export const authStorageAdapter: IAuthStorage = {
     },
 
     async getLastUsername(): Promise<string | null> {
-        return await offlineStorage.get<string>(AuthOfflineKeys.lastUsername());
+        const lastUser = await offlineStorage.get<string>(AuthOfflineKeys.lastUsername());
+        log.debug('Checking lastUsername', { lastUser });
+        if (lastUser) return lastUser;
+
+        // Fallback al perfil offline si no hay last_username
+        const profile = await this.getOfflineProfile();
+        log.debug('Fallback to offline profile for username', { profileFound: !!profile, username: profile?.username });
+        return profile?.username || null;
     },
 
     async getUserProfile(): Promise<User | null> {
         return await offlineStorage.get<User>(AuthOfflineKeys.userProfile());
+    },
+
+    async getOfflineProfile(): Promise<User | null> {
+        return await offlineStorage.get<User>(AuthOfflineKeys.offlineProfile());
     }
 };

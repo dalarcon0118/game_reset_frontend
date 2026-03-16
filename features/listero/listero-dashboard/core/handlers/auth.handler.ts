@@ -3,7 +3,7 @@ import { Msg } from '../msg';
 import { Cmd, ret, singleton, Return, RemoteData } from '@core/tea-utils';
 import { handleAuthUserSynced as logicHandleAuthUserSynced } from '../logic';
 import { fetchDrawsCmd, loadPendingBetsCmd, fetchUserDataCmd } from '../commands';
-import { fetchPromotionsCmd } from '../../promotion/commands';
+import { fetchPromotionsCmd } from '../../../../../shared/components/promotion/services/DataServices';
 import { PROMOTION_MSG } from '../msg';
 import { logger } from '@/shared/utils/logger';
 import { DashboardUser } from '../user.dto';

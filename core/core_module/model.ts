@@ -1,4 +1,6 @@
 
+import { NavigationPolicy } from '../../shared/navigation/navigation_policy.types';
+
 export type SessionStatus = 'INITIAL' | 'AUTHENTICATED' | 'UNAUTHENTICATED' | 'EXPIRED';
 
 export type BootstrapStatus = 'IDLE' | 'INITIALIZING' | 'READY' | 'ERROR';
@@ -24,6 +26,9 @@ export interface CoreModel {
 
   /** Indica si TODO el sistema está listo para operar (mantenimiento + perfil) */
   isSystemReady: boolean;
+
+  /** Política de navegación inyectada por el kernel (Composition Root) */
+  navigationPolicy: NavigationPolicy | null;
 }
 
 export const initialModel: CoreModel = {
@@ -34,4 +39,5 @@ export const initialModel: CoreModel = {
   isMaintenanceReady: false,
   isProfileReady: false,
   isSystemReady: false,
+  navigationPolicy: null,
 };

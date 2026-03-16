@@ -98,13 +98,11 @@ export const BolitaImpl = {
 
     // --- Calculation Logic ---
     calculation: {
-        calculateSummary: (model: BolitaModel): BolitaModel['summary'] => {
-            const { entrySession } = model;
-
-            const fijosCorridosTotal = entrySession.fijosCorridos.reduce((acc, bet) =>
+        calculateSummary: (data: BolitaListData): BolitaModel['summary'] => {
+            const fijosCorridosTotal = data.fijosCorridos.reduce((acc, bet) =>
                 acc + (bet.fijoAmount || 0) + (bet.corridoAmount || 0), 0);
 
-            const parletsTotal = entrySession.parlets.reduce((acc, bet) => {
+            const parletsTotal = data.parlets.reduce((acc, bet) => {
                 if (bet.bets && bet.bets.length >= 2 && bet.amount) {
                     const n = bet.bets.length;
                     const numCombinations = (n * (n - 1)) / 2;
@@ -113,18 +111,19 @@ export const BolitaImpl = {
                 return acc;
             }, 0);
 
-            const centenasTotal = entrySession.centenas.reduce((acc, bet) =>
+            const centenasTotal = data.centenas.reduce((acc, bet) =>
                 acc + (bet.amount || 0), 0);
 
             const grandTotal = fijosCorridosTotal + parletsTotal + centenasTotal;
 
             return {
-                ...model.summary,
                 fijosCorridosTotal,
                 parletsTotal,
                 centenasTotal,
                 grandTotal,
-                hasBets: grandTotal > 0
+                hasBets: grandTotal > 0,
+                isSaving: false,
+                pendingReceiptCode: null
             };
         }
     },
@@ -153,6 +152,7 @@ export const BolitaImpl = {
             entrySession.fijosCorridos.forEach(b => {
                 if (b.fijoAmount && b.fijoAmount > 0) {
                     bets.push({
+                        id: b.id,
                         type: normalizeBetType(BET_TYPE_KEYS.FIJO),
                         betTypeId: normalizeBetTypeId(BET_TYPE_KEYS.FIJO),
                         amount: b.fijoAmount,
@@ -163,6 +163,7 @@ export const BolitaImpl = {
                 }
                 if (b.corridoAmount && b.corridoAmount > 0) {
                     bets.push({
+                        id: b.id,
                         type: normalizeBetType(BET_TYPE_KEYS.CORRIDO),
                         betTypeId: normalizeBetTypeId(BET_TYPE_KEYS.CORRIDO),
                         amount: b.corridoAmount,
@@ -177,6 +178,7 @@ export const BolitaImpl = {
             entrySession.parlets.forEach(b => {
                 if (b.amount && b.amount > 0) {
                     bets.push({
+                        id: b.id,
                         type: normalizeBetType(BET_TYPE_KEYS.PARLET),
                         betTypeId: normalizeBetTypeId(BET_TYPE_KEYS.PARLET),
                         amount: b.amount,
@@ -191,6 +193,7 @@ export const BolitaImpl = {
             entrySession.centenas.forEach(b => {
                 if (b.amount && b.amount > 0) {
                     bets.push({
+                        id: b.id,
                         type: normalizeBetType(BET_TYPE_KEYS.CENTENA),
                         betTypeId: normalizeBetTypeId(BET_TYPE_KEYS.CENTENA),
                         amount: b.amount,
@@ -215,64 +218,73 @@ export const BolitaImpl = {
 
             bets.forEach(bet => {
                 try {
-                    // 1. Normalización de ID (Usa id, sino externalId, sino un fallback basado en timestamp)
+                    // 1. Normalización de ID
                     const betId = bet.id || bet.externalId || `temp-${Date.now()}-${Math.random()}`;
 
                     // 2. Normalización de Números
                     const parsedNumbers = parseNumbers(bet);
 
-                    // 3. Normalización de Tipo de Apuesta (Prioridad absoluta al betTypeId del storage)
+                    // 3. Normalización del Tipo de Apuesta usando SSoT (bet_types.ts)
+                    // Usamos normalizeBetType que maneja tanto IDs numéricos como nombres de texto
                     const rawType = bet.betTypeId || bet.type || '';
-                    const betType = String(rawType).toLowerCase();
-                    const parletKey = String(BET_TYPE_KEYS.PARLET).toLowerCase();
-                    const centenaKey = String(BET_TYPE_KEYS.CENTENA).toLowerCase();
-                    const fijoKey = String(BET_TYPE_KEYS.FIJO).toLowerCase();
-                    const corridoKey = String(BET_TYPE_KEYS.CORRIDO).toLowerCase();
+                    const canonicalType = normalizeBetType(String(rawType));
 
-                    // 4. Procesamiento por tipo (Detección estricta para evitar colisiones)
-                    if (betType === parletKey) {
-                        // Un Parlet DEBE tener al menos 2 números
-                        if (parsedNumbers.length >= 2) {
-                            parlets.push({
-                                id: betId,
-                                bets: parsedNumbers,
-                                amount: bet.amount,
-                                receiptCode: bet.receiptCode
-                            });
-                        } else {
-                            log.warn('Apuesta marcada como Parlet pero con números insuficientes', { betId, numbers: parsedNumbers });
-                        }
-                    } else if (betType === centenaKey) {
-                        if (parsedNumbers.length > 0) {
-                            centenas.push({
-                                id: betId,
-                                bet: parsedNumbers[0],
-                                amount: bet.amount,
-                                receiptCode: bet.receiptCode
-                            });
-                        }
-                    } else if (betType === fijoKey || betType === corridoKey || !isNaN(Number(betType))) {
-                        // Nota: betTypeId "10" (visto en el log) se trata como Fijo/Corrido si corresponde
-                        if (parsedNumbers.length > 0 && !isNaN(parsedNumbers[0])) {
-                            const firstNumber = parsedNumbers[0];
-                            const key = `${firstNumber}-${bet.receiptCode || ''}`;
-                            const existing = fijosCorridosMap.get(key);
-                            if (existing) {
-                                if (betType === fijoKey || betType === 'fijo') {
-                                    existing.fijoAmount = bet.amount;
-                                } else {
-                                    existing.corridoAmount = bet.amount;
-                                }
-                            } else {
-                                fijosCorridosMap.set(key, {
+                    log.debug('Transforming bet', { id: betId, rawType, canonicalType, numbers: parsedNumbers });
+
+                    // 4. Clasificación basada en el Tipo Canónico (SSoT)
+                    switch (canonicalType) {
+                        case BET_TYPE_KEYS.PARLET:
+                            if (parsedNumbers.length >= 2) {
+                                parlets.push({
                                     id: betId,
-                                    bet: firstNumber,
-                                    fijoAmount: (betType === fijoKey || betType === 'fijo') ? bet.amount : null,
-                                    corridoAmount: (betType === corridoKey || betType === 'corrido' || !isNaN(Number(betType))) ? bet.amount : null,
-                                    receiptCode: bet.receiptCode,
+                                    bets: parsedNumbers,
+                                    amount: bet.amount,
+                                    receiptCode: bet.receiptCode
+                                });
+                            } else {
+                                log.warn('Apuesta marcada como Parlet pero con números insuficientes', { betId, numbers: parsedNumbers });
+                            }
+                            break;
+
+                        case BET_TYPE_KEYS.CENTENA:
+                            if (parsedNumbers.length > 0) {
+                                centenas.push({
+                                    id: betId,
+                                    bet: parsedNumbers[0],
+                                    amount: bet.amount,
+                                    receiptCode: bet.receiptCode
                                 });
                             }
-                        }
+                            break;
+
+                        case BET_TYPE_KEYS.FIJO:
+                        case BET_TYPE_KEYS.CORRIDO:
+                        case BET_TYPE_KEYS.FIJO_CORRIDO:
+                            if (parsedNumbers.length > 0 && !isNaN(parsedNumbers[0])) {
+                                const firstNumber = parsedNumbers[0];
+                                const key = `${firstNumber}-${bet.receiptCode || ''}`;
+                                const existing = fijosCorridosMap.get(key);
+
+                                if (existing) {
+                                    if (canonicalType === BET_TYPE_KEYS.FIJO) {
+                                        existing.fijoAmount = bet.amount;
+                                    } else if (canonicalType === BET_TYPE_KEYS.CORRIDO) {
+                                        existing.corridoAmount = bet.amount;
+                                    }
+                                } else {
+                                    fijosCorridosMap.set(key, {
+                                        id: betId,
+                                        bet: firstNumber,
+                                        fijoAmount: (canonicalType === BET_TYPE_KEYS.FIJO) ? bet.amount : null,
+                                        corridoAmount: (canonicalType === BET_TYPE_KEYS.CORRIDO) ? bet.amount : null,
+                                        receiptCode: bet.receiptCode,
+                                    });
+                                }
+                            }
+                            break;
+
+                        default:
+                            log.warn('Tipo de apuesta no reconocido o no manejado en Bolita', { betId, canonicalType, rawType });
                     }
                 } catch (e) {
                     log.warn('Error transforming bet', { betId: bet.id, type: bet.type, error: e });

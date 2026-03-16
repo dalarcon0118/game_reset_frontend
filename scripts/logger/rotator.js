@@ -11,13 +11,15 @@ const MAX_LOG_FILES = 5;
 /**
  * Initializes log directory and rotates existing session logs
  */
-function init(logDir, logFile) {
+function init(logDir) {
   if (!fs.existsSync(logDir)) {
     fs.mkdirSync(logDir, { recursive: true });
   }
 
-  // Rotate main log file
-  rotateFile(logFile);
+  // Rotate layer logs
+  ['errors.log', 'infra.log', 'domain.log', 'boot.log', 'ai_digest.jsonl'].forEach(file => {
+    rotateFile(path.join(logDir, file));
+  });
   
   // Rotate offline log file if it exists
   const offlineLog = path.join(logDir, 'offline.log');

@@ -11,7 +11,7 @@ import { DataHandler } from './handlers/data.handler';
 import { NavigationHandler } from './handlers/navigation.handler';
 import { FilterHandler } from './handlers/filter.handler';
 import { AuthHandler } from './handlers/auth.handler';
-import * as PromotionUpdate from '../promotion/update';
+import * as PromotionUpdate from '../../../../shared/components/promotion/update';
 import { PROMOTION_MSG } from './msg';
 
 const log = logger.withTag('DASHBOARD_UPDATE');

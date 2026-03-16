@@ -1,8 +1,9 @@
 import { PluginContext } from '@core/plugins/plugin.types';
-import { WebData, RemoteData } from '@core/tea-utils';
+import { WebData, RemoteData, Cmd } from '@core/tea-utils';
 import { DRAW_FILTER, Draw } from './core/types';
 import { FinancialSummary } from '@/types';
 import { BetDomainModel as PendingBet } from '@/shared/repositories/bet/bet.types';
+import { Msg } from './msg';
 
 export interface DrawsListPluginConfig {
   drawsStateKey: string;
@@ -64,21 +65,24 @@ export interface Model {
   totalsByDrawId: TotalsByDrawIdMap;
 }
 
-export const initialModel = (params?: { context: PluginContext; config: DrawsListPluginConfig }): Model => {
+export const initialModel = (params?: { context: PluginContext; config: DrawsListPluginConfig }): [Model, Cmd] => {
   const context = params?.context ?? null;
   const config = params?.config ?? defaultConfig;
 
-  return {
-    context,
-    config,
-    draws: RemoteData.notAsked(),
-    summary: null,
-    pendingBets: [],
-    syncedBets: [],
-    filteredDraws: [],
-    currentFilter: DRAW_FILTER.ALL,
-    totalsByDrawId: new Map(),
-  };
+  return [
+    {
+      context,
+      config,
+      draws: RemoteData.notAsked(),
+      summary: null,
+      pendingBets: [],
+      syncedBets: [],
+      filteredDraws: [],
+      currentFilter: DRAW_FILTER.ALL,
+      totalsByDrawId: new Map(),
+    },
+    Cmd.none
+  ];
 };
 
 // ============================================================================

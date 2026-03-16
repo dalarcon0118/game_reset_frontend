@@ -6,5 +6,6 @@ export const initialState = (): Return<PromotionState, Msg> => {
     return Return.singleton({
         promotions: RemoteData.notAsked(),
         showPromotionsModal: false,
+        hasBeenShown: false,
     });
 };

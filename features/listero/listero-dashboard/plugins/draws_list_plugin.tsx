@@ -2,9 +2,14 @@ import React from 'react';
 import { DrawsListComponent } from './draws_list_plugin/view';
 import { Plugin, SlotProps } from '@core/plugins/plugin.types';
 import { defaultConfig } from './draws_list_plugin/model';
+import { DrawsListModule } from './draws_list_plugin/store';
 
 const DrawsListPluginComponent: React.FC<SlotProps> = ({ context }) => {
-    return <DrawsListComponent context={context} config={defaultConfig} />;
+    return (
+        <DrawsListModule.Provider initialParams={{ context, config: defaultConfig }}>
+            <DrawsListComponent context={context} config={defaultConfig} />
+        </DrawsListModule.Provider>
+    );
 };
 
 export const DrawsListPlugin: Plugin = {

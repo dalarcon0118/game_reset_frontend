@@ -1,10 +1,10 @@
 import { match } from 'ts-pattern';
 import { ListMsgType, ListMsg, ListState } from './types';
-import { ListData } from '../../core/types';
+import { ListData } from '@/types';
 import { Cmd, Return, ret, singleton, RemoteData } from '@core/tea-utils';
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
 import { logger } from '@/shared/utils/logger';
-import { BetRegistry } from '../../core/registry';
+import { GameRegistry } from '@/shared/core/registry/game_registry';
 
 const log = logger.withTag('BET_LIST_UPDATE');
 
@@ -53,24 +53,13 @@ export const updateList = <M extends ListContextModel>(model: M, msg: ListMsg): 
                         },
                         args: [{ drawId }],
                         onSuccess: (bets: BetType[]) => {
-                            // Extraer los betTypes identificados del managementSession
-                            const identifiedBetTypes = model.managementSession?.betTypes;
-                            const betTypesMap = identifiedBetTypes ? {
-                                loteria: identifiedBetTypes.loteria,
-                                fijo: identifiedBetTypes.fijo,
-                                corrido: identifiedBetTypes.corrido,
-                                parlet: identifiedBetTypes.parlet,
-                                centena: identifiedBetTypes.centena,
-                            } : undefined;
-
-                            const listData = BetRegistry.transformAllBets(bets, betTypesMap);
+                            const listData = GameRegistry.transformAllBets(bets);
 
                             log.debug('Transformed data completed', {
                                 fijosCorridos: listData.fijosCorridos.length,
                                 parlets: listData.parlets.length,
                                 centenas: listData.centenas.length,
                                 loteria: listData.loteria.length,
-                                identifiedBetTypes: betTypesMap,
                             });
 
                             return {
@@ -112,17 +101,7 @@ export const updateList = <M extends ListContextModel>(model: M, msg: ListMsg): 
                         args: [{ drawId }],
                         onSuccess: (bets: BetType[]) => {
                             log.debug('FETCH_BETS_SUCCEEDED (refresh)');
-                            // Extraer los betTypes identificados del managementSession
-                            const identifiedBetTypes = model.managementSession?.betTypes;
-                            const betTypesMap = identifiedBetTypes ? {
-                                loteria: identifiedBetTypes.loteria,
-                                fijo: identifiedBetTypes.fijo,
-                                corrido: identifiedBetTypes.corrido,
-                                parlet: identifiedBetTypes.parlet,
-                                centena: identifiedBetTypes.centena,
-                            } : undefined;
-
-                            const listData = BetRegistry.transformAllBets(bets, betTypesMap);
+                            const listData = GameRegistry.transformAllBets(bets);
 
                             return {
                                 type: ListMsgType.FETCH_BETS_SUCCEEDED,

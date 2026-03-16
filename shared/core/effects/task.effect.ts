@@ -30,13 +30,21 @@ export async function handleTask(payload: TaskPayload, dispatch: (cmd: any) => v
   try {
     log.debug(`Executing Task: ${taskName}`, { args });
     const result = await task(...(args || []));
-    dispatch(onSuccess(result));
+    const msg = onSuccess(result);
+    if (msg) {
+      dispatch(msg);
+    } else {
+      log.debug(`Task ${taskName} completed without message (onSuccess returned null)`);
+    }
   } catch (error) {
     log.error(`Task execution failed: ${taskName}`, error, {
       args,
       label,
       taskSource: task.toString().substring(0, 100) // Log first 100 chars of task source for identification
     });
-    dispatch(onFailure(error));
+    const msg = onFailure(error);
+    if (msg) {
+      dispatch(msg);
+    }
   }
 }

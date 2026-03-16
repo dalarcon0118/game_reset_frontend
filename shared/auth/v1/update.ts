@@ -2,15 +2,12 @@ import { match } from 'ts-pattern';
 import { AuthModel, AuthStatus } from './model';
 import {
     AuthMsg,
-    HYDRATE_LOGIN_CONTEXT_REQUESTED,
     INITIAL_SESSION_CHECK_REQUESTED,
     SESSION_HYDRATED,
     SESSION_CHANGED,
     LOGIN_REQUESTED,
     LOGIN_SUCCEEDED,
     LOGIN_FAILED,
-    LOGIN_USERNAME_UPDATED,
-    LOGIN_PIN_UPDATED,
     LOGOUT_REQUESTED,
     LOGOUT_COMPLETED,
     AUTH_ERROR_DETECTED,
@@ -46,22 +43,6 @@ export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMs
     });
 
     return match<AuthMsg, Return<AuthModel, AuthMsg>>(msg)
-        .with(HYDRATE_LOGIN_CONTEXT_REQUESTED.type(), () => {
-            log.info('Hydrate login context requested in AuthV1');
-            return ret(
-                { ...model, status: AuthStatus.BOOTSTRAPPING },
-                RemoteDataHttp.fetch(
-                    () => AuthRepository.getLastUsername(),
-                    (result) => {
-                        const username = result.type === 'Success' ? result.data : '';
-                        log.info('Last username hydrated during bootstrap', { username });
-                        return LOGIN_USERNAME_UPDATED({ username: username || '' });
-                    },
-                    'AUTH_HYDRATE_USERNAME'
-                )
-            );
-        })
-
         .with(INITIAL_SESSION_CHECK_REQUESTED.type(), () => {
             log.warn('INITIAL_SESSION_CHECK_REQUESTED ignored (Deprecated in favor of SSOT Subscriptions)');
             return singleton(model);
@@ -75,6 +56,7 @@ export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMs
         .with(SESSION_CHANGED.type(), ({ payload }) => {
             // Reacción directa a cambios en el repositorio (SSOT)
             if (payload.user) {
+                log.info('Sesión detectada vía SSOT');
                 return singleton({
                     ...model,
                     status: payload.isOffline ? AuthStatus.AUTHENTICATED_OFFLINE : AuthStatus.AUTHENTICATED,
@@ -91,6 +73,12 @@ export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMs
         })
 
         .with(LOGIN_REQUESTED.type(), ({ payload }) => {
+            // Guard: Si ya estamos autenticados, ignorar el login redundante
+            if (model.status === AuthStatus.AUTHENTICATED || model.status === AuthStatus.AUTHENTICATED_OFFLINE) {
+                log.warn('Ignorando LOGIN_REQUESTED: El usuario ya está autenticado');
+                return singleton(model);
+            }
+
             return ret(
                 { ...model, status: AuthStatus.AUTHENTICATING, error: null },
                 RemoteDataHttp.fetch(
@@ -124,8 +112,7 @@ export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMs
                 user: payload.user,
                 tokens: payload.tokens,
                 isOffline: payload.isOffline,
-                error: null,
-                loginSession: { ...model.loginSession, pin: '' } // Limpiar PIN al entrar
+                error: null
             });
         })
 
@@ -133,22 +120,7 @@ export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMs
             return singleton({
                 ...model,
                 status: AuthStatus.UNAUTHENTICATED,
-                error: payload.error,
-                loginSession: { ...model.loginSession, pin: '' } // Limpiar PIN al fallar
-            });
-        })
-
-        .with(LOGIN_USERNAME_UPDATED.type(), ({ payload }) => {
-            return singleton({
-                ...model,
-                loginSession: { ...model.loginSession, username: payload.username }
-            });
-        })
-
-        .with(LOGIN_PIN_UPDATED.type(), ({ payload }) => {
-            return singleton({
-                ...model,
-                loginSession: { ...model.loginSession, pin: payload.pin }
+                error: payload.error
             });
         })
 

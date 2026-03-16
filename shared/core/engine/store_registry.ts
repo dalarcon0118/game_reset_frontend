@@ -10,6 +10,19 @@ const log = logger.withTag('STORE_REGISTRY');
  */
 class StoreRegistry {
   private stores = new Map<string, StoreApi<any>>();
+  private listeners = new Set<(id: string, store: StoreApi<any> | null) => void>();
+
+  /**
+   * Suscribe un listener a cambios en el registro.
+   */
+  subscribe(listener: (id: string, store: StoreApi<any> | null) => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  private notify(id: string, store: StoreApi<any> | null): void {
+    this.listeners.forEach(l => l(id, store));
+  }
 
   /**
    * Registra una instancia de store.
@@ -17,11 +30,11 @@ class StoreRegistry {
    * @param store Instancia de Zustand StoreApi
    */
   register(id: string, store: StoreApi<any>): void {
-    if (this.stores.has(id)) {
-      log.warn(`Store with id "${id}" is already registered. Overwriting.`);
-    }
+    if (this.stores.get(id) === store) return; // Ya registrado
+
     this.stores.set(id, store);
     log.debug(`Registered store: ${id}`);
+    this.notify(id, store);
   }
 
   /**
@@ -30,6 +43,7 @@ class StoreRegistry {
   unregister(id: string): void {
     if (this.stores.delete(id)) {
       log.debug(`Unregistered store: ${id}`);
+      this.notify(id, null);
     }
   }
 

@@ -1,12 +1,12 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { ActivityIndicator, View, TouchableOpacity } from 'react-native';
 import { match } from 'ts-pattern';
 import { RemoteData } from '@core/tea-utils';
-import { Label, Flex } from '@/shared/components';
+import { Label } from '@/shared/components';
 import { PluginContext } from '@core/plugins/plugin.types';
 import DrawItem from './views/draw_item';
-import { useDrawsListPluginStore, selectModel, selectDispatch, selectInit } from './store';
-import { REFRESH_CLICKED, RULES_CLICKED, REWARDS_CLICKED, BETS_LIST_CLICKED, CREATE_BET_CLICKED, INIT_CONTEXT } from './msg';
+import { DrawsListModule, selectModel, selectDispatch } from './store';
+import { REFRESH_CLICKED, RULES_CLICKED, REWARDS_CLICKED, BETS_LIST_CLICKED, CREATE_BET_CLICKED } from './msg';
 import { styles } from './styles';
 import { logger } from '@/shared/utils/logger';
 
@@ -19,31 +19,11 @@ interface DrawsListComponentProps {
   config: DrawsListPluginConfig;
 }
 
-export const DrawsListComponent: React.FC<DrawsListComponentProps> = ({ context, config }) => {
-  const model = useDrawsListPluginStore(selectModel);
-  const dispatch = useDrawsListPluginStore(selectDispatch);
-  const init = useDrawsListPluginStore(selectInit);
+export const DrawsListComponent: React.FC<DrawsListComponentProps> = ({ context }) => {
+  const model = DrawsListModule.useStore(selectModel);
+  const dispatch = DrawsListModule.useStore(selectDispatch);
 
-  // log.debug('Rendering', { 
-  //   hasContext: !!model.context, 
-  //   drawsType: model.draws.type, 
-  //   filteredCount: model.filteredDraws.length,
-  //   drawsState: model.draws
-  // });
-  
   log.debug('DRAWS_STATE', { type: model.draws.type, count: model.filteredDraws.length });
-
-  useEffect(() => {
-    const shouldInit = !model.context ||
-      model.context?.hostStore !== context.hostStore ||
-      model.config !== config;
-
-    if (shouldInit) {
-      log.debug('Initializing context');
-      init({ context, config });
-      dispatch(INIT_CONTEXT({ context, config }));
-    }
-  }, [context, config, init, dispatch]); // Removed model.context and model.config from dependencies
 
   const handleRefresh = () => {
     dispatch(REFRESH_CLICKED());
@@ -82,8 +62,6 @@ export const DrawsListComponent: React.FC<DrawsListComponentProps> = ({ context,
       <View>
         {filteredDraws.length > 0 ? (
           filteredDraws.map((draw) => {
-            // SSOT: Draw viene de DrawRepository, los totales vienen de BetRepository
-            // Pass both separately to avoid mixing sources
             return (
               <DrawItem
                 key={draw.id}
@@ -98,8 +76,8 @@ export const DrawsListComponent: React.FC<DrawsListComponentProps> = ({ context,
             );
           })
         ) : (
-          <View style={styles.emptyContainer}>
-            <Label style={styles.emptyText}>No hay sorteos para este filtro</Label>
+          <View style={styles.centerContainer}>
+            <Label style={styles.emptyText}>No hay sorteos disponibles</Label>
           </View>
         )}
       </View>
@@ -108,20 +86,11 @@ export const DrawsListComponent: React.FC<DrawsListComponentProps> = ({ context,
 
   return (
     <View style={styles.content}>
-      <Flex justify="between" align="center" style={styles.sectionHeader}>
-        <Label style={styles.sectionTitle}>Sorteos</Label>
-        <Label type="detail" style={styles.drawCount}>
-          {match(model.draws)
-            .with(RemoteData.Success, ({ data }: any) => `${data.length} disponibles`)
-            .otherwise(() => 'Cargando...')}
-        </Label>
-      </Flex>
-
-      {match(model.draws)
-        .with(RemoteData.NotAsked, renderNotAsked)
-        .with(RemoteData.Loading, renderLoading)
-        .with(RemoteData.Failure, renderError)
-        .with(RemoteData.Success, renderSuccess)
+      {match(model?.draws || RemoteData.notAsked())
+        .with({ type: 'NotAsked' }, renderNotAsked)
+        .with({ type: 'Loading' }, renderLoading)
+        .with({ type: 'Failure' }, renderError)
+        .with({ type: 'Success' }, renderSuccess)
         .exhaustive()}
     </View>
   );

@@ -69,31 +69,48 @@ export function update(model: CoreModel, msg: CoreMsg): Return<CoreModel, CoreMs
               log.debug('Setting up API handlers...');
               return CoreService.setupApiHandlers(dispatch);
             },
-            onSuccess: () => ({ type: 'NO_OP' } as any),
-            onFailure: () => ({ type: 'NO_OP' } as any),
+            onSuccess: () => ({ type: 'API_HANDLERS_READY' }),
+            onFailure: (err) => {
+              log.error('API Handlers setup failed', err);
+              return { type: 'NO_OP' };
+            },
             label: 'SETUP_API_HANDLERS'
           }),
-          // Si está autenticado, validamos el contexto de sesión inmediatamente
-          isAuth ? Cmd.task({
-            task: async () => {
-              log.debug('Verifying session context...');
-              let user = await AuthRepository.hydrate();
+          // Si está autenticado, validamos el contexto de sesión y el mantenimiento inmediatamente
+          isAuth ? Cmd.batch([
+            Cmd.task({
+              task: async () => {
+                log.debug('Verifying session context...');
+                let user = await AuthRepository.hydrate();
 
-              // Si tenemos usuario pero NO estructura, intentamos refrescar desde la API
-              if (user && !user.structure) {
-                log.warn('User found but structure is missing, attempting API refresh...');
-                const result = await AuthRepository.refreshUserProfile();
-                if (result.isOk()) {
-                  user = result.value;
+                // Si tenemos usuario pero NO estructura, intentamos refrescar desde la API
+                if (user && !user.structure) {
+                  log.warn('User found but structure is missing, attempting API refresh...');
+                  const result = await AuthRepository.refreshUserProfile();
+                  if (result.isOk()) {
+                    user = result.value;
+                  }
                 }
-              }
 
-              return !!(user && user.structure);
-            },
-            onSuccess: (isReady) => isReady ? { type: 'SESSION_CONTEXT_READY' } : { type: 'SESSION_EXPIRED', reason: 'INCOMPLETE_PROFILE' },
-            onFailure: () => ({ type: 'SESSION_EXPIRED', reason: 'PROFILE_FETCH_FAILED' }),
-            label: 'VERIFY_SESSION_CONTEXT'
-          }) : (isSystemReady ? Cmd.sendMsg(SYSTEM_READY({ date: new Date().toISOString().split('T')[0] })) : Cmd.none)
+                return !!(user && user.structure);
+              },
+              onSuccess: (isReady) => isReady ? { type: 'SESSION_CONTEXT_READY' } : { type: 'SESSION_EXPIRED', reason: 'INCOMPLETE_PROFILE' },
+              onFailure: () => ({ type: 'SESSION_EXPIRED', reason: 'PROFILE_FETCH_FAILED' }),
+              label: 'VERIFY_SESSION_CONTEXT'
+            }),
+            Cmd.task({
+              task: () => {
+                log.info('Triggering initial maintenance during bootstrap...');
+                return systemJanitor.prepareDailySession();
+              },
+              onSuccess: () => ({ type: 'NO_OP' } as any),
+              onFailure: (err) => {
+                log.error('Initial maintenance failed', err);
+                return { type: 'NO_OP' } as any;
+              },
+              label: 'INITIAL_MAINTENANCE'
+            })
+          ]) : (isSystemReady ? Cmd.sendMsg(SYSTEM_READY({ date: new Date().toISOString().split('T')[0] })) : Cmd.none)
         ])
       );
     }

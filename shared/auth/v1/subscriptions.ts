@@ -53,13 +53,21 @@ export const authSubscriptions = (model: AuthModel): SubDescriptor<msg.AuthMsg> 
             'auth_v1_token_sync'
         ),
 
-        // 4. Escuchar mensajes globales (GLOBAL_LOGOUT)
+        // 4. Escuchar mensajes globales (GLOBAL_LOGOUT, GLOBAL_LOGIN)
         Sub.receiveMsg(
             GlobalSignals.LOGOUT,
             (_, dispatch) => {
                 dispatch(msg.LOGOUT_REQUESTED());
             },
             'auth_global_logout_handler'
+        ),
+
+        Sub.receiveMsg(
+            GlobalSignals.LOGIN,
+            (payload, dispatch) => {
+                dispatch(msg.LOGIN_REQUESTED(payload));
+            },
+            'auth_global_login_handler'
         )
     ]);
 };

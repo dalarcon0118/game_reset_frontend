@@ -1,35 +1,27 @@
-import { createElmStore } from '@core/engine/engine';
-import { effectHandlers } from '@core/tea-utils';
-import { initialModel, Model } from './model';
+import { createTEAModule } from '@core/engine/tea_module';
+import { initialModel, Model, DrawsListPluginConfig } from './model';
 import { update } from './update';
 import { subscriptions } from './subscriptions';
-import { Msg } from './msg';
-import { Cmd } from '@core';
-import { createLoggerMiddleware } from '@core/middlewares/logger.middleware';
-// 1. Declarar variable local nula
-let dashboardStoreInstance: ReturnType<typeof createElmStore<Model, Msg>> | null = null;
-// 2. Crear una función getter
-export const getDashboardStore = () => {
-  if (!dashboardStoreInstance) {
-    // En este punto, estamos seguros de que la app ya terminó de cargar
-    // todos los imports y ejecutó las configuraciones globales.
-    dashboardStoreInstance = createElmStore<Model, Msg>(
-      {
-        initial: () => [initialModel(), Cmd.none],
-        update,
-        subscriptions
-      }
-    );
-  }
-  return dashboardStoreInstance;
-};
-// 3. Crear un hook personalizado para React
-export const useDrawsListPluginStore = <T>(selector?: (state: { model: Model; dispatch: (msg: Msg) => void; init: (params?: any) => void }) => T): T => {
-  const store = getDashboardStore();
-  // @ts-ignore - Zustand selector type matching
-  return selector ? store(selector) : store();
-};
+import { Msg, INIT_CONTEXT } from './msg';
+import { PluginContext } from '@core/plugins/plugin.types';
+import { Cmd } from '@core/tea-utils';
+
+export const DrawsListModule = createTEAModule<Model, Msg>({
+  name: 'DrawsListPlugin',
+  initial: (params: { context: PluginContext; config: DrawsListPluginConfig }) => {
+    const [model, cmd] = initialModel();
+    if (params) {
+      // Si hay params (contexto), inyectamos el mensaje de inicialización inmediatamente
+      return [
+        { ...model, context: params.context, config: params.config },
+        Cmd.ofMsg(INIT_CONTEXT(params))
+      ];
+    }
+    return [model, cmd];
+  },
+  update,
+  subscriptions
+});
 
 export const selectModel = (state: { model: Model }) => state.model;
 export const selectDispatch = (state: { dispatch: (msg: Msg) => void }) => state.dispatch;
-export const selectInit = (state: { init: (params?: any) => void }) => state.init;

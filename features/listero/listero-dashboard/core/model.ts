@@ -2,7 +2,7 @@ import { WebData } from '@core/tea-utils';
 import { FinancialSummary, DrawType, BetType } from '@/types';
 import { StatusFilter, DailyTotals } from './core.types';
 import { DashboardUser } from './user.dto';
-import { PromotionState } from '../promotion/model';
+import { PromotionState } from '../../../../shared/components/promotion/model';
 
 export type DashboardStatus =
     | { type: 'IDLE' }                               // Esperando datos iniciales (Estructura/Token)

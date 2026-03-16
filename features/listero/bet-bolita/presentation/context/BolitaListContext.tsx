@@ -34,8 +34,8 @@ export const BolitaListProvider: React.FC<BolitaListProviderProps> = ({ drawId, 
     const model = useBolitaStore(selectBolitaModel);
     const dispatch = useBolitaStore(selectDispatch);
 
-    const { fijosCorridosTotal, parletsTotal, centenasTotal, grandTotal } = model.summary;
-    const { isRefreshing, remoteData } = model.listState;
+    const { isRefreshing, remoteData, summary } = model.listState;
+    const { fijosCorridosTotal, parletsTotal, centenasTotal, grandTotal } = summary;
     
     useEffect(() => {
         log.debug('BolitaListProvider - totals', { fijosCorridosTotal, parletsTotal, centenasTotal, grandTotal });

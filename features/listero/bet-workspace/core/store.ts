@@ -9,7 +9,7 @@ import { initialManagementState } from '../management/core/types';
 import { initialLoteriaState } from '../../bet-loteria/loteria/loteria.types';
 import { initialVoucherModel } from '../success/core/domain/success.types';
 import { initialParletState, initialCentenaState } from '../../bet-bolita/domain/models/bolita.initial';
-import { RemoteData, Return } from '@core/tea-utils';
+import { RemoteData } from '@core/tea-utils';
 
 const initialSummary: BetSummary = {
     loteriaTotal: 0,

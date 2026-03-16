@@ -1,9 +1,14 @@
 import React from 'react';
 import { SummaryComponent } from './summary_plugin/view';
 import { Plugin, SlotProps } from '@core/plugins/plugin.types';
+import { SummaryModule } from './summary_plugin/store';
 
 const SummaryPluginComponent: React.FC<SlotProps> = ({ context }) => {
-  return <SummaryComponent context={context} />;
+  return (
+    <SummaryModule.Provider initialParams={context}>
+      <SummaryComponent />
+    </SummaryModule.Provider>
+  );
 };
 
 const SummaryPlugin: Plugin = {

@@ -3,7 +3,7 @@ import { FinancialSummary, DrawType, BetType } from '@/types';
 import { StatusFilter } from './core.types';
 import { DashboardUser } from './user.dto';
 
-import { Msg as PromotionMsg } from '../promotion/msg';
+import { Msg as PromotionMsg } from '../../../../shared/components/promotion/msg';
 
 export interface FinancialUpdate {
     type: string;

@@ -1,36 +1,19 @@
-import { useEffect } from 'react';
+import React from 'react';
 
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Card, Button } from '@ui-kitten/components';
 import { Eye, EyeOff, PiggyBank, Wallet, FileText, TrendingUp, BarChart3 } from 'lucide-react-native';
-import { INIT_CONTEXT, GET_FINANCIAL_BETS, TOGGLE_BALANCE_VISIBILITY } from './msg';
-import { useSummaryPluginStore } from './store';
+import { GET_FINANCIAL_BETS, TOGGLE_BALANCE_VISIBILITY } from './msg';
+import { SummaryModule, selectModel, selectDispatch } from './store';
 import { RemoteData } from '@core/tea-utils';
 import { formatCurrency } from '@/shared/utils/formatters';
 import { styles } from './styles';
-import { SummaryPluginContext } from './domain/models';
 import logger from '@/shared/utils/logger';
 
-interface SummaryComponentProps {
-  context: SummaryPluginContext;
-}
-
-export const SummaryComponent: React.FC<SummaryComponentProps> = ({ context }) => {
+export const SummaryComponent: React.FC = () => {
   const log = logger.withTag('SummaryComponent');
-  const { model, dispatch } = useSummaryPluginStore();
-
-  // Inicializar el contexto solo una vez al montar el componente
-  useEffect(() => {
-    const shouldInit = context && (!model.context || model.context?.hostStore !== context.hostStore);
-    if (shouldInit) {
-      dispatch(INIT_CONTEXT(context));
-    }
-  }, [context, dispatch]); // Removed model.context from dependencies
-
-  useEffect(() => {
-    // Solicitar datos financieros al inicializar el contexto
-    log.error('SummaryComponent: model.contextError', model.contextError);
-  }, [model.contextError, model.context]); // Added model.context to dependencies
+  const model = SummaryModule.useStore(selectModel);
+  const dispatch = SummaryModule.useStore(selectDispatch);
 
   // Si hay un error en el contexto, mostrarlo
   if (model.contextError) {
@@ -60,6 +43,9 @@ export const SummaryComponent: React.FC<SummaryComponentProps> = ({ context }) =
   };
 
   const renderContent = () => {
+    // Protección adicional contra modelo no inicializado
+    const financialSummary = model?.financialSummary || RemoteData.notAsked();
+    
     return RemoteData.fold({
       notAsked: () => (
         <View style={styles.centered}>
@@ -115,71 +101,65 @@ export const SummaryComponent: React.FC<SummaryComponentProps> = ({ context }) =
                   <PiggyBank size={24} color="#00D68F" />
                 </View>
                 <View style={styles.metricInfo}>
-                  <Text style={styles.metricLabel}>Mi Ganancia Est.</Text>
+                  <Text style={styles.metricLabel}>Ganancia Estimada</Text>
                   <Text style={styles.metricValue}>
                     {showBalance ? formatCurrency(dailyTotals.estimatedCommission) : '****'}
                   </Text>
                 </View>
-                <View style={styles.percentageBadge}>
-                  <Text style={styles.percentageText}>{Math.round(commissionRate * 100)}%</Text>
-                </View>
               </View>
 
-              {/* Monto a Entregar */}
+              <View style={styles.divider} />
+
+              {/* Total a Rendir */}
               <View style={styles.mainMetricRow}>
-                <View style={[styles.iconContainer, { backgroundColor: '#EBF1FF' }]}>
+                <View style={[styles.iconContainer, { backgroundColor: '#F0F5FF' }]}>
                   <Wallet size={24} color="#3366FF" />
                 </View>
                 <View style={styles.metricInfo}>
-                  <Text style={styles.metricLabel}>Monto a Entregar al Colector</Text>
-                  <Text style={[styles.metricValue, styles.primaryText]}>
+                  <Text style={styles.metricLabel}>Total a Rendir</Text>
+                  <Text style={[styles.metricValue, { color: '#3366FF' }]}>
                     {showBalance ? formatCurrency(dailyTotals.amountToRemit) : '****'}
                   </Text>
                 </View>
               </View>
             </View>
 
-            <View style={styles.divider} />
-
             {/* Secondary Metrics */}
             <View style={styles.secondaryMetricsRow}>
-              {/* Ventas */}
               <View style={styles.secondaryItem}>
                 <View style={styles.secondaryHeader}>
-                  <FileText size={14} color="#8F9BB3" />
-                  <Text style={styles.secondaryLabel}>Ventas</Text>
+                  <FileText size={16} color="#8F9BB3" style={{ marginRight: 4 }} />
+                  <Text style={styles.secondaryLabel}>Recolectado</Text>
                 </View>
                 <Text style={styles.secondaryValue}>
                   {showBalance ? formatCurrency(dailyTotals.totalCollected) : '****'}
                 </Text>
               </View>
 
-              {/* Premios */}
               <View style={styles.secondaryItem}>
                 <View style={styles.secondaryHeader}>
-                  <TrendingUp size={14} color="#8F9BB3" />
+                  <TrendingUp size={16} color="#8F9BB3" style={{ marginRight: 4 }} />
                   <Text style={styles.secondaryLabel}>Premios</Text>
                 </View>
-                <Text style={[styles.secondaryValue, styles.negativeText]}>
+                <Text style={[styles.secondaryValue, { color: '#FF3D71' }]}>
                   {showBalance ? formatCurrency(dailyTotals.premiumsPaid) : '****'}
                 </Text>
               </View>
 
-              {/* Balance */}
               <View style={styles.secondaryItem}>
                 <View style={styles.secondaryHeader}>
-                  <BarChart3 size={14} color="#8F9BB3" />
-                  <Text style={styles.secondaryLabel}>Balance</Text>
+                  <BarChart3 size={16} color="#8F9BB3" style={{ marginRight: 4 }} />
+                  <Text style={styles.secondaryLabel}>Comisión ({Math.round(commissionRate * 100)}%)</Text>
                 </View>
-                <Text style={[styles.secondaryValue, styles.positiveText]}>
-                  {showBalance ? formatCurrency(dailyTotals.netResult) : '****'}
+                <Text style={styles.secondaryValue}>
+                  {showBalance ? formatCurrency(dailyTotals.estimatedCommission) : '****'}
                 </Text>
               </View>
             </View>
           </View>
         );
       }
-    }, model.financialSummary);
+    }, financialSummary);
   };
 
   return (

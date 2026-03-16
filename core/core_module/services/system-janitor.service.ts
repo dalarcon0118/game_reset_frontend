@@ -1,6 +1,6 @@
 import { maintenanceRepository } from '@/shared/repositories/system/maintenance/maintenance.repository';
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
-import { drawRepository } from '@/shared/repositories/draw/draw.repository';
+import { drawRepository } from '@/shared/repositories/draw';
 import { TimerRepository } from '@/shared/repositories/system/time';
 import { logger } from '@/shared/utils/logger';
 import { offlineEventBus } from '@/shared/core/offline-storage/instance';
