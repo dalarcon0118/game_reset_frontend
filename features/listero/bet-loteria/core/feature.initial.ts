@@ -1,6 +1,7 @@
 import { LoteriaFeatureModel } from './feature.types';
 import { initialLoteriaState } from '../loteria/loteria.types';
 import { RemoteData } from '@core/tea-utils';
+import { initialRulesModel } from '../../bet-workspace/rules/core/model';
 
 // ============================================================================
 // Initial Model - Extracción para romper ciclo de dependencias
@@ -59,17 +60,5 @@ export const initialModel: LoteriaFeatureModel = {
         fetchExistingBets: true,
         isEditing: false,
     },
-    rulesSession: {
-        rulesList: RemoteData.notAsked(),
-        allRules: [],
-        stats: { validationCount: 0, rewardCount: 0, total: 0 },
-        isRefreshing: false,
-        isRulesDrawerVisible: false,
-        selectedRuleType: null,
-        selectedRule: null,
-        currentDrawId: null,
-    },
-    rules: {
-        status: RemoteData.notAsked()
-    },
+    rulesSession: initialRulesModel,
 };

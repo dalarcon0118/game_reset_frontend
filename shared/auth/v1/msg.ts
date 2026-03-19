@@ -1,5 +1,5 @@
 import { GlobalMsg, createMsg, MsgCreator } from '../../core/tea-utils';
-import { User } from '../../repositories/auth/types/types';
+import { User, AuthErrorType } from '../../repositories/auth/types/types';
 import { Tokens } from './model';
 
 export const INITIAL_SESSION_CHECK_REQUESTED = createMsg<'INITIAL_SESSION_CHECK_REQUESTED'>('INITIAL_SESSION_CHECK_REQUESTED');
@@ -7,7 +7,7 @@ export const SESSION_HYDRATED = createMsg<'SESSION_HYDRATED', { user: User | nul
 export const SESSION_CHANGED = createMsg<'SESSION_CHANGED', { user: User | null; isOffline: boolean }>('SESSION_CHANGED');
 export const LOGIN_REQUESTED = createMsg<'LOGIN_REQUESTED', { username: string; pin: string }>('LOGIN_REQUESTED');
 export const LOGIN_SUCCEEDED = createMsg<'LOGIN_SUCCEEDED', { user: User; tokens: Tokens; isOffline: boolean }>('LOGIN_SUCCEEDED');
-export const LOGIN_FAILED = createMsg<'LOGIN_FAILED', { error: string }>('LOGIN_FAILED');
+export const LOGIN_FAILED = createMsg<'LOGIN_FAILED', { error: string; type?: AuthErrorType }>('LOGIN_FAILED');
 export const LOGOUT_REQUESTED = createMsg<'LOGOUT_REQUESTED'>('LOGOUT_REQUESTED');
 export const LOGOUT_COMPLETED = createMsg<'LOGOUT_COMPLETED'>('LOGOUT_COMPLETED');
 export const AUTH_ERROR_DETECTED = createMsg<'AUTH_ERROR_DETECTED', { status: number; endpoint: string }>('AUTH_ERROR_DETECTED');
@@ -15,6 +15,7 @@ export const REFRESH_STARTED = createMsg<'REFRESH_STARTED'>('REFRESH_STARTED');
 export const REFRESH_SUCCEEDED = createMsg<'REFRESH_SUCCEEDED', { tokens: Tokens }>('REFRESH_SUCCEEDED');
 export const REFRESH_FAILED = createMsg<'REFRESH_FAILED', { error: string }>('REFRESH_FAILED');
 export const SESSION_EXPIRED = createMsg<'SESSION_EXPIRED', { reason?: string }>('SESSION_EXPIRED');
+export const RESET_AUTH_STATE = createMsg<'RESET_AUTH_STATE'>('RESET_AUTH_STATE');
 export const GLOBAL_SIGNAL_RECEIVED = createMsg<'GLOBAL_SIGNAL_RECEIVED', { payload: GlobalMsg }>('GLOBAL_SIGNAL_RECEIVED');
 
 export type AuthMsg =
@@ -31,4 +32,5 @@ export type AuthMsg =
     | ReturnType<typeof REFRESH_SUCCEEDED>
     | ReturnType<typeof REFRESH_FAILED>
     | ReturnType<typeof SESSION_EXPIRED>
+    | ReturnType<typeof RESET_AUTH_STATE>
     | ReturnType<typeof GLOBAL_SIGNAL_RECEIVED>;

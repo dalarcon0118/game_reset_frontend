@@ -45,7 +45,7 @@ export class CredentialProvider {
   }
 
   /**
-   * Obtiene el token de acceso actual desde el almacenamiento.
+   * Obtiene el token de acceso y de confirmación actual desde el almacenamiento.
    */
   async getAccessToken(): Promise<string | null> {
     const repoRes = this.tokenStorage;
@@ -56,6 +56,22 @@ export class CredentialProvider {
       return access;
     } catch (error) {
       this.log.error('Error reading access token', error);
+      return null;
+    }
+  }
+
+  /**
+   * Obtiene el token de confirmación actual desde el almacenamiento.
+   */
+  async getConfirmationToken(): Promise<string | null> {
+    const repoRes = this.tokenStorage;
+    if (repoRes.isErr()) return null;
+
+    try {
+      const { confirmationToken } = await repoRes.value.getToken();
+      return confirmationToken || null;
+    } catch (error) {
+      this.log.error('Error reading confirmation token', error);
       return null;
     }
   }

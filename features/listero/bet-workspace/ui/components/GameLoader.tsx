@@ -1,7 +1,6 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { View, ActivityIndicator, Text } from 'react-native';
-import { useBetWorkspaceStore } from '../../core/store';
-import { ManagementMsgType } from '../../management/core/types';
+import { BetWorkspaceProvider, useBetWorkspaceStore } from '../../core/store';
 import { renderGameComponent, getGameListComponent } from './game_registry';
 import { RemoteData } from '@core/tea-utils';
 
@@ -11,23 +10,9 @@ interface GameLoaderProps {
     mode: 'entry' | 'list';
 }
 
-export const GameLoader: React.FC<GameLoaderProps> = ({ drawId, title, mode }) => {
+const GameLoaderContent: React.FC<GameLoaderProps> = ({ drawId, title, mode }) => {
     const model = useBetWorkspaceStore((state: any) => state.model);
-    const dispatch = useBetWorkspaceStore((state: any) => state.dispatch);
     const { drawDetails } = model.managementSession;
-
-    useEffect(() => {
-        // Initialize management state for the draw
-        dispatch({ 
-            type: 'MANAGEMENT',
-            payload: {
-                type: ManagementMsgType.INIT, 
-                drawId, 
-                fetchExistingBets: mode === 'list', // Fetch bets only in list mode
-                isEditing: mode === 'entry' // Entry mode implies editing/creating
-            }
-        });
-    }, [drawId, dispatch, mode]);
 
     return RemoteData.fold(
         {
@@ -66,5 +51,13 @@ export const GameLoader: React.FC<GameLoaderProps> = ({ drawId, title, mode }) =
             }
         },
         drawDetails
+    );
+};
+
+export const GameLoader: React.FC<GameLoaderProps> = (props) => {
+    return (
+        <BetWorkspaceProvider initialParams={{ drawId: props.drawId, mode: props.mode, title: props.title }}>
+            <GameLoaderContent {...props} />
+        </BetWorkspaceProvider>
     );
 };

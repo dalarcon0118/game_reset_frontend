@@ -1,4 +1,4 @@
-import { match } from 'ts-pattern';
+import { match, P } from 'ts-pattern';
 import { LoteriaFeatureModel, FeatureMsg } from './feature.types';
 import {
     OPEN_BET_KEYBOARD,
@@ -19,6 +19,17 @@ import {
     LoteriaState
 } from '../loteria/loteria.types';
 import { updateLoteria } from '../loteria/loteria.update';
+import { updateRules } from '../../bet-workspace/rules/core/update';
+import {
+    FETCH_RULES_REQUESTED,
+    REFRESH_RULES_REQUESTED,
+    FETCH_RULES_SUCCEEDED,
+    FETCH_RULES_FAILED,
+    SHOW_RULES_DRAWER,
+    HIDE_RULES_DRAWER,
+    SELECT_RULE,
+    CLEAR_SELECTION
+} from '../../bet-workspace/rules/core/types';
 import { Return, singleton, Cmd } from '@core/tea-utils';
 import { FeatureFlows } from './feature.flows';
 import { LoteriaDomain } from './feature.domain';
@@ -53,6 +64,14 @@ export const updateFeature = (model: LoteriaFeatureModel, msg: FeatureMsg): Retu
                 drawTypeCode: webData
             });
         })
+        .with({ type: 'FETCH_RULES_REQUESTED' }, (msg) => updateRules(model, msg as any))
+        .with({ type: 'REFRESH_RULES_REQUESTED' }, (msg) => updateRules(model, msg as any))
+        .with({ type: 'FETCH_RULES_SUCCEEDED' }, (msg) => updateRules(model, msg as any))
+        .with({ type: 'FETCH_RULES_FAILED' }, (msg) => updateRules(model, msg as any))
+        .with({ type: 'SHOW_RULES_DRAWER' }, (msg) => updateRules(model, msg as any))
+        .with({ type: 'HIDE_RULES_DRAWER' }, (msg) => updateRules(model, msg as any))
+        .with({ type: 'SELECT_RULE' }, (msg) => updateRules(model, msg as any))
+        .with({ type: 'CLEAR_SELECTION' }, (msg) => updateRules(model, msg as any))
         .with({ type: 'LOTERIA' }, ({ payload: loteriaMsg }) => {
             return updateLoteriaOrchestration(model, loteriaMsg);
         })

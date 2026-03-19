@@ -38,9 +38,13 @@ export async function isServerReachable(timeoutOverride?: number): Promise<boole
 
             clearTimeout(timeoutId);
 
-            // If we get any response, the server is reachable
-            log.debug(`Server reachability result: ${response.ok}`);
-            return true;
+            // SSOT CONNECTIVITY POLICY:
+            // Si el servidor responde (cualquier status), se considera ALCANZABLE.
+            // Esto es vital para que AuthRepository intente el login online y,
+            // si recibe un 500, bloquee el fallback offline según política de seguridad.
+            const isReachable = response.status > 0 && response.status < 600;
+            log.debug(`Server reachability result: ${isReachable} (Status: ${response.status})`);
+            return isReachable;
         } catch (fetchError) {
             clearTimeout(timeoutId);
             log.debug('Server ping fetch failed or timed out', fetchError);

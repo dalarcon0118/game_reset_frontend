@@ -1,6 +1,6 @@
 import React from 'react';
 import { match, P } from 'ts-pattern';
-import { useBolitaStore, selectBolitaModel, selectDispatch } from '../store';
+import { useBolitaDispatch, useBolitaModel } from '../store';
 import { 
     CLOSE_KEYBOARD,
     CONFIRM_INPUT,
@@ -21,8 +21,8 @@ const log = logger.withTag('BOLITA_KEYBOARD_MANAGER');
  * Actúa como SSOT para la interacción con los teclados numéricos.
  */
 export const BolitaKeyboardManager: React.FC = () => {
-    const model = useBolitaStore(selectBolitaModel);
-    const dispatch = useBolitaStore(selectDispatch);
+    const model = useBolitaModel();
+    const dispatch = useBolitaDispatch();
 
     const { 
         showBetKeyboard, 

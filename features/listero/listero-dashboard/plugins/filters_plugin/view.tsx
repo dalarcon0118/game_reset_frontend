@@ -1,9 +1,9 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { ScrollView, TouchableOpacity, View } from 'react-native';
 import { Label } from '@/shared/components';
 import { PluginContext } from '@core/plugins/plugin.types';
-import { useFiltersPluginStore } from './store';
-import { SELECT_FILTER } from './msg';
+import { FiltersPluginModule, selectModel, selectDispatch } from './store';
+import { Msg, INIT_CONTEXT, SELECT_FILTER } from './msg';
 import { styles } from './styles';
 import { FiltersPluginConfig } from './model';
 
@@ -13,20 +13,21 @@ interface FiltersComponentProps {
 }
 
 export const FiltersComponent: React.FC<FiltersComponentProps> = ({ context, config }) => {
-  const { model, dispatch, init } = useFiltersPluginStore();
+  const model = FiltersPluginModule.useStore(selectModel);
+  const dispatch = FiltersPluginModule.useStore(selectDispatch);
+  
+  const initializedRef = useRef(false);
 
+  // Initialize context when available
   useEffect(() => {
-    const shouldInit = !model.context || 
-      model.context?.hostStore !== context.hostStore || 
-      model.config !== config;
-
-    if (shouldInit) {
-      init({ context, config });
+    if (context && !initializedRef.current) {
+      initializedRef.current = true;
+      dispatch(INIT_CONTEXT({ context, config }) as Msg);
     }
-  }, [context, config, init]); // Removed model.context and model.config from dependencies
+  }, [context, config, dispatch]);
 
   const handleFilterPress = (value: string) => {
-    dispatch(SELECT_FILTER(value));
+    dispatch(SELECT_FILTER(value) as Msg);
   };
 
   return (

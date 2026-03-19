@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useBolitaStore, selectDispatch } from '../store';
+import { useBolitaDispatch } from '../store';
 import { 
     FIJOS, 
     PARLET, 
@@ -18,7 +18,7 @@ import { FijosCorridosBet } from '@/types';
  * Cumple con SRP al separar las acciones de la visualización de datos.
  */
 export const useBolitaActions = () => {
-    const dispatch = useBolitaStore(selectDispatch);
+    const dispatch = useBolitaDispatch();
 
     // --- Fijos Actions ---
     const openFijosBetKeyboard = useCallback(() => 

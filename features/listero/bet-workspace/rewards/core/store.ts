@@ -1,18 +1,70 @@
-import { createElmStore } from '@core/engine/engine';
-import { Sub } from '@core/tea-utils';
+import { createTEAModule, defineTeaModule } from '@core/engine/tea_module';
+import { Sub, Cmd, ret } from '@core/tea-utils';
 import { RewardsModel, initialRewardsModel } from './model';
-import { RewardsMsg } from './types';
-import { updateRewards } from './update';
+import { RewardsMsg, INIT_MODULE } from './types';
+import { makeUpdate } from './update';
+import { IRewardsDataService, IRewardsUIService } from './adapters';
+import { RewardsDataService, RewardsUIService } from './service';
 
-const init = () => [initialRewardsModel, null];
+// Importaciones de dependencias concretas para el Composition Root
+import { drawRepository } from '@/shared/repositories/draw';
+import { winningsRepository } from '@/shared/repositories/bet/winnings.repository';
+import { rulesRepository } from '@/shared/repositories/rules';
 
-const subscriptions = (_model: RewardsModel) => Sub.none();
+/**
+ * 📦 COMPOSITION ROOT
+ * Instanciación de servicios y dependencias fuera del ciclo de vida de React/Zustand.
+ */
+const defaultDataService = new RewardsDataService(
+    drawRepository,
+    winningsRepository,
+    rulesRepository
+);
+const defaultUIService = new RewardsUIService();
 
-export const useRewardsStore = createElmStore<RewardsModel, RewardsMsg>({
-    initial: init,
-    update: updateRewards,
-    subscriptions
+/**
+ * 📦 REWARDS MODULE DEFINITION
+ * Implementa Composición Root e Inyección de Dependencias.
+ */
+
+export interface RewardsModuleParams {
+    drawId: string;
+    title?: string;
+    // Inyección opcional de servicios para testing o overrides
+    dataService?: IRewardsDataService;
+    uiService?: IRewardsUIService;
+}
+
+const rewardsDefinition = defineTeaModule<RewardsModel, RewardsMsg>({
+    name: 'RewardsModule',
+    initial: (params: RewardsModuleParams) => {
+        const model = {
+            ...initialRewardsModel,
+            currentDrawId: params.drawId,
+            drawTitle: params.title || null
+        };
+
+        return ret(model, Cmd.ofMsg(INIT_MODULE({ drawId: params.drawId, title: params.title })));
+    },
+    update: (model, msg) => {
+        // En una implementación real, podríamos querer que los servicios 
+        // vengan del contexto o de la definición. 
+        // Aquí usamos los singletons instanciados en el Composition Root de este archivo.
+        return makeUpdate(defaultDataService, defaultUIService)(model, msg);
+    },
+    subscriptions: () => Sub.none()
 });
+
+/**
+ * 🏪 REWARDS MODULE INSTANCE
+ * Exporta el Provider y los hooks del módulo.
+ */
+export const RewardsModule = createTEAModule(rewardsDefinition);
+
+// Hooks públicos
+export const useRewardsStore = RewardsModule.useStore;
+export const useRewardsDispatch = RewardsModule.useDispatch;
+export const RewardsProvider = RewardsModule.Provider;
 
 // Selectors
 export const selectRewardsModel = (state: { model: RewardsModel }) => state.model;

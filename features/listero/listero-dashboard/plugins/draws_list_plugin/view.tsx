@@ -23,8 +23,6 @@ export const DrawsListComponent: React.FC<DrawsListComponentProps> = ({ context 
   const model = DrawsListModule.useStore(selectModel);
   const dispatch = DrawsListModule.useStore(selectDispatch);
 
-  log.debug('DRAWS_STATE', { type: model.draws.type, count: model.filteredDraws.length });
-
   const handleRefresh = () => {
     dispatch(REFRESH_CLICKED());
   };

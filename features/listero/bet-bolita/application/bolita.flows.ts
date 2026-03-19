@@ -9,6 +9,7 @@ import {
     FIJOS,
     CENTENA,
     PARLET,
+    EDIT,
     CLOSE_KEYBOARD,
     CONFIRM_INPUT
 } from '../domain/models/bolita.messages';
@@ -19,9 +20,10 @@ import { betRepository } from '@/shared/repositories/bet/bet.repository';
 import { logger } from '@/shared/utils/logger';
 
 // Message imports for orchestration
-import { FIJOS_CONFIRM_INPUT, CLOSE_BET_KEYBOARD, CLOSE_AMOUNT_KEYBOARD } from '../domain/models/bolita.messages';
-import { CENTENA_CONFIRM_INPUT, CLOSE_CENTENA_BET_KEYBOARD, CLOSE_CENTENA_AMOUNT_KEYBOARD } from '../domain/models/bolita.messages';
-import { PARLET_CONFIRM_INPUT, CLOSE_PARLET_BET_KEYBOARD, CLOSE_PARLET_AMOUNT_KEYBOARD } from '../domain/models/bolita.messages';
+import { FIJOS_CONFIRM_INPUT, CLOSE_BET_KEYBOARD, CLOSE_AMOUNT_KEYBOARD, OPEN_BET_KEYBOARD } from '../domain/models/bolita.messages';
+import { CENTENA_CONFIRM_INPUT, CLOSE_CENTENA_BET_KEYBOARD, CLOSE_CENTENA_AMOUNT_KEYBOARD, PRESS_ADD_CENTENA } from '../domain/models/bolita.messages';
+import { PARLET_CONFIRM_INPUT, CLOSE_PARLET_BET_KEYBOARD, CLOSE_PARLET_AMOUNT_KEYBOARD, PRESS_ADD_PARLET } from '../domain/models/bolita.messages';
+import { EditMsgType } from '../domain/models/bolita.messages';
 
 const log = logger.withTag('BOLITA_FLOWS');
 
@@ -98,28 +100,81 @@ export const BolitaFlows = {
 
     /**
      * Centralized keyboard close handler.
-     * Logic moved from UI to Flow Orchestrator.
+     * Closes the appropriate keyboard based on context.
      */
     handleCloseKeyboard: (model: BolitaModel): Return<BolitaModel, BolitaMsg> => {
         const { activeOwner, showBetKeyboard, showAmountKeyboard } = model.editState;
 
-        log.info('handleCloseKeyboard', { activeOwner, showBetKeyboard, showAmountKeyboard });
+        log.debug('handleCloseKeyboard', { activeOwner, showBetKeyboard, showAmountKeyboard });
 
-        if (!activeOwner) return singleton(model);
+        if (showAmountKeyboard) {
+            return match<InputOwner | null, Return<BolitaModel, BolitaMsg>>(activeOwner)
+                .with('centena', () => ret(model, Cmd.ofMsg(CENTENA(CLOSE_CENTENA_AMOUNT_KEYBOARD()))))
+                .with('parlet', () => ret(model, Cmd.ofMsg(PARLET(CLOSE_PARLET_AMOUNT_KEYBOARD()))))
+                .with('fijos', () => ret(model, Cmd.ofMsg(FIJOS(CLOSE_AMOUNT_KEYBOARD()))))
+                .otherwise(() => ret(model, Cmd.ofMsg(FIJOS(CLOSE_AMOUNT_KEYBOARD()))));
+        }
 
-        const closeMsg = match([activeOwner, showBetKeyboard, showAmountKeyboard])
-            // FIJOS
-            .with(['fijos', true, P._], () => FIJOS(CLOSE_BET_KEYBOARD()))
-            .with(['fijos', false, true], () => FIJOS(CLOSE_AMOUNT_KEYBOARD()))
-            // PARLET
-            .with(['parlet', true, P._], () => PARLET(CLOSE_PARLET_BET_KEYBOARD()))
-            .with(['parlet', false, true], () => PARLET(CLOSE_PARLET_AMOUNT_KEYBOARD()))
-            // CENTENA
-            .with(['centena', true, P._], () => CENTENA(CLOSE_CENTENA_BET_KEYBOARD()))
-            .with(['centena', false, true], () => CENTENA(CLOSE_CENTENA_AMOUNT_KEYBOARD()))
-            .otherwise(() => null);
+        if (showBetKeyboard) {
+            return match<InputOwner | null, Return<BolitaModel, BolitaMsg>>(activeOwner)
+                .with('centena', () => ret(model, Cmd.ofMsg(CENTENA(CLOSE_CENTENA_BET_KEYBOARD()))))
+                .with('parlet', () => ret(model, Cmd.ofMsg(PARLET(CLOSE_PARLET_BET_KEYBOARD()))))
+                .with('fijos', () => ret(model, Cmd.ofMsg(FIJOS(CLOSE_BET_KEYBOARD()))))
+                .otherwise(() => ret(model, Cmd.ofMsg(FIJOS(CLOSE_BET_KEYBOARD()))));
+        }
 
-        return closeMsg ? ret(model, Cmd.ofMsg(closeMsg)) : singleton(model);
+        return singleton(model);
+    },
+
+    /**
+     * Applies the promotion context (betType) to pre-configure the UI.
+     */
+    applyPromotionContext: (model: BolitaModel, betType?: string): Return<BolitaModel, BolitaMsg> => {
+        if (!betType) return singleton(model);
+
+        log.info('applyPromotionContext', { betType });
+
+        switch (betType.toUpperCase()) {
+            case 'FIJO':
+            case 'CORRIDO':
+                return ret(
+                    {
+                        ...model,
+                        editState: { ...model.editState, selectedColumn: 'fijos' }
+                    },
+                    Cmd.batch([
+                        Cmd.ofMsg(EDIT({ type: EditMsgType.SET_EDIT_SELECTED_COLUMN, column: 'fijos' })),
+                        Cmd.ofMsg(FIJOS(OPEN_BET_KEYBOARD()))
+                    ])
+                );
+
+            case 'PARLET':
+                return ret(
+                    {
+                        ...model,
+                        editState: { ...model.editState, selectedColumn: 'parlet' }
+                    },
+                    Cmd.batch([
+                        Cmd.ofMsg(EDIT({ type: EditMsgType.SET_EDIT_SELECTED_COLUMN, column: 'parlet' })),
+                        Cmd.ofMsg(PARLET(PRESS_ADD_PARLET({ fijosCorridosList: model.entrySession.fijosCorridos })))
+                    ])
+                );
+
+            case 'CENTENA':
+                return ret(
+                    {
+                        ...model,
+                        editState: { ...model.editState, selectedColumn: 'centena' }
+                    },
+                    Cmd.batch([
+                        Cmd.ofMsg(EDIT({ type: EditMsgType.SET_EDIT_SELECTED_COLUMN, column: 'centena' })),
+                        Cmd.ofMsg(CENTENA(PRESS_ADD_CENTENA()))
+                    ])
+                );
+
+            default:
+                return singleton(model);
+        }
     },
 
     // --- Persistence Flows (Use Cases) ---

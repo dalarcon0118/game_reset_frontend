@@ -55,8 +55,6 @@ export const update = (model: Model, msg: Msg): Return<Model, Msg> => {
             DataHandler.handleSseError(model, error)
         )
 
-
-
         // Auth Handling
         .with({ type: 'AUTH_USER_SYNCED' }, ({ user }) => {
             if (!user) {
@@ -80,6 +78,12 @@ export const update = (model: Model, msg: Msg): Return<Model, Msg> => {
         .with({ type: 'SYSTEM_READY' }, ({ date }) =>
             AuthHandler.handleSystemReady(model, date)
         )
+
+        // Error Handling
+        .with({ type: 'ERROR' }, ({ error }) => {
+            log.error('Dashboard error received', error);
+            return ret(model, Cmd.none);
+        })
 
         // Filter Handling
         .with({ type: 'STATUS_FILTER_CHANGED' }, ({ filter }) =>
@@ -105,9 +109,6 @@ export const update = (model: Model, msg: Msg): Return<Model, Msg> => {
         .with({ type: 'CREATE_BET_CLICKED' }, ({ drawId, title }) =>
             NavigationHandler.handleCreateBetClicked(model, drawId, title)
         )
-        .with({ type: 'NAVIGATE_TO_ERROR' }, () =>
-            NavigationHandler.handleNavigateToError(model)
-        )
         .with({ type: 'HELP_CLICKED' }, () =>
             NavigationHandler.handleHelpClicked(model)
         )
@@ -117,6 +118,9 @@ export const update = (model: Model, msg: Msg): Return<Model, Msg> => {
         .with({ type: 'SETTINGS_CLICKED' }, () =>
             NavigationHandler.handleSettingsClicked(model)
         )
-        .with({ type: 'NONE' }, () => Return.singleton<Model>(model))
+        .with({ type: 'NAVIGATE_TO_ERROR' }, () =>
+            NavigationHandler.handleNavigateToError(model)
+        )
+        .with({ type: 'NONE' }, () => ret(model, Cmd.none))
         .exhaustive();
 };

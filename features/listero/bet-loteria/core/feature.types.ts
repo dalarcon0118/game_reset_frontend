@@ -1,17 +1,8 @@
 import { LoteriaFeatMsg, LoteriaState } from '../loteria/loteria.types';
 import { WebData, RemoteData } from '@core/tea-utils';
 import { LoteriaBet, DrawType, BetType, GameType } from '@/types';
-import { UnifiedRulesResponse, ValidationRule, RewardRule } from '@/shared/services/rules';
-
-export interface RulesCache {
-    status: WebData<UnifiedRulesResponse | null>;
-}
-
-export const createRulesCache = (): RulesCache => ({
-    status: RemoteData.notAsked()
-});
-
-export const initialRulesCache: RulesCache = createRulesCache();
+import { RulesMsg } from '../../bet-workspace/rules/core/types';
+import { RulesModel, initialRulesModel } from '../../bet-workspace/rules/core/model';
 
 // ============================================================================
 // Internalized External Types (Agnostic - Refactor Workflow)
@@ -63,32 +54,13 @@ export interface ManagementSession {
     isEditing: boolean;
 }
 
-export interface RulesSession {
-    rulesList: WebData<{
-        validationRules: any[];
-        rewardRules: any[];
-        structureName: string;
-        drawName: string;
-    }>;
-    allRules: any[];
-    stats: {
-        validationCount: number;
-        rewardCount: number;
-        total: number;
-    };
-    isRefreshing: boolean;
-    isRulesDrawerVisible: boolean;
-    selectedRuleType: 'validation' | 'reward' | null;
-    selectedRule: any | null;
-    currentDrawId: string | null;
-}
-
 /**
  * Global Msg type using Wrapped Messages pattern (Elm style).
  * Each sub-module message is wrapped in its own variant.
  */
 export type FeatureMsg =
     | LoteriaFeatMsg
+    | RulesMsg
     | { type: 'FETCH_DRAW_DETAILS_RESPONSE'; response: WebData<DrawType> }
     | { type: 'FETCH_BET_TYPES_RESPONSE'; response: WebData<GameType[]> }
     | { type: 'FETCH_EXISTING_BETS_RESPONSE'; response: WebData<LoteriaBet[]> }
@@ -118,10 +90,7 @@ export interface LoteriaFeatureModel {
     listSession: ListSession;
     entrySession: ListData;
     managementSession: ManagementSession;
-    rulesSession: RulesSession;
-
-    // Cache
-    rules: RulesCache;
+    rulesSession: RulesModel;
 }
 
 // ============================================================================
@@ -168,15 +137,4 @@ export const initialManagementSession: ManagementSession = {
     saveSuccess: false,
     fetchExistingBets: true,
     isEditing: false,
-};
-
-export const initialRulesSession: RulesSession = {
-    rulesList: RemoteData.notAsked(),
-    allRules: [],
-    stats: { validationCount: 0, rewardCount: 0, total: 0 },
-    isRefreshing: false,
-    isRulesDrawerVisible: false,
-    selectedRuleType: null,
-    selectedRule: null,
-    currentDrawId: null,
 };

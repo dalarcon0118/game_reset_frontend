@@ -1,9 +1,8 @@
-import { Result, ResultAsync, ok, err } from 'neverthrow';
-import { isServerReachable } from '@/shared/utils/network';
+import { Result, ResultAsync } from 'neverthrow';
 import { authApiAdapter } from './adapters/auth.api.adapter';
 import { authStorageAdapter } from './adapters/auth.storage.adapter';
 import { IAuthApi, IAuthStorage, IAuthRepository } from './auth.ports';
-import { AuthResult, User, AuthSession, AuthErrorType } from './types/types';
+import { AuthResult, User, AuthErrorType } from './types/types';
 import { logger } from '../../utils/logger';
 import { setAuthRepository } from '../../services/api_client';
 import { SessionPolicy } from '@/shared/auth/session/session.policy';
@@ -31,6 +30,7 @@ class AuthRepositoryImpl implements IAuthRepository {
     private isLoggingIn = false; // Flag para evitar refresh durante login
     private isLoggingOut = false; // Flag para evitar race conditions durante logout
     private isExiting = false; // Flag para prevenir múltiples señales de expiración
+    private isNetworkOnline = true; // SSoT: Estado de red global inyectado por CoreModule
 
     constructor(
         private api: IAuthApi = authApiAdapter,
@@ -67,6 +67,10 @@ class AuthRepositoryImpl implements IAuthRepository {
     async hydrate(): Promise<User | null> {
         try {
             log.info('Hydrating session from storage...');
+
+            // Estricto SSOT: Limpiar datos obsoletos que causaban bloqueos
+            await this.storage.purgeLegacyData();
+
             const user = await this.storage.getUserProfile();
             const offlineProfile = await this.storage.getOfflineProfile();
             const session = await this.storage.getSession();
@@ -180,13 +184,15 @@ class AuthRepositoryImpl implements IAuthRepository {
         this.refreshedListeners.forEach(cb => cb(token));
     }
 
-    async saveToken(access: string, refresh?: string): Promise<void> {
+    async saveToken(access: string, refresh?: string, confirmationToken?: string): Promise<void> {
         const user = (await this.storage.getUserProfile()) || ({} as User);
+        const { confirmationToken: currentConfirmation } = await this.storage.getSession();
         await this.storage.saveSession({
             accessToken: access,
             refreshToken: refresh,
             user,
-            isOffline: false
+            isOffline: false,
+            confirmationToken: confirmationToken || currentConfirmation || undefined
         });
     }
 
@@ -210,14 +216,16 @@ class AuthRepositoryImpl implements IAuthRepository {
         try {
             const response = await this.api.refresh(refresh);
             if (response.success && response.data) {
-                const { accessToken, refreshToken: newRefresh, user } = response.data;
+                const { accessToken, refreshToken: newRefresh, user, confirmationToken } = response.data;
                 const currentUser = (await this.storage.getUserProfile()) || ({} as User);
+                const { confirmationToken: currentConfirmation } = await this.storage.getSession();
 
                 await this.storage.saveSession({
                     accessToken,
                     refreshToken: newRefresh || refresh,
                     user: user || currentUser,
-                    isOffline: false
+                    isOffline: false,
+                    confirmationToken: confirmationToken || currentConfirmation || undefined
                 });
 
                 this.notifyRefreshedListeners(accessToken);
@@ -230,7 +238,7 @@ class AuthRepositoryImpl implements IAuthRepository {
             }
 
             // Si el refresh falla con 401/403, la sesión ha expirado
-            if (!response.success && (response.error.type === AuthErrorType.SESSION_EXPIRED || response.error.type === AuthErrorType.INVALID_CREDENTIALS)) {
+            if (!response.success && response.error && (response.error.type === AuthErrorType.SESSION_EXPIRED || response.error.type === AuthErrorType.INVALID_CREDENTIALS)) {
                 this.notifyExpiredListeners(response.error.message || 'SESSION_EXPIRED');
             }
 
@@ -247,11 +255,13 @@ class AuthRepositoryImpl implements IAuthRepository {
         }
     }
 
-    async getToken(): Promise<{ access: string | null; refresh: string | null }> {
+    async getToken(): Promise<{ access: string | null; refresh: string | null; confirmationToken?: string | null; isOffline?: boolean }> {
         const session = await this.storage.getSession();
         return {
             access: session.access || null,
-            refresh: session.refresh || null
+            refresh: session.refresh || null,
+            confirmationToken: session.confirmationToken || null,
+            isOffline: session.isOffline
         };
     }
 
@@ -260,13 +270,12 @@ class AuthRepositoryImpl implements IAuthRepository {
      * Siempre intenta online primero para mantener los datos frescos.
      */
     async login(username: string, pin: string): Promise<AuthResult> {
-        this.isLoggingIn = true;
         try {
-            // 0. Pre-check de conectividad rápido (timeout de 3s para evitar bloqueos)
-            const reachable = await isServerReachable(3000);
+            // 1. Siempre intentar online primero si el sensor de red global lo permite
+            log.info('Evaluating login strategy...', { username, isNetworkOnline: this.isNetworkOnline });
 
-            if (reachable) {
-                // 1. Intento Online
+            if (this.isNetworkOnline) {
+                log.info('Attempting online login (Network is ONLINE)...', { username });
                 const onlineResult = await this.api.login(username, pin);
 
                 if (onlineResult.success && onlineResult.data) {
@@ -277,63 +286,63 @@ class AuthRepositoryImpl implements IAuthRepository {
                     return onlineResult;
                 }
 
-                // Lógica Musashi: 
-                // 1. Si el error es de identidad (401/403), no intentamos offline.
-                if (!onlineResult.success && onlineResult.error.type === AuthErrorType.INVALID_CREDENTIALS) {
-                    log.warn('Online login failed with domain error (Invalid Credentials)', onlineResult.error);
-                    return onlineResult;
-                }
+                // 2. Analizar el fallo online
+                if (!onlineResult.success && onlineResult.error) {
+                    const error = onlineResult.error;
 
-                // 2. Si el error es del servidor (500), bloqueamos el acceso.
-                // No podemos confiar en la sesión local si el servidor está inestable.
-                if (!onlineResult.success && onlineResult.error.type === AuthErrorType.SERVER_ERROR) {
-                    log.error('Online login failed due to Server Error (500), blocking access', onlineResult.error);
-                    return onlineResult;
-                }
-
-                // 3. Verificación de integridad de tiempo antes de permitir fallback offline.
-                // Si el reloj local es inconsistente, no podemos permitir el modo offline.
-                const timeIntegrity = await this.timeRepo.validateIntegrity(Date.now());
-                if (timeIntegrity.status !== 'ok') {
-                    log.error('Time integrity violation detected, blocking offline fallback', {
-                        status: timeIntegrity.status,
-                        reason: timeIntegrity.reason
+                    log.warn('Online login failed, evaluating fallback policy', {
+                        type: error.type,
+                        message: error.message
                     });
-                    return {
-                        success: false,
-                        error: {
-                            type: AuthErrorType.UNKNOWN_ERROR,
-                            message: 'Integridad de tiempo violada. Por favor sincronice su reloj o conecte a internet.'
-                        }
-                    };
-                }
 
-                // Para cualquier otro fallo (Red, etc.), activamos el modo de supervivencia offline.
-                log.info('Online login failed due to connectivity, attempting offline validation', {
-                    username,
-                    errorType: !onlineResult.success ? onlineResult.error.type : 'N/A'
-                });
-                return await this.performOfflineValidation(username, pin);
+                    // Si es un error de seguridad o de servidor (500), NO permitimos fallback offline.
+                    // Esto asegura que si el servidor está "vivo" pero con errores, no entremos en modo offline.
+                    const shouldBlockOffline =
+                        error.type === AuthErrorType.INVALID_CREDENTIALS ||
+                        error.type === AuthErrorType.DEVICE_LOCKED ||
+                        error.type === AuthErrorType.SESSION_EXPIRED ||
+                        error.type === AuthErrorType.SERVER_ERROR;
+
+                    if (shouldBlockOffline) {
+                        log.error('Blocking offline fallback: definitive server response or security error', {
+                            type: error.type,
+                            message: error.message
+                        });
+                        return onlineResult;
+                    }
+                }
+            } else {
+                log.warn('Network is OFFLINE according to global sensor, skipping online attempt');
             }
 
-            // Si el servidor no es alcanzable, intentamos offline directamente pero validamos integridad de tiempo primero
-            const timeIntegrity = await this.timeRepo.validateIntegrity(Date.now());
+            // 3. Si llegamos aquí, es un error de conexión (timeout, red caída, etc.) o el sensor global reportó OFFLINE
+            // Antes de permitir fallback offline, verificamos integridad de tiempo.
+            log.info('Connectivity issue or OFFLINE state detected, validating time integrity for survival mode', {
+                username,
+                isNetworkOnline: this.isNetworkOnline
+            });
+
+            const timeIntegrity = this.timeRepo.validateIntegrity(Date.now());
             if (timeIntegrity.status !== 'ok') {
-                log.error('Server unreachable and time integrity violation detected, blocking offline validation');
+                log.error('Time integrity violation! Survival mode denied', {
+                    status: timeIntegrity.status,
+                    reason: (timeIntegrity as any).reason
+                });
                 return {
                     success: false,
                     error: {
                         type: AuthErrorType.UNKNOWN_ERROR,
-                        message: 'No hay conexión y el reloj es inconsistente. Conecte a internet para resincronizar.'
+                        message: 'Integridad de tiempo violada. Por favor sincronice su reloj o conecte a internet.'
                     }
                 };
             }
 
-            log.info('Server unreachable (fast-check), attempting offline validation', { username });
+            // 4. Intentar validación offline como modo de supervivencia
+            log.info('Proceeding to survival mode (offline validation)', { username });
             return await this.performOfflineValidation(username, pin);
 
         } catch (error: any) {
-            log.error('Unexpected error during login flow', error);
+            log.error('CRITICAL: Unexpected error during login orchestration', error);
             return {
                 success: false,
                 error: {
@@ -341,14 +350,20 @@ class AuthRepositoryImpl implements IAuthRepository {
                     message: error.message || 'Error inesperado en el sistema'
                 }
             };
-        } finally {
-            this.isLoggingIn = false;
         }
     }
 
     private async performOfflineValidation(username: string, pin: string): Promise<AuthResult> {
         const offlineResult = await this.storage.validateOffline(username, pin);
         if (offlineResult.success && offlineResult.data) {
+            // Save the offline session to SecureStore so subsequent hydration can find it
+            await this.storage.saveSession({
+                user: offlineResult.data.user,
+                accessToken: offlineResult.data.accessToken || 'offline-token',
+                refreshToken: offlineResult.data.refreshToken,
+                confirmationToken: undefined,
+                isOffline: true
+            });
             this.notifySessionListeners(offlineResult.data.user);
         }
         return offlineResult;
@@ -386,6 +401,14 @@ class AuthRepositoryImpl implements IAuthRepository {
     async hasSession(): Promise<boolean> {
         const session = await this.storage.getSession();
         return !!session.access;
+    }
+
+    /** Inyecta el sensor de red global del CoreModule */
+    setNetworkStatus(isOnline: boolean): void {
+        if (this.isNetworkOnline !== isOnline) {
+            log.info(`[SSOT-SYNC] Global network status updated in AuthRepository: ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+            this.isNetworkOnline = isOnline;
+        }
     }
 
     async checkAuth(): Promise<void> {

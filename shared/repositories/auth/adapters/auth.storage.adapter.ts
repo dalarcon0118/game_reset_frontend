@@ -167,5 +167,14 @@ export const authStorageAdapter: IAuthStorage = {
 
     async getOfflineProfile(): Promise<User | null> {
         return await offlineStorage.get<User>(AuthOfflineKeys.offlineProfile());
+    },
+    async purgeLegacyData(): Promise<void> {
+        try {
+            // Eliminar físicamente la clave antigua que causaba desincronización
+            await deleteSecureItem('auth_device_id');
+            log.info('Legacy device identity data purged');
+        } catch (error) {
+            log.warn('Error purging legacy data (possibly already gone)', error);
+        }
     }
 };

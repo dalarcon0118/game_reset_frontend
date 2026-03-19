@@ -1,13 +1,11 @@
 import { WebData } from '@core/tea-utils';
-import { AppNotification, NotificationPreferences, Model } from './model';
+import { AppNotification, NotificationPreferences } from './model';
 
 export type Msg =
     | { type: 'FETCH_NOTIFICATIONS_REQUESTED' }
     | { type: 'NOTIFICATIONS_RECEIVED'; webData: WebData<AppNotification[]> }
     | { type: 'MARK_AS_READ_REQUESTED'; notificationId: string }
-    | { type: 'MARK_AS_READ_SUCCESS'; notificationId: string }
     | { type: 'MARK_ALL_AS_READ_REQUESTED' }
-    | { type: 'MARK_ALL_AS_READ_SUCCESS' }
     | { type: 'NOTIFICATION_SELECTED'; notification: AppNotification }
     | { type: 'NOTIFICATION_DESELECTED' }
     | { type: 'FILTER_CHANGED'; filter: 'all' | 'pending' | 'read' }
@@ -17,20 +15,18 @@ export type Msg =
     | { type: 'CLEAR_FILTER' }
     | { type: 'REFRESH_NOTIFICATIONS' }
     | { type: 'RESET_STATE' }
-    | { type: 'AUTH_TOKEN_UPDATED'; token: string | null }
-    | { type: 'AUTH_USER_SYNCED'; user: any }
     | { type: 'NAVIGATE_TO_DETAIL'; notification: AppNotification }
     | { type: 'NAVIGATE_BACK' }
-    | { type: 'CHECK_TOKEN_VALIDITY' }
     | { type: 'NONE' }
     | { type: 'NOTIFICATION_ERROR'; error: string }
     | { type: 'NOTIFICATION_MARKED_READ'; webData: WebData<AppNotification>; notificationId: string }
     | { type: 'ALL_MARKED_READ'; webData: WebData<void> }
-    | { type: 'NOTIFICATION_DELETED'; webData: WebData<void>; notificationId: string };
+    | { type: 'NOTIFICATION_DELETED'; webData: WebData<void>; notificationId: string }
+    | { type: 'FETCH_PENDING_REWARDS_COUNT_REQUESTED' }
+    | { type: 'FETCH_PENDING_REWARDS_COUNT_SUCCESS'; count: number };
 
 // Action creators
 export const FETCH_NOTIFICATIONS_REQUESTED = (): Msg => ({ type: 'FETCH_NOTIFICATIONS_REQUESTED' });
-export const AUTH_TOKEN_UPDATED = (token: string | null): Msg => ({ type: 'AUTH_TOKEN_UPDATED', token });
 export const NOTIFICATIONS_RECEIVED = (webData: WebData<AppNotification[]>): Msg => ({
     type: 'NOTIFICATIONS_RECEIVED',
     webData
@@ -54,12 +50,7 @@ export const MARK_AS_READ_REQUESTED = (notificationId: string): Msg => ({
     type: 'MARK_AS_READ_REQUESTED',
     notificationId
 });
-export const MARK_AS_READ_SUCCESS = (notificationId: string): Msg => ({
-    type: 'MARK_AS_READ_SUCCESS',
-    notificationId
-});
 export const MARK_ALL_AS_READ_REQUESTED = (): Msg => ({ type: 'MARK_ALL_AS_READ_REQUESTED' });
-export const MARK_ALL_AS_READ_SUCCESS = (): Msg => ({ type: 'MARK_ALL_AS_READ_SUCCESS' });
 export const NOTIFICATION_SELECTED = (notification: AppNotification): Msg => ({
     type: 'NOTIFICATION_SELECTED',
     notification
@@ -88,4 +79,9 @@ export const NAVIGATE_BACK = (): Msg => ({ type: 'NAVIGATE_BACK' });
 export const NOTIFICATION_ERROR = (error: string): Msg => ({
     type: 'NOTIFICATION_ERROR',
     error
+});
+export const FETCH_PENDING_REWARDS_COUNT_REQUESTED = (): Msg => ({ type: 'FETCH_PENDING_REWARDS_COUNT_REQUESTED' });
+export const FETCH_PENDING_REWARDS_COUNT_SUCCESS = (count: number): Msg => ({
+    type: 'FETCH_PENDING_REWARDS_COUNT_SUCCESS',
+    count
 });

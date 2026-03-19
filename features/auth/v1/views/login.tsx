@@ -14,6 +14,7 @@ import { styles } from './login.styles';
 import { LoginHeader } from './components/LoginHeader';
 import { PinStatusDisplay } from './components/PinStatusDisplay';
 import { NumericKeypad } from './components/NumericKeypad';
+import { DeviceLockedView } from './components/DeviceLockedView';
 
 const log = logger.withTag('LOGIN_VIEW');
 
@@ -46,6 +47,10 @@ function LoginContent() {
   React.useEffect(() => {
     log.debug('LoginContent username', username || "Invitado");
   }, [username]);
+
+  if (status === AuthStatus.DEVICE_LOCKED) {
+    return <DeviceLockedView error={error} />;
+  }
 
   return (
     <SafeAreaView style={styles.container}>

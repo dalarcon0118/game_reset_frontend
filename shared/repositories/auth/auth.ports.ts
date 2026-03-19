@@ -1,3 +1,4 @@
+import { Result } from 'neverthrow';
 import { AuthResult, AuthSession, User } from './types/types';
 
 export interface IAuthApi {
@@ -14,8 +15,8 @@ export interface IAuthRepository {
     checkAuth(): Promise<void>;
 
     // Token management
-    saveToken(access: string, refresh?: string): Promise<void>;
-    getToken(): Promise<{ access: string | null; refresh: string | null; isOffline?: boolean }>;
+    saveToken(access: string, refresh?: string, confirmationToken?: string): Promise<void>;
+    getToken(): Promise<{ access: string | null; refresh: string | null; confirmationToken?: string | null; isOffline?: boolean }>;
     clearToken(): Promise<void>;
 
     onSessionChange(callback: (user: User | null) => void): () => void;
@@ -32,12 +33,17 @@ export interface IAuthRepository {
     getIsExiting(): boolean;
     setExiting(value: boolean): void;
     hydrate(): Promise<User | null>;
+    refreshUserProfile(): Promise<Result<User, Error>>;
+    hasSession(): Promise<boolean>;
+
+    /** Inyecta el sensor de red global del CoreModule */
+    setNetworkStatus(isOnline: boolean): void;
 }
 
 export interface IAuthStorage {
     // Session management
     saveSession(session: AuthSession): Promise<void>;
-    getSession(): Promise<{ access: string | null; refresh: string | null; isOffline?: boolean }>;
+    getSession(): Promise<{ access: string | null; refresh: string | null; confirmationToken?: string | null; isOffline?: boolean }>;
     clearSession(): Promise<void>;
 
     // Offline fallback management
@@ -47,4 +53,5 @@ export interface IAuthStorage {
     getLastUsername(): Promise<string | null>;
     getUserProfile(): Promise<User | null>;
     getOfflineProfile(): Promise<User | null>;
+    purgeLegacyData(): Promise<void>;
 }

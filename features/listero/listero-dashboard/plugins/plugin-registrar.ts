@@ -38,7 +38,6 @@ export function registerDashboardPlugins(store: any): void {
     dashboardPlugins.forEach((plugin) => {
         try {
             PluginManager.register(plugin, currentState, store);
-            console.log(`[DashboardPlugins] Registered: ${plugin.id}`);
         } catch (error) {
             console.error(`[DashboardPlugins] Failed to register plugin ${plugin.id}:`, error);
         }
@@ -59,7 +58,6 @@ export function unregisterDashboardPlugins(): void {
     dashboardPlugins.forEach((plugin) => {
         try {
             PluginManager.unregister(plugin.id);
-            console.log(`[DashboardPlugins] Unregistered: ${plugin.id}`);
         } catch (error) {
             console.error(`[DashboardPlugins] Failed to unregister plugin ${plugin.id}:`, error);
         }

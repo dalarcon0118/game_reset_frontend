@@ -237,6 +237,7 @@ export const BOLITA_BETS_UPDATED = createMsg<'BOLITA_BETS_UPDATED', void>('BOLIT
 
 export const CLOSE_KEYBOARD = createMsg<'CLOSE_KEYBOARD', void>('CLOSE_KEYBOARD');
 export const CONFIRM_INPUT = createMsg<'CONFIRM_INPUT', void>('CONFIRM_INPUT');
+export const APPLY_PROMOTION_CONTEXT = createMsg<'APPLY_PROMOTION_CONTEXT', { betType?: string }>('APPLY_PROMOTION_CONTEXT');
 
 export type BolitaMsg =
     | typeof PARLET._type
@@ -251,4 +252,5 @@ export type BolitaMsg =
     | typeof SAVE_BETS_RESPONSE._type
     | typeof BOLITA_BETS_UPDATED._type
     | typeof CLOSE_KEYBOARD._type
-    | typeof CONFIRM_INPUT._type;
+    | typeof CONFIRM_INPUT._type
+    | typeof APPLY_PROMOTION_CONTEXT._type;

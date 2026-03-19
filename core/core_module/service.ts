@@ -1,57 +1,154 @@
-import { AuthRepository } from '@shared/repositories/auth';
+import NetInfo from '@react-native-community/netinfo';
+import { IAuthRepository } from '@shared/repositories/auth';
 import { apiClient } from '@shared/services/api_client';
-import { TimerRepository } from '@shared/repositories/system/time';
-import settings from '../../config/settings';
+import { ConnectivityEvent } from '@shared/services/api_client/api_client.types';
+import { isServerReachable } from '@shared/utils/network';
 import { logger } from '@shared/utils/logger';
 import { CoreMsg } from './msg';
+import { CoreModel } from './model';
+import { systemJanitor } from './services/system-janitor.service';
+import { Cmd } from '@core/tea-utils/cmd';
+import { SYSTEM_READY } from '@/config/signals';
 
 const log = logger.withTag('CORE_SERVICE');
+
+let _authRepo: IAuthRepository | null = null;
+
+/**
+ * Inicializa las dependencias del servicio.
+ * Permite el desacoplamiento de Repositorios concretos.
+ */
+export const setAuthRepository = (repo: IAuthRepository) => {
+  _authRepo = repo;
+};
+
+const getAuthRepo = (): IAuthRepository => {
+  if (!_authRepo) {
+    throw new Error('CoreService: AuthRepository not initialized. Call setAuthRepository first.');
+  }
+  return _authRepo;
+};
 
 /**
  * CoreService
  * 
  * Encapsula la lógica imperativa de inicialización y orquestación del sistema base.
- * Estas funciones son invocadas por el CoreModule mediante Cmd.task.
+ * Estas funciones son invocadas por el CoreModule mediante Cmd.task o utilidades de decisión.
  */
 export const CoreService = {
   /**
-   * Inicializa la infraestructura base (Middlewares y Engine).
-   * La configuración del motor ahora es síncrona en bootstrap.ts.
-   * Retorna true si existe una sesión activa tras la hidratación.
+   * Determina si el sistema está completamente listo para operar.
+   * Single Source of Truth (SSoT) para el estado del sistema.
    */
-  async initializeInfrastructure(): Promise<boolean> {
-    // 1. Configurar dependencias globales del API Client (Inyección Explícita)
-    apiClient.config({
-      settings,
-      log: logger.withTag('API_CLIENT'),
-      timeSync: TimerRepository,
-      timeIntegrity: TimerRepository,
-      tokenStorageGetter: () => AuthRepository
+  isSystemReady(model: CoreModel): boolean {
+    const hasMaintenance = model.maintenanceStatus?.status === 'ready';
+    const isAuthOrUnauth = model.sessionStatus === 'AUTHENTICATED' || model.sessionStatus === 'UNAUTHENTICATED';
+    return hasMaintenance && isAuthOrUnauth;
+  },
+
+  /**
+   * Crea un comando para notificar que el sistema está listo.
+   */
+  notifySystemReady(date: string): Cmd {
+    return Cmd.task({
+      task: () => {
+        log.info('System fully ready, notifying listeners...', { date });
+        return Promise.resolve(SYSTEM_READY({ date }));
+      },
+      onSuccess: (msg) => msg,
+      onFailure: () => ({ type: 'NO_OP' } as any),
+      label: 'NOTIFY_SYSTEM_READY'
     });
+  },
 
-    // La infraestructura base (Engine, Middlewares) se configura
-    // automáticamente vía side-effect import en el CoreModule.
+  /**
+   * Tarea para verificar el contexto de sesión.
+   */
+  verifySessionContextTask(): Cmd {
+    return Cmd.task({
+      task: () => this.verifySessionContext(),
+      onSuccess: (isReady) => isReady
+        ? { type: 'SESSION_CONTEXT_READY' }
+        : { type: 'SESSION_EXPIRED', reason: 'INCOMPLETE_PROFILE' },
+      onFailure: () => ({ type: 'SESSION_EXPIRED', reason: 'PROFILE_FETCH_FAILED' }),
+      label: 'VERIFY_SESSION_CONTEXT'
+    });
+  },
 
-    // 2. Verificar estado inicial de la sesión mediante hidratación
-    const user = await AuthRepository.hydrate();
-    return !!user;
+  /**
+   * Tarea para el mantenimiento del sistema.
+   */
+  maintenanceTask(label: string): Cmd {
+    return Cmd.task({
+      task: () => systemJanitor.prepareDailySession(),
+      onSuccess: () => ({ type: 'NO_OP' } as any),
+      onFailure: (err) => {
+        log.error(`${label} maintenance failed`, err);
+        return { type: 'NO_OP' } as any;
+      },
+      label
+    });
+  },
+
+  /**
+   * Verifica el contexto de la sesión (Perfil + Estructura)
+   * Intenta refrescar si falta información crítica.
+   */
+  async verifySessionContext(): Promise<boolean> {
+    log.debug('Verifying session context...');
+    const authRepo = getAuthRepo();
+    let user = await authRepo.hydrate();
+
+    if (user && !user.structure) {
+      log.warn('User found but structure is missing, attempting API refresh...');
+      const result = await authRepo.refreshUserProfile();
+      if (result.isOk()) {
+        user = result.value;
+      }
+    }
+
+    return !!(user && user.structure);
   },
 
   /**
    * Cierra la sesión globalmente.
    */
   async logout(): Promise<void> {
-    await AuthRepository.logout();
+    await getAuthRepo().logout();
   },
 
   /**
-   * Configura los handlers globales de error y expiración del API Client.
+   * Sincroniza el estado de red con el AuthRepository.
+   * Esto asegura que el AuthRepository tenga el SSoT de red.
    */
-  async setupApiHandlers(dispatch: (msg: CoreMsg) => void): Promise<void> {
-    // Escuchar expiraciones desde el API Client (CredentialProvider)
+  syncNetworkStatus(isOnline: boolean): Cmd {
+    return Cmd.task({
+      task: () => {
+        log.debug(`Syncing network status to AuthRepository: ${isOnline}`);
+        getAuthRepo().setNetworkStatus(isOnline);
+        return Promise.resolve();
+      },
+      onSuccess: () => ({ type: 'NO_OP' } as any),
+      onFailure: (err) => {
+        log.error('Failed to sync network status to AuthRepository', err);
+        return { type: 'NO_OP' } as any;
+      },
+      label: 'SYNC_NETWORK_STATUS'
+    });
+  },
+
+  /**
+   * Configura los handlers estáticos del API Client (errores y expiración).
+   * Estos no requieren dispatch directo y se configuran una sola vez.
+   */
+  setupStaticApiHandlers(): void {
+    log.debug('Setting up static API handlers...');
+    const authRepo = getAuthRepo();
+
+    // 1. Escuchar expiraciones desde el API Client (CredentialProvider)
     apiClient.setSessionExpiredHandler(() => {
       // Notificamos al repositorio para que emita la señal global
-      AuthRepository.notifySessionExpired('API_CLIENT_REFRESH_FAILED');
+      authRepo.notifySessionExpired('API_CLIENT_REFRESH_FAILED');
     });
 
     apiClient.setErrorHandler(async (error: any, endpoint: string) => {
@@ -60,9 +157,90 @@ export const CoreService = {
 
       if (error.status === 401) {
         // Notificamos al repositorio para que emita la señal global
-        AuthRepository.notifySessionExpired('UNAUTHORIZED_API_RESPONSE');
+        authRepo.notifySessionExpired('UNAUTHORIZED_API_RESPONSE');
       }
       return null;
+    });
+  },
+
+  /**
+   * Suscribe el dispatch a los eventos de conectividad del API Client y NetInfo.
+   */
+  subscribeToConnectivity(dispatch: (msg: CoreMsg) => void): () => void {
+    log.debug('Subscribing to hybrid connectivity sensors...');
+
+    // 1. Sensor Activo (NetInfo): Hardware/Sistema Operativo
+    const unsubscribeNetInfo = NetInfo.addEventListener((state) => {
+      const isConnected = !!(state.isConnected && state.isInternetReachable);
+
+      log.info(`[CONNECTIVITY-ACTIVO] NetInfo update: ${isConnected ? 'CONNECTED' : 'DISCONNECTED'}`, {
+        type: state.type,
+        details: state.details
+      });
+
+      dispatch({ type: 'PHYSICAL_CONNECTION_CHANGED', payload: isConnected });
+
+      // Si recuperamos conexión física, forzamos un ping de validación inmediata
+      if (isConnected) {
+        isServerReachable().then(reachable => {
+          dispatch({ type: 'SERVER_REACHABILITY_CHANGED', payload: reachable });
+        });
+      }
+    });
+
+    // 2. Sensor Pasivo (ApiClient): Tráfico real con el servidor
+    try {
+      apiClient.config({
+        onConnectivity: (event: ConnectivityEvent) => {
+          const isReachable = event.type === 'ONLINE';
+
+          log.info(`[CONNECTIVITY-PASIVO] ApiClient update: ${event.type}`, {
+            status: event.status,
+            timestamp: new Date(event.timestamp).toISOString()
+          });
+
+          dispatch({ type: 'SERVER_REACHABILITY_CHANGED', payload: isReachable });
+        }
+      });
+    } catch (e) {
+      log.warn('ApiClient not ready for connectivity subscription, deferring...', e);
+    }
+
+    // Retornamos el cleanup de ambos sensores
+    return () => {
+      log.debug('Unsubscribing from connectivity sensors...');
+      unsubscribeNetInfo();
+      try {
+        apiClient.config({ onConnectivity: undefined });
+      } catch (e) {
+        // Ignorar errores en cleanup
+      }
+    };
+  },
+
+  /**
+   * Suscribe a cambios de sesión en el AuthRepository.
+   */
+  subscribeToAuthSession(dispatch: (msg: CoreMsg) => void): () => void {
+    const authRepo = getAuthRepo();
+    return authRepo.onSessionChange((user) => {
+      dispatch({
+        type: 'SESSION_STATUS_CHANGED',
+        payload: user ? 'AUTHENTICATED' : 'UNAUTHENTICATED'
+      });
+    });
+  },
+
+  /**
+   * Suscribe a eventos de expiración de sesión.
+   */
+  subscribeToAuthExpired(dispatch: (msg: CoreMsg) => void): () => void {
+    const authRepo = getAuthRepo();
+    return authRepo.onSessionExpired((reason) => {
+      dispatch({
+        type: 'SESSION_EXPIRED',
+        reason
+      });
     });
   },
 

@@ -1,9 +1,9 @@
-import { useBetWorkspaceStore } from '../core/store';
+import { useBetWorkspaceModel, useBetWorkspaceDispatch } from '../core/store';
 import * as RulesMsg from './core/types';
 
 export const useRules = () => {
-    const model = useBetWorkspaceStore((state) => state.model.rulesSession);
-    const dispatch = useBetWorkspaceStore((state) => state.dispatch);
+    const model = useBetWorkspaceModel().rulesSession;
+    const dispatch = useBetWorkspaceDispatch();
 
     const {
         rulesList,

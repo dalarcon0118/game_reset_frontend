@@ -18,18 +18,19 @@ interface RulesListProps {
 
 export const RulesList: React.FC<RulesListProps> = ({ drawId }) => {
     const { 
-        fetchRules, 
+        fetchRules,
         refreshRules,
         rulesList, 
-        allRules, 
-        stats, 
-        isRefreshing, 
-        currentDrawId 
+        isRefreshing,
+        stats,
+        allRules,
+        currentDrawId,
     } = useRules();
 
     // Sincronización del drawId usando useEffect (puente React -> TEA)
     useEffect(() => {
         if (drawId && drawId !== currentDrawId) {
+            log.debug('RulesList: sync drawId triggered', { drawId, currentDrawId });
             fetchRules(drawId);
         }
     }, [drawId, currentDrawId, fetchRules]);

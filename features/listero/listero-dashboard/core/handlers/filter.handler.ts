@@ -14,11 +14,10 @@ export const FilterHandler = {
 
     handleApplyStatusFilter: (model: Model, filter: StatusFilter): Return<Model, Msg> => {
         const drawsData = model.draws.type === 'Success' ? model.draws.data : null;
-        const summaryData = model.summary.type === 'Success' ? model.summary.data : null;
 
         const { filteredDraws, dailyTotals } = recalculateDashboardState(
             drawsData,
-            summaryData,
+            null, // El sumario ya no se usa directamente aquí o se integra de otra forma
             filter,
             model.commissionRate,
             model.pendingBets
@@ -35,11 +34,10 @@ export const FilterHandler = {
     handleSetCommissionRate: (model: Model, rate: number): Return<Model, Msg> => {
         const commissionRate = rate / 100;
         const drawsData = model.draws.type === 'Success' ? model.draws.data : null;
-        const summaryData = model.summary.type === 'Success' ? model.summary.data : null;
 
         const { filteredDraws, dailyTotals } = recalculateDashboardState(
             drawsData,
-            summaryData,
+            null,
             model.appliedFilter,
             commissionRate,
             model.pendingBets

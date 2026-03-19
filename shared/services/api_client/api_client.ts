@@ -2,9 +2,11 @@
 import {
   RequestOptions,
   ErrorHandler,
+  ConnectivityHandler,
   TokenStoragePort,
   TimeSyncPort,
   TimeIntegrityPort,
+  IDeviceRepository,
   ILogger,
   ISettings
 } from './api_client.types';
@@ -19,10 +21,12 @@ import { Transport } from './infra/transport';
 
 export interface ApiClientConfig {
   tokenStorageGetter?: () => TokenStoragePort;
+  deviceIdProvider?: () => Promise<string | null>;
   timeSync?: TimeSyncPort;
   timeIntegrity?: TimeIntegrityPort;
   settings?: ISettings;
   log?: ILogger;
+  onConnectivity?: ConnectivityHandler;
 }
 
 // --- API Client Class ---
@@ -35,17 +39,33 @@ export class ApiClient {
   private requestExecutor: RequestExecutor;
 
   private errorHandler: ErrorHandler | null = null;
+  private connectivityHandler: ConnectivityHandler | null = null;
 
   constructor(
     private tokenStorageGetter: () => TokenStoragePort,
     private settings: ISettings | null = null,
     private log: ILogger | null = null,
     private timeSync?: TimeSyncPort,
-    private timeIntegrity?: TimeIntegrityPort
+    private timeIntegrity?: TimeIntegrityPort,
+    private deviceIdProvider?: () => Promise<string | null>,
+    onConnectivity?: ConnectivityHandler
   ) {
+    if (onConnectivity) {
+      this.connectivityHandler = onConnectivity;
+    }
     if (settings && log) {
       this.credentialProvider = new CredentialProvider(tokenStorageGetter, settings, log);
       this.errorManager = new ErrorManager(log);
+      
+      // CA-05: Validación de integridad de infraestructura (Defensa en Profundidad)
+      const safeDeviceIdProvider = () => {
+        if (!this.deviceIdProvider) {
+          log.error('[INFRASTRUCTURE-ERROR] DeviceIdProvider is missing in ApiClient configuration.');
+          throw new Error('ApiClient requires a DeviceIdProvider for secure operations.');
+        }
+        return this.deviceIdProvider();
+      };
+
       this.requestExecutor = new RequestExecutor(
         this.credentialProvider,
         this.cacheManager,
@@ -53,8 +73,10 @@ export class ApiClient {
         this.transport,
         timeSync || null,
         timeIntegrity || null,
+        safeDeviceIdProvider,
         settings,
         log,
+        () => this.connectivityHandler,
         () => this.errorHandler,
         <T>(endpoint: string, options: RequestOptions) => this.request<T>(endpoint, options)
       );
@@ -90,6 +112,9 @@ export class ApiClient {
     if (config.tokenStorageGetter) {
       this.tokenStorageGetter = config.tokenStorageGetter;
     }
+    if (config.deviceIdProvider) {
+      this.deviceIdProvider = config.deviceIdProvider;
+    }
     if (config.timeSync) {
       this.timeSync = config.timeSync;
     }
@@ -99,8 +124,17 @@ export class ApiClient {
     if (config.settings) {
       this.settings = config.settings;
     }
+    if (config.onConnectivity) {
+      this.connectivityHandler = config.onConnectivity;
+    }
 
     if (!this.settings || !this.log) {
+      // Allow partial configuration for event handlers if core deps are missing
+      if (config.onConnectivity && !this.settings && !this.log) {
+        // Store handler but don't throw yet
+        this.connectivityHandler = config.onConnectivity;
+        return;
+      }
       throw new Error('[API_CLIENT] Cannot configure without settings and log');
     }
 
@@ -120,8 +154,10 @@ export class ApiClient {
       this.transport,
       this.timeSync || null,
       this.timeIntegrity || null,
+      this.deviceIdProvider || (() => Promise.resolve(null)),
       this.settings,
       this.log,
+      () => this.connectivityHandler,
       () => this.errorHandler,
       <T>(endpoint: string, options: RequestOptions) => this.request<T>(endpoint, options)
     );

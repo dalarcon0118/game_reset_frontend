@@ -1,11 +1,11 @@
-import { useBolitaStore, selectBolitaModel, selectDispatch } from '../store';
+import { useBolitaDispatch, useBolitaModel } from '../store';
 import { PARLET, ParletMessages } from '../../domain/models/bolita.messages';
 import { FijosCorridosBet } from '@/types';
 import { useBolitaActions } from './use_bolita_actions';
 
 export const useParlet = (fijosCorridosList: FijosCorridosBet[]) => {
-  const model = useBolitaStore(selectBolitaModel);
-  const dispatch = useBolitaStore(selectDispatch);
+  const model = useBolitaModel();
+  const dispatch = useBolitaDispatch();
   const { parlet: actions } = useBolitaActions();
 
   const {

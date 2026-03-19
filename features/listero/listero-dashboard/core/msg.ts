@@ -44,6 +44,7 @@ export type Msg =
     | { type: 'TOGGLE_BALANCE' }
     | { type: 'SYSTEM_READY'; date: string }
     | { type: 'PROMOTION_MSG'; msg: PromotionMsg }
+    | { type: 'ERROR'; error: any }
     | { type: 'NONE' };
 
 export const FETCH_DATA_REQUESTED = (structureId?: string): Msg => ({ type: 'FETCH_DATA_REQUESTED', structureId });

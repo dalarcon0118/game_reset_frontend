@@ -37,9 +37,7 @@ export const fetchUserDataCmd = (): Cmd => {
 };
 
 export const fetchDrawsCmd = (structureId: string | null): Cmd => {
-    console.log('[DEBUG] fetchDrawsCmd: LLAMADO con structureId =', structureId, 'tipo:', typeof structureId);
     if (!structureId || structureId === '0') {
-        console.log('[DEBUG] fetchDrawsCmd: RETORNANDO Cmd.none porque structureId es inválido');
         return Cmd.none;
     }
 

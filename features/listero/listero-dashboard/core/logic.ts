@@ -48,19 +48,13 @@ export const enrichDraws = (
     pendingBets: BetType[] = [],
     syncedBets: BetType[] = []
 ): DrawType[] => {
-    log.info('EnrichDraws called', {
-        drawsCount: draws.length,
-        pendingBetsCount: pendingBets.length,
-        syncedBetsCount: syncedBets.length
-    });
-
     // 1. Create a map for local totals by drawId (Pending + Synced)
     const localMap = new Map<string, number>();
     const pendingCountMap = new Map<string, number>();
 
     // Process pending bets
     pendingBets.forEach(bet => {
-        const drawId = (bet.draw || '').toString();
+        const drawId = (bet.drawId || '').toString();
         if (drawId) {
             const amount = calculatePayloadAmount(bet);
             const current = localMap.get(drawId) || 0;
@@ -71,7 +65,7 @@ export const enrichDraws = (
 
     // Process synced bets
     syncedBets.forEach(bet => {
-        const drawId = (bet.draw || '').toString();
+        const drawId = (bet.drawId || '').toString();
         if (drawId) {
             const amount = calculatePayloadAmount(bet);
             const current = localMap.get(drawId) || 0;
@@ -131,7 +125,13 @@ export const filterDraws = (draws: DrawType[], filter: StatusFilter): DrawType[]
         }
 
         else if (filter === DRAW_FILTER.CLOSED) {
-            passes = (draw.status === DRAW_STATUS.CLOSED || expired) && !draw.winning_numbers;
+            const isClosedStatus = 
+                draw.status === DRAW_STATUS.CLOSED || 
+                draw.status === DRAW_STATUS.COMPLETED ||
+                draw.status === DRAW_STATUS.REWARDED; // Inclusive: todos los cerrados con o sin premio
+
+            passes = (isClosedStatus || expired) &&
+                draw.status !== DRAW_STATUS.CANCELLED;
         }
 
         else if (filter === DRAW_FILTER.CLOSING_SOON) {
@@ -139,7 +139,7 @@ export const filterDraws = (draws: DrawType[], filter: StatusFilter): DrawType[]
         }
 
         else if (filter === DRAW_FILTER.REWARDED) {
-            passes = (draw.status as string) === DRAW_STATUS.REWARDED || draw.is_rewarded === true || !!draw.winning_numbers;
+            passes = (draw.status as string) === DRAW_STATUS.REWARDED || draw.is_rewarded === true;
         }
 
         return passes;

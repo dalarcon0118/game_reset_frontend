@@ -13,7 +13,8 @@ import {
     SAVE_BETS_RESPONSE,
     BOLITA_BETS_UPDATED,
     CLOSE_KEYBOARD,
-    CONFIRM_INPUT
+    CONFIRM_INPUT,
+    APPLY_PROMOTION_CONTEXT
 } from '../domain/models/bolita.messages';
 import { BolitaModel } from '../domain/models/bolita.types';
 import { Return, singleton } from '@core/tea-utils';
@@ -74,6 +75,9 @@ export const update = (model: BolitaModel, msg: BolitaMsg): Return<BolitaModel, 
         })
         .with(CONFIRM_INPUT.type(), () => {
             return BolitaFlows.handleConfirmInput(model);
+        })
+        .with(APPLY_PROMOTION_CONTEXT.type(), ({ payload: { betType } }) => {
+            return BolitaFlows.applyPromotionContext(model, betType);
         })
         .otherwise(() => {
             return singleton(model);

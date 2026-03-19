@@ -3,6 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { Layout } from '@ui-kitten/components';
 import { Stack } from 'expo-router';
 import { RulesList } from '../components/rules_list';
+import { BetWorkspaceProvider } from '../../core/store';
 import Colors from '@/constants/colors';
 
 interface RulesScreenProps {
@@ -11,10 +12,12 @@ interface RulesScreenProps {
 
 export const RulesScreen: React.FC<RulesScreenProps> = ({ drawId }) => {
     return (
-        <Layout style={styles.container} level='1'>
-            <Stack.Screen options={{ title: 'Reglas y Premios' }} />
-            <RulesList drawId={drawId} />
-        </Layout>
+        <BetWorkspaceProvider initialParams={{ drawId: drawId as string, mode: 'list' }}>
+            <Layout style={styles.container} level='1'>
+                <Stack.Screen options={{ title: 'Reglas y Premios' }} />
+                <RulesList drawId={drawId} />
+            </Layout>
+        </BetWorkspaceProvider>
     );
 };
 

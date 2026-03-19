@@ -1,4 +1,5 @@
 import { ExtendedDrawType, DrawClosureConfirmation } from '@/shared/services/draw/types';
+import { WinningRecord } from '@/features/listero/bet-workspace/rewards/core/types';
 import { DrawApi } from './api/api';
 import { BackendDraw, BetType, DrawRule } from './api/types/types';
 import { mapBackendDrawToFrontend } from '@/shared/services/draw/mapper';
@@ -8,6 +9,9 @@ import { logger } from '@/shared/utils/logger';
 import { Result, ok, err } from 'neverthrow';
 import { isServerReachable } from '@/shared/utils/network';
 import { IDrawRepository, DrawFinancialState } from './draw.ports';
+
+// Constante para la key de localStorage que indica si hay sorteos disponibles
+const HAS_DRAW_STORAGE_KEY = 'has_draw_available';
 
 // Simple logger interface for type safety
 interface SafeLogger {
@@ -188,6 +192,26 @@ export class DrawRepository implements IDrawRepository {
             return ok(types || []);
         } catch (error: any) {
             this.log.error('Error in getBetTypes', error);
+            return err(error instanceof Error ? error : new Error(String(error)));
+        }
+    }
+
+    async getWinningRecord(drawId: string | number): Promise<Result<WinningRecord | null, Error>> {
+        try {
+            const isOnline = await isServerReachable();
+            let record: WinningRecord | null = null;
+
+            if (isOnline) {
+                try {
+                    record = await this.api.getWinningRecord(drawId);
+                } catch (apiError) {
+                    this.log.warn('Failed to fetch winning record from API', { drawId, error: apiError });
+                }
+            }
+
+            return ok(record);
+        } catch (error: any) {
+            this.log.error('Error in getWinningRecord', { drawId, error });
             return err(error instanceof Error ? error : new Error(String(error)));
         }
     }

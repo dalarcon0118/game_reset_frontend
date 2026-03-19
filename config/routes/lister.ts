@@ -29,7 +29,7 @@ export const listerRoutes = {
       },
     },
     bets_rules: {
-      screen: '/lister/bets_rules/[id]',
+      screen: '/lister/bets/rules',
       options: {
         headerShown: true,
         headerTitle: 'Reglamento',

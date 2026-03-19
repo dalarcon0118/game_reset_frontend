@@ -127,22 +127,6 @@ export default function DrawItem({
     }
   };
 
-  // DEBUG: Log financial values being rendered
-  const debugFinancials = React.useCallback(() => {
-    console.log('[DRAW_ITEM_DEBUG] Financial values:', {
-      id: draw.id,
-      source: draw.source,
-      totalCollected,
-      premiumsPaid,
-      netResult,
-      betCount,
-    });
-  }, [draw, totalCollected, premiumsPaid, netResult, betCount]);
-  
-  // React.useEffect(() => {
-  //   debugFinancials();
-  // }, [debugFinancials]);
-  
   const hasOfflineBets = betCount > 0;
   const offlineCount = betCount;
 
@@ -227,7 +211,6 @@ export default function DrawItem({
           onPress={handleBetsListPress}
           label="Ver Lista"
         />
-
         {effectiveStatus === DRAW_STATUS.CLOSED ? (
           <ButtonKit
             appearance="filled"

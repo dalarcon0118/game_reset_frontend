@@ -37,10 +37,10 @@ export function update(msg: Msg, model: PromotionState): Return<PromotionState, 
                 showPromotionsModal: false
             })
         )
-        .with({ type: 'PARTICIPATE_CLICKED', payload: P.select() }, (promotion: Promotion) => {
+        .with({ type: 'PARTICIPATE_CLICKED', payload: P.select('promotion'), activeDraws: P.select('activeDraws') }, ({ promotion, activeDraws }) => {
             return ret(
                 { ...model, showPromotionsModal: false },
-                DecisionServices.handleParticipation(promotion)
+                DecisionServices.handleParticipation(promotion, activeDraws)
             );
         })
         .with({ type: 'MARK_PROMOTIONS_SHOWN' }, () => {

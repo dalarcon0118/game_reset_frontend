@@ -35,6 +35,7 @@ export const BackendLoginResponseCodec = t.intersection([
   }),
   t.partial({
     refresh: t.string,
+    confirmation_token: t.string, // Incluido para la estrategia
   })
 ]);
 

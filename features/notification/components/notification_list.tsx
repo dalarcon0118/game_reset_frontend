@@ -1,15 +1,15 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { View, StyleSheet, FlatList, Text, RefreshControl } from 'react-native';
 import { Button, Layout } from '@ui-kitten/components';
 import { BellOff } from 'lucide-react-native';
-import { useNotificationStore, selectNotificationModel, selectNotificationDispatch } from '../core/store';
+import { NotificationModule } from '../core/store';
 import { NotificationItem } from './notification_item';
-import { AppNotification, Model } from '../core/model';
+import { AppNotification } from '../core/model';
 import {
-  FETCH_NOTIFICATIONS_REQUESTED,
   MARK_ALL_AS_READ_REQUESTED,
   FILTER_CHANGED,
-  REFRESH_NOTIFICATIONS
+  REFRESH_NOTIFICATIONS,
+  MARK_AS_READ_REQUESTED
 } from '../core/msg';
 
 interface NotificationListProps {
@@ -17,14 +17,8 @@ interface NotificationListProps {
 }
 
 export const NotificationList: React.FC<NotificationListProps> = ({ onNotificationPress }) => {
-  const model = useNotificationStore(selectNotificationModel) as Model;
-  const dispatch = useNotificationStore(selectNotificationDispatch);
-
-  useEffect(() => {
-    if (model.notifications.type === 'NotAsked') {
-      dispatch(FETCH_NOTIFICATIONS_REQUESTED());
-    }
-  }, []);
+  const model = NotificationModule.useStore(s => s.model);
+  const dispatch = NotificationModule.useDispatch();
 
   const handleRefresh = () => {
     dispatch(REFRESH_NOTIFICATIONS());
@@ -39,7 +33,7 @@ export const NotificationList: React.FC<NotificationListProps> = ({ onNotificati
   };
 
   const handleMarkAsRead = (id: string) => {
-    dispatch({ type: 'MARK_AS_READ_REQUESTED', notificationId: id });
+    dispatch(MARK_AS_READ_REQUESTED(id));
   };
 
   const renderNotification = ({ item }: { item: AppNotification }) => (

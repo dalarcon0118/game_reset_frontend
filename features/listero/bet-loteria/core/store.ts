@@ -1,77 +1,62 @@
-import React, { createContext, useContext, useEffect, useMemo } from 'react';
-import { UseBoundStore, StoreApi } from 'zustand';
-import { createElmStore } from '@core/engine/engine';
-import { Cmd, Sub } from '@core/tea-utils';
+import { createTEAModule, defineTeaModule } from '@core/engine/tea_module';
+import { Cmd, Sub, ret, singleton } from '@core/tea-utils';
 import { updateFeature } from './feature.update';
 import { LoteriaFeatureModel, FeatureMsg } from './feature.types';
 import { initialModel } from './feature.initial';
+import { FETCH_RULES_REQUESTED } from '../../bet-workspace/rules/core/types';
 
-// ============================================================================
-// Initial Model (Re-exported from feature.initial to break circular dependency)
-// ============================================================================
-
-export { initialModel } from './feature.initial';
-
-const init = (params?: Partial<LoteriaFeatureModel>): [LoteriaFeatureModel, Cmd] => {
-    return [
-        { ...initialModel, ...params },
-        Cmd.none
-    ];
-};
-
-const update = (model: LoteriaFeatureModel, msg: FeatureMsg) => updateFeature(model, msg);
-
-const subscriptions = (_model: LoteriaFeatureModel) => Sub.none();
-
-interface StoreState {
-    model: LoteriaFeatureModel;
-    dispatch: (msg: FeatureMsg) => void;
-    init: (params?: any) => void;
-    cleanup: () => void;
+/**
+ * 📝 LOTERIA MODULE PARAMS
+ * Define what Loteria needs to start.
+ */
+export interface LoteriaModuleParams {
+    drawId?: string;
+    betType?: string;
 }
 
-type StoreType = UseBoundStore<StoreApi<StoreState>>;
-
-const LoteriaStoreContext = createContext<StoreType | undefined>(undefined);
-
-const createLoteriaStore = () => {
-    return createElmStore<LoteriaFeatureModel, FeatureMsg>({
-        initial: init,
-        update: update,
-        subscriptions
-    });
-};
-
-export const LoteriaStoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const store = useMemo(() => createLoteriaStore(), []);
-
-    useEffect(() => {
-        return () => {
-            store.getState().cleanup();
+/**
+ * 🏗️ LOTERIA MODULE DEFINITION
+ * Pure TEA definition of the Loteria feature.
+ */
+const loteriaDefinition = defineTeaModule<LoteriaFeatureModel, FeatureMsg>({
+    name: 'Loteria',
+    initial: (params: LoteriaModuleParams = {}) => {
+        const model: LoteriaFeatureModel = {
+            ...initialModel,
+            currentDrawId: params.drawId || null,
+            rulesSession: {
+                ...initialModel.rulesSession,
+                currentDrawId: params.drawId || null
+            }
         };
-    }, [store]);
 
-    return React.createElement(
-        LoteriaStoreContext.Provider,
-        { value: store },
-        children
-    );
-};
+        if (params.drawId) {
+            return ret(model, Cmd.ofMsg({ type: 'FETCH_RULES_REQUESTED', payload: { drawId: params.drawId } } as any));
+        }
 
-export function useLoteriaStore(): StoreState;
-export function useLoteriaStore<T>(selector: (state: StoreState) => T): T;
-export function useLoteriaStore<T>(selector?: (state: StoreState) => T): T | StoreState {
-    const store = useContext(LoteriaStoreContext);
-    if (!store) {
-        throw new Error('useLoteriaStore must be used within a LoteriaStoreProvider');
-    }
+        return singleton(model);
+    },
+    update: (model, msg) => updateFeature(model, msg),
+    subscriptions: () => Sub.none()
+});
 
-    if (!selector) {
-        return store();
-    }
+/**
+ * 🏪 LOTERIA MODULE INSTANCE
+ * Result of createTEAModule, containing the Provider and hooks.
+ */
+export const LoteriaModule = createTEAModule(loteriaDefinition);
 
-    return store(selector);
-}
+// Public API Hooks
+export const LoteriaStoreProvider = LoteriaModule.Provider;
+export const useLoteriaStore = LoteriaModule.useStore;
+export const useLoteriaDispatch = LoteriaModule.useDispatch;
+export const useLoteriaStoreApi = LoteriaModule.useStoreApi;
 
-export const selectLoteriaModel = (state: StoreState) => state.model;
-export const selectDispatch = (state: StoreState) => state.dispatch;
+// Optimized Model Hook
+export const useLoteriaModel = () => useLoteriaStore(s => s.model);
+
+/**
+ * 🔄 LEGACY COMPATIBILITY
+ */
+export const selectLoteriaModel = (state: { model: LoteriaFeatureModel }) => state.model;
+export const selectDispatch = (state: { dispatch: (msg: FeatureMsg) => void }) => state.dispatch;

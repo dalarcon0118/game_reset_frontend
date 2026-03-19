@@ -1,10 +1,10 @@
-import { useBolitaStore, selectBolitaModel, selectDispatch } from '../store';
+import { useBolitaDispatch, useBolitaModel } from '../store';
 import { CENTENA, CentenaMessages } from '../../domain/models/bolita.messages';
 import { useBolitaActions } from './use_bolita_actions';
 
 export const useCentena = () => {
-    const model = useBolitaStore(selectBolitaModel);
-    const dispatch = useBolitaStore(selectDispatch);
+    const model = useBolitaModel();
+    const dispatch = useBolitaDispatch();
     const { centena: actions } = useBolitaActions();
 
     const {

@@ -3,6 +3,7 @@ import * as Msg from './msg';
 import { DrawTotalsUpdate } from './msg';
 import { Return, ret, Cmd, RemoteData } from '@core/tea-utils';
 import { match } from 'ts-pattern';
+import { DASHBOARD_RULES_CLICKED, DASHBOARD_REWARDS_CLICKED, DASHBOARD_REFRESH_CLICKED } from '@/config/signals';
 import { FilterDrawsUseCase } from './application/useCases/filter-draws.use-case';
 import { StatusFilter, Draw } from './core/types';
 import { logger } from '@/shared/utils/logger';
@@ -58,11 +59,11 @@ export const update = (model: Model, msg: Msg.Msg): Return<Model, Msg.Msg> => {
     .with(Msg.FILTER_DRAWS.type(), () =>
       handleFilterDraws(model))
     .with(Msg.REFRESH_CLICKED.type(), () =>
-      handlePublish(model, model.config.events.refresh))
+      ret(model, Cmd.sendMsg(DASHBOARD_REFRESH_CLICKED())))
     .with(Msg.RULES_CLICKED.type(), (m) =>
-      handlePublish(model, model.config.events.rules, m.payload))
+      ret(model, Cmd.sendMsg(DASHBOARD_RULES_CLICKED(m.payload))))
     .with(Msg.REWARDS_CLICKED.type(), (m) =>
-      handlePublish(model, model.config.events.rewards, m.payload))
+      ret(model, Cmd.sendMsg(DASHBOARD_REWARDS_CLICKED(m.payload))))
     .with(Msg.BETS_LIST_CLICKED.type(), (m) =>
       handleNavigateToBetsList(model, m.payload))
     .with(Msg.CREATE_BET_CLICKED.type(), (m) =>
@@ -132,26 +133,6 @@ function handleFilterDraws(model: Model): Return<Model, Msg.Msg> {
   // El componente DrawItem consultará ambos usando selectors
 
   return ret({ ...model, filteredDraws: filteredDraws as Draw[] }, Cmd.none);
-}
-
-function handlePublish(
-  model: Model,
-  eventName: string,
-  payload?: any
-): Return<Model, Msg.Msg> {
-  if (!model.context) return ret(model, Cmd.none);
-
-  return ret(
-    model,
-    Cmd.task({
-      task: async () => {
-        model.context!.events.publish(eventName, payload);
-        return null;
-      },
-      onSuccess: () => Msg.NOOP(),
-      onFailure: () => Msg.NOOP()
-    })
-  );
 }
 
 // ============================================================================

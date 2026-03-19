@@ -6,11 +6,12 @@ import {
   ISettings,
   TimeSyncPort,
   TimeIntegrityPort,
+  ConnectivityHandler,
   RequestOptions
 } from '../api_client.types';
 import { CredentialProvider } from './credential_provider';
 import { SessionPolicy } from '@/shared/auth/session/session.policy';
-import { SessionPolicyContext } from '@/shared/auth/session/session.types';
+import { SessionPolicyContext, TokenState } from '@/shared/auth/session/session.types';
 import { CacheManager } from './cache_manager';
 import { ErrorManager } from './error_manager';
 import { Transport } from '../infra/transport';
@@ -47,8 +48,10 @@ export class RequestExecutor {
     private transport: Transport,
     private timeSync: TimeSyncPort | null,
     private timeIntegrity: TimeIntegrityPort | null,
+    private deviceIdProvider: () => Promise<string | null>,
     private settings: ISettings,
     private log: ILogger,
+    private onConnectivity: () => ConnectivityHandler | null,
     private getErrorHandler: () => ErrorHandler | null,
     private retryRequest: RetryRequestFn
   ) { }
@@ -157,14 +160,31 @@ export class RequestExecutor {
     try {
       const { response } = await this.performFetch(context, attempt);
 
+      // Notify connectivity sensor: any HTTP response means we are ONLINE
+      this.notifyConnectivity(response.status);
+
       if (response.ok) {
         return { type: 'success', data: await this.handleSuccess<T>(response, context) };
       }
 
       return this.handleFailure<T>(response, context, attempt);
     } catch (error) {
+      // Notify connectivity sensor: Network error means we might be OFFLINE
+      this.notifyConnectivity(0);
       return this.handleNetworkError<T>(error, context, attempt);
     }
+  }
+
+  private notifyConnectivity(status: number) {
+    const handler = this.onConnectivity();
+    if (!handler) return;
+
+    const type = status > 0 ? 'ONLINE' : 'OFFLINE';
+    handler({
+      type,
+      status: status > 0 ? status : undefined,
+      timestamp: Date.now()
+    });
   }
 
   private async performFetch(context: RequestContext, attempt: number) {
@@ -214,6 +234,12 @@ export class RequestExecutor {
   }
 
   private handleNetworkError<T>(error: unknown, context: RequestContext, attempt: number): AttemptOutcome<T> {
+    this.log.error(`[CONNECTIVITY-SENSOR] Network error detected: ${context.endpoint}`, {
+      error: error instanceof Error ? error.message : String(error),
+      attempt,
+      retryCount: context.retryCount
+    });
+
     const result = this.errorManager.handleNetworkError(
       error,
       context.endpoint,
@@ -274,6 +300,7 @@ export class RequestExecutor {
     this.log.debug('[Preparing request config...]', options);
 
     const token = await this.credentialProvider.getAccessToken();
+    const confirmationToken = await this.credentialProvider.getConfirmationToken();
     const tokenState = SessionPolicy.resolveTokenState(token);
 
     // Obtener estado real de red para la política de sesión
@@ -289,12 +316,16 @@ export class RequestExecutor {
 
     const shouldAttach = SessionPolicy.shouldAttachAuthorization(context);
 
+    const deviceId = await this.deviceIdProvider();
+
     return {
       ...options,
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
         ...(shouldAttach && token ? { 'Authorization': `Bearer ${token}` } : {}),
+        ...(shouldAttach && confirmationToken ? { 'X-Confirmation-Token': confirmationToken } : {}),
+        ...(deviceId ? { 'X-Device-Id': deviceId } : {}),
         ...options.headers,
       },
     };
@@ -334,8 +365,13 @@ export class RequestExecutor {
 
     this.log.warn(`Auth error ${status} on ${context.endpoint}`);
 
-    // Solo intentamos refresh reactivo para errores 401
-    if (status === 401) {
+    // Check if this is an offline session - if so, don't try to refresh
+    const token = await this.credentialProvider.getAccessToken();
+    const tokenState = SessionPolicy.resolveTokenState(token);
+    const isOfflineSession = tokenState === TokenState.OFFLINE_MARKER;
+
+    // Solo intentamos refresh reactivo para errores 401 y solo si no es offline
+    if (status === 401 && !isOfflineSession) {
       this.log.info(`[REACTIVE-REFRESH] Attempting to refresh token after 401...`, { endpoint: context.endpoint });
       const refreshResult = await this.credentialProvider.refreshCredentials();
 
@@ -348,6 +384,11 @@ export class RequestExecutor {
           return { type: 'throw', error: retryError };
         }
       }
+    } else if (isOfflineSession) {
+      // For offline sessions, don't trigger global handler which would clear the session
+      // Just let the request fail so it can fall back to cached data
+      this.log.info(`[AUTH] Offline session - skipping refresh and global handler for ${status} error`);
+      return null;
     }
 
     // Si llegamos aquí, el refresh falló o no era un 401. 

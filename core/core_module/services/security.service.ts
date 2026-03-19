@@ -1,6 +1,6 @@
 import { ValidationResult } from '@core/policies/time-integrity.policy';
 import { logger } from '@shared/utils/logger';
-import { AuthRepository } from '@shared/repositories/auth';
+import { IAuthRepository } from '@shared/repositories/auth';
 
 const log = logger.withTag('SECURITY_SERVICE');
 
@@ -12,12 +12,29 @@ const log = logger.withTag('SECURITY_SERVICE');
  */
 export class SecurityService {
   private static instance: SecurityService;
+  private authRepo: IAuthRepository | null = null;
 
   static getInstance(): SecurityService {
     if (!this.instance) {
       this.instance = new SecurityService();
     }
     return this.instance;
+  }
+
+  /**
+   * Inyecta la dependencia de AuthRepository.
+   * Debe llamarse durante el bootstrap de infraestructura.
+   */
+  setAuthRepository(repo: IAuthRepository) {
+    this.authRepo = repo;
+  }
+
+  private getAuthRepo(): IAuthRepository {
+    if (!this.authRepo) {
+      // Fail-fast si se intenta usar antes de inicializar
+      throw new Error('SecurityService: AuthRepository not initialized');
+    }
+    return this.authRepo;
   }
 
   /**
@@ -50,14 +67,14 @@ export class SecurityService {
    * Verifica si la sesión está en proceso de salida.
    */
   isLoggingOut(): boolean {
-    return AuthRepository.getIsExiting();
+    return this.getAuthRepo().getIsExiting();
   }
 
   /**
    * Verifica si hay una sesión activa de forma rápida.
    */
   async hasActiveSession(): Promise<boolean> {
-    return AuthRepository.hasSession();
+    return this.getAuthRepo().hasSession();
   }
 
   /**
@@ -85,7 +102,7 @@ export class SecurityService {
     try {
       // AuthRepository ya implementa la lógica de notificación a través de sus listeners
       // que son escuchados por el AuthStore y el CoreModule.
-      AuthRepository.logout().then(() => {
+      this.getAuthRepo().logout().then(() => {
         log.info('Security logout successful');
       }).catch(err => {
         log.error('Failed to perform security logout', err);
@@ -103,7 +120,7 @@ export class SecurityService {
   private fallbackLogout(reason: string): void {
     try {
       // Notificamos manualmente la expiración para forzar la reacción de los suscriptores
-      AuthRepository.notifySessionExpired(reason);
+      this.getAuthRepo().notifySessionExpired(reason);
     } catch (error) {
       log.error('Failed to perform fallback logout via AuthRepository', error);
     }

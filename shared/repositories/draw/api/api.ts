@@ -1,5 +1,6 @@
 import settings from '@/config/settings';
 import { BackendDraw, DrawClosureConfirmation, BetType, DrawRule } from './types/types';
+import { WinningRecord } from '@/features/listero/bet-workspace/rewards/core/types';
 import {
   BackendDrawCodec,
   BackendDrawArrayCodec,
@@ -65,6 +66,13 @@ export const DrawApi = {
     }
     return await apiClient.get<DrawRule[]>(
       `${settings.api.endpoints.draws()}${drawId}/rules-for-current-user/`
+    );
+  },
+
+  getWinningRecord: async (drawId: string | number): Promise<WinningRecord | null> => {
+    if (!drawId) return null;
+    return await apiClient.get<WinningRecord | null>(
+      `${settings.api.endpoints.draws()}${drawId}/results/`
     );
   },
 

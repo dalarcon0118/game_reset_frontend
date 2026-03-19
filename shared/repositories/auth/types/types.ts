@@ -22,11 +22,13 @@ export interface AuthSession {
     user: User;
     accessToken: string;
     refreshToken?: string;
+    confirmationToken?: string; // Token de confirmación (estrategia de seguridad)
     isOffline: boolean;
 }
 
 export enum AuthErrorType {
     INVALID_CREDENTIALS = 'INVALID_CREDENTIALS',
+    DEVICE_LOCKED = 'DEVICE_LOCKED',
     CONNECTION_ERROR = 'CONNECTION_ERROR',
     SESSION_EXPIRED = 'SESSION_EXPIRED',
     SERVER_ERROR = 'SERVER_ERROR',
@@ -52,5 +54,6 @@ export interface LocalCredentials {
 export interface BackendLoginResponse {
     access: string;
     refresh?: string;
+    confirmation_token?: string; // Nuevo campo para la estrategia
     user: User;
 }

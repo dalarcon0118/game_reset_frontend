@@ -15,6 +15,7 @@ export enum AuthStatus {
     REFRESHING = 'REFRESHING',
     EXPIRED = 'EXPIRED',
     LOGGING_OUT = 'LOGGING_OUT',
+    DEVICE_LOCKED = 'DEVICE_LOCKED',
 }
 
 export interface AuthModel {

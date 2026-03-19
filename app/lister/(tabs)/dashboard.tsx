@@ -1,3 +1,4 @@
+import React, { useMemo } from 'react';
 import {  StyleSheet, SafeAreaView } from 'react-native';
 import { useColorScheme } from 'react-native';
 import Colors from '@/constants/colors';
@@ -11,8 +12,11 @@ export default function ListeroDashboardTab() {
   // Leemos la verdad del sistema desde el Kernel (CoreModule)
   const isSystemReady = CoreModule.useStore(s => s.model.isSystemReady);
 
+  // Memoizamos los parámetros para evitar recreación innecesaria del store
+  const initialParams = useMemo(() => ({ isSystemReady }), [isSystemReady]);
+
   return (
-    <ListeroDashboardProvider initialParams={{ isSystemReady }}>
+    <ListeroDashboardProvider initialParams={initialParams}>
       <SafeAreaView style={[
         styles.container,
         { backgroundColor: Colors[colorScheme].background }

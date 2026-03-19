@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import { useLoteriaStore, selectDispatch } from './core/store';
+import { useLoteriaStore, useLoteriaDispatch, selectDispatch } from './core/store';
 import {
     LoteriaFeatMsg,
     OPEN_BET_KEYBOARD,
@@ -17,7 +17,7 @@ import {
 } from './loteria/loteria.types';
 
 export const useLoteriaActions = () => {
-    const dispatch = useLoteriaStore(selectDispatch);
+    const dispatch = useLoteriaDispatch();
 
     const init = useCallback((drawId: string, isEditing: boolean = true, structureId?: string) => {
         dispatch(LoteriaFeatMsg(INIT({ drawId, isEditing, structureId })));

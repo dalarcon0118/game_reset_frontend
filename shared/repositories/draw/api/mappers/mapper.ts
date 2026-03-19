@@ -1,13 +1,18 @@
-import { ExtendedDrawType, BackendDraw } from './types';
+import { ExtendedDrawType, BackendDraw } from '../types/types';
 
 export const mapStatus = (
   backendStatus: string,
   bettingStart: string | null,
   bettingEnd: string | null,
   isBettingOpen?: boolean
-): 'open' | 'pending' | 'closed' | 'scheduled' => {
+): 'open' | 'pending' | 'closed' | 'scheduled' | 'rewarded' => {
+  // Estados finales del backend
   if (backendStatus === 'completed' || backendStatus === 'cancelled') {
     return 'closed';
+  }
+
+  if (backendStatus === 'awarded') {
+    return 'rewarded';
   }
 
   if (isBettingOpen === true) {

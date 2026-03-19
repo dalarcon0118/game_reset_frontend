@@ -1,77 +1,61 @@
-import React, { createContext, useContext, useEffect, useMemo } from 'react';
-import { UseBoundStore, StoreApi } from 'zustand';
-import { createElmStore } from '@core/engine/engine';
-import { Cmd, Sub } from '@core/tea-utils';
+import { createTEAModule, defineTeaModule } from '@core/engine/tea_module';
+import { Cmd, Sub, ret } from '@core/tea-utils';
 import { BolitaModel } from '../domain/models/bolita.types';
 import { initialBolitaModel } from '../domain/models/bolita.initial';
 import { update } from '../application/bolita';
-import { BolitaMsg } from '../domain/models/bolita.messages';
+import { BolitaMsg, APPLY_PROMOTION_CONTEXT } from '../domain/models/bolita.messages';
 
 /**
- * 🏪 BOLITA STORE
- * 
- * TEA Engine instance for Bolita feature.
- * Connects Application (Update/Flows) with Domain (Model/Messages).
+ * 📝 BOLITA MODULE PARAMS
+ * Define what Bolita needs to start.
+ */
+export interface BolitaModuleParams {
+    drawId?: string;
+    betType?: string;
+}
+
+/**
+ * 🏗️ BOLITA MODULE DEFINITION
+ * Pure TEA definition of the Bolita feature.
+ */
+const bolitaDefinition = defineTeaModule<BolitaModel, BolitaMsg>({
+    name: 'Bolita',
+    initial: (params: BolitaModuleParams = {}) => {
+        const model = {
+            ...initialBolitaModel,
+            currentDrawId: params.drawId || null
+        };
+
+        // If we have a betType (from a promotion), trigger the configuration
+        if (params.betType) {
+            return ret(model, Cmd.ofMsg(APPLY_PROMOTION_CONTEXT({ betType: params.betType })));
+        }
+
+        return [model, Cmd.none];
+    },
+    update,
+    subscriptions: () => Sub.none()
+});
+
+/**
+ * 🏪 BOLITA MODULE INSTANCE
+ * Result of createTEAModule, containing the Provider and hooks.
  * Following the TEA Clean Feature Design.
  */
-const init = (params?: Partial<BolitaModel>): [BolitaModel, Cmd] => {
-    return [
-        { ...initialBolitaModel, ...params },
-        Cmd.none
-    ];
-};
+export const BolitaModule = createTEAModule(bolitaDefinition);
 
-const subscriptions = (model: BolitaModel) => Sub.none();
+// Public API Hooks
+export const BolitaStoreProvider = BolitaModule.Provider;
+export const useBolitaStore = BolitaModule.useStore;
+export const useBolitaDispatch = BolitaModule.useDispatch;
+export const useBolitaStoreApi = BolitaModule.useStoreApi;
 
-interface StoreState {
-    model: BolitaModel;
-    dispatch: (msg: BolitaMsg) => void;
-    init: (params?: any) => void;
-    cleanup: () => void;
-}
+// Optimized Model Hook
+export const useBolitaModel = () => useBolitaStore(s => s.model);
 
-type StoreType = UseBoundStore<StoreApi<StoreState>>;
-
-const BolitaStoreContext = createContext<StoreType | undefined>(undefined);
-
-const createBolitaStore = () => {
-    return createElmStore<BolitaModel, BolitaMsg>({
-        initial: init,
-        update: update,
-        subscriptions
-    });
-};
-
-export const BolitaStoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const store = useMemo(() => createBolitaStore(), []);
-
-    useEffect(() => {
-        return () => {
-            store.getState().cleanup();
-        };
-    }, [store]);
-
-    return React.createElement(
-        BolitaStoreContext.Provider,
-        { value: store },
-        children
-    );
-};
-
-export function useBolitaStore(): StoreState;
-export function useBolitaStore<T>(selector: (state: StoreState) => T): T;
-export function useBolitaStore<T>(selector?: (state: StoreState) => T): T | StoreState {
-    const store = useContext(BolitaStoreContext);
-    if (!store) {
-        throw new Error('useBolitaStore must be used within a BolitaStoreProvider');
-    }
-
-    if (!selector) {
-        return store();
-    }
-
-    return store(selector);
-}
-
-export const selectBolitaModel = (state: StoreState) => state.model;
-export const selectDispatch = (state: StoreState) => state.dispatch;
+/**
+ * 🔄 LEGACY COMPATIBILITY
+ * These are kept to avoid breaking existing hooks and screens.
+ */
+export const selectBolitaModel = (state: { model: BolitaModel }) => state.model;
+export const selectDispatch = (state: { dispatch: (msg: BolitaMsg) => void }) => state.dispatch;

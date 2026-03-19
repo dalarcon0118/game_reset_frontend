@@ -39,7 +39,7 @@ const LoteriaEntryContent: React.FC<LoteriaEntryScreenProps> = ({ drawId }) => {
  */
 const LoteriaEntryScreen: React.FC<LoteriaEntryScreenProps> = (props) => {
     return (
-        <LoteriaStoreProvider>
+        <LoteriaStoreProvider initialParams={{ drawId: props.drawId }}>
             <LoteriaEntryContent {...props} />
         </LoteriaStoreProvider>
     );

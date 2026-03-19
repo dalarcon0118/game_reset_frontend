@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useCallback, useMemo, useEffect } from 'react';
 import { router } from 'expo-router';
-import { useLoteriaStore, selectLoteriaModel, selectDispatch } from '../../core/store';
+import { useLoteriaStore, useLoteriaDispatch, useLoteriaModel, selectLoteriaModel, selectDispatch } from '../../core/store';
 import { selectLoteriaList, selectFixedAmount, selectDrawDetails } from '../../use_loteria_selectors';
 import { groupBetsByReceipt } from '../../components/loteria/loteria_column.impl';
 import { LoteriaGroup } from '../../components/loteria/loteria_column.types';
@@ -27,8 +27,8 @@ interface LoteriaListProviderProps {
 }
 
 export const LoteriaListProvider: React.FC<LoteriaListProviderProps> = ({ drawId, children }) => {
-    const model = useLoteriaStore(selectLoteriaModel);
-    const dispatch = useLoteriaStore(selectDispatch);
+    const model = useLoteriaModel();
+    const dispatch = useLoteriaDispatch();
     const { user } = useAuth();
 
     const loteriaList = useMemo(() => selectLoteriaList(model), [model]);

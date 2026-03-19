@@ -3,223 +3,146 @@ import { ret, singleton, Return } from '@core/tea-utils/return';
 import { CoreModel } from './model';
 import { CoreMsg } from './msg';
 import { Cmd } from '@core/tea-utils/cmd';
-import { SYSTEM_READY } from '@/config/signals';
-import { AuthRepository } from '@shared/repositories/auth';
 import { CoreService } from './service';
-import { systemJanitor } from './services/system-janitor.service';
 import { logger } from '../../shared/utils/logger';
 
+import { match } from 'ts-pattern';
+
 const log = logger.withTag('CORE_MODULE_UPDATE');
+
+/**
+ * Calcula el estado isSystemReady basado en maintenanceStatus y sessionStatus
+ */
+const calculateIsSystemReady = (model: CoreModel): boolean => {
+  const hasMaintenance = model.maintenanceStatus?.status === 'ready';
+  const isAuthOrUnauth = model.sessionStatus === 'AUTHENTICATED' || model.sessionStatus === 'UNAUTHENTICATED';
+  return hasMaintenance && isAuthOrUnauth;
+};
 
 export function update(model: CoreModel, msg: CoreMsg): Return<CoreModel, CoreMsg> {
   log.debug(`Processing core message: ${msg.type}`, { bootstrapStatus: model.bootstrapStatus });
 
-  switch (msg.type) {
-    case 'BOOTSTRAP_STARTED': {
-      log.info('Core bootstrap started');
-      if (model.bootstrapStatus === 'INITIALIZING') {
-        return singleton(model);
-      }
+  return match<CoreMsg, Return<CoreModel, CoreMsg>>(msg)
+    .with({ type: 'BOOTSTRAP_STARTED' }, () =>
+      ret({ ...model, bootstrapStatus: 'INITIALIZING' as const }, Cmd.none)
+    )
 
-      return ret(
-        { ...model, bootstrapStatus: 'INITIALIZING', error: null },
-        Cmd.task({
-          task: () => {
-            log.debug('CoreService.initializeInfrastructure() task starting...');
-            return CoreService.initializeInfrastructure();
-          },
-          onSuccess: (hasSession: boolean): CoreMsg => {
-            log.info('Core infrastructure initialized', { hasSession });
-            return {
-              type: 'BOOTSTRAP_COMPLETED',
-              payload: hasSession ? 'AUTHENTICATED' : 'UNAUTHENTICATED'
-            };
-          },
-          onFailure: (error: any): CoreMsg => {
-            log.error('Core infrastructure initialization failed', error);
-            const userMessage = CoreService.translateError(error.status || 500, String(error));
-            return {
-              type: 'BOOTSTRAP_FAILED',
-              payload: userMessage
-            };
-          },
-          label: 'INITIALIZE_INFRASTRUCTURE'
-        })
-      );
-    }
-
-    case 'BOOTSTRAP_COMPLETED': {
-      log.info('Core bootstrap completed', { sessionStatus: msg.payload });
-      const isAuth = msg.payload === 'AUTHENTICATED';
-      const isProfileReady = !isAuth;
-      const isSystemReady = isProfileReady && model.isMaintenanceReady;
-
-      return ret(
-        {
-          ...model,
-          bootstrapStatus: 'READY',
-          sessionStatus: msg.payload,
-          // Si no está autenticado, el perfil está "listo" (vacío) para propósitos de orquestación
-          isProfileReady,
-          isSystemReady
-        },
-        Cmd.batch([
-          Cmd.task({
-            task: (dispatch) => {
-              log.debug('Setting up API handlers...');
-              return CoreService.setupApiHandlers(dispatch);
-            },
-            onSuccess: () => ({ type: 'API_HANDLERS_READY' }),
-            onFailure: (err) => {
-              log.error('API Handlers setup failed', err);
-              return { type: 'NO_OP' };
-            },
-            label: 'SETUP_API_HANDLERS'
-          }),
-          // Si está autenticado, validamos el contexto de sesión y el mantenimiento inmediatamente
-          isAuth ? Cmd.batch([
-            Cmd.task({
-              task: async () => {
-                log.debug('Verifying session context...');
-                let user = await AuthRepository.hydrate();
-
-                // Si tenemos usuario pero NO estructura, intentamos refrescar desde la API
-                if (user && !user.structure) {
-                  log.warn('User found but structure is missing, attempting API refresh...');
-                  const result = await AuthRepository.refreshUserProfile();
-                  if (result.isOk()) {
-                    user = result.value;
-                  }
-                }
-
-                return !!(user && user.structure);
-              },
-              onSuccess: (isReady) => isReady ? { type: 'SESSION_CONTEXT_READY' } : { type: 'SESSION_EXPIRED', reason: 'INCOMPLETE_PROFILE' },
-              onFailure: () => ({ type: 'SESSION_EXPIRED', reason: 'PROFILE_FETCH_FAILED' }),
-              label: 'VERIFY_SESSION_CONTEXT'
-            }),
-            Cmd.task({
-              task: () => {
-                log.info('Triggering initial maintenance during bootstrap...');
-                return systemJanitor.prepareDailySession();
-              },
-              onSuccess: () => ({ type: 'NO_OP' } as any),
-              onFailure: (err) => {
-                log.error('Initial maintenance failed', err);
-                return { type: 'NO_OP' } as any;
-              },
-              label: 'INITIAL_MAINTENANCE'
-            })
-          ]) : (isSystemReady ? Cmd.sendMsg(SYSTEM_READY({ date: new Date().toISOString().split('T')[0] })) : Cmd.none)
-        ])
-      );
-    }
-
-    case 'BOOTSTRAP_FAILED':
-      return singleton({
+    .with({ type: 'BOOTSTRAP_COMPLETED' }, ({ payload }) => {
+      const isAuth = payload === 'AUTHENTICATED';
+      const nextModel = {
         ...model,
-        bootstrapStatus: 'ERROR',
-        error: msg.payload
-      });
-
-    case 'SESSION_STATUS_CHANGED': {
-      const newStatus = msg.payload;
-      const commands: any[] = [];
-      const isNewAuth = newStatus === 'AUTHENTICATED' && model.sessionStatus !== 'AUTHENTICATED';
-
-      if (isNewAuth) {
-        log.info('User authenticated, triggering reactive maintenance and profile verification');
-        commands.push(
-          Cmd.task({
-            task: () => systemJanitor.prepareDailySession(),
-            onSuccess: () => ({ type: 'NO_OP' } as any),
-            onFailure: (err) => {
-              log.error('Reactive maintenance failed', err);
-              return { type: 'NO_OP' } as any;
-            },
-            label: 'REACTIVE_MAINTENANCE'
-          }),
-          Cmd.task({
-            task: async () => {
-              log.debug('Verifying session context after status change...');
-              let user = await AuthRepository.hydrate();
-
-              if (user && !user.structure) {
-                log.warn('User found but structure is missing after login, attempting API refresh...');
-                const result = await AuthRepository.refreshUserProfile();
-                if (result.isOk()) {
-                  user = result.value;
-                }
-              }
-
-              return !!(user && user.structure);
-            },
-            onSuccess: (isReady) => isReady ? { type: 'SESSION_CONTEXT_READY' } : { type: 'SESSION_EXPIRED', reason: 'INCOMPLETE_PROFILE' },
-            onFailure: () => ({ type: 'SESSION_EXPIRED', reason: 'PROFILE_FETCH_FAILED' }),
-            label: 'VERIFY_SESSION_CONTEXT'
-          })
-        );
-      }
+        bootstrapStatus: 'READY' as const,
+        sessionStatus: payload,
+        error: null,
+        isSystemReady: calculateIsSystemReady({ ...model, sessionStatus: payload })
+      };
 
       return ret(
+        nextModel,
+        isAuth
+          ? Cmd.batch([CoreService.verifySessionContextTask(), CoreService.maintenanceTask('INITIAL_MAINTENANCE')])
+          : (CoreService.isSystemReady(nextModel) ? CoreService.notifySystemReady(new Date().toISOString().split('T')[0]) : Cmd.none)
+      );
+    })
+
+    .with({ type: 'BOOTSTRAP_FAILED' }, ({ payload }) =>
+      ret({ ...model, bootstrapStatus: 'ERROR' as const, error: payload }, Cmd.none)
+    )
+
+    .with({ type: 'SESSION_STATUS_CHANGED' }, ({ payload }) => {
+      const isNewAuth = payload === 'AUTHENTICATED' && model.sessionStatus !== 'AUTHENTICATED';
+      const nextModel = {
+        ...model,
+        sessionStatus: payload,
+        isSystemReady: calculateIsSystemReady({ ...model, sessionStatus: payload })
+      };
+
+      return ret(
+        nextModel,
+        isNewAuth
+          ? Cmd.batch([CoreService.maintenanceTask('REACTIVE_MAINTENANCE'), CoreService.verifySessionContextTask()])
+          : Cmd.none
+      );
+    })
+
+    .with({ type: 'SESSION_CONTEXT_READY' }, () => {
+      const nextModel = {
+        ...model,
+        sessionStatus: 'AUTHENTICATED' as const,
+        isSystemReady: calculateIsSystemReady({ ...model, sessionStatus: 'AUTHENTICATED' })
+      };
+      return ret(
+        nextModel,
+        CoreService.isSystemReady(nextModel) ? CoreService.notifySystemReady(new Date().toISOString().split('T')[0]) : Cmd.none
+      );
+    })
+
+    .with({ type: 'MAINTENANCE_COMPLETED' }, ({ payload }) => {
+      const nextModel = {
+        ...model,
+        maintenanceStatus: payload,
+        isSystemReady: calculateIsSystemReady({ ...model, maintenanceStatus: payload })
+      };
+      return ret(
+        nextModel,
+        CoreService.isSystemReady(nextModel) ? CoreService.notifySystemReady(payload.date) : Cmd.none
+      );
+    })
+
+    .with({ type: 'SESSION_EXPIRED' }, () =>
+      ret(
         {
           ...model,
-          sessionStatus: newStatus,
-          isProfileReady: isNewAuth ? false : model.isProfileReady,
-          isSystemReady: isNewAuth ? false : model.isSystemReady
+          sessionStatus: 'EXPIRED' as const,
+          isSystemReady: false // Sesión expirada = sistema no listo
         },
-        Cmd.batch(commands)
-      );
-    }
-
-    case 'SESSION_CONTEXT_READY': {
-      log.info('Session context is ready and verified');
-      const isSystemReady = model.isMaintenanceReady;
-      const nextModel = { ...model, isProfileReady: true, isSystemReady };
-
-      if (isSystemReady) {
-        return ret(
-          nextModel,
-          Cmd.sendMsg(SYSTEM_READY({ date: new Date().toISOString().split('T')[0] }))
-        );
-      }
-
-      return singleton(nextModel);
-    }
-
-    case 'MAINTENANCE_COMPLETED': {
-      log.info('System maintenance completed successfully', { date: msg.payload.date });
-      const isSystemReady = model.isProfileReady;
-      const nextModel = { ...model, isMaintenanceReady: true, isSystemReady };
-
-      if (isSystemReady) {
-        return ret(
-          nextModel,
-          Cmd.sendMsg(SYSTEM_READY({ date: msg.payload.date }))
-        );
-      }
-
-      return singleton(nextModel);
-    }
-
-    case 'SESSION_EXPIRED':
-      return ret(
-        { ...model, sessionStatus: 'EXPIRED' },
         Cmd.task({
           task: () => CoreService.logout(),
-          onSuccess: (): CoreMsg => ({ type: 'SESSION_STATUS_CHANGED', payload: 'UNAUTHENTICATED' }),
-          onFailure: (): CoreMsg => ({ type: 'SESSION_STATUS_CHANGED', payload: 'UNAUTHENTICATED' }),
+          onSuccess: () => ({ type: 'SESSION_STATUS_CHANGED', payload: 'UNAUTHENTICATED' }),
+          onFailure: () => ({ type: 'SESSION_STATUS_CHANGED', payload: 'UNAUTHENTICATED' }),
           label: 'LOGOUT_ON_EXPIRATION'
         })
+      )
+    )
+
+    .with({ type: 'PHYSICAL_CONNECTION_CHANGED' }, ({ payload }) => {
+      const nextConnectivity = { ...model.connectivity, isPhysicalConnected: payload };
+      // REGLA: Si no hay conexión física, el SSoT es false inmediatamente.
+      // Si hay física, mantenemos el último estado de alcanzabilidad hasta que se verifique.
+      const nextNetworkStatus = payload && nextConnectivity.isServerReachable;
+
+      return ret(
+        { ...model, connectivity: nextConnectivity, networkConnected: nextNetworkStatus },
+        nextNetworkStatus !== model.networkConnected
+          ? CoreService.syncNetworkStatus(nextNetworkStatus)
+          : Cmd.none
       );
+    })
 
-    case 'NETWORK_STATUS_CHANGED':
-      return singleton({ ...model, networkConnected: msg.payload });
+    .with({ type: 'SERVER_REACHABILITY_CHANGED' }, ({ payload }) => {
+      const nextConnectivity = { ...model.connectivity, isServerReachable: payload, lastCheck: Date.now() };
+      // El SSoT depende de ambos sensores
+      const nextNetworkStatus = nextConnectivity.isPhysicalConnected && payload;
 
-    case 'RETRY_BOOTSTRAP':
-      return update({ ...model, bootstrapStatus: 'IDLE' }, { type: 'BOOTSTRAP_STARTED' });
+      return ret(
+        { ...model, connectivity: nextConnectivity, networkConnected: nextNetworkStatus },
+        nextNetworkStatus !== model.networkConnected
+          ? CoreService.syncNetworkStatus(nextNetworkStatus)
+          : Cmd.none
+      );
+    })
 
-    default:
+    .with({ type: 'RETRY_BOOTSTRAP' }, () =>
+      update({ ...model, bootstrapStatus: 'IDLE' as const }, { type: 'BOOTSTRAP_STARTED' })
+    )
+
+    .with({ type: 'SYSTEM_READY' }, ({ payload }) => {
+      // El CoreModule notifica que el sistema está listo,
+      // pero delega el procesamiento a otros módulos vía signalBus o suscripciones
+      log.debug(`SYSTEM_READY received with date: ${payload?.date}`);
       return singleton(model);
-  }
+    })
+
+    .with({ type: 'NO_OP' }, () => singleton(model))
+    .exhaustive();
 }

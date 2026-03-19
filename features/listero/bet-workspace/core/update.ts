@@ -11,6 +11,7 @@ import { EditMsg } from '../edit/core/types';
 import { ListMsg } from '../list/core/types';
 import { ManagementMsg } from '../management/core/types';
 import { RulesMsg } from '../rules/core/types';
+import { UiMsg, UiMsgType } from '../ui/ui.types';
 
 export type Msg =
     | { type: 'CREATE'; payload: CreateMsg }
@@ -18,13 +19,14 @@ export type Msg =
     | { type: 'LIST'; payload: ListMsg }
     | { type: 'MANAGEMENT'; payload: ManagementMsg }
     | { type: 'RULES'; payload: RulesMsg }
+    | { type: 'UI'; payload: UiMsg }
     | { type: 'SET_CURRENT_DRAW'; drawId: string | null }
     | { type: 'SET_EDITING'; isEditing: boolean };
 
 const makeModel = (model: Model) => model;
 
 export const update = (msg: Msg, model: Model): Return<Model, Msg> => {
-    return match(msg)
+    return match(msg as any)
         .with({ type: 'CREATE' }, ({ payload }) => {
             return singleton(makeModel)
                 .andMapCmd(
@@ -59,6 +61,28 @@ export const update = (msg: Msg, model: Model): Return<Model, Msg> => {
                     (subMsg) => ({ type: 'RULES', payload: subMsg }),
                     updateRules(model, payload)
                 );
+        })
+        .with({ type: 'UI' }, ({ payload }) => {
+            const nextModel = match(payload)
+                .with({ type: UiMsgType.SET_ACTIVE_ANNOTATION_TYPE }, ({ annotationType }) => ({
+                    ...model,
+                    centenaSession: { ...model.centenaSession, activeAnnotationType: annotationType }
+                }))
+                .with({ type: UiMsgType.SET_ACTIVE_GAME_TYPE }, ({ gameType }) => ({
+                    ...model,
+                    centenaSession: { ...model.centenaSession, activeGameType: gameType }
+                }))
+                .with({ type: UiMsgType.CLEAR_ERROR }, () => ({
+                    ...model,
+                    error: null
+                }))
+                .with({ type: UiMsgType.CLOSE_ALL_DRAWERS }, () => ({
+                    ...model,
+                    showRulesDrawer: false // Placeholder if needed
+                }))
+                .otherwise(() => model);
+
+            return singleton(nextModel);
         })
         .with({ type: 'SET_CURRENT_DRAW' }, ({ drawId }) => {
             return singleton({ ...model, currentDrawId: drawId });

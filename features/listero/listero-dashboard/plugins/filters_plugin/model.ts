@@ -1,4 +1,5 @@
 import { PluginContext } from '@core/plugins/plugin.types';
+import { Cmd } from '@core/tea-utils';
 
 export interface FilterOption {
   label: string;
@@ -31,14 +32,17 @@ export interface Model {
   config: FiltersPluginConfig;
 }
 
-export const initialModel = (params?: { context: PluginContext; config: FiltersPluginConfig }): Model => {
+export const initialModel = (params?: { context: PluginContext; config: FiltersPluginConfig }): [Model, Cmd] => {
   const context = params?.context ?? null;
   const config = params?.config ?? defaultConfig;
   const statusFilter = context?.state?.[config.stateKey] ?? config.defaultValue;
 
-  return {
-    statusFilter,
-    context,
-    config
-  };
+  return [
+    {
+      statusFilter,
+      context,
+      config
+    },
+    Cmd.none
+  ];
 };

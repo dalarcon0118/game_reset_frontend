@@ -17,7 +17,8 @@ import { Slot } from '@core/plugins';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDashboardLifecycle } from '../core/lifecycle';
 import { PromotionModal } from '../../../../shared/components/promotion/PromotionModal';
-
+import { pipe as $ } from 'fp-ts/lib/function';
+$()
 export default function DashboardScreen() {
     
     // Using useShallow to only re-render if the model properties actually change.
@@ -96,7 +97,10 @@ export default function DashboardScreen() {
                 isVisible={model.promotion.showPromotionsModal}
                 promotions={model.promotion.promotions}
                 onClose={() => dispatch(PROMOTION_MSG(CLOSE_PROMOTIONS_MODAL()))}
-                onParticipate={(promotion) => dispatch(PROMOTION_MSG(PARTICIPATE_CLICKED(promotion)))}
+                onParticipate={(promotion) => {
+                    const activeDraws = RemoteData.withDefault([], model.draws);
+                    dispatch(PROMOTION_MSG(PARTICIPATE_CLICKED(promotion, activeDraws)));
+                }}
             />
         </SafeAreaView>
     );

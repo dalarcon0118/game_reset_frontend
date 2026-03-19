@@ -1,6 +1,7 @@
 import { BackendDraw, DrawClosureConfirmation, BetType, DrawRule } from './api/types/types';
 import { Result } from 'neverthrow';
 import { ExtendedDrawType } from '@/shared/services/draw/types';
+import { WinningRecord } from '@/features/listero/bet-workspace/rewards/core/types';
 
 export type Draw = BackendDraw;
 export { DrawClosureConfirmation, BetType, DrawRule };
@@ -36,6 +37,7 @@ export interface IDrawRepository {
   getDraw(id: string | number): Promise<Result<ExtendedDrawType, Error>>;
   getBetTypes(drawId: string | number): Promise<Result<BetType[], Error>>;
   getFinancialState(drawId: string | number): Promise<Result<DrawFinancialState, Error>>;
+  getWinningRecord(drawId: string | number): Promise<Result<WinningRecord | null, Error>>;
 
   // Base methods
   getOne(id: string | number): Promise<Draw>;

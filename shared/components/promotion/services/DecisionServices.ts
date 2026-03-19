@@ -9,6 +9,7 @@ import { GameRegistry } from '@core/registry/game_registry';
 import { Promotion } from '../model';
 import { Cmd } from '@core/tea-utils/cmd';
 import { CommandDescriptor } from '@core/tea-utils/cmd';
+import { DrawType } from '@/types';
 
 export const DecisionServices = {
     /**
@@ -19,16 +20,22 @@ export const DecisionServices = {
      * 2. Fallback to bet_type_code.
      * 3. Final fallback to title analysis (Legacy).
      */
-    handleParticipation: (promotion: Promotion): CommandDescriptor => {
+    handleParticipation: (promotion: Promotion, activeDraws: DrawType[] = []): CommandDescriptor => {
         // 1. Try by Draw Type Code (Primary Backend Contract)
         if (promotion.draw_type_code) {
             const strategy = GameRegistry.getStrategyByDrawCode(promotion.draw_type_code);
             if (strategy) {
+                // Find matching active draw instance if possible
+                const matchingDraw = activeDraws.find(d => 
+                    d.draw_type_details?.code?.toUpperCase() === promotion.draw_type_code?.toUpperCase()
+                );
+
                 return Cmd.navigate({
                     pathname: GameRegistry.resolveRouteByIntent(strategy.intent),
                     params: {
-                        id: String(promotion.draw_type || ''),
-                        title: promotion.title
+                        id: matchingDraw ? String(matchingDraw.id) : String(promotion.draw_type || ''),
+                        title: matchingDraw ? matchingDraw.name : promotion.title,
+                        betType: promotion.bet_type_code
                     }
                 });
             }
@@ -38,11 +45,18 @@ export const DecisionServices = {
         if (promotion.bet_type_code) {
             const intent = GameRegistry.getIntentByBetCode(promotion.bet_type_code);
             if (intent !== 'UNKNOWN') {
+                // For bet types, we still need a draw. Let's try to find one by category
+                const strategy = GameRegistry.getStrategyByBetCode(promotion.bet_type_code);
+                const matchingDraw = activeDraws.find(d => 
+                    d.draw_type_details?.code?.toUpperCase() === strategy?.category?.toUpperCase()
+                );
+
                 return Cmd.navigate({
                     pathname: GameRegistry.resolveRouteByIntent(intent),
                     params: {
-                        id: String(promotion.draw_type || ''),
-                        title: promotion.title
+                        id: matchingDraw ? String(matchingDraw.id) : String(promotion.draw_type || ''),
+                        title: matchingDraw ? matchingDraw.name : promotion.title,
+                        betType: promotion.bet_type_code
                     }
                 });
             }

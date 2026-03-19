@@ -1,11 +1,11 @@
 import { useCallback } from 'react';
-import { useBetWorkspaceStore } from '../core/store';
+import { useBetWorkspaceModel, useBetWorkspaceDispatch } from '../core/store';
 import { UiMsgType } from './ui.types';
 import { GameType } from '@/types';
 
 export const useUi = () => {
-    const model = useBetWorkspaceStore((state: any) => state.model);
-    const dispatch = useBetWorkspaceStore((state: any) => state.dispatch);
+    const model = useBetWorkspaceModel();
+    const dispatch = useBetWorkspaceDispatch();
 
     const setActiveAnnotationType = useCallback((annotationType: string | null) => {
         dispatch({ type: 'UI', payload: { type: UiMsgType.SET_ACTIVE_ANNOTATION_TYPE, annotationType } });

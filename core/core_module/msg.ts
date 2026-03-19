@@ -17,8 +17,11 @@ export type CoreMsg =
   /** Notificación de sesión expirada (401 o TTL excedido) */
   | { type: 'SESSION_EXPIRED'; reason?: string }
 
-  /** Cambio en el estado de red */
-  | { type: 'NETWORK_STATUS_CHANGED'; payload: boolean }
+  /** Cambio en el estado físico de la red (NetInfo) */
+  | { type: 'PHYSICAL_CONNECTION_CHANGED'; payload: boolean }
+
+  /** Cambio en la alcanzabilidad del servidor (ApiClient / Ping) */
+  | { type: 'SERVER_REACHABILITY_CHANGED'; payload: boolean }
 
   /** Mantenimiento del sistema completado (SystemJanitor) */
   | { type: 'MAINTENANCE_COMPLETED'; payload: { date: string; status: 'ready' } }
@@ -26,11 +29,11 @@ export type CoreMsg =
   /** El contexto de usuario (perfil, estructura) está listo y verificado */
   | { type: 'SESSION_CONTEXT_READY' }
 
+  /** Sistema completamente listo para operar (notificación global) */
+  | { type: 'SYSTEM_READY'; payload: { date: string } }
+
   /** Acción sin efecto (usada para Cmd.task que no necesitan respuesta) */
   | { type: 'NO_OP' }
-
-  /** Configuración de API handlers finalizada */
-  | { type: 'API_HANDLERS_READY' }
 
   /** Trigger para reintento de inicialización */
   | { type: 'RETRY_BOOTSTRAP' };

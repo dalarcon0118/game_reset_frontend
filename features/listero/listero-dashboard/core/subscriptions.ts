@@ -1,7 +1,7 @@
 import { Model } from './model';
 import { SubDescriptor, Sub } from '@core/tea-utils';
 import { Msg, SYSTEM_READY as SYSTEM_READY_MSG } from './msg';
-import { DASHBOARD_FILTER_CHANGED, SYSTEM_READY } from '@/config/signals';
+import { DASHBOARD_FILTER_CHANGED, SYSTEM_READY, DASHBOARD_RULES_CLICKED, DASHBOARD_REWARDS_CLICKED, DASHBOARD_REFRESH_CLICKED } from '@/config/signals';
 
 export const subscriptions = (model: Model): SubDescriptor<Msg> => {
     // 1. Escucha señales globales para cambios de filtros
@@ -13,7 +13,34 @@ export const subscriptions = (model: Model): SubDescriptor<Msg> => {
         'listero-dashboard-filter-sync'
     );
 
-    // 3. Escucha la señal global SYSTEM_READY emitida por el CoreModule
+    // 2. Escucha señales para navegación de reglas
+    const rulesSub = Sub.receiveMsg(
+        DASHBOARD_RULES_CLICKED,
+        (drawId, dispatch) => {
+            dispatch({ type: 'RULES_CLICKED', drawId: String(drawId) });
+        },
+        'listero-dashboard-rules-sync'
+    );
+
+    // 3. Escucha señales para navegación de premios
+    const rewardsSub = Sub.receiveMsg(
+        DASHBOARD_REWARDS_CLICKED,
+        (payload, dispatch) => {
+            dispatch({ type: 'REWARDS_CLICKED', drawId: String(payload.id), title: payload.title });
+        },
+        'listero-dashboard-rewards-sync'
+    );
+
+    // 4. Escucha señales para refrescar datos
+    const refreshSub = Sub.receiveMsg(
+        DASHBOARD_REFRESH_CLICKED,
+        (_, dispatch) => {
+            dispatch({ type: 'REFRESH_CLICKED' });
+        },
+        'listero-dashboard-refresh-sync'
+    );
+
+    // 5. Escucha la señal global SYSTEM_READY emitida por el CoreModule
     const systemReadySub = Sub.receiveMsg(
         SYSTEM_READY,
         (payload, dispatch) => {
@@ -33,5 +60,5 @@ export const subscriptions = (model: Model): SubDescriptor<Msg> => {
         'listero-dashboard-core-ready-sync'
     );
 
-    return Sub.batch([filterSub, systemReadySub, coreReadySub]);
+    return Sub.batch([filterSub, rulesSub, rewardsSub, refreshSub, systemReadySub, coreReadySub]);
 };

@@ -23,7 +23,7 @@ export class FilterDrawsUseCase {
           draw.status === DRAW_STATUS.OPEN && !expired
         )
         .with(DRAW_FILTER.CLOSED, () =>
-          (draw.status === DRAW_STATUS.CLOSED || expired) && !draw.winning_numbers
+          (draw.status === DRAW_STATUS.CLOSED || draw.status === DRAW_STATUS.REWARDED || expired)
         )
         .with(DRAW_FILTER.CLOSING_SOON, () =>
           (draw.status === DRAW_STATUS.OPEN || draw.is_betting_open === true) && isClosingSoon(draw.betting_end_time)

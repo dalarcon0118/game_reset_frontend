@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useCallback, useEffect, useMemo } from 'react';
 import { router } from 'expo-router';
-import { useBolitaStore, selectBolitaModel, selectDispatch } from '../store';
+import { useBolitaDispatch, useBolitaModel } from '../store';
 import { BolitaListData } from '../../domain/models/bolita.types';
 import { ListMsgType, LIST } from '../../domain/models/bolita.messages';
 import { groupBetsByReceipt, GroupedBets } from '../utils/list_grouping';
@@ -31,8 +31,8 @@ interface BolitaListProviderProps {
 }
 
 export const BolitaListProvider: React.FC<BolitaListProviderProps> = ({ drawId, children }) => {
-    const model = useBolitaStore(selectBolitaModel);
-    const dispatch = useBolitaStore(selectDispatch);
+    const model = useBolitaModel();
+    const dispatch = useBolitaDispatch();
 
     const { isRefreshing, remoteData, summary } = model.listState;
     const { fijosCorridosTotal, parletsTotal, centenasTotal, grandTotal } = summary;

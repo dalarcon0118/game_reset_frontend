@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { FijosCorridosBet } from '@/types';
-import { useBolitaStore, selectBolitaModel } from '../store';
+import { useBolitaModel } from '../store';
 import { logger } from '@/shared/utils/logger';
 import { useBolitaActions } from './use_bolita_actions';
 
@@ -11,7 +11,7 @@ const log = logger.withTag('USE_FIJOS');
  * Following the TEA Clean Feature Design.
  */
 export const useFijos = ({ onSelectPlay }: { onSelectPlay?: (bets: FijosCorridosBet[]) => void } = {}) => {
-  const model = useBolitaStore(selectBolitaModel);
+  const model = useBolitaModel();
   const { fijos: actions } = useBolitaActions();
 
   const {

@@ -15,12 +15,14 @@ import {
     REFRESH_SUCCEEDED,
     REFRESH_FAILED,
     SESSION_EXPIRED as SESSION_EXPIRED_MSG,
+    RESET_AUTH_STATE,
     GLOBAL_SIGNAL_RECEIVED
 } from './msg';
 import { Return, singleton, ret } from '../../core/tea-utils/return';
 import { Cmd } from '../../core/tea-utils/cmd';
 import { RemoteDataHttp } from '../../core/tea-utils/remote.data.http';
 import { AuthRepository } from '../../repositories/auth';
+import { AuthErrorType } from '../../repositories/auth/types/types';
 import { logger } from '../../utils/logger';
 import { GLOBAL_LOGOUT } from '@/config/signals';
 
@@ -95,9 +97,12 @@ export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMs
                                     isOffline: result.data.data.isOffline
                                 });
                             }
-                            return LOGIN_FAILED({ error: result.data.error.message });
+                            return LOGIN_FAILED({
+                                error: result.data.error.message,
+                                type: result.data.error.type
+                            });
                         }
-                        return LOGIN_FAILED({ error: 'Error de conexión' });
+                        return LOGIN_FAILED({ error: 'Error de conexión', type: AuthErrorType.CONNECTION_ERROR });
                     },
                     'AUTH_LOGIN'
                 )
@@ -117,9 +122,13 @@ export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMs
         })
 
         .with(LOGIN_FAILED.type(), ({ payload }) => {
+            const status = payload.type === AuthErrorType.DEVICE_LOCKED
+                ? AuthStatus.DEVICE_LOCKED
+                : AuthStatus.UNAUTHENTICATED;
+
             return singleton({
                 ...model,
-                status: AuthStatus.UNAUTHENTICATED,
+                status,
                 error: payload.error
             });
         })
@@ -145,6 +154,14 @@ export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMs
         .with(AUTH_ERROR_DETECTED.type(), ({ payload }) => {
             if (payload.status === 401 && model.tokens?.refresh) {
                 return update(model, REFRESH_STARTED());
+            }
+            if (payload.status === 403) {
+                // Posible bloqueo de dispositivo durante sesión activa
+                return singleton({
+                    ...model,
+                    status: AuthStatus.DEVICE_LOCKED,
+                    error: 'Este dispositivo ya no está autorizado.'
+                });
             }
             return update(model, SESSION_EXPIRED_MSG({ reason: 'Error de autenticación' }));
         })
@@ -198,6 +215,14 @@ export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMs
                 { ...model, status: AuthStatus.EXPIRED, user: null, tokens: null },
                 Cmd.navigate({ pathname: '/login', method: 'replace' })
             );
+        })
+
+        .with(RESET_AUTH_STATE.type(), () => {
+            return singleton({
+                ...model,
+                status: AuthStatus.UNAUTHENTICATED,
+                error: null
+            });
         })
 
         .with(GLOBAL_SIGNAL_RECEIVED.type(), ({ payload }) => {

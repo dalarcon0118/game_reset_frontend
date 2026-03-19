@@ -35,6 +35,7 @@ export const authApiAdapter: IAuthApi = {
                     user: validated.user as User,
                     accessToken: validated.access,
                     refreshToken: validated.refresh,
+                    confirmationToken: validated.confirmation_token, // Persistiendo el token de confirmación
                     isOffline: false
                 }
             };
@@ -50,12 +51,14 @@ export const authApiAdapter: IAuthApi = {
                 !error.status;
 
             const isServerError = error.status >= 500;
-            const isInvalidCredentials = error.status === 401 || error.status === 403;
+            const isInvalidCredentials = error.status === 401;
+            const isDeviceLocked = error.status === 403;
 
             let errorType = AuthErrorType.UNKNOWN_ERROR;
             if (isNetworkError) errorType = AuthErrorType.CONNECTION_ERROR;
             else if (isServerError) errorType = AuthErrorType.SERVER_ERROR;
             else if (isInvalidCredentials) errorType = AuthErrorType.INVALID_CREDENTIALS;
+            else if (isDeviceLocked) errorType = AuthErrorType.DEVICE_LOCKED;
 
             return {
                 success: false,

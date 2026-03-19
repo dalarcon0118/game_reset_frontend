@@ -29,18 +29,17 @@ export const isClosingSoon = (bettingEndTime?: string | null) => {
 
 export const isExpired = (draw: DrawType) => {
     // 1. Prioritize official server status
-    if (draw.status === DRAW_STATUS.CLOSED || draw.status === DRAW_STATUS.COMPLETED) return true;
+    if (
+        draw.status === DRAW_STATUS.CLOSED ||
+        draw.status === DRAW_STATUS.COMPLETED ||
+        draw.status === DRAW_STATUS.REWARDED
+    ) return true;
     if (draw.status === DRAW_STATUS.OPEN) return false;
-    // Scheduled/Pending draws are not expired by status
-    if (draw.status === DRAW_STATUS.SCHEDULED || draw.status === DRAW_STATUS.PENDING) return false;
 
     // 2. Fallback to is_betting_open flag
-    // ONLY if the status is not clearly defining the state
     if (draw.is_betting_open === true) return false;
-    // If it's explicitly false, it might be because it's scheduled (future) or closed (past)
-    // So we don't return true immediately here without checking the time or status
 
-    // 3. Last resort: time-based check
+    // 3. Time-based check (The "Observado" logic)
     if (!draw.betting_end_time) return false;
     const now = new Date();
     const endTime = new Date(draw.betting_end_time);

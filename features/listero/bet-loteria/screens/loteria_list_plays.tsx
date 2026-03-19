@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
 import { StyleSheet, View, ScrollView, RefreshControl, useColorScheme, ActivityIndicator } from 'react-native';
-import { router, useRouter } from 'expo-router';
+import { router } from 'expo-router';
 import { match } from 'ts-pattern';
 import Colors from '@/constants/colors';
 import LayoutConstants from '@/constants/layout';
@@ -92,7 +92,7 @@ export const LoteriaListPlays: React.FC<LoteriaListPlaysProps> = ({ drawId, isEd
     if (!drawId) return null;
 
     return (
-        <LoteriaStoreProvider>
+        <LoteriaStoreProvider initialParams={{ drawId }}>
             <LoteriaListProvider drawId={drawId}>
                 <LoteriaListContent drawId={drawId} />
             </LoteriaListProvider>

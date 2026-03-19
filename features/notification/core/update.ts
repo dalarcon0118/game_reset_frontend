@@ -4,130 +4,61 @@ import { Msg } from './msg';
 import {
     Cmd,
     Sub,
-    RemoteDataHttp,
     RemoteData,
     singleton,
     ret
 } from '@core/tea-utils';
-import { AuthModuleV1 } from '@/features/auth/v1/adapters/auth_provider';
 import { logger } from '@/shared/utils/logger';
-import { notificationRepository } from '@/shared/repositories/notification';
-import apiClient from '@/shared/services/api_client';
+
+import { NotificationService } from './service';
+
+
+// 🛠️ INJECT SERVICE
 const log = logger.withTag('NOTIFICATION_CORE');
 
-// Subscriptions
-export const subscriptions = (model: Model) => {
-    // Sync with Auth store for user changes
-    const authSub = Sub.watchStore(
-        'AuthModuleV1', // Usamos el ID del módulo registrado en StoreRegistry
-        (state: any) => state?.model?.user ?? state?.user,
-        (user) => ({ type: 'AUTH_USER_SYNCED', user }),
-        'notification-auth-sync'
-    );
-
-    // SSE Subscription for real-time notifications
-    // We only enable it if we have an authToken and a currentUser
-    const subs = [authSub];
-
-    if (model.authToken && model.currentUser) {
-        // Use repository to get the stream URL
-        const sseUrl = notificationRepository.getStreamUrl(model.authToken);
-        const sseSub = Sub.sse(
-            sseUrl,
-            (payload) => {
-                if (payload.type === 'NOTIFICATION_CREATED') {
-                    return { type: 'ADD_NOTIFICATION', notification: payload.data };
-                }
-                return { type: 'NONE' };
-            },
-            `notifications-sse-${model.authToken}` // Dynamic ID based on token to force reconnection on change
-            // Note: Headers removed - token is now in URL for RN Android compatibility
-        );
-        subs.push(sseSub);
-    }
-
-    return Sub.batch(subs);
+/**
+ * 🛰️ SUBSCRIPTIONS
+ * Pure reaction to external state changes.
+ */
+export const subscriptions = (_model: Model) => {
+    // SSE is now managed by the infrastructure/kernel.
+    // We only react to messages injected by the system.
+    return Sub.none();
 };
 
-// Helper function to calculate unread count
+// --- Pure Helper Functions ---
+
 const calculateUnreadCount = (notifications: AppNotification[]): number => {
     return notifications.filter(n => n.status === 'pending').length;
 };
 
-// Helper function to update notification status
-const updateNotificationStatus = (notifications: AppNotification[], notificationId: string, status: 'read' | 'pending'): AppNotification[] => {
+const updateNotificationStatus = (notifications: AppNotification[], notificationId: string, status: 'read' | 'pending', timestamp: string): AppNotification[] => {
     return notifications.map(notification =>
         notification.id === notificationId
-            ? { ...notification, status, readAt: status === 'read' ? new Date().toISOString() : undefined }
+            ? { ...notification, status, readAt: status === 'read' ? timestamp : undefined }
             : notification
     );
 };
 
-// Helper function to filter notifications based on current filter
 const filterNotifications = (notifications: AppNotification[], filter: 'all' | 'pending' | 'read' = 'all'): AppNotification[] => {
     switch (filter) {
-        case 'pending':
-            return notifications.filter(n => n.status === 'pending');
-        case 'read':
-            return notifications.filter(n => n.status === 'read');
-        case 'all':
-        default:
-            return notifications;
+        case 'pending': return notifications.filter(n => n.status === 'pending');
+        case 'read': return notifications.filter(n => n.status === 'read');
+        default: return notifications;
     }
 };
 
-// Cmd functions
-const fetchNotificationsCmd = (): Cmd => {
-    return RemoteDataHttp.fetch<AppNotification[], Msg>(
-        async () => {
-            const result = await notificationRepository.getNotifications();
-            return result as AppNotification[];
-        },
-        (webData) => ({ type: 'NOTIFICATIONS_RECEIVED', webData })
-    );
-};
-
-const markAsReadCmd = (notificationId: string): Cmd => {
-    return RemoteDataHttp.fetch<AppNotification, Msg>(
-        async () => {
-            const result = await notificationRepository.markAsRead(notificationId);
-            return result as AppNotification;
-        },
-        (webData) => ({ type: 'NOTIFICATION_MARKED_READ', webData, notificationId })
-    );
-};
-
-const markAllAsReadCmd = (): Cmd => {
-    return RemoteDataHttp.fetch<void, Msg>(
-        async () => {
-            await notificationRepository.markAllAsRead();
-        },
-        (webData) => ({ type: 'ALL_MARKED_READ', webData })
-    );
-};
-
-const deleteNotificationCmd = (notificationId: string): Cmd => {
-    return RemoteDataHttp.fetch<void, Msg>(
-        async () => {
-            await notificationRepository.deleteNotification(notificationId);
-        },
-        (webData) => ({ type: 'NOTIFICATION_DELETED', webData, notificationId })
-    );
-};
-
+/**
+ * 🏗️ UPDATE FUNCTION
+ * Pure transformation: (Model, Msg) -> [Model, Cmd]
+ */
 export const update = (model: Model, msg: Msg): [Model, Cmd] => {
     const result = match<Msg, any>(msg)
         .with({ type: 'FETCH_NOTIFICATIONS_REQUESTED' }, () => {
-            if (model.notifications.type === 'Loading') {
-                return singleton(model);
-            }
-
+            if (model.notifications.type === 'Loading') return singleton(model);
             return ret(
-                {
-                    ...model,
-                    notifications: RemoteData.loading()
-                },
-                fetchNotificationsCmd()
+                { ...model, notifications: RemoteData.loading() },
+                NotificationService.getInstance().fetchNotifications()
             );
         })
 
@@ -135,22 +66,23 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
             if (webData.type === 'Success') {
                 const filteredNotifications = filterNotifications(webData.data, model.currentFilter);
                 const unreadCount = calculateUnreadCount(webData.data);
-
                 return singleton({
                     ...model,
                     notifications: RemoteData.success(filteredNotifications),
                     unreadCount,
-                    allNotifications: webData.data // Store all notifications for filtering
+                    allNotifications: webData.data
                 });
             }
             return singleton({ ...model, notifications: webData });
         })
 
         .with({ type: 'MARK_AS_READ_REQUESTED' }, ({ notificationId }) => {
+            const timestamp = new Date().toISOString();
             const updatedNotifications = updateNotificationStatus(
                 model.allNotifications || [],
                 notificationId,
-                'read'
+                'read',
+                timestamp
             );
 
             const filteredNotifications = filterNotifications(updatedNotifications, model.currentFilter);
@@ -163,16 +95,18 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
                     notifications: RemoteData.success(filteredNotifications),
                     unreadCount
                 },
-                markAsReadCmd(notificationId)
+                NotificationService.getInstance().markAsRead(notificationId)
             );
         })
 
         .with({ type: 'NOTIFICATION_MARKED_READ' }, ({ webData, notificationId }) => {
             if (webData.type === 'Success') {
+                const timestamp = new Date().toISOString();
                 const updatedNotifications = updateNotificationStatus(
                     model.allNotifications || [],
                     notificationId,
-                    'read'
+                    'read',
+                    timestamp
                 );
                 const filteredNotifications = filterNotifications(updatedNotifications, model.currentFilter);
                 const unreadCount = calculateUnreadCount(updatedNotifications);
@@ -187,32 +121,33 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
         })
 
         .with({ type: 'MARK_ALL_AS_READ_REQUESTED' }, () => {
+            const timestamp = new Date().toISOString();
             const updatedNotifications = (model.allNotifications || []).map(notification => ({
                 ...notification,
                 status: 'read' as const,
-                readAt: new Date().toISOString()
+                readAt: timestamp
             }));
 
             const filteredNotifications = filterNotifications(updatedNotifications, model.currentFilter);
-            const unreadCount = 0; // All marked as read
 
             return ret(
                 {
                     ...model,
                     allNotifications: updatedNotifications,
                     notifications: RemoteData.success(filteredNotifications),
-                    unreadCount
+                    unreadCount: 0
                 },
-                markAllAsReadCmd()
+                NotificationService.getInstance().markAllAsRead()
             );
         })
 
         .with({ type: 'ALL_MARKED_READ' }, ({ webData }) => {
             if (webData.type === 'Success') {
+                const timestamp = new Date().toISOString();
                 const updatedNotifications = (model.allNotifications || []).map(notification => ({
                     ...notification,
                     status: 'read' as const,
-                    readAt: new Date().toISOString()
+                    readAt: timestamp
                 }));
                 const filteredNotifications = filterNotifications(updatedNotifications, model.currentFilter);
                 return singleton({
@@ -241,17 +176,11 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
         })
 
         .with({ type: 'NOTIFICATION_SELECTED' }, ({ notification }) => {
-            return singleton({
-                ...model,
-                selectedNotification: notification
-            });
+            return singleton({ ...model, selectedNotification: notification });
         })
 
         .with({ type: 'NOTIFICATION_DESELECTED' }, () => {
-            return singleton({
-                ...model,
-                selectedNotification: null
-            });
+            return singleton({ ...model, selectedNotification: null });
         })
 
         .with({ type: 'FILTER_CHANGED' }, ({ filter }) => {
@@ -288,9 +217,7 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
         })
 
         .with({ type: 'REMOVE_NOTIFICATION' }, ({ notificationId }) => {
-            const allNotifications = (model.allNotifications || []).filter(
-                n => n.id !== notificationId
-            );
+            const allNotifications = (model.allNotifications || []).filter(n => n.id !== notificationId);
             const filteredNotifications = filterNotifications(allNotifications, model.currentFilter);
             const unreadCount = calculateUnreadCount(allNotifications);
 
@@ -315,88 +242,12 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
         })
 
         .with({ type: 'REFRESH_NOTIFICATIONS' }, () => {
-            return ret(model, fetchNotificationsCmd());
+            return ret(model, NotificationService.getInstance().fetchNotifications());
         })
 
         .with({ type: 'NOTIFICATION_ERROR' }, ({ error }) => {
             log.error('Notification error', error);
             return singleton(model);
-        })
-
-        .with({ type: 'CHECK_TOKEN_VALIDITY' }, () => {
-            if (!model.authToken) {
-                return singleton(model);
-            }
-
-            // Check if token is expired or about to expire
-            if (apiClient.isTokenExpired(model.authToken)) {
-                log.debug('Token expired during periodic check, refreshing...');
-                return ret(
-                    model,
-                    Cmd.task({
-                        task: async () => {
-                            // Try to refresh the token
-                            try {
-                                const token = await apiClient.refreshAccessToken();
-                                return token;
-                            } catch (e) {
-                                log.error('Failed to refresh token during check', e);
-                                return null;
-                            }
-                        },
-                        onSuccess: (token) => ({ type: 'AUTH_TOKEN_UPDATED', token }),
-                        onFailure: () => ({ type: 'NONE' } as any)
-                    })
-                );
-            }
-            return singleton(model);
-        })
-
-        .with({ type: 'AUTH_USER_SYNCED' }, ({ user }) => {
-            // Only update and trigger task if the user has actually changed OR if we don't have a token
-            const currentUserId = model.currentUser?.id || model.currentUser?.pk;
-            const nextUserId = user?.id || user?.pk;
-
-            // If user is null, reset state
-            if (!user) {
-                return singleton({
-                    ...model,
-                    currentUser: null,
-                    authToken: null
-                });
-            }
-
-            // If user is the same AND we already have a token
-            if (currentUserId === nextUserId && model.authToken !== null) {
-                // Check if token is expired even if user is same
-                if (!apiClient.isTokenExpired(model.authToken)) {
-                    return singleton(model);
-                }
-                log.debug('User synced but token expired, refreshing...');
-            }
-
-            return ret(
-                { ...model, currentUser: user },
-                Cmd.task({
-                    task: async () => {
-                        let token = await apiClient.getAuthToken();
-                        if (token && apiClient.isTokenExpired(token)) {
-                            log.debug('Token expired during notification sync, refreshing...');
-                            token = await apiClient.refreshAccessToken();
-                        }
-                        return token;
-                    },
-                    onSuccess: (token) => ({ type: 'AUTH_TOKEN_UPDATED', token }),
-                    onFailure: () => ({ type: 'NONE' } as any)
-                })
-            );
-        })
-
-        .with({ type: 'AUTH_TOKEN_UPDATED' }, ({ token }) => {
-            if (model.authToken === token) {
-                return singleton(model);
-            }
-            return singleton({ ...model, authToken: token });
         })
 
         .with({ type: 'RESET_STATE' }, () => singleton({
@@ -411,12 +262,13 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
             const notificationParam = encodeURIComponent(JSON.stringify(notification));
             const navigateCmd = Cmd.navigate(`/notification/detail?notification=${notificationParam}`);
 
-            // Si la notificación está pendiente, también disparamos la marca de lectura
             if (notification.status === 'pending') {
+                const timestamp = new Date().toISOString();
                 const updatedNotifications = updateNotificationStatus(
                     model.allNotifications || [],
                     notification.id,
-                    'read'
+                    'read',
+                    timestamp
                 );
 
                 const filteredNotifications = filterNotifications(updatedNotifications, model.currentFilter);
@@ -430,26 +282,31 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
                         notifications: RemoteData.success(filteredNotifications),
                         unreadCount
                     },
-                    Cmd.batch([navigateCmd, markAsReadCmd(notification.id)])
+                    Cmd.batch([navigateCmd, NotificationService.getInstance().markAsRead(notification.id)])
                 );
             }
 
-            return ret(
-                { ...model, selectedNotification: notification },
-                navigateCmd
-            );
+            return ret({ ...model, selectedNotification: notification }, navigateCmd);
         })
 
         .with({ type: 'NAVIGATE_BACK' }, () => {
-            return ret(
-                { ...model, selectedNotification: null },
-                Cmd.back()
-            );
+            return ret({ ...model, selectedNotification: null }, Cmd.back());
+        })
+
+        .with({ type: 'FETCH_PENDING_REWARDS_COUNT_REQUESTED' }, () => {
+            return ret(model, NotificationService.getInstance().fetchPendingRewardsCount());
+        })
+
+        .with({ type: 'FETCH_PENDING_REWARDS_COUNT_SUCCESS' }, ({ count }) => {
+            return singleton({ ...model, pendingRewardsCount: count });
         })
 
         .with({ type: 'NONE' }, () => singleton(model))
 
-        .exhaustive();
+        .exhaustive(() => {
+            log.warn('Mensaje no procesado:', msg.type);
+            return singleton(model);
+        });
 
     return [result.model, result.cmd];
 };

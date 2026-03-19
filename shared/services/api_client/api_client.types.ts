@@ -20,6 +20,14 @@ export interface CacheEntry {
 export type ErrorHandlerResponse = { retry: boolean; newToken?: string } | null;
 export type ErrorHandler = (error: any, endpoint: string, options: RequestInit) => Promise<ErrorHandlerResponse>;
 
+export type ConnectivityEvent = {
+  type: 'ONLINE' | 'OFFLINE';
+  status?: number;
+  timestamp: number;
+};
+
+export type ConnectivityHandler = (event: ConnectivityEvent) => void;
+
 export interface ILogger {
   debug(message: string, ...args: any[]): void;
   info(message: string, ...args: any[]): void;
@@ -45,6 +53,10 @@ export interface ISettings {
   };
 }
 
+export interface IDeviceRepository {
+  getUniqueId(): Promise<string>;
+}
+
 // Minimal interface for Time ingestion to avoid circular dependency
 export interface TimeSyncPort {
   ingestServerDate(dateHeader: string | null, clientNow: number): Promise<void>;
@@ -56,8 +68,8 @@ export interface TimeIntegrityPort {
 
 // Minimal interface for Token management to avoid business logic coupling
 export interface TokenStoragePort {
-  getToken(): Promise<{ access: string | null; refresh: string | null }>;
-  saveToken(access: string, refresh?: string): Promise<void>;
+  getToken(): Promise<{ access: string | null; refresh: string | null; confirmationToken?: string | null }>;
+  saveToken(access: string, refresh?: string, confirmationToken?: string): Promise<void>;
   clearToken(): Promise<void>;
 }
 
