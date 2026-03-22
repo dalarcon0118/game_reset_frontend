@@ -33,6 +33,7 @@ export enum AuthErrorType {
     SESSION_EXPIRED = 'SESSION_EXPIRED',
     SERVER_ERROR = 'SERVER_ERROR',
     UNKNOWN_ERROR = 'UNKNOWN_ERROR',
+    OFFLINE_NOT_ALLOWED = 'OFFLINE_NOT_ALLOWED',
 }
 
 export type AuthError = {

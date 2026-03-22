@@ -41,13 +41,36 @@ export const useLoteria = (drawId?: string, isEditing: boolean = true) => {
         }
     }, [drawId, actions]);
 
-    // Rules Actions
-    const fetchRules = useCallback((id: string) => dispatch(RulesMsg.FETCH_RULES_REQUESTED({ drawId: id })), [dispatch]);
-    const refreshRules = useCallback((id: string) => dispatch(RulesMsg.REFRESH_RULES_REQUESTED({ drawId: id })), [dispatch]);
-    const showRulesDrawer = useCallback((ruleType: 'validation' | 'reward', rule: any) => dispatch(RulesMsg.SHOW_RULES_DRAWER({ ruleType, rule })), [dispatch]);
-    const hideRulesDrawer = useCallback(() => dispatch(RulesMsg.HIDE_RULES_DRAWER()), [dispatch]);
-    const selectRule = useCallback((ruleType: 'validation' | 'reward', rule: any) => dispatch(RulesMsg.SELECT_RULE({ ruleType, rule })), [dispatch]);
-    const clearSelection = useCallback(() => dispatch(RulesMsg.CLEAR_SELECTION()), [dispatch]);
+    // Rules Actions (🛡️ Guardas defensivas para evitar crash si rulesSession no está listo)
+    const fetchRules = useCallback((id: string) => {
+        if (!dispatch) return;
+        dispatch(RulesMsg.FETCH_RULES_REQUESTED({ drawId: id }));
+    }, [dispatch]);
+
+    const refreshRules = useCallback((id: string) => {
+        if (!dispatch) return;
+        dispatch(RulesMsg.REFRESH_RULES_REQUESTED({ drawId: id }));
+    }, [dispatch]);
+
+    const showRulesDrawer = useCallback((ruleType: 'validation' | 'reward', rule: any) => {
+        if (!dispatch) return;
+        dispatch(RulesMsg.SHOW_RULES_DRAWER({ ruleType, rule }));
+    }, [dispatch]);
+
+    const hideRulesDrawer = useCallback(() => {
+        if (!dispatch) return;
+        dispatch(RulesMsg.HIDE_RULES_DRAWER());
+    }, [dispatch]);
+
+    const selectRule = useCallback((ruleType: 'validation' | 'reward', rule: any) => {
+        if (!dispatch) return;
+        dispatch(RulesMsg.SELECT_RULE({ ruleType, rule }));
+    }, [dispatch]);
+
+    const clearSelection = useCallback(() => {
+        if (!dispatch) return;
+        dispatch(RulesMsg.CLEAR_SELECTION());
+    }, [dispatch]);
 
     return {
         // Data

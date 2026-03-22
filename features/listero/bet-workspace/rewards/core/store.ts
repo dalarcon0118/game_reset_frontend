@@ -15,11 +15,7 @@ import { rulesRepository } from '@/shared/repositories/rules';
  * 📦 COMPOSITION ROOT
  * Instanciación de servicios y dependencias fuera del ciclo de vida de React/Zustand.
  */
-const defaultDataService = new RewardsDataService(
-    drawRepository,
-    winningsRepository,
-    rulesRepository
-);
+const defaultDataService = new RewardsDataService();
 const defaultUIService = new RewardsUIService();
 
 /**
@@ -37,19 +33,20 @@ export interface RewardsModuleParams {
 
 const rewardsDefinition = defineTeaModule<RewardsModel, RewardsMsg>({
     name: 'RewardsModule',
-    initial: (params: RewardsModuleParams) => {
+    initial: (params?: any) => {
+        const p = params as RewardsModuleParams;
         const model = {
             ...initialRewardsModel,
-            currentDrawId: params.drawId,
-            drawTitle: params.title || null
+            currentDrawId: p?.drawId || '',
+            drawTitle: p?.title || null
         };
 
-        return ret(model, Cmd.ofMsg(INIT_MODULE({ drawId: params.drawId, title: params.title })));
+        const drawId = p?.drawId;
+        const title = p?.title;
+
+        return ret(model, drawId ? Cmd.ofMsg(INIT_MODULE({ drawId, title })) : Cmd.none);
     },
     update: (model, msg) => {
-        // En una implementación real, podríamos querer que los servicios 
-        // vengan del contexto o de la definición. 
-        // Aquí usamos los singletons instanciados en el Composition Root de este archivo.
         return makeUpdate(defaultDataService, defaultUIService)(model, msg);
     },
     subscriptions: () => Sub.none()

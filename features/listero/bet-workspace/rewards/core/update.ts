@@ -83,12 +83,12 @@ export const makeUpdate = (
     return match<RewardsMsg, Return<RewardsModel, RewardsMsg>>(msg)
         .with({ type: 'INIT_MODULE' }, ({ payload }) => Handlers.init(payload.drawId, payload.title))
         .with({ type: 'FETCH_ALL_DATA_REQUESTED' }, ({ payload }) => Handlers.fetchAllData(payload.drawId))
-        .with({ type: 'FETCH_REWARDS_SUCCEEDED' }, (msg) => Handlers.handleRewardsSuccess('payload' in msg ? msg.payload : null))
-        .with({ type: 'FETCH_REWARDS_FAILED' }, (msg) => Handlers.handleRewardsFailure('payload' in msg ? msg.payload : null))
-        .with({ type: 'FETCH_RULES_SUCCEEDED' }, (msg) => Handlers.handleRulesSuccess('payload' in msg ? msg.payload : null))
-        .with({ type: 'FETCH_RULES_FAILED' }, (msg) => Handlers.handleRulesFailure('payload' in msg ? msg.payload : null))
-        .with({ type: 'FETCH_USER_WINNINGS_SUCCEEDED' }, (msg) => Handlers.handleUserWinningsSuccess('payload' in msg ? msg.payload : null))
-        .with({ type: 'FETCH_USER_WINNINGS_FAILED' }, (msg) => Handlers.handleUserWinningsFailure('payload' in msg ? msg.payload : null))
+        .with({ type: 'FETCH_REWARDS_SUCCEEDED' }, ({ payload }) => Handlers.handleRewardsSuccess(payload))
+        .with({ type: 'FETCH_REWARDS_FAILED' }, ({ payload }) => Handlers.handleRewardsFailure(payload.error))
+        .with({ type: 'FETCH_RULES_SUCCEEDED' }, ({ payload }) => Handlers.handleRulesSuccess(payload))
+        .with({ type: 'FETCH_RULES_FAILED' }, ({ payload }) => Handlers.handleRulesFailure(payload.error))
+        .with({ type: 'FETCH_USER_WINNINGS_SUCCEEDED' }, ({ payload }) => Handlers.handleUserWinningsSuccess(payload))
+        .with({ type: 'FETCH_USER_WINNINGS_FAILED' }, ({ payload }) => Handlers.handleUserWinningsFailure(payload.error))
         .with({ type: 'GO_BACK_CLICKED' }, () => Handlers.goBack())
         .exhaustive();
 };

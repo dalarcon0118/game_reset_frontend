@@ -53,7 +53,7 @@ export const subscriptions = (model: Model): SubDescriptor<Msg> => {
     // Esto previene perder la señal si el mantenimiento terminó antes de que el Dashboard montara.
     const coreReadySub = Sub.watchStore(
         'Core',
-        (state: any) => state?.model?.isSystemReady ?? false,
+        (state: any) => state?.isSystemReady ?? state?.model?.isSystemReady ?? false,
         (isReady) => isReady
             ? SYSTEM_READY_MSG({ date: new Date().toISOString().split('T')[0] })
             : { type: 'NONE' },

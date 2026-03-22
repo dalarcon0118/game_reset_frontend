@@ -5,8 +5,24 @@ import { defaultConfig } from './filters_plugin/model';
 import { FiltersPluginModule } from './filters_plugin/store';
 
 const FiltersPluginComponent: React.FC<SlotProps> = ({ context }) => {
+  // 🛡️ ESTABILIZACIÓN DEL CONTEXTO:
+  // Evitamos que el Store TEA se recree en cada render del Dashboard (TICK).
+  const stableInitialParams = React.useMemo(() => {
+    if (!context) return undefined;
+    return {
+      context: {
+        api: context.api,
+        storage: context.storage,
+        events: context.events,
+        hostStore: context.hostStore,
+        state: { ...context.state }
+      },
+      config: defaultConfig
+    };
+  }, []); // Dependencias vacías = Referencia estable durante toda la vida del plugin.
+
   return (
-    <FiltersPluginModule.Provider initialParams={{ context, config: defaultConfig }}>
+    <FiltersPluginModule.Provider initialParams={stableInitialParams}>
       <FiltersComponent context={context} config={defaultConfig} />
     </FiltersPluginModule.Provider>
   );

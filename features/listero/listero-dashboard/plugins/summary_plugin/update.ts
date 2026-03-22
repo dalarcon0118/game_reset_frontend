@@ -4,6 +4,7 @@ import { Return, ret, Cmd, RemoteDataHttp, RemoteData, WebData } from '@core/tea
 import { match } from 'ts-pattern';
 import { FinancialSummary as DomainFinancialSummary, SummaryPluginContext } from './domain/models';
 import { calculateFinancials } from './domain/logic';
+import { TimeRangeService } from './domain/services/time-range.service';
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
 import { validatePluginContext } from './context.validator';
 import logger from '@/shared/utils/logger';
@@ -24,6 +25,9 @@ export const update = (model: Model, msg: Msg.Msg): Return<Model, Msg.Msg> => {
 
     .with({ type: 'FINANCIAL_BETS_UPDATED' }, (m): Return<Model, Msg.Msg> =>
       handleFinancialBetsUpdated(model, m.payload))
+
+    .with({ type: 'DASHBOARD_DATA_SYNCED' }, (m): Return<Model, Msg.Msg> =>
+      handleDashboardDataSynced(model, m.payload))
 
     .with({ type: 'TOGGLE_BALANCE_VISIBILITY' }, (): Return<Model, Msg.Msg> =>
       handleToggleBalanceVisibility(model))
@@ -86,7 +90,9 @@ function handlePreferencesLoaded(model: Model, payload: any): Return<Model, Msg.
 function handleGetFinancialBets(model: Model): Return<Model, Msg.Msg> {
   if (!model.context || !model.structureId) return ret(model, Cmd.none);
 
-  const todayStart = model.context.state.todayStart || new Date().setHours(0, 0, 0, 0);
+  const timeService = new TimeRangeService();
+  const now = model.trustedNow || Date.now();
+  const { start: todayStart } = timeService.getTodayRange(now);
 
   return ret(
     { ...model, financialSummary: RemoteData.loading() },
@@ -133,6 +139,32 @@ function handleFinancialBetsUpdated(model: Model, webData: WebData<DomainFinanci
   }
 
   return ret({ ...model, financialSummary: webData }, Cmd.none);
+}
+
+function handleDashboardDataSynced(model: Model, payload: { userStructureId?: string; todayStart?: number; trustedNow?: number }): Return<Model, Msg.Msg> {
+  const needsUpdate =
+    payload.userStructureId !== model.structureId ||
+    (payload.todayStart && model.context?.state.todayStart !== payload.todayStart) ||
+    (payload.trustedNow && model.trustedNow !== payload.trustedNow);
+
+  if (!needsUpdate) {
+    return ret(model, Cmd.none);
+  }
+
+  const newModel: Model = {
+    ...model,
+    structureId: payload.userStructureId || model.structureId,
+    trustedNow: payload.trustedNow || model.trustedNow,
+    context: model.context ? {
+      ...model.context,
+      state: {
+        ...model.context.state,
+        todayStart: payload.todayStart || model.context.state.todayStart
+      }
+    } : null
+  };
+
+  return ret(newModel, Cmd.ofMsg(Msg.GET_FINANCIAL_BETS()));
 }
 
 function handleToggleBalanceVisibility(model: Model): Return<Model, Msg.Msg> {

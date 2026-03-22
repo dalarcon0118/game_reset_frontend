@@ -50,6 +50,9 @@ export interface ExtendedDrawType extends DrawType {
     description: string | null;
     code: string;
   };
+  // SSoT: Categoría y código para lógica de negocio
+  category?: 'bolita' | 'loteria';
+  code?: string;
 }
 
 export interface DrawClosureConfirmation {

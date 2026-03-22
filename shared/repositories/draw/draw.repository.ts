@@ -8,6 +8,7 @@ import { BetOfflineAdapter } from '../bet/adapters/bet.offline.adapter';
 import { logger } from '@/shared/utils/logger';
 import { Result, ok, err } from 'neverthrow';
 import { isServerReachable } from '@/shared/utils/network';
+import { offlineStorage } from '@core/offline-storage/instance';
 import { IDrawRepository, DrawFinancialState } from './draw.ports';
 
 // Constante para la key de localStorage que indica si hay sorteos disponibles
@@ -268,6 +269,11 @@ export class DrawRepository implements IDrawRepository {
 
     private async cacheDraws(draws: BackendDraw[], structureId?: string | number): Promise<void> {
         await this.offlineAdapter.saveDraws(draws, structureId);
+        // Set hasDraw to true when draws are successfully cached
+        if (draws.length > 0) {
+            await offlineStorage.set(HAS_DRAW_STORAGE_KEY, true);
+            this.log.info('hasDraw set to true', { drawCount: draws.length });
+        }
     }
 
     private async getCachedDraws(structureId?: string | number): Promise<BackendDraw[]> {
@@ -302,7 +308,7 @@ export class DrawRepository implements IDrawRepository {
 
             // 3. Filtrar y borrar solo los que sean estrictamente anteriores a 'today'
             // La fecha de BackendDraw viene en formato YYYY-MM-DD
-            const toDelete = allCachedDraws.filter(draw => draw.date < today);
+            const toDelete = allCachedDraws.filter(draw => (draw as any).date < today);
 
             this.log.debug(`Found ${toDelete.length} old draws to cleanup out of ${allCachedDraws.length} total`, {
                 today,
@@ -314,12 +320,56 @@ export class DrawRepository implements IDrawRepository {
                 removed++;
             }
 
+            // 4. Verificar si quedan sorteos después de la limpieza
+            const remainingDraws = await this.offlineAdapter.getAll();
+            if (remainingDraws.length === 0) {
+                await offlineStorage.set(HAS_DRAW_STORAGE_KEY, false);
+                this.log.info('hasDraw set to false - no draws remaining after cleanup');
+            } else {
+                this.log.info(`hasDraw remains true - ${remainingDraws.length} draws remaining after cleanup`);
+            }
+
             this.log.info('DrawRepository Selective Cleanup completed', { removed });
             return removed;
 
         } catch (error: any) {
             this.log.error('DrawRepository cleanup failed', error);
             throw error;
+        }
+    }
+
+    /**
+     * Verifica si hay sorteos disponibles en la base de datos local.
+     * Utilizado por el sistema de autenticación para permitir o denegar login offline.
+     * 
+     * Primero verifica el flag hasDraw (optimización), luego verifica la caché directamente
+     * como fallback para mantener consistencia.
+     */
+    async hasDrawAvailable(): Promise<boolean> {
+        try {
+            // 1. Verificar el flag primero (optimización para evitar lectura de BD)
+            const hasDrawFlag = await offlineStorage.get<boolean>(HAS_DRAW_STORAGE_KEY);
+
+            // 2. Si el flag es false, retornar false inmediatamente
+            if (hasDrawFlag !== true) {
+                return false;
+            }
+
+            // 3. Verificar directamente la caché (fallback para mantener consistencia)
+            const cachedDraws = await this.offlineAdapter.getAll();
+            const hasDrawsInCache = cachedDraws.length > 0;
+
+            // 4. Si hay inconsistencia entre flag y caché, corregir el flag
+            if (!hasDrawsInCache && hasDrawFlag === true) {
+                this.log.warn('Inconsistency detected: flag is true but cache is empty, fixing flag');
+                await offlineStorage.set(HAS_DRAW_STORAGE_KEY, false);
+            }
+
+            return hasDrawsInCache;
+        } catch (error) {
+            this.log.error('Error checking hasDrawAvailable', error);
+            // Por seguridad, denegar offline si hay error
+            return false;
         }
     }
 }

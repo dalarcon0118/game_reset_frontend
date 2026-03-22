@@ -19,9 +19,10 @@ export const calculatePayloadAmount = (bet: BetType): number => {
 /**
  * Calculates financial delta for a set of bets.
  */
-export const calculatePendingDelta = (pendingBets: BetType[], commissionRate: number): DailyTotals => {
-    const startOfDay = new Date().setHours(0, 0, 0, 0);
-    const endOfDay = new Date().setHours(23, 59, 59, 999);
+export const calculatePendingDelta = (pendingBets: BetType[], commissionRate: number, now: number): DailyTotals => {
+    const today = new Date(now);
+    const startOfDay = today.setHours(0, 0, 0, 0);
+    const endOfDay = today.setHours(23, 59, 59, 999);
 
     const rawData = pendingBets.reduce((acc, bet) => {
         if (bet.timestamp && bet.timestamp >= startOfDay && bet.timestamp < endOfDay) {
@@ -109,9 +110,9 @@ export const calculateTotals = (draws: DrawType[], commissionRate: number): Dail
     return totals;
 };
 
-export const filterDraws = (draws: DrawType[], filter: StatusFilter): DrawType[] => {
+export const filterDraws = (draws: DrawType[], filter: StatusFilter, now: number): DrawType[] => {
     const filtered = draws.filter((draw: DrawType) => {
-        const expired = isExpired(draw);
+        const expired = isExpired(draw, now);
         let passes = false;
 
         if (filter === DRAW_FILTER.ALL) passes = true;
@@ -125,8 +126,8 @@ export const filterDraws = (draws: DrawType[], filter: StatusFilter): DrawType[]
         }
 
         else if (filter === DRAW_FILTER.CLOSED) {
-            const isClosedStatus = 
-                draw.status === DRAW_STATUS.CLOSED || 
+            const isClosedStatus =
+                draw.status === DRAW_STATUS.CLOSED ||
                 draw.status === DRAW_STATUS.COMPLETED ||
                 draw.status === DRAW_STATUS.REWARDED; // Inclusive: todos los cerrados con o sin premio
 
@@ -135,7 +136,7 @@ export const filterDraws = (draws: DrawType[], filter: StatusFilter): DrawType[]
         }
 
         else if (filter === DRAW_FILTER.CLOSING_SOON) {
-            passes = (draw.status === DRAW_STATUS.OPEN || draw.is_betting_open === true) && isClosingSoon(draw.betting_end_time);
+            passes = (draw.status === DRAW_STATUS.OPEN || draw.is_betting_open === true) && isClosingSoon(draw.betting_end_time, now);
         }
 
         else if (filter === DRAW_FILTER.REWARDED) {
@@ -174,6 +175,7 @@ export const recalculateDashboardState = (
     summaryData: any | null, // Kept for backward compatibility in signature but ignored
     filter: StatusFilter,
     commissionRate: number,
+    now: number,
     pendingBets: BetType[] = [],
     syncedBets: BetType[] = []
 ): { filteredDraws: DrawType[], dailyTotals: DailyTotals } => {
@@ -186,7 +188,7 @@ export const recalculateDashboardState = (
         : [];
 
     // 2. Filter enriched draws
-    const filteredDraws = filterDraws(enrichedDraws, filter);
+    const filteredDraws = filterDraws(enrichedDraws, filter, now);
 
     // 3. Calculate daily totals from all enriched draws
     const dailyTotals = calculateTotals(enrichedDraws, commissionRate);

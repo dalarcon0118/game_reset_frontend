@@ -72,7 +72,7 @@ export const DrawApi = {
   getWinningRecord: async (drawId: string | number): Promise<WinningRecord | null> => {
     if (!drawId) return null;
     return await apiClient.get<WinningRecord | null>(
-      `${settings.api.endpoints.draws()}${drawId}/results/`
+      `${settings.api.endpoints.draws()}${drawId}/get-winning-numbers/`
     );
   },
 

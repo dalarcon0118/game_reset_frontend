@@ -292,6 +292,13 @@ export class BetRepository implements IBetRepository {
     async getListeroDetails(id: number, date?: string): Promise<ListeroDetails> {
         return this.api.getListeroDetails(id, date);
     }
+
+    /**
+     * Delete a bet by backend ID (for test cleanup)
+     */
+    async delete(betId: number): Promise<void> {
+        await this.api.delete(betId);
+    }
 }
 
 // Export singleton

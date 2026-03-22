@@ -64,6 +64,7 @@ export function extractHostState(state: any, config: DrawsListPluginConfig): Hos
 
     if (E.isRight(result)) {
       validatedDraws = RemoteData.success(result.right);
+      log.info('DRAWS_VALIDATION_SUCCESS', { count: result.right.length });
 
       // DEBUG: Log validated draws (optional, kept for parity with original)
       if (result.right.length > 0) {
@@ -72,7 +73,10 @@ export function extractHostState(state: any, config: DrawsListPluginConfig): Hos
       }
     } else {
       const errorMsg = PathReporter.report(result).join(' | ');
-      log.warn('DRAWS_VALIDATION_FAILED', errorMsg);
+      log.error('DRAWS_VALIDATION_FAILED - Converting to Failure state!', {
+        error: errorMsg,
+        rawDataKeys: rawDraws.data ? Object.keys(rawDraws.data[0] || {}) : 'no data'
+      });
       // STRICT SAFETY: If validation fails, we return a Failure state instead of passing raw data.
       // This ensures downstream components only receive valid Draw objects.
       validatedDraws = RemoteData.failure({

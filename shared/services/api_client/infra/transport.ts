@@ -10,10 +10,23 @@ export class Transport {
     const unbindAbort = this.bindAbortSignal(abortSignal, controller);
 
     try {
-      return await fetch(url, {
+      console.log(`[TRANSPORT] Fetching: ${config.method || 'GET'} ${url}`);
+      // Log headers and body for debugging in tests if needed
+      // console.log('[TRANSPORT] Config:', JSON.stringify(config, null, 2));
+      
+      const response = await fetch(url, {
         ...config,
         signal: controller.signal
       });
+      console.log(`[TRANSPORT] Response: ${response.status} ${url}`);
+      return response;
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.error(`[TRANSPORT] Timeout/Abort fetching ${url} after ${timeout}ms`);
+      } else {
+        console.error(`[TRANSPORT] Error fetching ${url}:`, error.message, error.stack);
+      }
+      throw error;
     } finally {
       clearTimeout(timeoutId);
       unbindAbort();

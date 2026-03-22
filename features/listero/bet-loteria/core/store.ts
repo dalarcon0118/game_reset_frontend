@@ -30,9 +30,13 @@ const loteriaDefinition = defineTeaModule<LoteriaFeatureModel, FeatureMsg>({
             }
         };
 
+        // 🛡️ [DESACTIVACIÓN TEMPORAL] Se desactiva la carga de reglas para estabilizar el arranque
+        // Se comentan los comandos que disparan FETCH_RULES_REQUESTED para evitar crash por desajuste de modelos
+        /*
         if (params.drawId) {
             return ret(model, Cmd.ofMsg({ type: 'FETCH_RULES_REQUESTED', payload: { drawId: params.drawId } } as any));
         }
+        */
 
         return singleton(model);
     },

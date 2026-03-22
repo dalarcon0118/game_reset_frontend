@@ -63,7 +63,7 @@ export interface BetDomainModel extends BetType {
     syncContext?: BetSyncContext;
 }
 
-export type BetPlacementInput = Omit<BetDomainModel, 'externalId' | 'status' | 'timestamp' | 'createdAt'>;
+export type BetPlacementInput = Omit<BetDomainModel, 'id' | 'externalId' | 'status' | 'timestamp' | 'createdAt'>;
 
 export type BetRepositoryResult = BetType | BetType[];
 
@@ -101,4 +101,7 @@ export interface IBetRepository {
     // Structure related methods
     getChildren(id: number, level?: number): Promise<ChildStructure[]>;
     getListeroDetails(id: number, date?: string): Promise<ListeroDetails>;
+
+    // Delete bet by ID (for test cleanup)
+    delete(betId: number): Promise<void>;
 }

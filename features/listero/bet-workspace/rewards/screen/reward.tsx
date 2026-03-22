@@ -103,10 +103,15 @@ const RewardScreenContent: React.FC<{ drawId: string }> = ({ drawId }) => {
                 </Layout>
             ))
             .with({ type: 'Failure' }, ({ error }) => (
-                <Layout style={styles.centerContainer}>
+                <Layout style={styles.centerContainer} testID="rewards-error-state">
                     <AlertCircle size={48} color={theme.error} />
                     <Text category="h6" style={[styles.errorText, { color: theme.error }]}>Error al cargar premios</Text>
-                    <Button status="primary" appearance="ghost" onPress={handleRefresh}>
+                    <Button 
+                        status="primary" 
+                        appearance="ghost" 
+                        onPress={handleRefresh}
+                        testID="retry-button"
+                    >
                         Reintentar
                     </Button>
                     <Text appearance="hint" style={{ marginTop: 8, fontSize: 12 }}>

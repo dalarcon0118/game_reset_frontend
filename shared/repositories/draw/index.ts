@@ -10,3 +10,9 @@ export * from './draw.ports';
 export const drawRepository = new DrawRepository(
     DrawApi
 );
+
+/**
+ * Función para verificar si hay sorteos disponibles en la BD local.
+ * Utilizada por el sistema de autenticación para permitir/denegar login offline.
+ */
+export const hasDrawAvailable = () => drawRepository.hasDrawAvailable();

@@ -8,6 +8,21 @@ import { WinningBet } from '@/shared/repositories/bet/winnings.types';
 import LayoutConstants from '@/constants/layout';
 import { GroupedReceipt, selectGroupedWinnings } from '../../core/selectors';
 
+/**
+ * Helper para extraer el número jugado de una apuesta
+ * La API puede devolver string o objeto {numbers: string[]}
+ */
+const extractNumberPlayed = (bet: WinningBet): string => {
+  const numbersPlayed = bet.numbers_played as unknown;
+  
+  if (typeof numbersPlayed === 'string') {
+    return numbersPlayed;
+  }
+  // Objeto con formato {numbers: ["1234"]}
+  const obj = numbersPlayed as { numbers?: string[] };
+  return obj?.numbers?.[0] || 'N/A';
+};
+
 interface WinningsSectionProps {
   status: WebData<WinningBet[]>;
 }
@@ -16,18 +31,18 @@ interface WinningsSectionProps {
  * 🎫 TICKET GROUP VIEW
  * Renderiza un recibo agrupado con sus apuestas ganadoras.
  */
-const ReceiptTicket: React.FC<{ receipt: GroupedReceipt }> = ({ receipt }) => (
-  <Card style={styles.receiptCard} status="success">
-    <View style={styles.receiptHeader}>
+const ReceiptTicket: React.FC<{ receipt: GroupedReceipt; index: number }> = ({ receipt, index }) => (
+  <Card style={styles.receiptCard} status="success" testID={`receipt-card-${index}`}>
+    <View style={styles.receiptHeader} testID={`receipt-header-${index}`}>
       <View style={styles.receiptMeta}>
         <Ticket size={16} color="#8F9BB3" />
-        <Text category="c1" appearance="hint" style={styles.receiptCode}>
+        <Text category="c1" appearance="hint" style={styles.receiptCode} testID={`receipt-code-${index}`}>
           #{receipt.receiptCode}
         </Text>
       </View>
       <View style={styles.receiptMeta}>
         <Clock size={14} color="#8F9BB3" />
-        <Text category="c1" appearance="hint">
+        <Text category="c1" appearance="hint" testID={`receipt-timestamp-${index}`}>
           {new Date(receipt.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </Text>
       </View>
@@ -35,17 +50,17 @@ const ReceiptTicket: React.FC<{ receipt: GroupedReceipt }> = ({ receipt }) => (
 
     <Divider style={styles.divider} />
 
-    {receipt.bets.map((bet) => (
-      <View key={bet.id} style={styles.betRow}>
+    {receipt.bets.map((bet, betIndex) => (
+      <View key={bet.id} style={styles.betRow} testID={`bet-row-${index}-${betIndex}`}>
         <View style={styles.betMainInfo}>
-          <Text category="s1" style={styles.betNumbers}>{bet.numbers_played}</Text>
+          <Text category="s1" style={styles.betNumbers} testID={`bet-numbers-${index}-${betIndex}`}>{extractNumberPlayed(bet)}</Text>
           <Text category="c1" appearance="hint" style={styles.betType}>
             {bet.bet_type_details?.name || 'Apuesta'}
           </Text>
         </View>
         <View style={styles.betPricing}>
           <Text category="c2" appearance="hint">Jugado: ${Number(bet.amount).toFixed(2)}</Text>
-          <Text category="s1" status="success" style={styles.betPayout}>
+          <Text category="s1" status="success" style={styles.betPayout} testID={`payout-amount-${index}-${betIndex}`}>
             +${Number(bet.payout_amount).toFixed(2)}
           </Text>
         </View>
@@ -82,8 +97,8 @@ export const UserWinningsSection: React.FC<WinningsSectionProps> = ({ status }) 
 
       if (groupedWinnings.length === 0) {
         return (
-          <View style={styles.emptyContainer}>
-            <Text appearance="hint" category="s1">No tienes premios en este sorteo</Text>
+          <View style={styles.emptyContainer} testID="winnings-empty-state">
+            <Text appearance="hint" category="s1" testID="winnings-empty-text">No tienes premios en este sorteo</Text>
             <Text appearance="hint" category="c1" style={styles.emptySub}>¡Sigue intentando en el próximo!</Text>
           </View>
         );
@@ -93,35 +108,35 @@ export const UserWinningsSection: React.FC<WinningsSectionProps> = ({ status }) 
 
       return (
         <View style={styles.winningsSection}>
-          <View style={styles.winningsHeader}>
+          <View style={styles.winningsHeader} testID="winnings-header">
             <DollarSign size={24} color="#00D68F" />
-            <Text category="h6" style={styles.winningsTitle}>TUS PREMIOS</Text>
+            <Text category="h6" style={styles.winningsTitle} testID="winnings-title">TUS PREMIOS</Text>
           </View>
           
           <Card style={styles.totalSummaryCard}>
             <View style={styles.summaryContent}>
               <Text category="c2" appearance="hint">Total General Ganado</Text>
-              <Text category="h2" style={styles.totalAmount}>
+              <Text category="h2" style={styles.totalAmount} testID="total-payout">
                 ${totalGeneral.toFixed(2)}
               </Text>
             </View>
           </Card>
 
-          {groupedWinnings.map((receipt) => (
-            <ReceiptTicket key={receipt.receiptCode} receipt={receipt} />
+          {groupedWinnings.map((receipt, idx) => (
+            <ReceiptTicket key={receipt.receiptCode} receipt={receipt} index={idx} />
           ))}
         </View>
       );
     })
     .with({ type: 'Loading' }, () => (
-      <View style={styles.loadingContainer}>
-        <Spinner size="small" />
+      <View style={styles.loadingContainer} testID="winnings-loading-state">
+        <Spinner size="small" testID="winnings-spinner" />
         <Text appearance="hint" style={styles.loadingText}>Calculando tus premios...</Text>
       </View>
     ))
     .with({ type: 'Failure' }, ({ error }) => (
-      <View style={styles.errorContainer}>
-        <Text appearance="hint" status="danger">
+      <View style={styles.errorContainer} testID="winnings-error-state">
+        <Text appearance="hint" status="danger" testID="winnings-error-text">
           {typeof error === 'string' ? error : 'Error al cargar tus premios'}
         </Text>
       </View>

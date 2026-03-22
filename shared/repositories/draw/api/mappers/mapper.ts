@@ -1,4 +1,5 @@
 import { ExtendedDrawType, BackendDraw } from '../types/types';
+import { GameRegistry } from '../../../../core/registry/game_registry';
 
 export const mapStatus = (
   backendStatus: string,
@@ -64,6 +65,11 @@ export const mapBackendDrawToFrontend = (backendDraw: BackendDraw): ExtendedDraw
     closure_confirmations_count: backendDraw.closure_confirmations_count,
     is_betting_open: Boolean(backendDraw.is_betting_open),
     source: backendDraw.name,
+    code: backendDraw.draw_type_details?.code || '',
+    category: GameRegistry.getCategoryByDraw({
+      code: backendDraw.draw_type_details?.code,
+      name: backendDraw.name
+    }),
     date: new Date(backendDraw.draw_datetime).toLocaleDateString('es-ES'),
     time: new Date(backendDraw.draw_datetime).toLocaleTimeString('es-ES', {
       hour: '2-digit',

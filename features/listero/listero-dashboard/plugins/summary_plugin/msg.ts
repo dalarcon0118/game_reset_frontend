@@ -8,6 +8,7 @@ export const TOGGLE_BALANCE_VISIBILITY = createMsg<'TOGGLE_BALANCE_VISIBILITY', 
 export const LOAD_PREFERENCES = createMsg<'LOAD_PREFERENCES', void>('LOAD_PREFERENCES');
 export const PREFERENCES_LOADED = createMsg<'PREFERENCES_LOADED', { userProfile: any; userPreferences: any }>('PREFERENCES_LOADED');
 export const NOOP = createMsg<'NOOP', void>('NOOP');
+export const DASHBOARD_DATA_SYNCED = createMsg<'DASHBOARD_DATA_SYNCED', { userStructureId?: string; todayStart?: number; trustedNow?: number }>('DASHBOARD_DATA_SYNCED');
 
 export type Msg =
   | typeof INIT_CONTEXT._type
@@ -16,4 +17,5 @@ export type Msg =
   | typeof TOGGLE_BALANCE_VISIBILITY._type
   | typeof LOAD_PREFERENCES._type
   | typeof PREFERENCES_LOADED._type
-  | typeof NOOP._type;
+  | typeof NOOP._type
+  | typeof DASHBOARD_DATA_SYNCED._type;

@@ -7,25 +7,20 @@ import { DASHBOARD_RULES_CLICKED, DASHBOARD_REWARDS_CLICKED, DASHBOARD_REFRESH_C
 import { FilterDrawsUseCase } from './application/useCases/filter-draws.use-case';
 import { StatusFilter, Draw } from './core/types';
 import { logger } from '@/shared/utils/logger';
+import { GameRegistry, GameIntent } from '@/shared/core/registry/game_registry';
 
 const log = logger.withTag('DRAWS_LIST_PLUGIN');
 
 const filterDrawsUseCase = new FilterDrawsUseCase();
 
-function getDrawType(source: string): 'bolita' | 'loteria' {
-  const normalized = (source || '').toLowerCase();
-  if (normalized.includes('loteria') || normalized.includes('lotería')) {
-    return 'loteria';
-  }
-  return 'bolita';
-}
-
 function handleNavigateToBetsList(
   model: Model,
-  payload: { id: string | number; title: string }
+  payload: { id: string | number; title: string; draw?: Draw }
 ): Return<Model, Msg.Msg> {
-  const type = getDrawType(payload.title);
-  const pathname = `/lister/bets/${type}/list`;
+  // Intentamos obtener el tipo desde el objeto Draw (SSoT)
+  const category = payload.draw ? GameRegistry.getCategoryByDraw(payload.draw) : GameRegistry.getCategoryByTitle(payload.title);
+  const intent: GameIntent = category === 'loteria' ? 'LOTERIA_LIST' : 'BOLITA_LIST';
+  const pathname = GameRegistry.resolveRouteByIntent(intent);
 
   return ret(
     model,
@@ -35,10 +30,11 @@ function handleNavigateToBetsList(
 
 function handleNavigateToCreateBet(
   model: Model,
-  payload: { id: string | number; title: string }
+  payload: { id: string | number; title: string; draw?: Draw }
 ): Return<Model, Msg.Msg> {
-  const type = getDrawType(payload.title);
-  const pathname = `/lister/bets/${type}/anotate`;
+  const category = payload.draw ? GameRegistry.getCategoryByDraw(payload.draw) : GameRegistry.getCategoryByTitle(payload.title);
+  const intent: GameIntent = category === 'loteria' ? 'LOTERIA_ANOTATE' : 'BOLITA_ANOTATE';
+  const pathname = GameRegistry.resolveRouteByIntent(intent);
 
   return ret(
     model,
@@ -102,7 +98,11 @@ function handleSyncState(
     model.currentFilter !== payload.filter ||
     model.summary !== payload.summary;
 
-  if (!needsUpdate) {
+  // 🛡️ Siempre permitimos la sincronización si el estado actual es Loading/NotAsked
+  // pero el host ya tiene datos exitosos.
+  const shouldForceSync = model.draws.type !== 'Success' && payload.draws.type === 'Success';
+
+  if (!needsUpdate && !shouldForceSync) {
     return ret(model, Cmd.none);
   }
 
@@ -147,11 +147,13 @@ function handleBatchFinancialUpdate(
   model: Model,
   payload: {
     updates: DrawTotalsUpdate[];
+    timestamp: number;
   }
 ): Return<Model, Msg.Msg> {
   log.debug('Batch financial update input', {
     updates: payload.updates.length,
-    currentMapSize: model.totalsByDrawId.size
+    currentMapSize: model.totalsByDrawId.size,
+    timestamp: payload.timestamp
   });
 
   const newTotalsByDrawId = new Map(model.totalsByDrawId);
@@ -169,7 +171,7 @@ function handleBatchFinancialUpdate(
         premiumsPaid: update.premiumsPaid,
         netResult: update.netResult,
         betCount: update.betCount,
-        lastUpdated: Date.now(),
+        lastUpdated: payload.timestamp,
       };
       newTotalsByDrawId.set(update.drawId, totals);
       upserted += 1;

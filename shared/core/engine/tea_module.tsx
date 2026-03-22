@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useMemo, ReactNode, useEffect } from 'react';
-import { createElmStore, ElmStoreConfig } from './engine';
+import React, { createContext, useContext, ReactNode, useEffect, useRef } from 'react';
+import { createElmStore } from './engine';
 import { UseBoundStore, StoreApi } from 'zustand';
 import { storeRegistry } from './store_registry';
 
@@ -7,8 +7,11 @@ import { storeRegistry } from './store_registry';
  * TEA Module Definition
  * Pure data structure describing a TEA module without instantiating it.
  */
-export interface TeaModuleDef<TModel, TMsg> extends ElmStoreConfig<TModel, TMsg> {
+export interface TeaModuleDef<TModel, TMsg> {
     name: string;
+    initial: (params?: any) => [TModel, any];
+    update: (model: TModel, msg: TMsg) => [TModel, any];
+    subscriptions?: (model: TModel) => any;
 }
 
 /**
@@ -47,22 +50,28 @@ export function createTEAModule<TModel, TMsg>(
     const Context = createContext<UseBoundStore<StoreApi<{ model: TModel; dispatch: (msg: TMsg) => void }>> | null>(null);
 
     const Provider: React.FC<{ children: ReactNode; initialParams?: any }> = ({ children, initialParams }) => {
-        // The store is created ONLY when the Provider is mounted.
-        // We register it IMMEDIATELY in useMemo to avoid race conditions (Sync Registration - Layer 1)
-        const store = useMemo(() => {
-            const s = createElmStore(def);
-            // Si hay initialParams, los pasamos al init del store
-            if (initialParams !== undefined) {
-                s.getState().init(initialParams);
-            }
-            storeRegistry.register(def.name, s);
-            return s;
-        }, [initialParams]);
+        const storeRef = useRef<UseBoundStore<StoreApi<{ model: TModel; dispatch: (msg: TMsg) => void }>> | null>(null);
 
-        // Cleanup only (registration is now sync in useMemo)
+        if (!storeRef.current) {
+            const store = createElmStore({
+                initial: def.initial,
+                update: def.update,
+                subscriptions: def.subscriptions || (() => null)
+            });
+
+            if (initialParams !== undefined) {
+                store.getState().init(initialParams);
+            }
+
+            storeRegistry.register(def.name, store);
+            storeRef.current = store as any;
+        }
+
+        const store = storeRef.current as any;
+
         useEffect(() => {
             return () => {
-                store.getState().cleanup?.();
+                store?.getState().cleanup?.();
                 storeRegistry.unregister(def.name);
             };
         }, [store]);

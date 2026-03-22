@@ -1,5 +1,7 @@
 import NetInfo from '@react-native-community/netinfo';
-import { IAuthRepository } from '@shared/repositories/auth';
+import { IAuthRepository, IOfflineConditionChecker } from '@shared/repositories/auth';
+import { hasDrawAvailable } from '@shared/repositories/draw';
+import { betRepository } from '@shared/repositories/bet';
 import { apiClient } from '@shared/services/api_client';
 import { ConnectivityEvent } from '@shared/services/api_client/api_client.types';
 import { isServerReachable } from '@shared/utils/network';
@@ -138,6 +140,20 @@ export const CoreService = {
   },
 
   /**
+   * Inicializa el checker de condiciones offline en AuthRepository.
+   * Este checker verifica si hay sorteos disponibles antes de permitir login offline.
+   */
+  initializeOfflineConditionChecker(): void {
+    const offlineConditionChecker: IOfflineConditionChecker = {
+      canContinueOffline: async () => {
+        return await hasDrawAvailable();
+      }
+    };
+    getAuthRepo().setOfflineConditionChecker(offlineConditionChecker);
+    log.info('Offline condition checker initialized in AuthRepository');
+  },
+
+  /**
    * Configura los handlers estáticos del API Client (errores y expiración).
    * Estos no requieren dispatch directo y se configuran una sola vez.
    */
@@ -241,6 +257,27 @@ export const CoreService = {
         type: 'SESSION_EXPIRED',
         reason
       });
+    });
+  },
+
+  /**
+   * Tarea para sincronizar apuestas pendientes cuando se recupera la conexión.
+   */
+  syncPendingBetsTask(): Cmd {
+    return Cmd.task({
+      task: async () => {
+        log.info('Network restored, attempting to sync pending bets...');
+        return await betRepository.syncPending();
+      },
+      onSuccess: (res) => {
+        log.info(`Auto-sync completed: ${res.success} success, ${res.failed} failed`);
+        return { type: 'NO_OP' } as any;
+      },
+      onFailure: (err) => {
+        log.error('Auto-sync failed', err);
+        return { type: 'NO_OP' } as any;
+      },
+      label: 'SYNC_PENDING_BETS_ON_RECONNECT'
     });
   },
 

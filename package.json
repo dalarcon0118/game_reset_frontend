@@ -16,7 +16,7 @@
     "build:apk": "eas build --profile preview --platform android",
     "build:prod": "eas build --profile production --platform android",
     "lint": "expo lint",
-    "test": "jest",
+    "test": "jest --verbose",
     "test:all": "jest tests",
     "test:feature": "node -e \"const feature = process.env.npm_config_feature; if (!feature) { console.error('Please specify a feature: npm run test:feature --feature=draws'); process.exit(1); } require('child_process').spawnSync('jest', ['tests/features/admin/' + feature], { stdio: 'inherit', shell: true });\"",
     "test:watch": "jest --watch",

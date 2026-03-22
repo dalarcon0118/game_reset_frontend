@@ -1,7 +1,7 @@
 import { Result, ResultAsync } from 'neverthrow';
 import { authApiAdapter } from './adapters/auth.api.adapter';
 import { authStorageAdapter } from './adapters/auth.storage.adapter';
-import { IAuthApi, IAuthStorage, IAuthRepository } from './auth.ports';
+import { IAuthApi, IAuthStorage, IAuthRepository, IOfflineConditionChecker } from './auth.ports';
 import { AuthResult, User, AuthErrorType } from './types/types';
 import { logger } from '../../utils/logger';
 import { setAuthRepository } from '../../services/api_client';
@@ -31,6 +31,7 @@ class AuthRepositoryImpl implements IAuthRepository {
     private isLoggingOut = false; // Flag para evitar race conditions durante logout
     private isExiting = false; // Flag para prevenir múltiples señales de expiración
     private isNetworkOnline = true; // SSoT: Estado de red global inyectado por CoreModule
+    private offlineConditionChecker: IOfflineConditionChecker | null = null; // Inyectado por CoreModule
 
     constructor(
         private api: IAuthApi = authApiAdapter,
@@ -337,7 +338,23 @@ class AuthRepositoryImpl implements IAuthRepository {
                 };
             }
 
-            // 4. Intentar validación offline como modo de supervivencia
+            // 4. Verificar condiciones adicionales antes de permitir login offline
+            // Si hay un checker configurado, verificar si permite offline
+            if (this.offlineConditionChecker) {
+                const canContinueOffline = await this.offlineConditionChecker.canContinueOffline();
+                if (!canContinueOffline) {
+                    log.warn('Offline login blocked by condition checker - no draws available');
+                    return {
+                        success: false,
+                        error: {
+                            type: AuthErrorType.OFFLINE_NOT_ALLOWED,
+                            message: 'La aplicación necesita estar en modo online para cargar los sorteos disponibles'
+                        }
+                    };
+                }
+            }
+
+            // 5. Intentar validación offline como modo de supervivencia
             log.info('Proceeding to survival mode (offline validation)', { username });
             return await this.performOfflineValidation(username, pin);
 
@@ -409,6 +426,12 @@ class AuthRepositoryImpl implements IAuthRepository {
             log.info(`[SSOT-SYNC] Global network status updated in AuthRepository: ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
             this.isNetworkOnline = isOnline;
         }
+    }
+
+    /** Inyecta el checker de condiciones offline del CoreModule */
+    setOfflineConditionChecker(checker: IOfflineConditionChecker): void {
+        this.offlineConditionChecker = checker;
+        log.info('[SSOT-SYNC] Offline condition checker injected into AuthRepository');
     }
 
     async checkAuth(): Promise<void> {

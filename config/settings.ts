@@ -25,7 +25,8 @@ const getDevelopmentBaseUrl = () => {
     // Fallback para Android si no se detecta hostUri
     return 'http://10.0.2.2:8000/api';
   }
-  return 'http://localhost:8000/api';
+  // En Node.js (Jest), localhost puede fallar, usamos 127.0.0.1 por seguridad
+  return 'http://127.0.0.1:8000/api';
 };
 
 const API_BASE_URL_DEVELOPMENT = getDevelopmentBaseUrl();
@@ -53,11 +54,11 @@ const IS_DEVELOPMENT = APP_ENV === 'production' ? false : (APP_ENV === 'developm
 export const settings = {
   api: {
     baseUrl: IS_DEVELOPMENT ? API_BASE_URL_DEVELOPMENT : API_BASE_URL_PRODUCTION,
-    timeout: 25000, // Default 25s timeout to stay below Render gateway limits
+    timeout: 60000, // Default 60s for local development/heavy tests
     timeoutProfiles: {
       FAST: 15000,    // 15s for auth/validations
-      NORMAL: 20000, // 20s for standard CRUD
-      SLOW: 25000    // 25s for heavy operations
+      NORMAL: 30000, // 30s for standard CRUD
+      SLOW: 60000    // 60s for heavy operations
     },
     defaults: {
       cacheTTL: 5 * 60 * 1000, // 5 minutes default cache

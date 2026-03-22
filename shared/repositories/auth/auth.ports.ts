@@ -1,6 +1,14 @@
 import { Result } from 'neverthrow';
 import { AuthResult, AuthSession, User } from './types/types';
 
+/**
+ * Interfaz para verificar condiciones antes de permitir login offline.
+ * Inyectada por CoreModule para mantener AuthRepository desacoplado.
+ */
+export interface IOfflineConditionChecker {
+    canContinueOffline(): Promise<boolean>;
+}
+
 export interface IAuthApi {
     login(username: string, pin: string): Promise<AuthResult>;
     logout(): Promise<void>;
@@ -38,6 +46,9 @@ export interface IAuthRepository {
 
     /** Inyecta el sensor de red global del CoreModule */
     setNetworkStatus(isOnline: boolean): void;
+
+    /** Inyecta el checker de condiciones offline del CoreModule */
+    setOfflineConditionChecker(checker: IOfflineConditionChecker): void;
 }
 
 export interface IAuthStorage {

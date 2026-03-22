@@ -49,6 +49,14 @@ export class DashboardService {
         return () => this.subscribers.delete(callback);
     }
 
+    /**
+     * Fuerza la invalidación del Dashboard manualmente (ej. en un Refresh).
+     */
+    invalidateDashboard(): void {
+        this.deps.log.info('Manual dashboard invalidation triggered');
+        this.notifySubscribers();
+    }
+
     private handleBetChange(): void {
         if (this.debounceTimeout) {
             clearTimeout(this.debounceTimeout);

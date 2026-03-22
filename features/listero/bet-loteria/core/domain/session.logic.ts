@@ -49,8 +49,12 @@ export const SessionLogic = {
 
         // Calculate fixedAmount to ensure summary is correct (Single Source of Truth)
         const loteriaBetTypeId = model.managementSession.betTypes.loteria;
-        const rulesData = model.rules.status.type === 'Success' ? model.rules.status.data : null;
-        const validationRules = rulesData?.validation_rules || [];
+        
+        // 🛡️ Guardia defensiva: RulesModel (bet-workspace) usa rulesList, no status.
+        // Se ajusta para usar la estructura real y evitar el crash "Cannot read property 'status' of undefined"
+        const rulesList = model.rulesSession?.rulesList;
+        const rulesData = rulesList?.type === 'Success' ? rulesList.data : null;
+        const validationRules = rulesData?.validationRules || [];
 
         // Use rules from server or fallback to the domain default
         const ruleAmount = calculateLoteriaFixedAmount(validationRules, loteriaBetTypeId);

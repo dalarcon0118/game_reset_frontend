@@ -103,5 +103,15 @@ export const BetApi = {
         const response = await apiClient.get<BackendBet[]>(endpoint);
         log.debug('Raw response received for listByDrawId');
         return decodeOrFallback(BackendBetArrayCodec, response, 'listByDrawId') as BackendBet[];
+    },
+
+    /**
+     * Delete a bet by ID
+     * @param betId - The bet ID to delete
+     */
+    delete: async (betId: number): Promise<void> => {
+        log.info('Deleting bet', { betId });
+        const endpoint = `${settings.api.endpoints.bets()}${betId}/`;
+        await apiClient.delete(endpoint);
     }
 };

@@ -13,9 +13,9 @@ interface DrawItemProps {
   draw: Draw;
   totalsByDrawId: TotalsByDrawIdMap;
   onRulePress: (id: string | number) => void;
-  onRewardsPress: (id: string, title: string) => void;
-  onBetsListPress: (id: string, title: string) => void;
-  onCreateBetPress: (id: string, title: string) => void;
+  onRewardsPress: (id: string, title: string, draw: Draw) => void;
+  onBetsListPress: (id: string, title: string, draw: Draw) => void;
+  onCreateBetPress: (id: string, title: string, draw: Draw) => void;
   showBalance: boolean;
 }
 
@@ -40,15 +40,15 @@ export default function DrawItem({
   const betCount = totals?.betCount ?? 0;
 
   const handleRewardsPress = () => {
-    onRewardsPress(draw.id.toString(), draw.source || '');
+    onRewardsPress(draw.id.toString(), draw.source || '', draw);
   }
 
   const handleBetsListPress = () => {
-    onBetsListPress(draw.id.toString(), draw.source || '');
+    onBetsListPress(draw.id.toString(), draw.source || '', draw);
   }
 
   const handleCreateBetPress = () => {
-    onCreateBetPress(draw.id.toString(), draw.source || '');
+    onCreateBetPress(draw.id.toString(), draw.source || '', draw);
   }
 
   const getDrawStatus = () => {

@@ -47,4 +47,8 @@ export class BetApiAdapter implements IBetApi {
     async getListeroDetails(id: number, date?: string): Promise<BackendListeroDetails> {
         return StructureApi.getListeroDetails(id, date);
     }
+
+    async delete(betId: number): Promise<void> {
+        await LegacyBetApi.delete(betId);
+    }
 }

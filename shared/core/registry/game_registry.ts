@@ -141,6 +141,21 @@ export const GameRegistry = {
     },
 
     /**
+     * SSoT: Get category by Draw object.
+     * Prioritizes Code (Backend Contract) -> Pre-mapped Category -> Title Analysis (Fallback)
+     */
+    getCategoryByDraw: (draw: { code?: string; category?: GameCategory; name?: string; source?: string }): GameCategory => {
+        // 1. Prioridad: Código de backend (SSoT real)
+        if (draw.code) {
+            const strategy = GameRegistry.getStrategyByDrawCode(draw.code);
+            if (strategy) return strategy.category;
+        }
+
+        // 2. Fallback: Categoría ya mapeada o análisis de título
+        return draw.category || GameRegistry.getCategoryByTitle(draw.name || draw.source || '');
+    },
+
+    /**
      * Validates if the input string is a valid bet number for the given draw or bet code.
      */
     isValidInput: (input: string, code: string): boolean => {

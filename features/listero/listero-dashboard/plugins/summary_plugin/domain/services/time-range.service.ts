@@ -1,10 +1,11 @@
 // Servicio para manejar rangos de tiempo - Lógica pura
 export class TimeRangeService {
   /**
-   * Obtiene el rango de tiempo para el día actual
+   * Obtiene el rango de tiempo para el día actual.
+   * ⚠️ IMPORTANTE: nowMs DEBE ser proporcionado para asegurar que se usa Trusted Time (SSOT).
    */
-  getTodayRange(nowMs?: number): { start: number; end: number } {
-    const now = nowMs ? new Date(nowMs) : new Date();
+  getTodayRange(nowMs: number): { start: number; end: number } {
+    const now = new Date(nowMs);
     const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     const end = start + 24 * 60 * 60 * 1000;
     

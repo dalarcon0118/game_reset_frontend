@@ -24,6 +24,7 @@ export interface IBetApi {
     create(bet: BetDomainModel, idempotencyKey: string): Promise<BackendBet | BackendBet[]>;
     checkStatus(idempotencyKey: string): Promise<{ synced: boolean; bets?: BackendBet[] }>;
     list(filters?: ListBetsFilters): Promise<BackendBet[]>;
+    delete(betId: number): Promise<void>;
 
     // Structure related methods (moved from StructureService)
     getChildren(id: number, level?: number): Promise<BackendChildStructure[]>;

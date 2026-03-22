@@ -27,6 +27,9 @@ const triggerInitialLoad = (model: Model): Return<Model, Msg> => {
     const needsFetch = model.draws.type === 'NotAsked' || model.draws.type === 'Failure';
 
     if (!needsFetch) {
+        if (model.draws.type === 'Success') {
+            return singleton({ ...model, status: { type: 'READY' } });
+        }
         return singleton(model);
     }
 
@@ -51,6 +54,11 @@ const triggerInitialLoad = (model: Model): Return<Model, Msg> => {
 
 export const AuthHandler = {
     handleAuthUserSynced: (model: Model, user: DashboardUser | null): Return<Model, Msg> => {
+        log.info('[DIAGNOSTIC] handleAuthUserSynced', { 
+            hasUser: !!user, 
+            structureId: user?.structureId,
+            currentModelStatus: model.status.type 
+        });
         const nextModel = logicHandleAuthUserSynced(model, user);
 
         // Si estamos en LOADING_DATA y acabamos de recibir el structureId, disparamos la carga
@@ -64,6 +72,10 @@ export const AuthHandler = {
 
     handleSystemReady: (model: Model, date: string): Return<Model, Msg> => {
         log.info('SYSTEM_READY received from CoreModule. Context is guaranteed.', { date });
+
+        if (model.draws.type === 'Success' && model.status.type === 'READY') {
+            return singleton(model);
+        }
 
         const loadingModel: Model = {
             ...model,

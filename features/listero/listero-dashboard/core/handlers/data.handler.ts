@@ -1,20 +1,33 @@
 import { Model } from '../model';
 import { Msg, FinancialUpdate } from '../msg';
 import { Cmd, RemoteData, WebData, ret, singleton, Return } from '@core/tea-utils';
-import { shouldFetchData, checkRateLimit, recalculateDashboardState } from '../logic';
+import { shouldFetchData, checkRateLimit, recalculateDashboardState, handleSseUpdate } from '../logic';
 import { fetchDrawsCmd, loadPendingBetsCmd } from '../commands';
 import { match, P } from 'ts-pattern';
 import { DrawType, BetType } from '@/types';
 import { logger } from '@/shared/utils/logger';
 import { GameRegistry } from '@/shared/core/registry/game_registry';
+import { TimerRepository } from '@/shared/repositories/system/time/tea.repository';
+
+import { dashboardService } from '../../services/dashboard.service';
 
 const log = logger.withTag('DASHBOARD_DATA_HANDLER');
 
-const checkReadyState = (model: Model): Model => {
+const checkReadyState = (model: Model): Return<Model, Msg> => {
+    log.debug('checkReadyState called', {
+        drawsType: model.draws.type,
+        currentStatus: model.status.type
+    });
+
     if (model.draws.type === 'Success') {
-        return { ...model, status: { type: 'READY' } };
+        log.info('Transitioning dashboard to READY state');
+        // Los plugins leen directamente del store via watchStore
+        // No necesitamos señales globales - el plugin detectará el cambio de estado
+        return singleton({ ...model, status: { type: 'READY' } });
     }
-    return model;
+
+    log.debug('checkReadyState: draws not ready yet', { drawsType: model.draws.type });
+    return singleton(model);
 };
 
 export const DataHandler = {
@@ -45,13 +58,22 @@ export const DataHandler = {
 
         log.debug('Bets loaded', { pending: safeBets.length, synced: allSynced.length });
 
+        // Don't call checkReadyState here - it will be called in handleDrawsReceived when draws arrive
+        // This avoids premature READY transition when draws are still loading
+        log.debug('handlePendingBetsLoaded: bets loaded, waiting for draws', {
+            drawsType: model.draws.type,
+            currentStatus: model.status.type
+        });
+
         const drawsData = model.draws.type === 'Success' ? model.draws.data : null;
+        const now = TimerRepository.getTrustedNow(Date.now());
 
         const { filteredDraws, dailyTotals } = recalculateDashboardState(
             drawsData,
             null, // No external summary needed
             model.appliedFilter,
             model.commissionRate,
+            now,
             safeBets,
             allSynced
         );
@@ -66,10 +88,10 @@ export const DataHandler = {
     },
 
     handleDrawsReceived: (model: Model, webData: WebData<DrawType[]>): Return<Model, Msg> => {
-        log.debug('Draws received', {
+        log.info('[DIAGNOSTIC] handleDrawsReceived', {
             state: webData.type,
             count: webData.type === 'Success' ? webData.data.length : 0,
-            firstDraw: webData.type === 'Success' && webData.data.length > 0 ? webData.data[0] : null
+            modelStatus: model.status.type
         });
 
         if (webData.type === 'Success' && !Array.isArray(webData.data)) {
@@ -95,11 +117,14 @@ export const DataHandler = {
                 // Sincronizar el registro de juegos con los datos recibidos del backend
                 GameRegistry.syncWithBackend(data);
 
+                const now = TimerRepository.getTrustedNow(Date.now());
+
                 const { filteredDraws, dailyTotals } = recalculateDashboardState(
                     data,
                     null, // No external summary needed
                     model.appliedFilter,
                     model.commissionRate,
+                    now,
                     model.pendingBets,
                     model.syncedBets
                 );
@@ -111,13 +136,13 @@ export const DataHandler = {
                     totals: dailyTotals
                 });
 
-                return singleton(checkReadyState({
+                return checkReadyState({
                     ...model,
                     draws: webData,
                     isRateLimited: false,
                     filteredDraws,
                     dailyTotals
-                }));
+                });
             })
             // 3. Other cases: Update draws, clear filteredDraws
             .otherwise(() =>
@@ -131,6 +156,9 @@ export const DataHandler = {
     },
 
     handleRefreshClicked: (model: Model): Return<Model, Msg> => {
+        log.info('Refresh clicked, invalidating dashboard data');
+        dashboardService.invalidateDashboard();
+
         return ret(model, [
             fetchDrawsCmd(model.userStructureId),
             loadPendingBetsCmd()

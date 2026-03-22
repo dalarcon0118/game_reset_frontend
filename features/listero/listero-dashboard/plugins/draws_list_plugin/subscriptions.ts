@@ -42,8 +42,8 @@ async function fetchBetTotalsByDrawId(): Promise<DrawTotalsUpdate[]> {
   const updates = entries.map(([drawId, data]) => ({
     drawId,
     totalCollected: data.totalCollected,
-    premiumsPaid: data.premiumsPaid,
-    netResult: data.netResult,
+    premiumsPaid: 0, // No disponible en RawBetTotals (SSOT de BetRepository)
+    netResult: data.totalCollected, // Por ahora igual a totalCollected (sin premios)
     betCount: data.betCount,
   }));
 
@@ -58,13 +58,17 @@ async function fetchBetTotalsByDrawId(): Promise<DrawTotalsUpdate[]> {
 async function recomputeAndDispatchFinancialTotals(dispatch: (msg: ReturnType<typeof BATCH_OFFLINE_UPDATE>) => void): Promise<void> {
   try {
     const updates = await fetchBetTotalsByDrawId();
-    dispatch(BATCH_OFFLINE_UPDATE({ updates }));
+    const timestamp = await TimerRepository.getTrustedNow(Date.now());
+    dispatch(BATCH_OFFLINE_UPDATE({ updates, timestamp }));
   } catch (error) {
     log.error('Failed to recalculate financial totals', error);
   }
 }
 
 export const subscriptions = (model: Model) => {
+  // DEBUG: Always log when subscriptions are being set up
+  log.info('Setting up draws_list_plugin subscriptions', { hasContext: !!model.context, hasHostStore: !!model.context?.hostStore });
+
   // Validación de entradas: Asegurar que el contexto y hostStore existen antes de suscribirse
   if (!model.context) {
     log.debug('Subscription skipped: No context');
@@ -80,11 +84,20 @@ export const subscriptions = (model: Model) => {
 
   return Sub.batch([
     // Suscripción principal al host store
+    // Esta suscripción lee directamente del store del dashboard
+    // El problema de timing se resuelve forzando sync cuando el dashboard está READY
     Sub.watchStore(
       model.context.hostStore,
       (state: any) => {
         // Use adapter to extract and validate state
         const currentPayload = extractHostState(state, model.config);
+
+        // DEBUG: Log store state changes
+        log.debug('Host Store watched', {
+          drawsType: currentPayload.draws?.type,
+          drawsCount: currentPayload.draws?.type === 'Success' ? currentPayload.draws?.data?.length : 0,
+          status: state.status?.type
+        });
 
         // Calculate hash for change detection
         const currentHash = createDrawsHash(
@@ -101,15 +114,38 @@ export const subscriptions = (model: Model) => {
           isEqual: currentHash === lastDrawsHash
         });
 
-        // Si el hash es el mismo que el último procesado, retornamos el último payload
-        // para que la comparación por referencia en el engine detenga la propagación.
-        if (currentHash === lastDrawsHash && lastPayload) {
+        // 🛡️ SOLUCIÓN AL PROBLEMA DE TIMING:
+        // Si el dashboard cambió a READY, siempre forzamos la sincronización
+        // Esto asegura que el plugin reciba los datos aunque el estado inicial
+        // del store aún estuviera en Loading/NotAsked
+        const hostStatus = state.status?.type;
+        const shouldForceSync = hostStatus === 'READY';
+
+        // También forzamos sync si es la primera vez (lastDrawsHash es null)
+        // o si los datos del host son exitosos pero el plugin aún no tiene datos
+        const isFirstSync = lastDrawsHash === null;
+        const hostHasData = currentPayload.draws.type === 'Success';
+        const pluginHasNoData = !lastPayload || lastPayload.draws.type !== 'Success';
+
+        const shouldSync = shouldForceSync || isFirstSync || (hostHasData && pluginHasNoData);
+
+        if (!shouldSync && lastDrawsHash !== null && currentHash === lastDrawsHash && lastPayload) {
+          log.debug('Skipping sync - no changes detected', { lastDrawsHash, currentHash });
           return lastPayload;
+        }
+
+        if (shouldForceSync) {
+          log.info('FORCING SYNC: Dashboard is READY, updating plugin state');
+        }
+
+        if (isFirstSync) {
+          log.info('First sync: Initializing plugin state');
         }
 
         log.info('Syncing Plugin State', {
           drawsState: currentPayload.draws.type,
-          drawsCount: currentPayload.draws.type === 'Success' ? currentPayload.draws.data.length : 0
+          drawsCount: currentPayload.draws.type === 'Success' ? currentPayload.draws.data.length : 0,
+          reason: shouldForceSync ? 'READY status' : (isFirstSync ? 'first sync' : 'data changed')
         });
 
         lastDrawsHash = currentHash;
@@ -120,14 +156,24 @@ export const subscriptions = (model: Model) => {
       'draws-list-plugin-sync'
     ),
 
-    // Nueva suscripción para calcular totales financieros orquestada por DashboardService
+    // Suscripción a invalidaciones del servicio (Dashboard Refresh)
     Sub.custom((dispatch) => {
       log.info('Subscribing to DashboardService for Bet totals');
 
       recomputeAndDispatchFinancialTotals(dispatch);
 
       const unsubscribe = dashboardService.onDashboardInvalided(() => {
-        log.debug('Dashboard invalidated, recomputing financial totals');
+        log.info('🔄 DRAWS_LIST_PLUGIN: Refreshing draws and totals due to Dashboard Invalidation');
+
+        // Forzamos la sincronización del estado del host para obtener los draws actualizados
+        // Sin setTimeout - directamente leemos el estado actual del store
+        if (model.context?.hostStore) {
+          const currentPayload = extractHostState(model.context.hostStore.getState(), model.config);
+          log.info('SYNC_STATE from invalidation', { drawsType: currentPayload.draws.type });
+          dispatch(SYNC_STATE(currentPayload));
+        }
+
+        // También recalculamos los totales financieros
         recomputeAndDispatchFinancialTotals(dispatch);
       });
 
@@ -135,6 +181,6 @@ export const subscriptions = (model: Model) => {
         unsubscribe();
         log.debug('Bet totals subscription cleanup');
       };
-    }, 'draws-list-plugin-bet-totals-sync')
+    }, 'draws-list-dashboard-watch')
   ]);
 };

@@ -14,10 +14,14 @@ export const selectLoteriaList = (model: LoteriaFeatureModel) => {
 };
 
 export const selectFixedAmount = (model: LoteriaFeatureModel) => {
-    const { managementSession, rules } = model;
+    const { managementSession, rulesSession } = model;
     const loteriaBetTypeId = managementSession.betTypes.loteria;
-    const rulesData = rules.status.type === 'Success' ? rules.status.data : null;
-    const validationRules = rulesData?.validation_rules || [];
+    
+    // 🛡️ Guardia defensiva: RulesModel (bet-workspace) usa rulesList, no status.
+    // Se ajusta para usar la estructura real y evitar el crash "Cannot read property 'status' of undefined"
+    const rulesList = rulesSession?.rulesList;
+    const rulesData = rulesList?.type === 'Success' ? rulesList.data : null;
+    const validationRules = rulesData?.validationRules || [];
 
     return calculateLoteriaFixedAmount(validationRules, loteriaBetTypeId);
 };

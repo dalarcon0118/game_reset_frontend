@@ -66,9 +66,9 @@ export const DrawsListComponent: React.FC<DrawsListComponentProps> = ({ context 
                 draw={draw}
                 totalsByDrawId={model.totalsByDrawId}
                 onRulePress={(id) => dispatch(RULES_CLICKED(id))}
-                onRewardsPress={(id, title) => dispatch(REWARDS_CLICKED({ id, title }))}
-                onBetsListPress={(id, title) => dispatch(BETS_LIST_CLICKED({ id, title }))}
-                onCreateBetPress={(id, title) => dispatch(CREATE_BET_CLICKED({ id, title }))}
+                onRewardsPress={(id, title, d) => dispatch(REWARDS_CLICKED({ id, title, draw: d }))}
+                onBetsListPress={(id, title, d) => dispatch(BETS_LIST_CLICKED({ id, title, draw: d }))}
+                onCreateBetPress={(id, title, d) => dispatch(CREATE_BET_CLICKED({ id, title, draw: d }))}
                 showBalance={context.state.showBalance}
               />
             );

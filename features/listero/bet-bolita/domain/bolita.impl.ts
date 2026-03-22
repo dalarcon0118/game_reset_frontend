@@ -3,6 +3,7 @@ import { BET_TYPE_KEYS, UI_CONSTANTS, normalizeBetType, normalizeBetTypeId, norm
 import { BetType, ParletBet, CentenaBet, FijosCorridosBet } from '@/types';
 import { BetPlacementInput } from '@/shared/repositories/bet/bet.types';
 import { logger } from '@/shared/utils/logger';
+import { TimerRepository } from '@/shared/repositories/system/time/tea.repository';
 
 const log = logger.withTag('BOLITA_IMPL');
 
@@ -219,7 +220,7 @@ export const BolitaImpl = {
             bets.forEach(bet => {
                 try {
                     // 1. Normalización de ID
-                    const betId = bet.id || bet.externalId || `temp-${Date.now()}-${Math.random()}`;
+                    const betId = bet.id || bet.externalId || `temp-${TimerRepository.getTrustedNow(Date.now())}-${Math.random()}`;
 
                     // 2. Normalización de Números
                     const parsedNumbers = parseNumbers(bet);

@@ -1,4 +1,5 @@
 import { Cmd, RemoteData, Return } from '@core/tea-utils';
+import { logger } from '@/shared/utils/logger';
 import { Model } from './model';
 import { Msg, PROMOTION_MSG } from './msg';
 import { PromotionState } from '../../../../shared/components/promotion/model';
@@ -6,6 +7,8 @@ import * as promotionInitialState from '../../../../shared/components/promotion/
 import { ret, singleton } from '@core/tea-utils/return';
 
 import { fetchUserDataCmd } from './commands';
+
+const log = logger.withTag('DASHBOARD_INIT');
 
 /**
  * Curried constructor for the dashboard model.

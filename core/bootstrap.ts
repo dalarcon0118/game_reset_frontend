@@ -7,7 +7,7 @@ import { logger } from '@shared/utils/logger';
 import { apiClient } from '@shared/services/api_client';
 import { AuthRepository } from '@shared/repositories/auth';
 import { deviceRepository } from '@shared/repositories/system/device';
-import { setAuthRepository } from './core_module/service';
+import { setAuthRepository, CoreService } from './core_module/service';
 
 /**
  * Bootstrapping de infraestructura base del motor TEA.
@@ -34,6 +34,10 @@ const bootstrapInfrastructure = () => {
         // B. Inyectar AuthRepository en CoreService (Composition Root)
         setAuthRepository(AuthRepository);
         log.debug('AuthRepository injected into CoreService');
+
+        // C. Inicializar el checker de condiciones offline
+        CoreService.initializeOfflineConditionChecker();
+        log.debug('Offline condition checker initialized');
 
     } catch (error) {
         log.error('Critical failure during infrastructure bootstrap', error);

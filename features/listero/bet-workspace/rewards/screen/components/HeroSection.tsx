@@ -22,7 +22,11 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ winningNumber }) => (
   >
     <View style={styles.heroContent}>
       <Trophy size={40} color="#FFFFFF" style={styles.heroIcon} />
-      <UIKittenText category="h1" style={styles.heroNumber}>
+      <UIKittenText 
+        category="h1" 
+        style={styles.heroNumber}
+        testID="winning-number-display"
+      >
         {winningNumber}
       </UIKittenText>
       <UIKittenText category="s1" style={styles.heroLabel}>

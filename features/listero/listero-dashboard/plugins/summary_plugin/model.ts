@@ -18,6 +18,7 @@ export interface Model {
   structureId: string;
   context: SummaryPluginContext | null;
   contextError: string | null;
+  trustedNow: number | null;
 }
 
 export const initialModel = (): [Model, Cmd] => {
@@ -35,7 +36,8 @@ export const initialModel = (): [Model, Cmd] => {
       commissionRate: 0.1,
       structureId: '1',
       context: null,
-      contextError: null
+      contextError: null,
+      trustedNow: null
     },
     Cmd.none
   ];

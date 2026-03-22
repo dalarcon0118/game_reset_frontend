@@ -47,8 +47,12 @@ export const LoteriaDomain = {
      */
     getEffectiveAmount: (model: LoteriaFeatureModel): number => {
         const loteriaBetTypeId = model.managementSession.betTypes.loteria;
-        const rulesData = model.rules.status.type === 'Success' ? model.rules.status.data : null;
-        const validationRules = rulesData?.validation_rules || [];
+        
+        // 🛡️ Guardia defensiva: RulesModel (bet-workspace) usa rulesList, no status.
+        // Se ajusta para usar la estructura real y evitar el crash "Cannot read property 'status' of undefined"
+        const rulesList = model.rulesSession?.rulesList;
+        const rulesData = rulesList?.type === 'Success' ? rulesList.data : null;
+        const validationRules = rulesData?.validationRules || [];
 
         const ruleAmount = calculateLoteriaFixedAmount(validationRules, loteriaBetTypeId);
 

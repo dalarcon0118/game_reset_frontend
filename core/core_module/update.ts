@@ -111,11 +111,19 @@ export function update(model: CoreModel, msg: CoreMsg): Return<CoreModel, CoreMs
       // Si hay física, mantenemos el último estado de alcanzabilidad hasta que se verifique.
       const nextNetworkStatus = payload && nextConnectivity.isServerReachable;
 
+      const wasOffline = !model.networkConnected;
+      const isNowOnline = nextNetworkStatus;
+
       return ret(
         { ...model, connectivity: nextConnectivity, networkConnected: nextNetworkStatus },
-        nextNetworkStatus !== model.networkConnected
-          ? CoreService.syncNetworkStatus(nextNetworkStatus)
-          : Cmd.none
+        (wasOffline && isNowOnline)
+          ? Cmd.batch([
+            CoreService.syncNetworkStatus(nextNetworkStatus),
+            CoreService.syncPendingBetsTask()
+          ])
+          : (nextNetworkStatus !== model.networkConnected
+            ? CoreService.syncNetworkStatus(nextNetworkStatus)
+            : Cmd.none)
       );
     })
 
@@ -124,11 +132,19 @@ export function update(model: CoreModel, msg: CoreMsg): Return<CoreModel, CoreMs
       // El SSoT depende de ambos sensores
       const nextNetworkStatus = nextConnectivity.isPhysicalConnected && payload;
 
+      const wasOffline = !model.networkConnected;
+      const isNowOnline = nextNetworkStatus;
+
       return ret(
         { ...model, connectivity: nextConnectivity, networkConnected: nextNetworkStatus },
-        nextNetworkStatus !== model.networkConnected
-          ? CoreService.syncNetworkStatus(nextNetworkStatus)
-          : Cmd.none
+        (wasOffline && isNowOnline)
+          ? Cmd.batch([
+            CoreService.syncNetworkStatus(nextNetworkStatus),
+            CoreService.syncPendingBetsTask()
+          ])
+          : (nextNetworkStatus !== model.networkConnected
+            ? CoreService.syncNetworkStatus(nextNetworkStatus)
+            : Cmd.none)
       );
     })
 

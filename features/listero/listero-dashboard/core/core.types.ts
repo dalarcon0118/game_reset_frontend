@@ -19,15 +19,14 @@ export interface DailyTotals {
     amountToRemit: number;
 }
 
-export const isClosingSoon = (bettingEndTime?: string | null) => {
+export const isClosingSoon = (bettingEndTime: string | null | undefined, now: number) => {
     if (!bettingEndTime) return false;
-    const now = new Date();
-    const endTime = new Date(bettingEndTime);
-    const diff = endTime.getTime() - now.getTime();
+    const endTime = new Date(bettingEndTime).getTime();
+    const diff = endTime - now;
     return diff > 0 && diff < 5 * 60 * 1000; // 5 minutes according to feature spec
 };
 
-export const isExpired = (draw: DrawType) => {
+export const isExpired = (draw: DrawType, now: number) => {
     // 1. Prioritize official server status
     if (
         draw.status === DRAW_STATUS.CLOSED ||
@@ -41,7 +40,6 @@ export const isExpired = (draw: DrawType) => {
 
     // 3. Time-based check (The "Observado" logic)
     if (!draw.betting_end_time) return false;
-    const now = new Date();
-    const endTime = new Date(draw.betting_end_time);
-    return now.getTime() >= endTime.getTime();
+    const endTime = new Date(draw.betting_end_time).getTime();
+    return now >= endTime;
 };
