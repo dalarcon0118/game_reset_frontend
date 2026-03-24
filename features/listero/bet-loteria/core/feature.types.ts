@@ -45,9 +45,7 @@ export interface ListSession {
 
 export interface ManagementSession {
     drawDetails: WebData<DrawType>;
-    betTypes: {
-        loteria: string | null;
-    };
+    betTypes: WebData<GameType[]>;
     saveStatus: WebData<LoteriaBet | LoteriaBet[]>;
     saveSuccess: boolean;
     fetchExistingBets: boolean;
@@ -130,9 +128,7 @@ export const initialEntrySession: ListData = {
 
 export const initialManagementSession: ManagementSession = {
     drawDetails: RemoteData.notAsked(),
-    betTypes: {
-        loteria: null,
-    },
+    betTypes: RemoteData.notAsked(),
     saveStatus: RemoteData.notAsked(),
     saveSuccess: false,
     fetchExistingBets: true,

@@ -1,139 +1,156 @@
 import { match } from 'ts-pattern';
-import { Model, DashboardSummary } from './model';
+import { Model } from './model';
 import { Msg } from './msg';
 import {
     Cmd,
     Sub,
-    RemoteDataHttp,
     RemoteData,
     singleton,
-    ret
+    ret,
+    Return
 } from '@core/tea-utils';
-import { BankerDashboardService } from '../../services/banker_dashboard_service';
-import { AuthModuleV1 } from '@/features/auth/v1/adapters/auth_provider';
+import { Cmds } from './cmds';
+import { StructureMapper } from '@/shared/repositories/structure/mappers/mappers';
+import { StoreRegistry } from '@core/tea/store_registry';
 
+import { SYSTEM_READY } from '@/config/signals';
+
+/**
+ * 🛰️ SUBSCRIPTIONS (Checkpoints)
+ * Centraliza la orquestación de dependencias externas (SSoT).
+ * Este es el "Gate" que asegura que el Dashboard solo actúe cuando el sistema esté listo.
+ */
 export const subscriptions = (model: Model) => {
-    // Sincronización automática con el store de Auth
-    const authSub = Sub.watchStore(
-        'AuthModuleV1',
-        (state: any) => state?.model?.user ?? state?.user,
-        (user) => ({ type: 'AUTH_USER_SYNCED', user }),
-        'banker-dashboard-auth-sync'
-    );
-
-    return Sub.batch([authSub]);
+    return Sub.batch([
+        // Suscripción al bus de señales global (Sticky)
+        // Esto elimina el acoplamiento con StoreRegistry y race conditions
+        Sub.receiveMsg(SYSTEM_READY, (payload, dispatch) => {
+            dispatch({
+                type: 'SYSTEM_INITIALIZED',
+                structureId: payload.structureId || null,
+                isReady: true
+            });
+        }, 'banker-dashboard-system-ready-sticky')
+    ]);
 };
 
-const fetchDataCmd = (structureId: string | null): Cmd => {
-    if (!structureId) return Cmd.none;
-    return RemoteDataHttp.fetch(
-        () => BankerDashboardService.getDashboardData(Number(structureId)),
-        (webData) => ({ type: 'DATA_RECEIVED', webData })
-    );
-};
+/**
+ * 🧠 UPDATE (Lógica Pura)
+ * Ahora es SRP: Solo maneja lógica de negocio del Dashboard.
+ */
+export const update = (model: Model, msg: Msg): [Model, any] => {
+    return match<Msg, any>(msg)
+        .with({ type: 'SYSTEM_INITIALIZED' }, ({ structureId, isReady }) => {
+            // Actualizar estado del sistema en el modelo
+            const nextModel = {
+                ...model,
+                isSystemReady: isReady,
+                userStructureId: structureId
+            };
 
-export const update = (model: Model, msg: Msg): [Model, Cmd] => {
-    const result = match<Msg, any>(msg)
-        .with({ type: 'FETCH_DATA_REQUESTED' }, ({ structureId }) => {
-            // Si ya tenemos datos exitosos para este ID, no volvemos a poner Loading
-            if (model.agencies.type === 'Success' && model.userStructureId === structureId) {
-                return singleton(model);
+            // Gate: Si no está listo o no hay usuario, reseteamos datos remotos
+            if (!isReady || !structureId) {
+                return singleton({
+                    ...nextModel,
+                    agencies: RemoteData.notAsked(),
+                    summary: RemoteData.notAsked()
+                });
             }
 
-            // Si ya estamos cargando para este mismo ID, también ignoramos.
-            if (model.agencies.type === 'Loading' && model.userStructureId === structureId) {
-                return singleton(model);
+            // Evitar re-peticiones si ya estamos cargando o ya tenemos éxito
+            const isAlreadyLoaded = model.agencies.type === 'Success' || model.agencies.type === 'Loading';
+            if (isAlreadyLoaded) {
+                return singleton(nextModel);
             }
 
             return ret(
                 {
-                    ...model,
-                    userStructureId: structureId,
+                    ...nextModel,
                     agencies: RemoteData.loading(),
                     summary: RemoteData.loading()
                 },
-                fetchDataCmd(structureId)
+                Cmds.fetchDashboardData(structureId)
+            );
+        })
+
+        .with({ type: 'FETCH_DATA_REQUESTED' }, ({ structureId }) => {
+            return ret(
+                {
+                    ...model,
+                    agencies: RemoteData.loading(),
+                    summary: RemoteData.loading()
+                },
+                Cmds.fetchDashboardData(structureId)
             );
         })
 
         .with({ type: 'DATA_RECEIVED' }, ({ webData }) => {
             if (webData.type === 'Success') {
+                const agencies = webData.data;
+                const summary = StructureMapper.calculateSummary(agencies);
+
                 return singleton({
                     ...model,
-                    agencies: RemoteData.success(webData.data.children),
-                    summary: RemoteData.success(webData.data.summary)
+                    agencies: RemoteData.success(agencies),
+                    summary: RemoteData.success(summary)
                 });
             }
             return singleton({
                 ...model,
-                agencies: webData,
-                summary: webData
+                agencies: webData as any,
+                summary: webData as any
+            });
+        })
+
+        .with({ type: 'ERROR_OCCURRED' }, ({ error }) => {
+            // Aquí podrías registrar el error o actualizar el modelo para mostrar un feedback visual
+            return singleton({
+                ...model,
+                agencies: RemoteData.failure(error),
+                summary: RemoteData.failure(error)
             });
         })
 
         .with({ type: 'REFRESH_CLICKED' }, () => {
+            // Obtenemos el structureId actual del store de Auth para el refresh
+            const authStore = StoreRegistry.get('AuthModuleV1') as any;
+            const user = authStore?.getState()?.model?.user ?? authStore?.getState()?.user;
+            const structureId = user?.structure?.id ? String(user.structure.id) : null;
+
+            if (!structureId) return singleton(model);
+
             return ret(
                 {
                     ...model,
                     agencies: RemoteData.loading(),
                     summary: RemoteData.loading()
                 },
-                fetchDataCmd(model.userStructureId)
+                Cmds.fetchDashboardData(structureId)
             );
         })
 
         .with({ type: 'AGENCY_SELECTED' }, ({ agencyId }) => {
-            // Protección extra contra navegación redundante en el update
-            if (model.agencies.type !== 'Success') return singleton(model);
-
             return ret(
                 { ...model, selectedAgencyId: agencyId },
-                Cmd.navigate({
-                    pathname: config.routes.banker.drawer.screen,
-                    params: { id: agencyId }
-                })
+                Cmds.navigateToAgency(agencyId)
             );
         })
 
         .with({ type: 'RULES_PRESSED' }, ({ agencyId }) => {
-            return ret(model, Cmd.navigate({
-                pathname: config.routes.banker.rules.screen,
-                params: { id_structure: agencyId }
-            }));
+            return ret(model, Cmds.navigateToRules(agencyId));
         })
 
         .with({ type: 'LIST_PRESSED' }, ({ agencyId }) => {
-            return ret(model, Cmd.navigate({
-                pathname: config.routes.banker.listerias.screen,
-                params: { id: agencyId }
-            }));
-        })
-
-        .with({ type: 'AUTH_USER_SYNCED' }, ({ user }) => {
-            if (!user) {
-                return singleton({
-                    ...model,
-                    userStructureId: null,
-                    agencies: RemoteData.notAsked(),
-                    summary: RemoteData.notAsked()
-                });
-            }
-            const structureId = user.structure?.id ? String(user.structure.id) : model.userStructureId;
-            return ret(
-                { ...model, userStructureId: structureId },
-                structureId !== model.userStructureId ? fetchDataCmd(structureId) : Cmd.none
-            );
+            return ret(model, Cmds.navigateToList(agencyId));
         })
 
         .with({ type: 'NAVIGATE_TO_SETTINGS' }, () => {
-            return ret(model, Cmd.navigate(config.routes.banker.settings.screen));
+            return ret(model, Cmds.navigateToSettings());
         })
 
         .with({ type: 'NAVIGATE_TO_NOTIFICATIONS' }, () => {
-            return ret(model, Cmd.navigate('/notifications'));
+            return ret(model, Cmds.navigateToNotifications());
         })
 
         .exhaustive();
-
-    return [result.model, result.cmd];
 };

@@ -12,7 +12,7 @@ export const DASHBOARD_FILTER_CHANGED = createMsg<'DASHBOARD_FILTER_CHANGED', st
 export const DASHBOARD_RULES_CLICKED = createMsg<'DASHBOARD_RULES_CLICKED', string | number>('DASHBOARD_RULES_CLICKED');
 export const DASHBOARD_REWARDS_CLICKED = createMsg<'DASHBOARD_REWARDS_CLICKED', { id: string | number; title: string }>('DASHBOARD_REWARDS_CLICKED');
 export const DASHBOARD_REFRESH_CLICKED = createMsg<'DASHBOARD_REFRESH_CLICKED', void>('DASHBOARD_REFRESH_CLICKED');
-export const SYSTEM_READY = createMsg<'SYSTEM_READY', { date: string }>('SYSTEM_READY');
+export const SYSTEM_READY = createMsg<'SYSTEM_READY', { date: string; structureId?: string; user?: any }>('SYSTEM_READY');
 // Nueva señal para通知 cuando el dashboard está listo con los draws
 export const DASHBOARD_READY = createMsg<'DASHBOARD_READY', { draws: WebData<DrawType[]> }>('DASHBOARD_READY');
 

@@ -28,8 +28,20 @@ export interface CoreModel {
     lastCheck: number;            // Timestamp para invalidación
   };
 
+  /** Forzado manual de modo offline (para tests o depuración) */
+  isOffline: boolean;
+
   /** Estado de conectividad global (SSoT Derivado) */
   networkConnected: boolean;
+
+  /** Indica si el perfil y estructura del usuario han sido verificados después del login */
+  isSessionContextVerified: boolean;
+
+  /** Indica si se está realizando la verificación del contexto de sesión (feedback UI) */
+  isVerifyingSession: boolean;
+
+  /** Contexto verificado del usuario (perfil, estructuraId, etc) */
+  userContext: { structureId: string; user: any } | null;
 
   /** Sistema completamente listo para operar (derivado de maintenanceStatus y sessionStatus) */
   isSystemReady: boolean;
@@ -38,6 +50,9 @@ export interface CoreModel {
 export const initialModel: CoreModel = {
   bootstrapStatus: 'IDLE',
   sessionStatus: 'INITIAL',
+  isSessionContextVerified: false,
+  isVerifyingSession: false,
+  userContext: null,
   maintenanceStatus: null,
   error: null,
   navigationPolicy: null,
@@ -46,6 +61,7 @@ export const initialModel: CoreModel = {
     isServerReachable: true,
     lastCheck: Date.now()
   },
+  isOffline: false,
   networkConnected: true, // Asumimos online por defecto hasta el primer evento
   isSystemReady: false,
 };

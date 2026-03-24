@@ -23,14 +23,17 @@ export type CoreMsg =
   /** Cambio en la alcanzabilidad del servidor (ApiClient / Ping) */
   | { type: 'SERVER_REACHABILITY_CHANGED'; payload: boolean }
 
+  /** Forzado manual de modo offline (para tests o depuración) */
+  | { type: 'SET_OFFLINE_MODE'; payload: boolean }
+
   /** Mantenimiento del sistema completado (SystemJanitor) */
   | { type: 'MAINTENANCE_COMPLETED'; payload: { date: string; status: 'ready' } }
 
   /** El contexto de usuario (perfil, estructura) está listo y verificado */
-  | { type: 'SESSION_CONTEXT_READY' }
+  | { type: 'SESSION_CONTEXT_READY'; payload: { structureId: string; user: any } }
 
   /** Sistema completamente listo para operar (notificación global) */
-  | { type: 'SYSTEM_READY'; payload: { date: string } }
+  | { type: 'SYSTEM_READY'; payload: { date: string; structureId?: string; user?: any } }
 
   /** Acción sin efecto (usada para Cmd.task que no necesitan respuesta) */
   | { type: 'NO_OP' }

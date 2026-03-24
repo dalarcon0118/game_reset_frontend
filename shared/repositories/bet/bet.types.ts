@@ -84,6 +84,7 @@ export interface IBetRepository {
     placeBatch(bets: BetPlacementInput[]): Promise<Result<BetType[], Error>>;
     getBets(filters?: ListBetsFilters): Promise<Result<BetType[], Error>>;
     getPendingBets(): Promise<BetDomainModel[]>;
+    addPendingBet(bet: BetDomainModel): Promise<void>;
     syncPending(): Promise<{ success: number; failed: number }>;
     applyMaintenance(): Promise<void>;
     cleanup(today: string): Promise<number>;
@@ -93,6 +94,7 @@ export interface IBetRepository {
     getAllRawBets(): Promise<BetDomainModel[]>;
     resetSyncStatus(offlineId: string): Promise<void>;
     onBetChanged(callback: () => void): () => void;
+    isReady(): Promise<boolean>;
 
     // Agregaciones crudas (SSOT) - No incluyen lógica de negocio
     getFinancialSummary(todayStart: number, structureId?: string): Promise<RawBetTotals>;

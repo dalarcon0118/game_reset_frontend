@@ -9,6 +9,8 @@ import {
     KEY_PRESSED,
     REQUEST_SAVE_ALL_BETS,
     CONFIRM_SAVE_ALL_BETS,
+    FETCH_BET_TYPES,
+    FETCH_BET_TYPES_RESPONSE,
     SET_USER_CONTEXT,
     SAVE_BETS_RESPONSE,
     BOLITA_BETS_UPDATED,
@@ -59,6 +61,12 @@ export const update = (model: BolitaModel, msg: BolitaMsg): Return<BolitaModel, 
         })
         .with(CONFIRM_SAVE_ALL_BETS.type(), ({ payload: { drawId } }) => {
             return BolitaFlows.executeSaveAllBets(model, drawId);
+        })
+        .with(FETCH_BET_TYPES.type(), ({ payload: { drawId } }) => {
+            return BolitaFlows.fetchBetTypes(model, drawId);
+        })
+        .with(FETCH_BET_TYPES_RESPONSE.type(), ({ payload: { response } }) => {
+            return singleton({ ...model, betTypes: response });
         })
         .with(SET_USER_CONTEXT.type(), ({ payload: { structureId } }) => {
             log.debug('[update]SET_USER_CONTEXT: Setting user context structureId:', structureId);

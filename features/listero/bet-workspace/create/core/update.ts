@@ -237,10 +237,12 @@ export const updateCreate = <M extends CreateContextModel>(model: M, msg: Create
                 : '';
 
             // Crear candidatos de apuesta con normalización centralizada
+            // FASE 2: Ahora incluye betTypeCode para mayor estabilidad
             const candidates: BetPlacementCandidate[] = model.createSession.tempBets.map(b => ({
                 drawId: model.createSession.selectedDrawId || '',
                 betTypeId: b.gameType.id,
-                type: b.gameType.code || b.gameType.name, // Usar el código o nombre del tipo
+                betTypeCode: b.gameType.code, // FASE2: Código estable (FIJO, CORRIDO, etc.)
+                type: b.gameType.code || b.gameType.name,
                 numbers: b.numbers,
                 amount: b.amount,
                 ownerStructure: effectiveStructureId || '0'

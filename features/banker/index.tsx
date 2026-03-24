@@ -6,7 +6,11 @@ export { default as DashboardScreen } from './dashboard';
 export { default as DrawerScreen } from './drawers/list';
 
 // Export stores for advanced usage (if needed)
-export { useDashboardStore, selectDashboardModel, selectDashboardDispatch } from './dashboard/core';
+export { 
+  useBankerDashboardStore as useDashboardStore, 
+  useBankerDashboardModel as useDashboardModel,
+  useBankerDashboardDispatch as useDashboardDispatch 
+} from './dashboard/core';
 export { useDrawersStore, selectDrawersModel, selectDrawersDispatch } from './drawers/core';
 
 // Export types for TypeScript support

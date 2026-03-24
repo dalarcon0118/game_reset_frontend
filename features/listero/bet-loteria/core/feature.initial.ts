@@ -52,9 +52,7 @@ export const initialModel: LoteriaFeatureModel = {
     },
     managementSession: {
         drawDetails: RemoteData.notAsked(),
-        betTypes: {
-            loteria: null,
-        },
+        betTypes: RemoteData.notAsked(),
         saveStatus: RemoteData.notAsked(),
         saveSuccess: false,
         fetchExistingBets: true,

@@ -75,8 +75,8 @@ export const update = (model: Model, msg: Msg): Return<Model, Msg> => {
         .with({ type: 'TOGGLE_BALANCE' }, () =>
             AuthHandler.handleToggleBalance(model)
         )
-        .with({ type: 'SYSTEM_READY' }, ({ date }) =>
-            AuthHandler.handleSystemReady(model, date)
+        .with({ type: 'SYSTEM_READY' }, ({ date, structureId, user }) =>
+            AuthHandler.handleSystemReady(model, date, structureId, user)
         )
 
         // Error Handling

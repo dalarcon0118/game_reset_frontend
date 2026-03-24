@@ -1,5 +1,6 @@
 import { LoteriaFeatureModel } from './core/feature.types';
 import { calculateLoteriaFixedAmount } from './loteria/loteria.domain';
+import { resolveLoteriaBetTypeId } from '@/shared/types/bet_types';
 
 export const selectLoteriaList = (model: LoteriaFeatureModel) => {
     const { isEditing, entrySession, listSession } = model;
@@ -7,7 +8,7 @@ export const selectLoteriaList = (model: LoteriaFeatureModel) => {
     const result = isEditing
         ? entrySession.loteria
         : (listSession.remoteData.type === 'Success'
-            ? (listSession.remoteData as any).data.loteria
+            ? listSession.remoteData.data.loteria
             : []);
 
     return result;
@@ -15,10 +16,12 @@ export const selectLoteriaList = (model: LoteriaFeatureModel) => {
 
 export const selectFixedAmount = (model: LoteriaFeatureModel) => {
     const { managementSession, rulesSession } = model;
-    const loteriaBetTypeId = managementSession.betTypes.loteria;
-    
+
+    const loteriaBetTypeId = managementSession.betTypes.type === 'Success'
+        ? resolveLoteriaBetTypeId(managementSession.betTypes.data)
+        : null;
+
     // 🛡️ Guardia defensiva: RulesModel (bet-workspace) usa rulesList, no status.
-    // Se ajusta para usar la estructura real y evitar el crash "Cannot read property 'status' of undefined"
     const rulesList = rulesSession?.rulesList;
     const rulesData = rulesList?.type === 'Success' ? rulesList.data : null;
     const validationRules = rulesData?.validationRules || [];

@@ -1,1 +1,3 @@
-export * from './banker_dashboard_service';
+// Banker feature services entry point
+// BankerDashboardService has been removed in favor of structureRepository + TEA
+export {};

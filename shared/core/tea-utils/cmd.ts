@@ -86,13 +86,21 @@ export const Cmd = {
   none: null,
 
   /**
-   * Envía un mensaje global (broadcast) que puede ser escuchado por cualquier
+   * Envía un mensaje global que puede ser escuchado por cualquier
    * suscriptor usando Sub.receiveMsg.
    * Útil para comunicación desacoplada entre módulos.
    */
-  sendMsg: (msg: GlobalMsg): CommandDescriptor => ({
+  sendMsg: (msg: GlobalMsg, options?: { sticky?: boolean }): CommandDescriptor => ({
     type: 'SEND_MSG',
-    payload: msg
+    payload: { msg, options }
+  }),
+
+  /**
+   * Limpia un mensaje "sticky" del bus global.
+   */
+  clearSticky: (signal: string | { toString(): string }): CommandDescriptor => ({
+    type: 'CLEAR_STICKY',
+    payload: typeof signal === 'string' ? signal : signal.toString()
   }),
 
   http: (

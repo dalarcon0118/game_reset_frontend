@@ -19,8 +19,7 @@ const log = logger.withTag('BET_TYPES');
 
 /**
  * Mapeo canónico de IDs del backend a tipos de apuesta.
- * @deprecated 🛑 SSOT VIOLATION: Se debe migrar al uso de GameRegistry.getCategoryByBetCode(code).
- * Este mapa es estático y no refleja cambios en el backend sin una actualización de la App.
+ * @deprecated 🛑 SSOT VIOLATION: Usar catálogo dinámico del sorteo. Solo lectura legacy.
  */
 export const BET_TYPE_ID_MAP: Record<string, BetTypeKind> = {
     '10': 'Lotería',
@@ -31,11 +30,12 @@ export const BET_TYPE_ID_MAP: Record<string, BetTypeKind> = {
     '4': 'Centena',
     '5': 'Cuaterna Semanal',
     '6': 'Quiniela',
+    '7': 'Fijo/Corrido',
 };
 
 /**
  * Mapeo inverso: tipo -> ID del backend (para guardado)
- * @deprecated 🛑 SSOT VIOLATION: Se debe migrar al uso de CÓDIGOS estables del backend.
+ * @deprecated 🛑 SSOT VIOLATION: Usar catálogo dinámico del sorteo. Solo lectura legacy.
  */
 export const BET_TYPE_TO_ID_MAP: Record<BetTypeKind, string> = {
     'Lotería': '10',
@@ -46,6 +46,94 @@ export const BET_TYPE_TO_ID_MAP: Record<BetTypeKind, string> = {
     'Cuaterna Semanal': '5',
     'Quiniela': '6',
     'Fijo/Corrido': '1',
+};
+
+/**
+ * Normaliza un mapa de IDs dinámicos provenientes del backend.
+ * Asegura que las llaves estén en mayúsculas y los valores sean strings válidos.
+ */
+export const normalizeDynamicBetTypeIds = (
+    dynamicBetTypeIds?: Record<string, string | number | null>
+): Record<string, string> | null => {
+    if (!dynamicBetTypeIds) return null;
+    return Object.entries(dynamicBetTypeIds).reduce<Record<string, string>>((acc, [key, value]) => {
+        if (value !== undefined && value !== null) {
+            acc[key.toUpperCase()] = String(value);
+        }
+        return acc;
+    }, {});
+};
+
+/**
+ * Resuelve un betTypeId de forma segura usando el catálogo dinámico (SSOT).
+ * Si no se encuentra, lanza un error o devuelve null según el modo.
+ */
+export const resolveBetTypeId = (
+    key: string,
+    dynamicMap: Record<string, string> | null,
+    fallbackToLegacy: boolean = false
+): string | null => {
+    const upperKey = key.toUpperCase();
+
+    // 1. Intentar resolución dinámica (Prioridad SSOT)
+    if (dynamicMap && dynamicMap[upperKey]) {
+        return dynamicMap[upperKey];
+    }
+
+    // 2. Fallback legacy (Solo si se permite explícitamente)
+    if (fallbackToLegacy) {
+        log.warn(`⚠️ Usando ID legacy para ${key}. Se recomienda migrar a resolución dinámica.`);
+        const normalizedType = normalizeBetType(key);
+        return BET_TYPE_TO_ID_MAP[normalizedType] || '1';
+    }
+
+    log.error(`❌ Error de resolución: ${key} no encontrado en el catálogo dinámico y no se permitió fallback.`);
+    return null;
+};
+
+type DynamicCatalogBetType = {
+    id: string | number;
+    code?: string | null;
+    name?: string | null;
+};
+
+export const buildDynamicBetTypeMap = (
+    betTypes?: DynamicCatalogBetType[] | null
+): Record<string, string> | null => {
+    if (!betTypes || betTypes.length === 0) return null;
+
+    const map = betTypes.reduce<Record<string, string | number | null>>((acc, betType) => {
+        if (betType.code) {
+            acc[String(betType.code)] = betType.id;
+        }
+        if (betType.name) {
+            acc[String(betType.name)] = betType.id;
+        }
+        return acc;
+    }, {});
+
+    return normalizeDynamicBetTypeIds(map);
+};
+
+export const resolveLoteriaBetTypeId = (
+    betTypes?: DynamicCatalogBetType[] | null
+): string | null => {
+    if (!betTypes || betTypes.length === 0) return null;
+
+    const dynamicMap = buildDynamicBetTypeMap(betTypes);
+    const normalizedMap = normalizeDynamicBetTypeIds(dynamicMap);
+
+    if (!normalizedMap) return null;
+
+    // Prioridad de resolución
+    const resolved =
+        resolveBetTypeId(BET_TYPE_KEYS.LOTERIA, normalizedMap) ||
+        resolveBetTypeId(BACKEND_BET_CODES.CUATERNA, normalizedMap) ||
+        resolveBetTypeId(BACKEND_BET_CODES.LOTERIA, normalizedMap) ||
+        resolveBetTypeId('CUATERNA', normalizedMap) ||
+        resolveBetTypeId('LOTERIA', normalizedMap);
+
+    return resolved;
 };
 
 /**
@@ -96,7 +184,9 @@ export const normalizeBetType = (type: string | number): BetTypeKind => {
  * Si es un número, lo convierte a string.
  * Si es un string que ya es un tipo (como 'Fijo'), lo convierte al ID.
  */
-export const normalizeBetTypeId = (value: string | number | undefined | null): string => {
+export const normalizeBetTypeId = (
+    value: string | number | undefined | null
+): string => {
     if (!value) return '1'; // Default Fijo
 
     const strValue = String(value);

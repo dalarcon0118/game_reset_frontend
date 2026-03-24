@@ -44,7 +44,11 @@ export const subscriptions = (model: Model): SubDescriptor<Msg> => {
     const systemReadySub = Sub.receiveMsg(
         SYSTEM_READY,
         (payload, dispatch) => {
-            dispatch(SYSTEM_READY_MSG({ date: payload.date }));
+            dispatch(SYSTEM_READY_MSG({ 
+                date: payload.date,
+                structureId: payload.structureId,
+                user: payload.user
+            }));
         },
         'listero-dashboard-system-ready'
     );

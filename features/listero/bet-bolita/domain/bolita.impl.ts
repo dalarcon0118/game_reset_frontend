@@ -1,5 +1,13 @@
 import { BolitaModel, BolitaListData } from './models/bolita.types';
-import { BET_TYPE_KEYS, UI_CONSTANTS, normalizeBetType, normalizeBetTypeId, normalizeNumbers, normalizeOwnerStructure } from '@/shared/types/bet_types';
+import {
+    BET_TYPE_KEYS,
+    UI_CONSTANTS,
+    normalizeBetType,
+    normalizeNumbers,
+    normalizeOwnerStructure,
+    normalizeDynamicBetTypeIds,
+    resolveBetTypeId
+} from '@/shared/types/bet_types';
 import { BetType, ParletBet, CentenaBet, FijosCorridosBet } from '@/types';
 import { BetPlacementInput } from '@/shared/repositories/bet/bet.types';
 import { logger } from '@/shared/utils/logger';
@@ -78,13 +86,31 @@ const parseNumbers = (bet: BetType): number[] => {
     return [];
 };
 
+const collectRequiredBetTypeKeys = (entrySession: BolitaModel['entrySession']): string[] => {
+    const required = new Set<string>();
+
+    entrySession.fijosCorridos.forEach((bet) => {
+        if (bet.fijoAmount && bet.fijoAmount > 0) required.add(BET_TYPE_KEYS.FIJO.toUpperCase());
+        if (bet.corridoAmount && bet.corridoAmount > 0) required.add(BET_TYPE_KEYS.CORRIDO.toUpperCase());
+    });
+
+    entrySession.parlets.forEach((bet) => {
+        if (bet.amount && bet.amount > 0) required.add(BET_TYPE_KEYS.PARLET.toUpperCase());
+    });
+
+    entrySession.centenas.forEach((bet) => {
+        if (bet.amount && bet.amount > 0) required.add(BET_TYPE_KEYS.CENTENA.toUpperCase());
+    });
+
+    return Array.from(required);
+};
+
 /**
  * 🛠️ DOMAIN IMPLEMENTATION
  * Pure business logic for the Bolita feature.
  * Following the TEA Clean Feature Design.
  */
 export const BolitaImpl = {
-    log: () => logger.withTag('BOLITA_VALIDATE_PREPARE'),
 
     // --- Validation Logic ---
     validation: {
@@ -131,8 +157,12 @@ export const BolitaImpl = {
 
     // --- Persistence Logic (Preparation) ---
     persistence: {
-        validateAndPrepare: (model: BolitaModel, drawId: string): { type: 'Valid'; payload: BetPlacementInput[] } | { type: 'Invalid'; reason: string } => {
-            BolitaImpl.log().info('validateAndPrepare triggered', { drawId, ...model });
+        validateAndPrepare: (
+            model: BolitaModel,
+            drawId: string,
+            dynamicBetTypeIds?: Record<string, string | null>
+        ): { type: 'Valid'; payload: BetPlacementInput[] } | { type: 'Invalid'; reason: string } => {
+            log.info('validateAndPrepare triggered', { drawId, ...model });
 
             const { summary, entrySession, userStructureId } = model;
 
@@ -146,16 +176,36 @@ export const BolitaImpl = {
 
             // Normalizar ownerStructure usando función centralizada
             const normalizedOwnerStructure = normalizeOwnerStructure(userStructureId);
+            const normalizedDynamicBetTypeIds = normalizeDynamicBetTypeIds(dynamicBetTypeIds);
+
+            if (!normalizedDynamicBetTypeIds) {
+                return {
+                    type: 'Invalid',
+                    reason: 'No se pudieron cargar los tipos de apuesta para este sorteo.'
+                };
+            }
+
+            const requiredKeys = collectRequiredBetTypeKeys(entrySession);
+            const missingKeys = requiredKeys.filter((key) => !normalizedDynamicBetTypeIds[key]);
+            if (missingKeys.length > 0) {
+                return {
+                    type: 'Invalid',
+                    reason: `Faltan betTypeId dinámicos para: ${missingKeys.join(', ')}`
+                };
+            }
 
             const bets: BetPlacementInput[] = [];
 
             // Fijos/Corridos
-            entrySession.fijosCorridos.forEach(b => {
+            for (const b of entrySession.fijosCorridos) {
                 if (b.fijoAmount && b.fijoAmount > 0) {
+                    const fijoBetTypeId = resolveBetTypeId(BET_TYPE_KEYS.FIJO, normalizedDynamicBetTypeIds);
+                    if (!fijoBetTypeId) {
+                        return { type: 'Invalid', reason: 'No se pudo resolver betTypeId para FIJO.' };
+                    }
                     bets.push({
-                        id: b.id,
                         type: normalizeBetType(BET_TYPE_KEYS.FIJO),
-                        betTypeId: normalizeBetTypeId(BET_TYPE_KEYS.FIJO),
+                        betTypeId: fijoBetTypeId,
                         amount: b.fijoAmount,
                         numbers: normalizeNumbers(b.bet),
                         drawId,
@@ -163,47 +213,56 @@ export const BolitaImpl = {
                     });
                 }
                 if (b.corridoAmount && b.corridoAmount > 0) {
+                    const corridoBetTypeId = resolveBetTypeId(BET_TYPE_KEYS.CORRIDO, normalizedDynamicBetTypeIds);
+                    if (!corridoBetTypeId) {
+                        return { type: 'Invalid', reason: 'No se pudo resolver betTypeId para CORRIDO.' };
+                    }
                     bets.push({
-                        id: b.id,
                         type: normalizeBetType(BET_TYPE_KEYS.CORRIDO),
-                        betTypeId: normalizeBetTypeId(BET_TYPE_KEYS.CORRIDO),
+                        betTypeId: corridoBetTypeId,
                         amount: b.corridoAmount,
                         numbers: normalizeNumbers(b.bet),
                         drawId,
                         ownerStructure: normalizedOwnerStructure
                     });
                 }
-            });
+            }
 
             // Parlets
-            entrySession.parlets.forEach(b => {
+            for (const b of entrySession.parlets) {
                 if (b.amount && b.amount > 0) {
+                    const parletBetTypeId = resolveBetTypeId(BET_TYPE_KEYS.PARLET, normalizedDynamicBetTypeIds);
+                    if (!parletBetTypeId) {
+                        return { type: 'Invalid', reason: 'No se pudo resolver betTypeId para PARLET.' };
+                    }
                     bets.push({
-                        id: b.id,
                         type: normalizeBetType(BET_TYPE_KEYS.PARLET),
-                        betTypeId: normalizeBetTypeId(BET_TYPE_KEYS.PARLET),
+                        betTypeId: parletBetTypeId,
                         amount: b.amount,
                         numbers: normalizeNumbers(b.bets),
                         drawId,
                         ownerStructure: normalizedOwnerStructure
                     });
                 }
-            });
+            }
 
             // Centenas
-            entrySession.centenas.forEach(b => {
+            for (const b of entrySession.centenas) {
                 if (b.amount && b.amount > 0) {
+                    const centenaBetTypeId = resolveBetTypeId(BET_TYPE_KEYS.CENTENA, normalizedDynamicBetTypeIds);
+                    if (!centenaBetTypeId) {
+                        return { type: 'Invalid', reason: 'No se pudo resolver betTypeId para CENTENA.' };
+                    }
                     bets.push({
-                        id: b.id,
                         type: normalizeBetType(BET_TYPE_KEYS.CENTENA),
-                        betTypeId: normalizeBetTypeId(BET_TYPE_KEYS.CENTENA),
+                        betTypeId: centenaBetTypeId,
                         amount: b.amount,
                         numbers: normalizeNumbers(b.bet),
                         drawId,
                         ownerStructure: normalizedOwnerStructure
                     });
                 }
-            });
+            }
 
             if (bets.length === 0) {
                 return { type: 'Invalid', reason: 'No hay apuestas válidas para guardar.' };

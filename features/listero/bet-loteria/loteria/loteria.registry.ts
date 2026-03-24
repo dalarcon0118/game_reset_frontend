@@ -3,7 +3,7 @@ import { Model as GlobalModel, ListData } from '@/features/listero/bet-workspace
 import logger from '@/shared/utils/logger';
 import { GameType, BetType, LoteriaBet } from '@/types';
 
-import { BET_TYPE_KEYS, BACKEND_BET_CODES, BET_TYPE_KEYWORDS, isLoteriaType } from '@/shared/types/bet_types';
+import { BET_TYPE_KEYS, isLoteriaType, resolveLoteriaBetTypeId } from '@/shared/types/bet_types';
 
 const log = logger.withTag('[LoteriaRegistryFeature]');
 export const LoteriaRegistryFeature: BetFeature = {
@@ -21,26 +21,7 @@ export const LoteriaRegistryFeature: BetFeature = {
     },
 
     identifyBetTypes: (betTypes: GameType[]): Record<string, string | null> => {
-        const type = betTypes.find(t => {
-            const tCode = (t.code || '').toUpperCase();
-            const tName = (t.name || '').toUpperCase();
-
-            // Prioridad al código inmutable del backend
-            if (([
-                BACKEND_BET_CODES.LOTERIA,
-                BACKEND_BET_CODES.CUATERNA,
-                BACKEND_BET_CODES.CUATERNA_SEMANAL,
-                BACKEND_BET_CODES.WEEKLY
-            ] as string[]).includes(tCode)) return true;
-
-            // Fallback a keywords si el código no está estandarizado
-            return [
-                BET_TYPE_KEYWORDS.LOTERIA,
-                BET_TYPE_KEYWORDS.CUATERNA,
-                BET_TYPE_KEYWORDS.SEMANAL
-            ].some(keyword => tName.includes(keyword));
-        });
-        return { loteria: type?.id?.toString() || null };
+        return { loteria: resolveLoteriaBetTypeId(betTypes) };
     },
 
     transformBets: (bets: BetType[], identifiedBetTypes?: Record<string, string | null>): Partial<ListData> => {

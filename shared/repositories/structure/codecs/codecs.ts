@@ -5,18 +5,22 @@ import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('STRUCTURE_CODECS');
 
-export const ChildStructureCodec = t.type({
-    id: t.number,
-    structure_id: t.number,
-    name: t.string,
-    type: t.string,
-    total_collected: t.number,
-    net_collected: t.number,
-    premiums_paid: t.number,
-    commissions: t.number,
-    draw_name: t.string,
-    draw_ids: t.array(t.number),
-});
+export const ChildStructureCodec = t.intersection([
+    t.type({
+        id: t.number,
+        name: t.string,
+        type: t.string,
+    }),
+    t.partial({
+        structure_id: t.union([t.number, t.null]),
+        total_collected: t.union([t.number, t.null]),
+        net_collected: t.union([t.number, t.null]),
+        premiums_paid: t.union([t.number, t.null]),
+        commissions: t.union([t.number, t.null]),
+        draw_name: t.union([t.string, t.null]),
+        draw_ids: t.union([t.array(t.number), t.null]),
+    })
+]);
 
 export const ChildStructureArrayCodec = t.array(ChildStructureCodec);
 

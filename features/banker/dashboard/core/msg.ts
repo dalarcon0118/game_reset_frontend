@@ -1,15 +1,16 @@
 import { WebData } from '@core/tea-utils';
-import { ChildStructure } from '@/shared/services/structure';
-import { DashboardSummary } from './model';
+import { Agency, DashboardSummary } from '@/shared/repositories/structure/domain/models';
+import { User } from '@/shared/repositories/auth/types/types';
 
 export type Msg =
     | { type: 'FETCH_DATA_REQUESTED'; structureId: string }
-    | { type: 'DATA_RECEIVED'; webData: WebData<{ children: ChildStructure[], summary: DashboardSummary }> }
+    | { type: 'DATA_RECEIVED'; webData: WebData<Agency[]> }
     | { type: 'REFRESH_CLICKED' }
     | { type: 'AGENCY_SELECTED'; agencyId: number }
     | { type: 'RULES_PRESSED'; agencyId: number }
     | { type: 'LIST_PRESSED'; agencyId: number }
-    | { type: 'AUTH_USER_SYNCED'; user: any }
+    | { type: 'SYSTEM_INITIALIZED'; structureId: string | null; isReady: boolean }
+    | { type: 'ERROR_OCCURRED'; error: string }
     | { type: 'NAVIGATE_TO_SETTINGS' }
     | { type: 'NAVIGATE_TO_NOTIFICATIONS' };
 

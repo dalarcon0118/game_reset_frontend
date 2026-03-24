@@ -1,4 +1,5 @@
 import { IBetApi } from '../bet.ports';
+import { BetDomainModel } from '../bet.types';
 import { CreateBetDTO, BackendBet, ListBetsFilters } from '@/shared/services/bet/types';
 import { BetApi as LegacyBetApi } from '@/shared/services/bet/api';
 import { StructureApi } from '@/shared/services/structure/api';
@@ -10,11 +11,17 @@ import { BackendChildStructure, BackendListeroDetails } from '@/shared/services/
  */
 export class BetApiAdapter implements IBetApi {
     async create(bet: BetDomainModel, idempotencyKey: string): Promise<BackendBet | BackendBet[]> {
+        // ============================================================
+        // FASE 2: Soporte para betTypeCode además de betTypeId
+        // El backend ahora acepta código (FIJO, CORRIDO) además de ID
+        // ============================================================
+        const betTypeId = bet.betTypeCode || bet.betTypeId;
+
         // Transform the flat domain model into the flat DTO expected by the backend
         const dto: CreateBetDTO = {
             drawId: bet.drawId,
             bets: [{
-                betTypeId: bet.betTypeId,
+                betTypeId: betTypeId,  // Ahora puede ser código (FIJO) o ID (1)
                 drawId: bet.drawId,
                 amount: bet.amount,
                 numbers: bet.numbers,

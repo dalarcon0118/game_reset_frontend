@@ -42,7 +42,7 @@ export type Msg =
     | { type: 'NOTIFICATIONS_CLICKED' }
     | { type: 'SETTINGS_CLICKED' }
     | { type: 'TOGGLE_BALANCE' }
-    | { type: 'SYSTEM_READY'; date: string }
+    | { type: 'SYSTEM_READY'; date: string; structureId?: string; user?: any }
     | { type: 'PROMOTION_MSG'; msg: PromotionMsg }
     | { type: 'ERROR'; error: any }
     | { type: 'NONE' };
@@ -66,7 +66,10 @@ export const NOTIFICATIONS_CLICKED = (): Msg => ({ type: 'NOTIFICATIONS_CLICKED'
 export const SETTINGS_CLICKED = (): Msg => ({ type: 'SETTINGS_CLICKED' });
 export const TOGGLE_BALANCE = (): Msg => ({ type: 'TOGGLE_BALANCE' });
 export const NONE = (): Msg => ({ type: 'NONE' });
-export const SYSTEM_READY = (payload: { date: string }): Msg => ({ type: 'SYSTEM_READY', date: payload.date });
+export const SYSTEM_READY = (payload: { date: string; structureId?: string; user?: any }): Msg => ({ 
+    type: 'SYSTEM_READY', 
+    ...payload 
+});
 
 export const PROMOTION_MSG = (msg: PromotionMsg): Msg => ({ type: 'PROMOTION_MSG', msg });
 

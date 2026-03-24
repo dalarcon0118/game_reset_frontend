@@ -16,6 +16,7 @@ import { BetStorageAdapter } from './adapters/bet.storage.adapter';
 import { BetApiAdapter } from './adapters/bet.api.adapter';
 import { BetSyncListener } from './sync/bet.sync.listener';
 import { offlineEventBus } from '@/shared/core/offline-storage/instance';
+import { notificationRepository } from '../notification';
 
 const log = logger.withTag('BetRepository');
 
@@ -98,10 +99,30 @@ export class BetRepository implements IBetRepository {
     }
 
     /**
-     * Manual Sync: Triggers synchronization of all pending bets.
+     * Sincroniza todas las apuestas pendientes.
      */
     async syncPending(): Promise<{ success: number; failed: number }> {
-        return await syncPendingFlow(this.storage, this.api);
+        const result = await syncPendingFlow(this.storage, this.api);
+
+        if (result.success > 0) {
+            await notificationRepository.addNotification({
+                title: 'Sincronización completada',
+                message: `Se han sincronizado ${result.success} apuestas exitosamente.`,
+                type: 'success',
+                metadata: { count: result.success, type: 'SYNC_SUCCESS' }
+            });
+        }
+
+        if (result.failed > 0) {
+            await notificationRepository.addNotification({
+                title: 'Error de sincronización',
+                message: `${result.failed} apuestas no pudieron sincronizarse. Se reintentará más tarde.`,
+                type: 'error',
+                metadata: { count: result.failed, type: 'SYNC_ERROR' }
+            });
+        }
+
+        return result;
     }
 
     /**
@@ -168,6 +189,25 @@ export class BetRepository implements IBetRepository {
      */
     async getPendingBets(): Promise<BetDomainModel[]> {
         return await this.storage.getPending();
+    }
+
+    /**
+     * Agrega una apuesta pendiente directamente al almacenamiento offline.
+     * Útil para tests o para inyectar apuestas que deben ser sincronizadas.
+     */
+    async addPendingBet(bet: BetDomainModel): Promise<void> {
+        this.log.debug('Adding manual pending bet', bet);
+        await this.storage.save(bet);
+
+        // Notificar a la UI sobre la apuesta pendiente guardada offline
+        await notificationRepository.addNotification({
+            title: 'Apuesta guardada offline',
+            message: `La apuesta por ${bet.amount} se guardará localmente hasta que recuperes la conexión.`,
+            type: 'warning',
+            metadata: { betId: (bet as any).id, type: 'OFFLINE_BET' }
+        });
+
+        this.notifySubscribers();
     }
 
     /**
@@ -298,6 +338,11 @@ export class BetRepository implements IBetRepository {
      */
     async delete(betId: number): Promise<void> {
         await this.api.delete(betId);
+    }
+
+    async isReady(): Promise<boolean> {
+        // El repositorio está listo si su almacenamiento lo está
+        return true; // En este punto el storage ya debería estar inicializado vía constructor/singleton
     }
 }
 

@@ -4,6 +4,7 @@ import { RemoteData } from '@core/tea-utils';
 import { LoteriaState } from '../../loteria/loteria.types';
 import { CalculationLogic } from './calculation.logic';
 import { calculateLoteriaFixedAmount, DEFAULT_LOTERIA_FIXED_AMOUNT } from '../../loteria/loteria.domain';
+import { resolveLoteriaBetTypeId } from '@/shared/types/bet_types';
 
 /**
  * 📦 SESSION LOGIC
@@ -48,8 +49,11 @@ export const SessionLogic = {
         }
 
         // Calculate fixedAmount to ensure summary is correct (Single Source of Truth)
-        const loteriaBetTypeId = model.managementSession.betTypes.loteria;
-        
+        const betTypes = model.managementSession.betTypes;
+        const loteriaBetTypeId = betTypes.type === 'Success'
+            ? resolveLoteriaBetTypeId(betTypes.data)
+            : null;
+
         // 🛡️ Guardia defensiva: RulesModel (bet-workspace) usa rulesList, no status.
         // Se ajusta para usar la estructura real y evitar el crash "Cannot read property 'status' of undefined"
         const rulesList = model.rulesSession?.rulesList;

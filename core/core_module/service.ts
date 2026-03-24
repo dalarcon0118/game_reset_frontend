@@ -31,6 +31,26 @@ const getAuthRepo = (): IAuthRepository => {
   return _authRepo;
 };
 
+const syncPendingBetsIfOnlineAndNeeded = async (): Promise<{
+  skipped: boolean;
+  reason?: 'NO_PENDING' | 'OFFLINE';
+  success?: number;
+  failed?: number;
+}> => {
+  const pending = await betRepository.getPendingBets();
+  if (pending.length === 0) {
+    return { skipped: true, reason: 'NO_PENDING' };
+  }
+
+  const online = await isServerReachable();
+  if (!online) {
+    return { skipped: true, reason: 'OFFLINE' };
+  }
+
+  const result = await betRepository.syncPending();
+  return { skipped: false, success: result.success, failed: result.failed };
+};
+
 /**
  * CoreService
  * 
@@ -50,17 +70,15 @@ export const CoreService = {
 
   /**
    * Crea un comando para notificar que el sistema está listo.
+   * Se envía como 'sticky' para que los módulos que se carguen tarde lo reciban.
    */
-  notifySystemReady(date: string): Cmd {
-    return Cmd.task({
-      task: () => {
-        log.info('System fully ready, notifying listeners...', { date });
-        return Promise.resolve(SYSTEM_READY({ date }));
-      },
-      onSuccess: (msg) => msg,
-      onFailure: () => ({ type: 'NO_OP' } as any),
-      label: 'NOTIFY_SYSTEM_READY'
-    });
+  notifySystemReady(date: string, context?: { structureId: string; user: any } | null): Cmd {
+    log.info('System fully ready, creating notification command (STICKY)...', { date, structureId: context?.structureId });
+    return Cmd.sendMsg(SYSTEM_READY({
+      date,
+      structureId: context?.structureId,
+      user: context?.user
+    }), { sticky: true });
   },
 
   /**
@@ -69,8 +87,8 @@ export const CoreService = {
   verifySessionContextTask(): Cmd {
     return Cmd.task({
       task: () => this.verifySessionContext(),
-      onSuccess: (isReady) => isReady
-        ? { type: 'SESSION_CONTEXT_READY' }
+      onSuccess: (context) => context
+        ? { type: 'SESSION_CONTEXT_READY', payload: context }
         : { type: 'SESSION_EXPIRED', reason: 'INCOMPLETE_PROFILE' },
       onFailure: () => ({ type: 'SESSION_EXPIRED', reason: 'PROFILE_FETCH_FAILED' }),
       label: 'VERIFY_SESSION_CONTEXT'
@@ -96,7 +114,7 @@ export const CoreService = {
    * Verifica el contexto de la sesión (Perfil + Estructura)
    * Intenta refrescar si falta información crítica.
    */
-  async verifySessionContext(): Promise<boolean> {
+  async verifySessionContext(): Promise<{ structureId: string; user: any } | null> {
     log.debug('Verifying session context...');
     const authRepo = getAuthRepo();
     let user = await authRepo.hydrate();
@@ -109,7 +127,14 @@ export const CoreService = {
       }
     }
 
-    return !!(user && user.structure);
+    if (user && user.structure) {
+      return {
+        structureId: String(user.structure.id),
+        user
+      };
+    }
+
+    return null;
   },
 
   /**
@@ -278,6 +303,28 @@ export const CoreService = {
         return { type: 'NO_OP' } as any;
       },
       label: 'SYNC_PENDING_BETS_ON_RECONNECT'
+    });
+  },
+
+  syncPendingBetsOnStartupTask(): Cmd {
+    return Cmd.task({
+      task: async () => {
+        log.info('Startup/session sync check for pending bets...');
+        return await syncPendingBetsIfOnlineAndNeeded();
+      },
+      onSuccess: (res) => {
+        if (res.skipped) {
+          log.debug('Startup pending sync skipped', { reason: res.reason });
+          return { type: 'NO_OP' } as any;
+        }
+        log.info(`Startup pending sync completed: ${res.success} success, ${res.failed} failed`);
+        return { type: 'NO_OP' } as any;
+      },
+      onFailure: (err) => {
+        log.error('Startup pending sync failed', err);
+        return { type: 'NO_OP' } as any;
+      },
+      label: 'SYNC_PENDING_BETS_ON_STARTUP'
     });
   },
 

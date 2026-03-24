@@ -1,5 +1,5 @@
 import { createMsg, WebData } from '@core/tea-utils';
-import { BetType, ParletBet, CentenaBet, FijosCorridosBet } from '@/types';
+import { BetType, ParletBet, CentenaBet, FijosCorridosBet, GameType } from '@/types';
 import { BolitaListData } from '../models/bolita.types';
 
 // ============================================================================
@@ -231,6 +231,8 @@ export const EDIT = createMsg<'EDIT', EditMsg>('EDIT');
 export const KEY_PRESSED = createMsg<'KEY_PRESSED', { key: string }>('KEY_PRESSED');
 export const REQUEST_SAVE_ALL_BETS = createMsg<'REQUEST_SAVE_ALL_BETS', { drawId: string }>('REQUEST_SAVE_ALL_BETS');
 export const CONFIRM_SAVE_ALL_BETS = createMsg<'CONFIRM_SAVE_ALL_BETS', { drawId: string }>('CONFIRM_SAVE_ALL_BETS');
+export const FETCH_BET_TYPES = createMsg<'FETCH_BET_TYPES', { drawId: string }>('FETCH_BET_TYPES');
+export const FETCH_BET_TYPES_RESPONSE = createMsg<'FETCH_BET_TYPES_RESPONSE', { response: WebData<GameType[]> }>('FETCH_BET_TYPES_RESPONSE');
 export const SET_USER_CONTEXT = createMsg<'SET_USER_CONTEXT', { structureId: number }>('SET_USER_CONTEXT');
 export const SAVE_BETS_RESPONSE = createMsg<'SAVE_BETS_RESPONSE', { response: WebData<BetType[]> }>('SAVE_BETS_RESPONSE');
 export const BOLITA_BETS_UPDATED = createMsg<'BOLITA_BETS_UPDATED', void>('BOLITA_BETS_UPDATED');
@@ -248,6 +250,8 @@ export type BolitaMsg =
     | typeof KEY_PRESSED._type
     | typeof REQUEST_SAVE_ALL_BETS._type
     | typeof CONFIRM_SAVE_ALL_BETS._type
+    | typeof FETCH_BET_TYPES._type
+    | typeof FETCH_BET_TYPES_RESPONSE._type
     | typeof SET_USER_CONTEXT._type
     | typeof SAVE_BETS_RESPONSE._type
     | typeof BOLITA_BETS_UPDATED._type

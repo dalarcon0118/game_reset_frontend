@@ -187,6 +187,10 @@ export const createTestEnv = async () => {
         testMiddleware,
         mockStorage,
         authenticateRealUser,
-        initAuthStore
+        initAuthStore,
+        cleanup: async () => {
+            // Restore any global state if necessary
+            console.log('🧹 Test environment cleanup');
+        }
     };
 };

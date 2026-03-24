@@ -8,8 +8,12 @@ import { BetPlacementInput } from '@/shared/repositories/bet/bet.types';
  * Following the TEA Clean Feature Design.
  */
 export interface IBolitaPersistence {
-    validateAndPrepare(model: BolitaModel, drawId: string): { type: 'Valid'; payload: BetPlacementInput[] } | { type: 'Invalid'; reason: string };
-    transformBets(bets: BetType[]): BolitaListData;
+    validateAndPrepare(
+        model: BolitaModel,
+        drawId: string,
+        dynamicBetTypeIds?: Record<string, string | null>
+    ): { type: 'Valid'; payload: BetPlacementInput[] } | { type: 'Invalid'; reason: string };
+    transformBets(bets: BetType[], _identifiedBetTypes?: Record<string, string | null>): BolitaListData;
 }
 
 export interface IBolitaCalculation {

@@ -1,7 +1,6 @@
 import { LoteriaFeatureModel } from './feature.types';
 import { LoteriaBet, DrawType, GameType } from '@/types';
 import { WebData, RemoteData } from '@core/tea-utils';
-import { LoteriaState } from '../loteria/loteria.types';
 import { calculateLoteriaFixedAmount, DEFAULT_LOTERIA_FIXED_AMOUNT } from '../loteria/loteria.domain';
 
 // Import specialized domain modules
@@ -10,7 +9,7 @@ import { CalculationLogic } from './domain/calculation.logic';
 import { SessionLogic } from './domain/session.logic';
 import { PersistenceLogic } from './domain/persistence.logic';
 
-import { isLoteriaType } from '@/shared/types/bet_types';
+import { resolveLoteriaBetTypeId } from '@/shared/types/bet_types';
 
 /**
  * 🧠 LOTERIA DOMAIN FACADE
@@ -46,8 +45,11 @@ export const LoteriaDomain = {
      * Priority: 1. Rules from server, 2. Default constant (150).
      */
     getEffectiveAmount: (model: LoteriaFeatureModel): number => {
-        const loteriaBetTypeId = model.managementSession.betTypes.loteria;
-        
+        const betTypes = model.managementSession.betTypes;
+        const loteriaBetTypeId = betTypes.type === 'Success'
+            ? resolveLoteriaBetTypeId(betTypes.data)
+            : null;
+
         // 🛡️ Guardia defensiva: RulesModel (bet-workspace) usa rulesList, no status.
         // Se ajusta para usar la estructura real y evitar el crash "Cannot read property 'status' of undefined"
         const rulesList = model.rulesSession?.rulesList;
@@ -120,29 +122,13 @@ export const LoteriaDomain = {
      * Updates the model with bet types response.
      * Identifies the specific ID for 'loteria' game type.
      */
-    updateBetTypes: (model: LoteriaFeatureModel, response: WebData<GameType[]>): LoteriaFeatureModel => {
-        let loteriaId: string | null = null;
-
-        if (response.type === 'Success') {
-            const loteriaType = response.data.find((t: GameType) =>
-                isLoteriaType(t.name || '', t.id) || t.code === 'CUATERNA'
-            );
-            if (loteriaType) {
-                loteriaId = loteriaType.id;
-            }
+    updateBetTypes: (model: LoteriaFeatureModel, response: WebData<GameType[]>): LoteriaFeatureModel => ({
+        ...model,
+        managementSession: {
+            ...model.managementSession,
+            betTypes: response
         }
-
-        return {
-            ...model,
-            managementSession: {
-                ...model.managementSession,
-                betTypes: {
-                    ...model.managementSession.betTypes,
-                    loteria: loteriaId
-                }
-            }
-        };
-    },
+    }),
 
     /**
      * Updates the model with existing bets response.

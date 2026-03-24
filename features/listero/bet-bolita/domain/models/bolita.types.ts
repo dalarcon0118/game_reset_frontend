@@ -1,4 +1,5 @@
-import { ParletBet, CentenaBet, FijosCorridosBet, ExtendedDrawType, GameType } from '@/types';
+import { ParletBet, CentenaBet, FijosCorridosBet, GameType } from '@/types';
+import { ExtendedDrawType } from '@/shared/repositories/draw/api/types/types';
 import { WebData } from '@core/tea-utils';
 
 // ============================================================================
@@ -93,7 +94,7 @@ export interface BolitaModel {
     currentDrawId: string | null;
     userStructureId: number | null;
     drawDetails: WebData<ExtendedDrawType>;
-    betTypes: WebData<any[]>;
+    betTypes: WebData<GameType[]>;
     parletSession: ParletModel;
     centenaSession: CentenaModel;
     editState: EditModel;

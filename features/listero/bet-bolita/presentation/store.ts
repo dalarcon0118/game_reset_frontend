@@ -1,9 +1,9 @@
 import { createTEAModule, defineTeaModule } from '@core/engine/tea_module';
-import { Cmd, Sub, ret } from '@core/tea-utils';
+import { Cmd, Sub } from '@core/tea-utils';
 import { BolitaModel } from '../domain/models/bolita.types';
 import { initialBolitaModel } from '../domain/models/bolita.initial';
 import { update } from '../application/bolita';
-import { BolitaMsg, APPLY_PROMOTION_CONTEXT } from '../domain/models/bolita.messages';
+import { BolitaMsg, APPLY_PROMOTION_CONTEXT, FETCH_BET_TYPES } from '../domain/models/bolita.messages';
 
 /**
  * 📝 BOLITA MODULE PARAMS
@@ -26,12 +26,17 @@ const bolitaDefinition = defineTeaModule<BolitaModel, BolitaMsg>({
             currentDrawId: params.drawId || null
         };
 
-        // If we have a betType (from a promotion), trigger the configuration
-        if (params.betType) {
-            return ret(model, Cmd.ofMsg(APPLY_PROMOTION_CONTEXT({ betType: params.betType })));
+        const commands = [];
+        if (params.drawId) {
+            commands.push(Cmd.ofMsg(FETCH_BET_TYPES({ drawId: params.drawId })));
         }
 
-        return [model, Cmd.none];
+        // If we have a betType (from a promotion), trigger the configuration
+        if (params.betType) {
+            commands.push(Cmd.ofMsg(APPLY_PROMOTION_CONTEXT({ betType: params.betType })));
+        }
+
+        return [model, commands.length > 0 ? Cmd.batch(commands) : Cmd.none];
     },
     update,
     subscriptions: () => Sub.none()

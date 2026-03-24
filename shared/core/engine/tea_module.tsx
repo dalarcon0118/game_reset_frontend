@@ -20,7 +20,11 @@ export interface TeaModuleDef<TModel, TMsg> {
  */
 export interface TeaModuleInstance<TModel, TMsg> {
     name: string;
-    Provider: React.FC<{ children: ReactNode; initialParams?: any }>;
+    Provider: React.FC<{ 
+        children: ReactNode; 
+        initialParams?: any;
+        store?: UseBoundStore<StoreApi<{ model: TModel; dispatch: (msg: TMsg) => void }>>;
+    }>;
     useStore: <T = { model: TModel; dispatch: (msg: TMsg) => void }>(
         selector?: (state: { model: TModel; dispatch: (msg: TMsg) => void }) => T
     ) => T;
@@ -49,8 +53,12 @@ export function createTEAModule<TModel, TMsg>(
 ): TeaModuleInstance<TModel, TMsg> {
     const Context = createContext<UseBoundStore<StoreApi<{ model: TModel; dispatch: (msg: TMsg) => void }>> | null>(null);
 
-    const Provider: React.FC<{ children: ReactNode; initialParams?: any }> = ({ children, initialParams }) => {
-        const storeRef = useRef<UseBoundStore<StoreApi<{ model: TModel; dispatch: (msg: TMsg) => void }>> | null>(null);
+    const Provider: React.FC<{ 
+        children: ReactNode; 
+        initialParams?: any;
+        store?: UseBoundStore<StoreApi<{ model: TModel; dispatch: (msg: TMsg) => void }>>;
+    }> = ({ children, initialParams, store: providedStore }) => {
+        const storeRef = useRef<UseBoundStore<StoreApi<{ model: TModel; dispatch: (msg: TMsg) => void }>> | null>(providedStore || null);
 
         if (!storeRef.current) {
             const store = createElmStore({
@@ -71,10 +79,12 @@ export function createTEAModule<TModel, TMsg>(
 
         useEffect(() => {
             return () => {
-                store?.getState().cleanup?.();
-                storeRegistry.unregister(def.name);
+                if (!providedStore) {
+                    store?.getState().cleanup?.();
+                    storeRegistry.unregister(def.name);
+                }
             };
-        }, [store]);
+        }, [store, providedStore]);
 
         return <Context.Provider value={store as any}>{children}</Context.Provider>;
     };

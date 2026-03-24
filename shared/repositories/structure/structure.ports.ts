@@ -1,9 +1,26 @@
-import { BackendChildStructure, BackendListeroDetails } from './types/types';
+import { Agency } from './domain/models';
+import { BackendListeroDetails } from './types/types';
 
-export type ChildStructure = BackendChildStructure;
+/**
+ * Domain-aligned type for Listero details.
+ * Currently an alias to backend type, but should be its own domain interface.
+ */
 export type ListeroDetails = BackendListeroDetails;
 
-export interface IStructureRepository {
-    getChildren(id: number, level?: number): Promise<ChildStructure[]>;
-    getListeroDetails(id: number, date?: string): Promise<ListeroDetails>;
+/**
+ * StructurePorts - Repositorio de estructura (Puertos).
+ * Define las operaciones disponibles para interactuar con la jerarquía de agencias.
+ * Sigue la filosofía Elm: Interfaces claras y tipos de dominio.
+ */
+export interface StructurePorts {
+    /**
+     * Obtiene los hijos de un nodo de estructura.
+     * Retorna una lista de Agencias (modelo de dominio).
+     */
+    getChildren: (id: number, level?: number) => Promise<Agency[]>;
+
+    /**
+     * Obtiene los detalles de un listero para una fecha específica.
+     */
+    getListeroDetails: (id: number, date?: string) => Promise<ListeroDetails>;
 }

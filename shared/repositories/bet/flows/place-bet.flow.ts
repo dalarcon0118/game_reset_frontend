@@ -141,6 +141,23 @@ const attemptSync = async (
     }
 };
 
+const attemptBatchSyncIfOnline = async (
+    bets: BetDomainModel[],
+    api: IBetApi,
+    storage: IBetStorage
+): Promise<void> => {
+    try {
+        const online = await isServerReachable();
+        if (!online) return;
+
+        for (const bet of bets) {
+            await attemptSync(bet, api, storage);
+        }
+    } catch (error) {
+        log.warn('Batch immediate sync failed, keeping bets pending', error);
+    }
+};
+
 /**
  * 5. Map final result for UI.
  */
@@ -232,7 +249,7 @@ export const placeBetFlow = async (
 export const placeBatchFlow = async (
     betsData: Omit<BetDomainModel, 'externalId' | 'status' | 'timestamp'>[],
     storage: IBetStorage,
-    _api: IBetApi
+    api: IBetApi
 ): Promise<Result<BetType[], Error>> => {
     // Generar un único receiptCode para todo el batch si no viene ya uno
     const commonReceiptCode = BetLogic.generateReceiptCode();
@@ -290,7 +307,10 @@ export const placeBatchFlow = async (
         .andThen(savedList => {
             // Notificación reactiva
             notifyBatchCreated(savedList, trustedNow);
-            return okAsync(savedList);
+            return ResultAsync.fromPromise(
+                attemptBatchSyncIfOnline(savedList, api, storage).then(() => savedList),
+                e => e as Error
+            );
         })
         .andThen(savedList => {
             return new ResultAsync((async () => {

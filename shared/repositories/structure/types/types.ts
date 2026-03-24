@@ -1,14 +1,14 @@
 export interface BackendChildStructure {
     id: number;
-    structure_id: number;
     name: string;
     type: string;
-    total_collected: number;
-    net_collected: number;
-    premiums_paid: number;
-    commissions: number;
-    draw_name: string;
-    draw_ids: number[];
+    structure_id?: number | null;
+    total_collected?: number | null;
+    net_collected?: number | null;
+    premiums_paid?: number | null;
+    commissions?: number | null;
+    draw_name?: string | null;
+    draw_ids?: number[] | null;
 }
 
 export interface BackendListeroDrawDetail {

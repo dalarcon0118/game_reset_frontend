@@ -70,26 +70,28 @@ export const AuthHandler = {
         return singleton(nextModel);
     },
 
-    handleSystemReady: (model: Model, date: string): Return<Model, Msg> => {
-        log.info('SYSTEM_READY received from CoreModule. Context is guaranteed.', { date });
+    handleSystemReady: (model: Model, date: string, structureId?: string, user?: any): Return<Model, Msg> => {
+        log.info('SYSTEM_READY received from CoreModule. Context is guaranteed.', { date, structureId });
 
         if (model.draws.type === 'Success' && model.status.type === 'READY') {
             return singleton(model);
         }
 
-        const loadingModel: Model = {
+        // Si recibimos el contexto en el mensaje, lo inyectamos directamente
+        const updatedModel: Model = {
             ...model,
-            status: { type: 'LOADING_DATA' }
+            status: { type: 'LOADING_DATA' },
+            userStructureId: structureId || model.userStructureId
         };
 
-        // Si ya tenemos el ID, procedemos.
-        if (loadingModel.userStructureId) {
-            return triggerInitialLoad(loadingModel);
+        // Si ya tenemos el ID (vía payload o previo), procedemos.
+        if (updatedModel.userStructureId) {
+            return triggerInitialLoad(updatedModel);
         }
 
-        // Si no lo tenemos (lo normal tras el refactor SSOT), lo pedimos al repositorio
-        log.info('SYSTEM_READY: userStructureId missing in model. Fetching from AuthRepository...');
-        return ret(loadingModel, fetchUserDataCmd());
+        // Fallback: Si por alguna razón no vino en el payload, lo pedimos al repositorio
+        log.info('SYSTEM_READY: userStructureId missing in payload. Fetching from AuthRepository...');
+        return ret(updatedModel, fetchUserDataCmd());
     },
 
     handleAuthTokenUpdated: (model: Model, token: string): Return<Model, Msg> => {

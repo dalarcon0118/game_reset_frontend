@@ -1,10 +1,32 @@
 import { LoteriaFeatureModel } from '../feature.types';
 import { SessionLogic } from './session.logic';
-import { CalculationLogic } from './calculation.logic';
-import { Result } from 'neverthrow';
-import { BetMapper } from '@/shared/repositories/bet/bet.mapper';
+import { Result, err, ok } from 'neverthrow';
 import { BetPlacementInput } from '@/shared/repositories/bet/bet.types';
-import { normalizeBetType, normalizeBetTypeId, normalizeNumbers, normalizeOwnerStructure } from '@/shared/types/bet_types';
+import { normalizeBetType, normalizeNumbers, normalizeOwnerStructure, resolveLoteriaBetTypeId, BET_TYPE_KEYS } from '@/shared/types/bet_types';
+
+const resolveOwnerStructure = (model: LoteriaFeatureModel): string => {
+    if (model.structureId) {
+        return String(model.structureId);
+    }
+    if (model.managementSession.drawDetails.type === 'Success') {
+        return String(model.managementSession.drawDetails.data.owner_structure || '');
+    }
+    return '';
+};
+
+const createBetPayload = (
+    drawId: string,
+    loteriaBetTypeId: string,
+    normalizedOwnerStructure: string,
+    bet: { bet: string; amount?: number | null }
+): BetPlacementInput => ({
+    drawId,
+    betTypeId: loteriaBetTypeId,
+    type: normalizeBetType(BET_TYPE_KEYS.LOTERIA),
+    numbers: normalizeNumbers(bet.bet),
+    amount: bet.amount ?? 0,
+    ownerStructure: normalizedOwnerStructure
+});
 
 /**
  * 💾 PERSISTENCE LOGIC
@@ -60,40 +82,32 @@ export const PersistenceLogic = {
      * 
      * APLICAMOS NORMALIZACIÓN CENTRALIZADA:
      * - type: normalizado usando normalizeBetType
-     * - betTypeId: normalizado usando normalizeBetTypeId
+     * - betTypeId: normalizado usando normalizeBetTypeId (SSOT dinámico)
      * - numbers: normalizado a string usando normalizeNumbers
      * - ownerStructure: normalizado a string usando normalizeOwnerStructure
      */
     createSavePayload: (model: LoteriaFeatureModel, drawId: string): Result<BetPlacementInput[], Error> => {
-        const loteriaBetTypeId = model.managementSession.betTypes.loteria;
+        const betTypes = model.managementSession.betTypes;
 
-        // Obtener detalles del sorteo para extraer la estructura (fallback)
-        const drawDetails = model.managementSession.drawDetails.type === 'Success'
-            ? model.managementSession.drawDetails.data
-            : null;
+        if (betTypes.type !== 'Success') {
+            return err(new Error('Tipos de apuesta no disponibles. El catálogo debe estar cargado (SSOT).'));
+        }
 
-        // USAR structureId del usuario actual como fuente de verdad
-        const effectiveStructureId = model.structureId
-            ? String(model.structureId)
-            : String(drawDetails?.owner_structure || '');
+        const loteriaBetTypeId = resolveLoteriaBetTypeId(betTypes.data);
 
-        // Normalizar using centralized functions
-        const normalizedBetTypeId = normalizeBetTypeId(loteriaBetTypeId || '');
-        const normalizedType = normalizeBetType('Lotería');  // 'Lotería' -> 'Lotería'
-        const normalizedOwnerStructure = normalizeOwnerStructure(effectiveStructureId);
+        if (!loteriaBetTypeId) {
+            return err(new Error('Configuración de Lotería no encontrada en el catálogo dinámico (Se buscó LOTERIA o CUATERNA).'));
+        }
 
-        // Retornamos un array de apuestas individuales compatibles con BetDomainModel
-        // El receiptCode será generado por el Repositorio si no se provee aquí.
-        // NORMALIZAMOS numbers a string
-        const candidates = model.entrySession.loteria.map(bet => ({
-            drawId,
-            betTypeId: normalizedBetTypeId,
-            type: normalizedType,
-            numbers: normalizeNumbers(bet.bet),
-            amount: bet.amount,
-            ownerStructure: normalizedOwnerStructure
-        }));
+        const normalizedOwnerStructure = normalizeOwnerStructure(resolveOwnerStructure(model));
 
-        return BetMapper.toPlacementBatch(candidates);
+        try {
+            const payload = model.entrySession.loteria.map((bet) =>
+                createBetPayload(drawId, loteriaBetTypeId, normalizedOwnerStructure, bet)
+            );
+            return ok(payload);
+        } catch (e) {
+            return err(e instanceof Error ? e : new Error(String(e)));
+        }
     }
 };

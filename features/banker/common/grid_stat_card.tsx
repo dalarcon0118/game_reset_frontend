@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, ViewStyle, StyleProp } from 'react-native';
+import { useTheme } from '@ui-kitten/components';
 import { Card } from '@/shared/components/card';
 import { Flex } from '@/shared/components/flex';
 import { Label } from '@/shared/components/label';
@@ -14,10 +15,17 @@ interface GridStatCardProps {
 }
 
 export const GridStatCard: React.FC<GridStatCardProps> = ({ label, value, icon, barColor, children, style }) => {
+  const theme = useTheme();
+
   return (
     <Card
-      style={[styles.container, style]}
-      padding={0} // Custom padding handling due to topBar
+      testID={`stat-card-${label.toLowerCase().replace(/\s+/g, '-')}`}
+      style={[
+        styles.container, 
+        { backgroundColor: theme['background-basic-color-1'] },
+        style
+      ]}
+      padding={0}
     >
       <View style={[styles.topBar, { backgroundColor: barColor }]} />
 
@@ -27,9 +35,15 @@ export const GridStatCard: React.FC<GridStatCardProps> = ({ label, value, icon, 
         padding={[{ type: 'horizontal', value: 16 }, { type: 'vertical', value: 16 }]}
       >
         <Flex vertical gap={4}>
-          <Label type="detail" style={styles.label}>{label}</Label>
+          <Label type="detail" style={[styles.label, { color: theme['text-hint-color'] }]}>{label}</Label>
           <Flex align="center" gap={4}>
-            <Label type="header" style={{ fontSize: 20 }}>{value}</Label>
+            <Label 
+              type="header" 
+              style={[styles.value, { color: theme['text-basic-color'] }]}
+              testID={`stat-value-${label.toLowerCase().replace(/\s+/g, '-')}`}
+            >
+              {value}
+            </Label>
             {children}
           </Flex>
         </Flex>
@@ -44,17 +58,13 @@ export const GridStatCard: React.FC<GridStatCardProps> = ({ label, value, icon, 
 const styles = StyleSheet.create({
   container: {
     width: '48%',
-    borderRadius: 16,
+    borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 0,
     shadowColor: "#000",
-    
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
-    shadowRadius: 3.84,
+    shadowRadius: 10,
     elevation: 2,
   },
   topBar: {
@@ -64,11 +74,14 @@ const styles = StyleSheet.create({
     top: 0,
   },
   label: {
-    opacity: 0.6,
     fontSize: 12,
   },
+  value: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
   iconContainer: {
-    padding: 8,
-    borderRadius: 12,
+    padding: 10,
+    borderRadius: 14,
   }
 });

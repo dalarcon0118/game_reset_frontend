@@ -73,6 +73,7 @@ export interface BetType {
   amount: number; // Flat amount
   drawId: string | number;
   betTypeId: string | number;
+  betTypeCode?: string; // Código (FIJO, CORRIDO, PARLET, CENTENA, CUATERNA) - FASE2
   status: 'pending' | 'synced' | 'error' | 'blocked';
   timestamp: number;
   createdAt: string; // ISO format for UI

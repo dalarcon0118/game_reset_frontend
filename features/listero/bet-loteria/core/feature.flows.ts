@@ -93,7 +93,7 @@ export const FeatureFlows = {
             managementSession: {
                 ...baseState.managementSession,
                 drawDetails: RemoteData.loading(),
-                betTypes: { ...baseState.managementSession.betTypes, loteria: null }
+                betTypes: RemoteData.loading()
             },
             listSession: {
                 ...baseState.listSession,
@@ -103,13 +103,14 @@ export const FeatureFlows = {
             }
         };
 
+        // Obtenemos los tipos de apuesta dinámicos (SSOT)
+        // NOTA: No usamos betTypes.loteria (legacy) sino el catálogo dinámico cargado
         const cmds = [
             FeatureFlows.fetchDrawDetails(drawId),
             FeatureFlows.fetchBetTypes(drawId),
         ];
 
         // Solo cargamos apuestas existentes si NO estamos en modo anotación (isEditing: false)
-        // Nota: betTypes.loteria se establece como null inicialmente y se completa tras fetchBetTypes
         if (!isEditing) {
             cmds.push(FeatureFlows.fetchExistingBets(drawId, null));
         }

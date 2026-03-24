@@ -5,6 +5,7 @@ import {
     BolitaMsg,
     REQUEST_SAVE_ALL_BETS,
     CONFIRM_SAVE_ALL_BETS,
+    FETCH_BET_TYPES_RESPONSE,
     SAVE_BETS_RESPONSE,
     FIJOS,
     CENTENA,
@@ -17,7 +18,10 @@ import { Return, ret, singleton, Cmd, RemoteData } from '@core/tea-utils';
 import { RemoteDataHttp } from '@core/tea-utils/remote.data.http';
 import { BolitaImpl } from '../domain/bolita.impl';
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
+import { drawRepository } from '@/shared/repositories/draw';
 import { logger } from '@/shared/utils/logger';
+import { GameType } from '@/types';
+import { ResultAsync } from 'neverthrow';
 
 // Message imports for orchestration
 import { FIJOS_CONFIRM_INPUT, CLOSE_BET_KEYBOARD, CLOSE_AMOUNT_KEYBOARD, OPEN_BET_KEYBOARD } from '../domain/models/bolita.messages';
@@ -26,6 +30,20 @@ import { PARLET_CONFIRM_INPUT, CLOSE_PARLET_BET_KEYBOARD, CLOSE_PARLET_AMOUNT_KE
 import { EditMsgType } from '../domain/models/bolita.messages';
 
 const log = logger.withTag('BOLITA_FLOWS');
+
+const getDynamicBetTypeIds = (model: BolitaModel): Record<string, string | null> | undefined => {
+    if (model.betTypes.type !== 'Success') {
+        return undefined;
+    }
+
+    return model.betTypes.data.reduce<Record<string, string | null>>((acc, betType) => {
+        const key = (betType.code || betType.name || '').toUpperCase();
+        if (key) {
+            acc[key] = String(betType.id);
+        }
+        return acc;
+    }, {});
+};
 
 /**
  * 🌊 BOLITA FLOWS
@@ -179,6 +197,34 @@ export const BolitaFlows = {
 
     // --- Persistence Flows (Use Cases) ---
 
+    fetchBetTypes: (model: BolitaModel, drawId: string): Return<BolitaModel, BolitaMsg> => {
+        return ret(
+            model,
+            RemoteDataHttp.fetch<GameType[], BolitaMsg>(
+                () => {
+                    return ResultAsync.fromPromise(
+                        drawRepository.getBetTypes(drawId),
+                        (e) => e instanceof Error ? e : new Error(String(e))
+                    )
+                        .andThen((result) => result)
+                        .map((types) => types.map((type): GameType => ({
+                            id: String(type.id),
+                            name: type.name,
+                            code: type.code || '',
+                            description: type.description || ''
+                        })))
+                        .match(
+                            (data) => data,
+                            (error) => {
+                                throw error;
+                            }
+                        );
+                },
+                (response) => FETCH_BET_TYPES_RESPONSE({ response })
+            )
+        );
+    },
+
     /**
      * Shows a confirmation alert before saving.
      */
@@ -186,7 +232,8 @@ export const BolitaFlows = {
         log.info('requestSaveAllBets triggered', { drawId });
 
         // 1. Pure Validation Step (using Domain Implementation)
-        const validation = BolitaImpl.persistence.validateAndPrepare(model, drawId);
+        const dynamicBetTypeIds = getDynamicBetTypeIds(model);
+        const validation = BolitaImpl.persistence.validateAndPrepare(model, drawId, dynamicBetTypeIds);
 
         if (validation.type === 'Invalid') {
             log.warn('SAVE_ABORTED: Validation failed', { reason: validation.reason });
@@ -229,7 +276,8 @@ export const BolitaFlows = {
         log.info('executeSaveAllBets starting...', { drawId });
 
         // 1. Prepare Payload (Already validated in requestSaveAllBets, but good to double check)
-        const validation = BolitaImpl.persistence.validateAndPrepare(model, drawId);
+        const dynamicBetTypeIds = getDynamicBetTypeIds(model);
+        const validation = BolitaImpl.persistence.validateAndPrepare(model, drawId, dynamicBetTypeIds);
         if (validation.type === 'Invalid') return singleton(model);
 
         const payload = validation.payload;

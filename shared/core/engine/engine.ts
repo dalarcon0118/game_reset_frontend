@@ -1,18 +1,33 @@
-import { create, StoreApi } from 'zustand';
-import { isDeepEqual } from '../../utils/comparison';
+/**
+ * Motor TEA (The Elm Architecture) para Zustand
+ * 
+ * Este archivo ahora actúa como orquestador, delegando a módulos especializados:
+ * - handler-resolver.ts: Resolución de effect handlers
+ * - middleware-chain.ts: Gestión de middlewares
+ * - metadata.ts: Trazabilidad de mensajes
+ * - storm-protection.ts: Protección contra bucles infinitos
+ * - command-executor.ts: Ejecución de comandos
+ * - subscription-manager.ts: Gestión de suscripciones
+ */
+
+import { create } from 'zustand';
 import { SubDescriptor } from '../tea-utils/sub';
 import { logger } from '../../utils/logger';
-import { globalEventRegistry } from '../tea-utils/events';
-import { globalSignalBus } from '../tea-utils/signal_bus';
 import { Return } from '../tea-utils/return';
-import { TeaMiddleware, TeaMiddlewareCodec } from '../tea-utils/middleware.types';
-import { MiddlewareRegistry } from '../tea-utils/middleware_registry';
-import { isLeft } from 'fp-ts/Either';
-import { PathReporter } from 'io-ts/PathReporter';
-import { Cmd, CommandDescriptor } from '../tea-utils/cmd';
-import { elmEngine } from './engine_config';
+import { Cmd } from '../tea-utils/cmd';
 import { effectHandlers as fallbackEffectHandlers } from '../tea-utils/effect_handlers';
 import { storeRegistry } from './store_registry';
+import { elmEngine } from './engine_config';
+
+// Nuevas capas
+import { createHandlerResolver, HandlerResolver } from './handler-resolver';
+import { createMiddlewareChain, MiddlewareChain } from './middleware-chain';
+import { createMessageMetadata, MessageMetadata } from './metadata';
+import { createStormProtection, StormProtection } from './storm-protection';
+import { createCommandExecutor, CommandExecutor } from './command-executor';
+import { createSubscriptionManager, SubscriptionManager } from './subscription-manager';
+
+// Tipos (solo exportamos tipos, la interfaz se redefine localmente para compatibilidad)
 
 // La estructura que debe devolver cualquier función 'update'
 export type UpdateResult<TModel, TMsg> = [TModel, Cmd] | Return<TModel, TMsg>;
@@ -22,98 +37,52 @@ export interface ElmStoreConfig<TModel, TMsg> {
     update: (model: TModel, msg: TMsg) => UpdateResult<TModel, TMsg>;
     subscriptions?: (model: TModel) => SubDescriptor<TMsg>;
     effectHandlers?: Record<string, (payload: any, dispatch: (msg: TMsg) => void) => Promise<any>>;
-    middlewares?: TeaMiddleware<TModel, TMsg>[];
+    middlewares?: import('../tea-utils/middleware.types').TeaMiddleware<TModel, TMsg>[];
     name?: string;
 }
 
+const log = logger.withTag('ENGINE');
+
+// Flags de desarrollo
+const __DEV__ = process.env.NODE_ENV !== 'production';
+
+/**
+ * Crea un store Elm (The Elm Architecture) usando Zustand
+ * 
+ * @param config - Configuración del store: initial, update, subscriptions, effectHandlers, middlewares, name
+ * @returns Store de Zustand con modelo, dispatch, init y cleanup
+ */
 export const createElmStore = <TModel, TMsg>(
     config: ElmStoreConfig<TModel, TMsg>
 ) => {
     const { initial, update, subscriptions, effectHandlers, middlewares } = config;
 
-    /**
-     * Resuelve los effectHandlers de forma dinámica para evitar race conditions.
-     * Prioridad: local (config) > global (elmEngine) > fallback (effectHandlers Proxy)
-     */
-    const resolveHandlers = () => {
-        const globalHandlers = elmEngine.getEffectHandlers() || {};
-        const localHandlers = effectHandlers || {};
+    // ========================================
+    // INICIALIZACIÓN DE CAPAS (fuera del store)
+    // ========================================
 
-        return {
-            ...globalHandlers,
-            ...localHandlers
-        };
-    };
+    // 1. Handler Resolver (prioridad: local > global > fallback)
+    const handlerResolver = createHandlerResolver<TMsg>(
+        effectHandlers || {},
+        () => elmEngine.getEffectHandlers() || {},
+        fallbackEffectHandlers
+    );
 
-    // --- Lazy Validation & Resilience ---
-    // En el inicio de cada ciclo de comandos, el motor tiene acceso a los handlers más recientes
-    const isValidEffectHandlers = true; // Dinámico
+    // 2. Middleware Chain (combinación y validación de middlewares)
+    const middlewareChain = createMiddlewareChain<TModel, TMsg>(
+        () => elmEngine.getMiddlewares() || [],
+        middlewares || []
+    );
 
-    // Obtener middlewares globales de elmEngine
-    const globalMiddlewares = elmEngine.getMiddlewares();
-    // Combinar: global de elmEngine + local (si se pasa)
-    const middlewaresToCombine = middlewares ?? [];
-    // Combine global and local middlewares, filtering duplicates by ID
-    // Priority: MiddlewareRegistry.getGlobals() -> elmEngine.getMiddlewares() -> local middlewares
-    const combined = [...MiddlewareRegistry.getGlobals(), ...globalMiddlewares, ...middlewaresToCombine];
-    const allMiddlewares: TeaMiddleware<TModel, TMsg>[] = [];
-    const seenIds = new Set<string>();
+    // 3. Message Metadata (trazabilidad de mensajes)
+    const metadata = createMessageMetadata();
 
-    for (const mw of combined) {
-        if (mw.id) {
-            if (seenIds.has(mw.id)) continue;
-            seenIds.add(mw.id);
-        }
-        allMiddlewares.push(mw);
-    }
+    // 4. Storm Protection (protección contra bucles infinitos)
+    const stormProtection = createStormProtection();
 
-    // --- Metadata & Traceability System ---
-    // Engine only manages propagation, not business logic of metadata
-    const metaRegistry = new WeakMap<any, Record<string, any>>();
-
-    /**
-     * Helper to generate a unique traceId for each transaction (Msg processing).
-     */
-    const generateTraceId = () => Math.random().toString(36).substring(2, 8).toUpperCase();
-
-    const getOrCreateMeta = (msg: any): Record<string, any> => {
-        if (!msg || typeof msg !== 'object') return {};
-
-        let meta = metaRegistry.get(msg);
-        if (!meta) {
-            meta = {
-                traceId: generateTraceId(),
-                timestamp: Date.now()
-            };
-            metaRegistry.set(msg, meta);
-        }
-        return meta;
-    };
-
-    // --- Middleware Validation ---
-    if (allMiddlewares && allMiddlewares.length > 0) {
-        allMiddlewares.forEach((m, i) => {
-            const result = TeaMiddlewareCodec.decode(m);
-            if (isLeft(result)) {
-                logger.error(`Middleware at index ${i} is invalid`, 'ENGINE_INIT', { errors: PathReporter.report(result) });
-            } else {
-                // Check for unknown properties manually since io-ts strips them on decode
-                // We want to warn the developer if they passed 'onMsg' instead of 'beforeUpdate'
-                const knownKeys = Object.keys(result.right);
-                const actualKeys = Object.keys(m);
-                const extraKeys = actualKeys.filter(k => !knownKeys.includes(k));
-
-                if (extraKeys.length > 0) {
-                    logger.warn(
-                        `Middleware at index ${i} has unknown properties: [${extraKeys.join(', ')}]. \n` +
-                        `Did you mean 'beforeUpdate' or 'afterUpdate'? \n` +
-                        `Allowed keys are: ${knownKeys.join(', ')}`,
-                        'ENGINE_INIT'
-                    );
-                }
-            }
-        });
-    }
+    // ========================================
+    // CREACIÓN DEL STORE
+    // ========================================
 
     const store = create<{
         model: TModel;
@@ -121,166 +90,73 @@ export const createElmStore = <TModel, TMsg>(
         init: (params?: any) => void;
         cleanup: () => void;
     }>((set, get) => {
-        // --- Storm Protection ---
-        let msgCount = 0;
-        let lastMsgTime = Date.now();
-        const MAX_MSGS_PER_SECOND = 50;
-        let isStorming = false;
 
-        const checkStorm = (msgType: string) => {
-            const now = Date.now();
-            if (now - lastMsgTime < 1000) {
-                msgCount++;
-            } else {
-                msgCount = 1;
-                lastMsgTime = now;
-                isStorming = false;
-            }
-
-            if (msgCount > MAX_MSGS_PER_SECOND && !isStorming) {
-                isStorming = true;
-                logger.error(
-                    `Message Storm Detected! More than ${MAX_MSGS_PER_SECOND} messages in 1s. Possible infinite loop with: ${msgType}. Throttling engine.`,
-                    'ENGINE_STORM_PROTECTION'
-                );
-                return true;
-            }
-            return isStorming;
-        };
-
-        const executeCmds = (cmd: Cmd, parentMeta?: Record<string, any>) => {
-            const dispatchWithMeta = (nextMsg: TMsg) => {
-                // Validate message before using as WeakMap key
-                if (nextMsg && typeof nextMsg === 'object') {
-                    metaRegistry.set(nextMsg, { ...parentMeta });
-                }
-                // Only dispatch valid messages (objects), skip primitives like undefined/null
-                // This handles the case where Cmd.task's default onSuccess: (x) => x returns undefined
-                if (nextMsg && typeof nextMsg === 'object') {
-                    get().dispatch(nextMsg);
-                } else if (nextMsg !== undefined) {
-                    // Log non-object but valid messages (e.g., strings)
-                    logger.warn('Dispatch received non-object message', 'ENGINE', { msg: nextMsg });
-                    get().dispatch(nextMsg);
-                }
-                // Silent skip for undefined - this is expected when tasks return nothing
-            };
-
-            const flattenCmds = (c: Cmd): CommandDescriptor[] => {
-                if (!c) return [];
-                if (Array.isArray(c)) {
-                    return c.reduce((acc, item) => acc.concat(flattenCmds(item)), [] as CommandDescriptor[]);
-                }
-
-                // --- Safety Check: Detect functions being passed as commands ---
-                if (typeof c === 'function') {
-                    const error = new Error(
-                        `[TEA_ENGINE] ERROR: Received a function instead of a CommandDescriptor. \n` +
-                        `Did you forget to call a command creator like fetchXXXXCmd()? \n` +
-                        `Source: ${(c as any).toString().substring(0, 100)}...`
-                    );
-                    logger.error(error.message, 'ENGINE_VALIDATION', error);
-                    if (__DEV__) throw error;
-                    return [];
-                }
-
-                return [c];
-            };
-
-            const cmdsToExecute = flattenCmds(cmd);
-            cmdsToExecute.forEach(async (singleCmd: any) => {
-                // --- Additional Validation ---
-                if (singleCmd && typeof singleCmd !== 'object') {
-                    logger.error(`Invalid command detected: expected object, got ${typeof singleCmd}`, 'ENGINE_VALIDATION', { singleCmd });
-                    return;
-                }
-
-                const handlersToUse = resolveHandlers();
-                let handler = (handlersToUse as any)[singleCmd.type];
-
-                // --- Fallback to global Proxy if not found in local/global ---
-                if (!handler && fallbackEffectHandlers) {
-                    handler = (fallbackEffectHandlers as any)[singleCmd.type];
-                }
-
-                // --- Special Case: Global Signals (TEA-Agnostic) ---
-                if (singleCmd.type === 'SEND_MSG') {
-                    globalSignalBus.send(singleCmd.payload);
-                    return;
-                }
-
-                if (singleCmd && handler) {
-                    try {
-                        // Middleware: Before Command
-                        const currentMeta = parentMeta || {};
-                        allMiddlewares.forEach(m => m.beforeCmd?.(singleCmd, currentMeta));
-
-                        const result = await handler(singleCmd.payload, dispatchWithMeta);
-                        if (singleCmd.payload && singleCmd.payload.msgCreator) {
-                            dispatchWithMeta(singleCmd.payload.msgCreator(result));
-                        }
-                    } catch (error) {
-                        if (singleCmd.payload && singleCmd.payload.errorCreator) {
-                            dispatchWithMeta(singleCmd.payload.errorCreator(error));
-                        } else {
-                            logger.error(`Unhandled error in Cmd: ${singleCmd.type}`, 'ENGINE', error, { payload: singleCmd.payload });
-                        }
-                    }
-                } else if (singleCmd) {
-                    const errorMsg = `No handler found for Cmd type: ${singleCmd.type}`;
-                    const localAndGlobal = resolveHandlers();
-                    logger.error(errorMsg, 'ENGINE_EXECUTION', {
-                        localAndGlobalHandlers: Object.keys(localAndGlobal),
-                        hasFallback: !!fallbackEffectHandlers,
-                        cmd: singleCmd
-                    });
-                }
-            });
-        };
-
-
-        // Pre-calculate initial model and commands
+        // Pre-calcular initial model y commands
         const initialResult = typeof initial === 'function' ? (initial as any)() : [initial, null];
         const [initialModel, initialCmd] = initialResult;
 
+        // CommandExecutor REUTILIZABLE - se crea una sola vez
+        let commandExecutor: CommandExecutor<TMsg> | null = null;
+
+        const getCommandExecutor = (): CommandExecutor<TMsg> => {
+            if (!commandExecutor) {
+                // Usamos getter para obtener dispatch dinámico
+                commandExecutor = createCommandExecutor(
+                    handlerResolver,
+                    middlewareChain,
+                    () => get().dispatch, // Getter dinámico
+                    metadata.getOrCreate({} as any)
+                );
+            }
+            return commandExecutor;
+        };
+
         return {
             model: initialModel,
+
+            // Inicialización del store
             init: (params?: any) => {
-                const initMeta = { traceId: 'INIT-' + Math.random().toString(36).substring(2, 6).toUpperCase() };
-                // If called with params, or if it's the first time and we have initial commands
                 if (params !== undefined && typeof initial === 'function') {
                     const [nextModel, cmd] = (initial as Function)(params);
                     set({ model: nextModel });
-                    if (cmd) executeCmds(cmd, initMeta);
+                    if (cmd) {
+                        getCommandExecutor().execute(cmd);
+                    }
                 } else if (initialCmd) {
-                    // Execute initial commands if they exist
-                    executeCmds(initialCmd, initMeta);
+                    getCommandExecutor().execute(initialCmd);
                 }
             },
+
+            // Limpieza por defecto
             cleanup: () => {
-                // Default no-op, will be overridden if subscriptions exist
-                logger.debug('Engine cleanup: No subscriptions to clean', 'ENGINE_CLEANUP');
+                log.debug('Engine cleanup: No subscriptions to clean', 'ENGINE_CLEANUP');
                 if (config.name) {
                     storeRegistry.unregister(config.name);
                 }
             },
+
+            // Dispatch de mensajes
             dispatch: (msg: TMsg) => {
                 if (!msg) {
-                    logger.error('Dispatch called with null or undefined message', 'ENGINE', { msg });
+                    log.error('Dispatch called with null or undefined message', 'ENGINE', { msg });
                     return;
                 }
-                const msgType = (msg as any).type || 'UNKNOWN';
-                if (checkStorm(msgType)) return;
 
-                // --- Retrieve/Initialize Metadata ---
-                const meta = getOrCreateMeta(msg);
+                const msgType = (msg as any).type || 'UNKNOWN';
+
+                // Storm Protection
+                const stormCheck = stormProtection.check(msgType);
+                if (stormCheck.shouldThrottle) return;
+
+                // Obtener/crear metadatos del mensaje
+                const meta = metadata.getOrCreate(msg);
 
                 let cmdToRun: Cmd = null;
 
                 try {
                     // Middlewares: Before Update
                     const prevModel = get().model;
-                    allMiddlewares.forEach(m => m.beforeUpdate?.(prevModel, msg, meta));
+                    middlewareChain.beforeUpdate(prevModel, msg, meta);
 
                     let nextModel: TModel;
                     let cmd: Cmd = null;
@@ -293,7 +169,6 @@ export const createElmStore = <TModel, TMsg>(
                         nextModel = iterator.next().value;
                         cmd = iterator.next().value;
                     } else {
-                        // Fallback assuming destructuring works on whatever it is
                         [nextModel, cmd] = result as any;
                     }
 
@@ -301,311 +176,54 @@ export const createElmStore = <TModel, TMsg>(
                     set({ model: nextModel });
 
                     // Middlewares: After Update
-                    allMiddlewares.forEach(m => m.afterUpdate?.(prevModel, msg, nextModel, cmd || null, meta));
+                    middlewareChain.afterUpdate(prevModel, msg, nextModel, cmd || null, meta);
 
                 } catch (error) {
                     const currentModel = get().model;
-                    logger.error(`Error in update function for Msg: ${msgType}`, 'ENGINE', error, { msg, meta });
+                    log.error(`Error in update function for Msg: ${msgType}`, 'ENGINE', error, { msg, meta });
 
                     // Middlewares: On Error
-                    allMiddlewares.forEach(m => m.onUpdateError?.(currentModel, msg, error, meta));
+                    middlewareChain.onUpdateError(currentModel, msg, error, meta);
 
                     if (__DEV__) {
-                        // Fail Fast in development: This triggers the Red Box in React Native
-                        // providing much better visibility of the bug.
                         throw error;
                     }
                 }
 
-
-                if (cmdToRun) executeCmds(cmdToRun, meta);
+                // Ejecutar comandos resultantes (reutilizando executor)
+                if (cmdToRun) {
+                    getCommandExecutor().execute(cmdToRun);
+                }
             },
         };
     });
 
-    // Gestión de Subscripciones
+    // ========================================
+    // GESTIÓN DE SUSCRIPCIONES
+    // ========================================
+
     if (subscriptions) {
-        const activeSubs = new Map<string, any>();
+        // Usamos getter para dispatch dinámico
+        const subscriptionManager = createSubscriptionManager<TMsg>({
+            subscriptionFn: subscriptions,
+            getDispatch: () => store.getState().dispatch // Getter dinámico
+        });
 
-        const processSub = (sub: SubDescriptor<TMsg>, dispatch: (msg: TMsg) => void) => {
-            if (sub.type === 'BATCH') {
-                sub.payload.forEach((s: SubDescriptor<TMsg>) => processSub(s, dispatch));
-                return;
-            }
+        // Suscribirse a cambios del modelo
+        store.subscribe((state) => {
+            subscriptionManager.manageSubscriptions(state.model);
+        });
 
-            if (sub.type === 'EVERY') {
-                const { id, ms, msg } = sub.payload;
-                if (!activeSubs.has(id)) {
-                    logger.debug(`Starting interval sub: ${id} (${ms}ms)`, 'ENGINE');
-                    const interval = setInterval(() => dispatch(msg), ms);
-                    activeSubs.set(id, { type: 'EVERY', interval });
-                }
-            }
+        // Inicializar suscripciones
+        subscriptionManager.initialize(store.getState().model);
 
-            if (sub.type === 'WATCH_STORE') {
-                const { id, store: externalStoreRef, selector, msgCreator } = sub.payload;
-                if (!activeSubs.has(id)) {
-                    // Función para activar la suscripción reactiva
-                    const activateWatch = (externalStore: StoreApi<any>) => {
-                        logger.debug(`Activating reactive sub: ${id} (WATCH_STORE)`, 'ENGINE');
-
-                        // Pre-calculamos el valor inicial
-                        const initialState = externalStore.getState();
-                        const initialValue = selector(initialState.model || initialState);
-                        let lastValue = initialValue;
-
-                        // Nos suscribimos a cambios futuros
-                        const unsubscribe = externalStore.subscribe((state: any) => {
-                            const selectedValue = selector(state.model || state);
-                            if (selectedValue != null && !isDeepEqual(selectedValue, lastValue)) {
-                                lastValue = selectedValue;
-                                const msg = msgCreator(selectedValue);
-                                if (msg) dispatch(msg);
-                            }
-                        });
-
-                        activeSubs.set(id, { type: 'WATCH_STORE', unsubscribe, lastValue });
-
-                        // Disparo inicial diferido
-                        setTimeout(() => {
-                            if (activeSubs.has(id)) {
-                                const msg = msgCreator(initialValue);
-                                if (msg) dispatch(msg);
-                            }
-                        }, 50);
-                    };
-
-                    // Intenta resolver el store (referencia directa o ID)
-                    let externalStore: StoreApi<any> | undefined;
-
-                    if (typeof externalStoreRef === 'string') {
-                        externalStore = storeRegistry.get(externalStoreRef);
-
-                        // RESILIENCIA: Si no está, esperamos a que se registre
-                        if (!externalStore) {
-                            logger.info(`WATCH_STORE sub "${id}" waiting for store "${externalStoreRef}"...`, 'ENGINE');
-
-                            const unregisterListener = storeRegistry.subscribe((regId, regStore) => {
-                                if (regId === externalStoreRef && regStore) {
-                                    unregisterListener(); // Dejar de escuchar el registro
-                                    if (!activeSubs.has(id)) {
-                                        activateWatch(regStore);
-                                    }
-                                }
-                            });
-
-                            // Guardamos la suscripción al registro para poder limpiarla si el componente muere
-                            activeSubs.set(id, { type: 'WATCH_STORE_PENDING', unsubscribe: unregisterListener });
-                            return;
-                        }
-                    } else if (externalStoreRef && typeof (externalStoreRef as any).getState === 'function') {
-                        externalStore = externalStoreRef as StoreApi<any>;
-                    }
-
-                    if (externalStore) {
-                        activateWatch(externalStore);
-                    } else {
-                        logger.warn(`WATCH_STORE sub "${id}" could not resolve store ref.`, 'ENGINE', { storeRef: externalStoreRef });
-                    }
-                }
-            }
-
-            if (sub.type === 'EVENT') {
-                const { id, event, target, msgCreator } = sub.payload;
-                if (!activeSubs.has(id)) {
-                    logger.debug(`Starting reactive sub: ${id} (EVENT)`, 'ENGINE');
-                    const handler = globalEventRegistry.getHandler(event);
-                    if (handler) {
-                        const resolvedTarget = typeof target === 'function' ? target() : target;
-                        const unsubscribe = handler.subscribe(resolvedTarget, (eventData: any) => {
-                            dispatch(msgCreator(eventData));
-                        });
-                        activeSubs.set(id, { type: 'EVENT', unsubscribe });
-                    } else {
-                        logger.warn(`No handler registered for event type: ${event.type}`, 'ENGINE');
-                    }
-                }
-            }
-
-            if (sub.type === 'SSE') {
-                const { id, url, msgCreator, headers } = sub.payload;
-                if (!activeSubs.has(id)) {
-                    logger.info(`Connecting to SSE stream: ${url}`, 'ENGINE');
-
-                    // 1. Set placeholder to prevent re-entry and handle early cleanup
-                    let isCancelled = false;
-                    const placeholder = {
-                        close: () => { isCancelled = true; }
-                    };
-                    activeSubs.set(id, { type: 'SSE', eventSource: placeholder });
-
-                    // 2. Defer creation to next tick to avoid "already sending" race condition
-                    // Increased timeout to 500ms to allow proper XHR cleanup in React Native
-                    setTimeout(() => {
-                        if (isCancelled || !activeSubs.has(id)) {
-                            logger.debug(`SSE connection cancelled before start: ${id}`, 'ENGINE');
-                            return;
-                        }
-
-                        try {
-                            const GlobalEventSource = (global as any).EventSource || (window as any).EventSource || (typeof EventSource !== 'undefined' ? EventSource : null);
-
-                            if (!GlobalEventSource) {
-                                throw new Error("EventSource is not defined in this environment");
-                            }
-
-                            // Pass headers to EventSource (supported by event-source-polyfill)
-                            // Use heartbeatTimeout to detect stale connections
-                            const eventSource = new GlobalEventSource(url, {
-                                headers,
-                                heartbeatTimeout: 45000 // 45s heartbeat timeout
-                            });
-
-                            eventSource.onmessage = (event: any) => {
-                                try {
-                                    const data = JSON.parse(event.data);
-                                    logger.debug('SSE Message received', 'ENGINE', data);
-                                    dispatch(msgCreator(data));
-                                } catch (e) {
-                                    logger.error('Error parsing SSE data', 'ENGINE', e);
-                                }
-                            };
-
-                            eventSource.onerror = (error: any) => {
-                                // Enhanced error logging
-                                logger.error(`SSE Stream Error for ${id}`, 'ENGINE', error);
-
-                                // Always close on error to prevent polyfill's internal retry loop 
-                                // which can cause "Cannot open, already sending" errors in RN
-                                try {
-                                    eventSource.close();
-                                } catch (e) {
-                                    logger.warn('Error closing EventSource', 'ENGINE', e);
-                                }
-
-                                // Remove from active subs and lastIds so it can be recreated on next cycle
-                                activeSubs.delete(id);
-                                lastIds.delete(id);
-                            };
-
-                            // Double check cancellation before finalizing
-                            if (isCancelled || !activeSubs.has(id)) {
-                                eventSource.close();
-                                return;
-                            }
-
-                            activeSubs.set(id, { type: 'SSE', eventSource });
-                        } catch (e) {
-                            logger.error(`Failed to create EventSource for ${id}`, 'ENGINE', e);
-                            activeSubs.delete(id); // Remove placeholder if creation failed
-                        }
-                    }, 500);
-                }
-            }
-
-
-
-            if (sub.type === 'RECEIVE_MSG') {
-                const { id, signal, handler } = sub.payload;
-                const signalType = signal.toString();
-                if (!activeSubs.has(id)) {
-                    logger.debug(`Starting global signal sub: ${id} (${signalType})`, 'ENGINE');
-                    const unsubscribe = globalSignalBus.subscribe(signalType, (payload) => {
-                        handler(payload, dispatch);
-                    });
-                    activeSubs.set(id, { type: 'RECEIVE_MSG', unsubscribe });
-                }
-            }
-
-            if (sub.type === 'CUSTOM') {
-                const { id, subscribe } = sub.payload;
-                if (!activeSubs.has(id)) {
-                    logger.debug(`Starting custom sub: ${id}`, 'ENGINE');
-                    const unsubscribe = subscribe(dispatch);
-                    activeSubs.set(id, { type: 'CUSTOM', unsubscribe });
-                }
-            }
-        };
-
-        const cleanupSubs = (currentSubs: Set<string>) => {
-            activeSubs.forEach((sub, id) => {
-                if (!currentSubs.has(id)) {
-                    if (sub.type === 'EVERY') {
-                        clearInterval(sub.interval);
-                    } else if (sub.type === 'WATCH_STORE' || sub.type === 'EVENT' || sub.type === 'CUSTOM' || sub.type === 'RECEIVE_MSG') {
-                        sub.unsubscribe();
-                    } else if (sub.type === 'SSE') {
-                        logger.info(`Disconnecting SSE stream: ${id}`, 'ENGINE');
-                        sub.eventSource.close();
-                    }
-                    activeSubs.delete(id);
-                }
-            });
-        };
-
-        // Override cleanup function to allow full disposal
+        // Override cleanup para manejar todas las suscripciones
         store.setState({
             cleanup: () => {
-                logger.debug('Engine cleanup: Stopping all subscriptions', 'ENGINE_CLEANUP');
-                cleanupSubs(new Set()); // Pass empty set to remove everything
+                log.debug('Engine cleanup: Stopping all subscriptions', 'ENGINE_CLEANUP');
+                subscriptionManager.cleanupAll();
             }
         });
-
-        const getActiveIds = (sub: SubDescriptor<TMsg>, ids: Set<string> = new Set()): Set<string> => {
-            if (sub.type === 'BATCH') {
-                sub.payload.forEach((s: SubDescriptor<TMsg>) => getActiveIds(s, ids));
-            } else if ((sub.type === 'EVERY' || sub.type === 'WATCH_STORE' || sub.type === 'SSE' || sub.type === 'EVENT' || sub.type === 'CUSTOM') && sub.payload.id) {
-                ids.add(sub.payload.id);
-            }
-            return ids;
-        };
-
-        let lastIds = new Set<string>();
-
-        const manageSubscriptions = (model: TModel, dispatch: (msg: TMsg) => void) => {
-            const currentSub = subscriptions(model);
-
-            // 🔍 Validación de tipos: asegurar que recibimos un SubDescriptor válido
-            if (!currentSub || typeof currentSub !== 'object' || !currentSub.type) {
-                logger.error(
-                    `Invalid subscription returned from subscriptions(). Expected SubDescriptor, got: ${typeof currentSub}`,
-                    'ENGINE',
-                    { currentSub, modelType: typeof model }
-                );
-                return;
-            }
-
-            const currentIds = getActiveIds(currentSub);
-
-            // Evitar re-procesamiento si los IDs de las subscripciones no han cambiado
-            // Y si todas las subscripciones actuales están realmente activas
-            // CORRECCIÓN: Detectar el caso especial de "ninguna suscripción" → "suscripciones activas"
-            // Esto ocurre cuando el modelo se inicializa sin contexto y luego recibe el contexto vía INIT_CONTEXT
-            const hasCurrentSubs = currentIds.size > 0;
-            const wasEmptyBefore = lastIds.size === 0;
-            const hasActiveSubs = Array.from(currentIds).some(id => activeSubs.has(id));
-
-            const idsChanged =
-                currentIds.size !== lastIds.size ||
-                (hasCurrentSubs && !hasActiveSubs) ||
-                (hasCurrentSubs && wasEmptyBefore); // Re-ejecutar cuando se pasan de 0 a más suscripciones
-
-            if (!idsChanged) {
-                return;
-            }
-
-            lastIds = currentIds;
-            cleanupSubs(currentIds);
-            processSub(currentSub, dispatch);
-        };
-
-        // Suscribirse a los cambios del modelo para actualizar subscripciones
-        store.subscribe((state) => {
-            manageSubscriptions(state.model, state.dispatch);
-        });
-
-        // Ejecutar inmediatamente el primer ciclo de subscripciones
-        manageSubscriptions(store.getState().model, store.getState().dispatch);
     }
 
     // Auto-inicialización si es necesario

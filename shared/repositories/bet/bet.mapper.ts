@@ -10,6 +10,7 @@ import { GameRegistry } from '../../core/registry/game_registry';
 export interface BetPlacementCandidate {
     drawId: string | number;
     betTypeId: string | number;
+    betTypeCode?: string; // Código (FIJO, CORRIDO, PARLET, CENTENA, CUATERNA) - FASE2
     numbers: unknown;
     amount: number | string | null | undefined;
     ownerStructure: string | number | null | undefined;
@@ -63,9 +64,15 @@ const inferBetType = (candidate: BetPlacementCandidate): string => {
 };
 
 /**
- * Infiere el betTypeId canonical (string del ID del backend)
+ * Infiere el betTypeId canonical (string del ID del backend o código)
+ * FASE 2: Si tiene betTypeCode, lo usa directamente (más estable que ID)
  */
 const inferBetTypeId = (candidate: BetPlacementCandidate): string => {
+    // FASE 2: Si tiene betTypeCode (ej: 'FIJO', 'CORRIDO'), usarlo
+    if (candidate.betTypeCode) {
+        return candidate.betTypeCode.toUpperCase();
+    }
+    // Comportamiento original: usar betTypeId
     return String(candidate.betTypeId || '');
 };
 
