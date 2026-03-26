@@ -1,3 +1,4 @@
+import { LogBox } from 'react-native';
 import 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import 'react-native-url-polyfill/auto';
@@ -43,6 +44,11 @@ async function checkAppUpdate() {
 
 // Execute update check
 checkAppUpdate();
+
+// Ignore specific warnings
+LogBox.ignoreLogs([
+    'MeasureElement: Support for defaultProps',
+]);
 
 // Setup EventSource for React Native
 if (typeof window !== 'undefined') {

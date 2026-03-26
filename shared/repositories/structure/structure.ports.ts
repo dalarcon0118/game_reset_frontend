@@ -1,4 +1,4 @@
-import { Agency } from './domain/models';
+import { Agency, DashboardSummary } from './domain/models';
 import { BackendListeroDetails } from './types/types';
 
 /**
@@ -18,6 +18,11 @@ export interface StructurePorts {
      * Retorna una lista de Agencias (modelo de dominio).
      */
     getChildren: (id: number, level?: number) => Promise<Agency[]>;
+
+    /**
+     * Obtiene el resumen financiero (dashboard) de un nodo de estructura.
+     */
+    getSummary: (id: number, date?: string) => Promise<DashboardSummary>;
 
     /**
      * Obtiene los detalles de un listero para una fecha específica.

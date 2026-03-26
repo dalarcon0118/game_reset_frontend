@@ -14,10 +14,19 @@ export const Cmds = {
         if (!structureId) {
             return Cmd.ofMsg({ type: 'ERROR_OCCURRED', error: 'Missing structureId' });
         }
-        return RemoteDataHttp.fetch(
-            () => structureRepository.getChildren(Number(structureId)),
-            (webData) => ({ type: 'DATA_RECEIVED', webData })
-        );
+        
+        const id = Number(structureId);
+        
+        return Cmd.batch([
+            RemoteDataHttp.fetch(
+                () => structureRepository.getChildren(id),
+                (webData) => ({ type: 'AGENCIES_RECEIVED', webData })
+            ),
+            RemoteDataHttp.fetch(
+                () => structureRepository.getSummary(id),
+                (webData) => ({ type: 'SUMMARY_RECEIVED', webData })
+            )
+        ]);
     },
 
     // 📍 NAVIGATION COMMANDS

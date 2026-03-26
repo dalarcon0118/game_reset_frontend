@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, TouchableOpacity, ActivityIndicator, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HelpCircle, RefreshCw, User, Bell } from 'lucide-react-native';
 import { MenuItem, OverflowMenu, Text, useTheme } from '@ui-kitten/components';
 
@@ -14,6 +15,7 @@ export function DashboardHeader() {
   const { user, logout } = useAuth();
   const { model, dispatch } = useBankerDashboardStore();
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const [menuVisible, setMenuVisible] = React.useState(false);
 
   const isLoading = model.agencies.type === 'Loading' || model.summary.type === 'Loading';
@@ -25,14 +27,14 @@ export function DashboardHeader() {
 
   const renderMenuAnchor = () => (
     <TouchableOpacity onPress={toggleMenu} activeOpacity={0.7}>
-      <View style={styles.profileIcon}>
+      <View style={[styles.profileIcon, { backgroundColor: theme['background-basic-color-2'], borderColor: theme['border-basic-color-3'] }]}>
         <User size={24} color={theme['color-primary-500']} />
       </View>
     </TouchableOpacity>
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: Math.max(insets.top, 20), backgroundColor: theme['background-basic-color-1'] }]}>
       {/* Top Row: User Info and App Name */}
       <Flex justify="between" align="center" margin={[{ type: 'bottom', value: 15 }]}>
         <Flex align="center" gap={10}>
@@ -116,8 +118,8 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   iconButton: {
-    width: 40,
-    height: 40,
+    width: 42,
+    height: 42,
     borderRadius: 12,
     backgroundColor: '#F8F9FA',
     justifyContent: 'center',

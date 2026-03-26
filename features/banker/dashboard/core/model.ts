@@ -92,9 +92,9 @@ export const selectDashboardStats = (model: Model): StatViewModel[] => {
 };
 
 export const selectHealthMetrics = (model: Model): HealthMetric[] => {
-    const agencies = model.agencies.type === 'Success' ? model.agencies.data : null;
+    const summary = model.summary.type === 'Success' ? model.summary.data : null;
 
-    if (!agencies || agencies.length === 0) {
+    if (!summary || !summary.health_metrics) {
         return [
             { id: 'reserve', label: es.banker.dashboard.health.metrics.reserveRatio, value: es.banker.dashboard.health.values.na, status: 'unknown' },
             { id: 'performance', label: es.banker.dashboard.health.metrics.agencyPerformance, value: es.banker.dashboard.health.values.na, status: 'unknown' },
@@ -103,26 +103,55 @@ export const selectHealthMetrics = (model: Model): HealthMetric[] => {
         ];
     }
 
-    // Since we consolidated calculations into the summary/mapper, we can simplify this or use the summary directly.
-    // For specific metrics per agency, we still use the agencies array.
-    const totalCollected = agencies.reduce((sum, a) => sum + a.totalCollected, 0);
-    const netCollected = agencies.reduce((sum, a) => sum + a.netCollected, 0);
+    const { health_metrics } = summary;
 
-    const reserveRatio = totalCollected > 0 ? ((netCollected / totalCollected) * 100) : 0;
-    const avgPerformance = agencies.reduce((sum, a) => {
-        return sum + (a.totalCollected > 0 ? (a.netCollected / a.totalCollected) * 100 : 0);
-    }, 0) / agencies.length;
+    const getRiskStatus = (level: string): HealthStatus => {
+        switch (level) {
+            case 'LOW': return 'excellent';
+            case 'MEDIUM': return 'good';
+            case 'HIGH':
+            case 'CRITICAL': return 'critical';
+            default: return 'unknown';
+        }
+    };
 
-    const riskLevel = reserveRatio > 80 ? es.banker.dashboard.health.values.low :
-        reserveRatio > 50 ? es.banker.dashboard.health.values.medium : es.banker.dashboard.health.values.high;
+    const getSolvencyStatus = (ratio: number): HealthStatus => {
+        if (ratio >= 30) return 'excellent';
+        if (ratio >= 20) return 'good';
+        return 'critical';
+    };
 
-    const growthTrend = netCollected > 0 ? es.banker.dashboard.health.values.positive : es.banker.dashboard.health.values.negative;
+    const getTrendStatus = (trend: number): HealthStatus => {
+        if (trend > 0) return 'excellent';
+        if (trend > -10) return 'good';
+        return 'critical';
+    };
 
     return [
-        { id: 'reserve', label: es.banker.dashboard.health.metrics.reserveRatio, value: `${reserveRatio.toFixed(1)}%`, status: reserveRatio > 70 ? 'excellent' : reserveRatio > 40 ? 'good' : 'critical' },
-        { id: 'performance', label: es.banker.dashboard.health.metrics.agencyPerformance, value: `${avgPerformance.toFixed(1)}%`, status: avgPerformance > 75 ? 'excellent' : avgPerformance > 50 ? 'good' : 'critical' },
-        { id: 'risk', label: es.banker.dashboard.health.metrics.riskLevel, value: riskLevel, status: riskLevel === es.banker.dashboard.health.values.low ? 'excellent' : riskLevel === es.banker.dashboard.health.values.medium ? 'good' : 'critical' },
-        { id: 'trend', label: es.banker.dashboard.health.metrics.growthTrend, value: growthTrend, status: growthTrend === es.banker.dashboard.health.values.positive ? 'excellent' : 'critical' }
+        {
+            id: 'reserve',
+            label: es.banker.dashboard.health.metrics.reserveRatio,
+            value: `${health_metrics.solvency_ratio}%`,
+            status: getSolvencyStatus(health_metrics.solvency_ratio)
+        },
+        {
+            id: 'performance',
+            label: es.banker.dashboard.health.metrics.agencyPerformance,
+            value: `$${health_metrics.net_result.toLocaleString()}`,
+            status: health_metrics.net_result > 0 ? 'excellent' : 'critical'
+        },
+        {
+            id: 'risk',
+            label: es.banker.dashboard.health.metrics.riskLevel,
+            value: health_metrics.risk_level,
+            status: getRiskStatus(health_metrics.risk_level)
+        },
+        {
+            id: 'trend',
+            label: es.banker.dashboard.health.metrics.growthTrend,
+            value: `${health_metrics.trend_percentage > 0 ? '+' : ''}${health_metrics.trend_percentage}%`,
+            status: getTrendStatus(health_metrics.trend_percentage)
+        }
     ];
 };
 

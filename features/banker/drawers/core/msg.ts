@@ -10,13 +10,8 @@ export type Msg =
     | { type: 'NAVIGATE_BACK' }
     | { type: 'REPORT_CLICKED'; drawId: number }
     | { type: 'CONFIRM_DRAW'; drawId: number }
-    | { type: 'NAVIGATE_DATE'; days: number };
+    | { type: 'NAVIGATE_DATE'; days: number }
+    | { type: 'SET_STATUS_FILTER'; status: string | null }
+    | { type: 'SET_TYPE_FILTER'; drawType: string | null }
+    | { type: 'CLEAR_FILTERS' };
 
-export const INIT_SCREEN = (id: number): Msg => ({ type: 'INIT_SCREEN', id });
-export const SET_SELECTED_DATE = (date: Date): Msg => ({ type: 'SET_SELECTED_DATE', date });
-export const FETCH_DETAILS_REQUESTED = (): Msg => ({ type: 'FETCH_DETAILS_REQUESTED' });
-export const REFRESH_CLICKED = (): Msg => ({ type: 'REFRESH_CLICKED' });
-export const NAVIGATE_BACK = (): Msg => ({ type: 'NAVIGATE_BACK' });
-export const REPORT_CLICKED = (drawId: number): Msg => ({ type: 'REPORT_CLICKED', drawId });
-export const CONFIRM_DRAW = (drawId: number): Msg => ({ type: 'CONFIRM_DRAW', drawId });
-export const NAVIGATE_DATE = (days: number): Msg => ({ type: 'NAVIGATE_DATE', days });

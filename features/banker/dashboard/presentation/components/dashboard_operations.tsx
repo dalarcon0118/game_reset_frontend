@@ -48,33 +48,29 @@ export function DashboardOperations() {
           </Flex>
         )}
       </Flex>
-      <Flex flex={1} justify="center" margin={[{ type: 'vertical', value: 24 }]} >
-        <ButtonKit
-          style={[styles.viewAllButton, { 
-            backgroundColor: theme['color-primary-500'],
-            borderColor: theme['color-primary-500'],
-            shadowColor: theme['color-primary-500']
-          }]}
-          size='giant'
-          appearance='filled'
-          accessoryRight={<ChevronRight color="white" size={20} />}
-          label={es.banker.dashboard.operations.viewAll}
-        />
-      </Flex>
+      {agencies.length > 3 && (
+        <Flex justify="center" margin={[{ type: 'vertical', value: 20 }]} >
+          <ButtonKit
+            style={[styles.viewAllButton, { 
+              backgroundColor: theme['background-basic-color-2'],
+              borderColor: theme['border-basic-color-3'],
+            }]}
+            size='medium'
+            appearance='outline'
+            accessoryRight={(props) => <ChevronRight {...props} color={theme['color-primary-500']} size={18} />}
+            labelStyle={{ color: theme['color-primary-500'], fontWeight: '700' }}
+            label={es.banker.dashboard.operations.viewAll}
+          />
+        </Flex>
+      )}
     </>
   );
 }
 
 const styles = StyleSheet.create({
   viewAllButton: {
-    borderRadius: 16,
-    height: 56,
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    borderRadius: 12,
+    minWidth: '60%',
+    height: 48,
   },
 });

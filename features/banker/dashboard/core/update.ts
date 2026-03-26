@@ -84,21 +84,17 @@ export const update = (model: Model, msg: Msg): [Model, any] => {
             );
         })
 
-        .with({ type: 'DATA_RECEIVED' }, ({ webData }) => {
-            if (webData.type === 'Success') {
-                const agencies = webData.data;
-                const summary = StructureMapper.calculateSummary(agencies);
-
-                return singleton({
-                    ...model,
-                    agencies: RemoteData.success(agencies),
-                    summary: RemoteData.success(summary)
-                });
-            }
+        .with({ type: 'AGENCIES_RECEIVED' }, ({ webData }) => {
             return singleton({
                 ...model,
-                agencies: webData as any,
-                summary: webData as any
+                agencies: webData
+            });
+        })
+
+        .with({ type: 'SUMMARY_RECEIVED' }, ({ webData }) => {
+            return singleton({
+                ...model,
+                summary: webData
             });
         })
 

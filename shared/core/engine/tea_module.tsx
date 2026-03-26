@@ -12,6 +12,8 @@ export interface TeaModuleDef<TModel, TMsg> {
     initial: (params?: any) => [TModel, any];
     update: (model: TModel, msg: TMsg) => [TModel, any];
     subscriptions?: (model: TModel) => any;
+    effectHandlers?: Record<string, (payload: any, dispatch: (msg: TMsg) => void) => Promise<any>>;
+    middlewares?: import('../tea-utils/middleware.types').TeaMiddleware<TModel, TMsg>[];
 }
 
 /**
@@ -64,7 +66,10 @@ export function createTEAModule<TModel, TMsg>(
             const store = createElmStore({
                 initial: def.initial,
                 update: def.update,
-                subscriptions: def.subscriptions || (() => null)
+                subscriptions: def.subscriptions || (() => null),
+                effectHandlers: def.effectHandlers,
+                middlewares: def.middlewares,
+                name: def.name
             });
 
             if (initialParams !== undefined) {

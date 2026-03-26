@@ -5,6 +5,33 @@ import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('STRUCTURE_CODECS');
 
+export const HealthMetricsCodec = t.intersection([
+    t.type({
+        solvency_ratio: t.number,
+        total_pending_prizes: t.number,
+    }),
+    t.partial({
+        trend_percentage: t.number,
+        trend: t.number,
+        risk_level: t.union([t.literal('LOW'), t.literal('MEDIUM'), t.literal('HIGH'), t.literal('CRITICAL')]),
+        risk_score: t.number,
+        status: t.union([t.literal('healthy'), t.literal('warning'), t.literal('critical')]),
+        net_result: t.number,
+    })
+]);
+
+export const DashboardSummaryCodec = t.type({
+    id_estructura: t.number,
+    nombre_estructura: t.string,
+    padre_id: t.union([t.number, t.null]),
+    totalCollected: t.number,
+    totalPaid: t.number,
+    totalPending: t.number,
+    netTotal: t.number,
+    health_metrics: HealthMetricsCodec,
+    sorteos: t.array(t.any),
+});
+
 export const ChildStructureCodec = t.intersection([
     t.type({
         id: t.number,

@@ -224,7 +224,10 @@ export const CoreService = {
       // Si recuperamos conexión física, forzamos un ping de validación inmediata
       if (isConnected) {
         isServerReachable().then(reachable => {
-          dispatch({ type: 'SERVER_REACHABILITY_CHANGED', payload: reachable });
+          // Solo despachamos si el servidor es realmente alcanzable
+          if (reachable) {
+            dispatch({ type: 'SERVER_REACHABILITY_CHANGED', payload: true });
+          }
         });
       }
     });
@@ -240,6 +243,7 @@ export const CoreService = {
             timestamp: new Date(event.timestamp).toISOString()
           });
 
+          // Solo notificamos ONLINE si el ApiClient lo confirma (ya filtrado de 401s)
           dispatch({ type: 'SERVER_REACHABILITY_CHANGED', payload: isReachable });
         }
       });

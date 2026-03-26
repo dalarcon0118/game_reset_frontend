@@ -48,10 +48,11 @@ export const es = {
         }
       },
       operations: {
-        activeAgenciesTitle: "Colecturias activas",
-        activeCount: "Activo",
+        activeAgenciesTitle: "Colecturías activas",
+        activeCountSingular: "activa",
+        activeCountPlural: "activas",
         noAgencies: "No hay agencias de recolección disponibles",
-        viewAll: "Todas las colecturias"
+        viewAll: "Todas las colecturías"
       }
     },
     list: {

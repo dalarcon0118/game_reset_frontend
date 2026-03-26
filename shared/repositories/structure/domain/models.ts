@@ -34,14 +34,27 @@ export interface ListeroNode extends StructureNode {
 }
 
 /**
+ * Health Metrics for the Banker Dashboard
+ */
+export interface HealthMetrics {
+    solvency_ratio: number;
+    trend_percentage: number;
+    risk_level: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+    net_result: number;
+    total_pending_prizes: number;
+}
+
+/**
  * Summary for the Banker Dashboard
  */
 export interface DashboardSummary {
     totalCollected: number;
     netCollected: number;
     totalPremiums: number;
+    totalPending: number;
     totalCommissions: number;
     netProfit: number;
     bankReserves: number;
     activeAgencies: number;
+    health_metrics?: HealthMetrics;
 }

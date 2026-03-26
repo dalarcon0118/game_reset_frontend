@@ -4,7 +4,8 @@ import { User } from '@/shared/repositories/auth/types/types';
 
 export type Msg =
     | { type: 'FETCH_DATA_REQUESTED'; structureId: string }
-    | { type: 'DATA_RECEIVED'; webData: WebData<Agency[]> }
+    | { type: 'AGENCIES_RECEIVED'; webData: WebData<Agency[]> }
+    | { type: 'SUMMARY_RECEIVED'; webData: WebData<DashboardSummary> }
     | { type: 'REFRESH_CLICKED' }
     | { type: 'AGENCY_SELECTED'; agencyId: number }
     | { type: 'RULES_PRESSED'; agencyId: number }

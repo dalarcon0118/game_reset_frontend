@@ -29,6 +29,7 @@
     "**/*.ts",
     "**/*.tsx",
     ".expo/types/**/*.ts",
+    "types/**/*.ts",
     "expo-env.d.ts",
     "nativewind-env.d.ts",
     "features/banker/common/header"

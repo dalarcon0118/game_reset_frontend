@@ -55,7 +55,11 @@ const syncSingleBet = async (
                 log.error(`Failed to sync bet ${bet.externalId}`, error);
                 
                 const attemptsCount = (bet.syncContext?.attemptsCount || 0) + 1;
-                const isFatal = (error as any).status >= 400 && (error as any).status < 500;
+                const status = (error as any).status;
+                
+                // Los errores 401 (Unauthorized) y 403 (Forbidden) no son fatales para los datos,
+                // son problemas de sesión que deben reintentarse tras un login exitoso.
+                const isFatal = status >= 400 && status < 500 && status !== 401 && status !== 403;
                 
                 await storage.updateStatus(bet.externalId, isFatal ? 'error' : 'pending', {
                     syncContext: {

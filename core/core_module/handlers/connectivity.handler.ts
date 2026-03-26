@@ -13,13 +13,14 @@ export const ConnectivityHandler = {
     const isNowOnline = nextNetworkStatus;
 
     const nextModel = updateModel(model, { connectivity: nextConnectivity, networkConnected: nextNetworkStatus });
+    const canSync = nextNetworkStatus && model.sessionStatus === 'AUTHENTICATED' && model.isSessionContextVerified;
 
     return ret(
       nextModel,
-      (wasOffline && isNowOnline)
+      (wasOffline && nextNetworkStatus)
         ? Cmd.batch([
           CoreService.syncNetworkStatus(nextNetworkStatus),
-          CoreService.syncPendingBetsTask()
+          canSync ? CoreService.syncPendingBetsTask() : Cmd.none
         ])
         : (nextNetworkStatus !== model.networkConnected
           ? CoreService.syncNetworkStatus(nextNetworkStatus)
@@ -32,16 +33,16 @@ export const ConnectivityHandler = {
     const nextNetworkStatus = calculateNetworkStatus({ connectivity: nextConnectivity, isOffline: model.isOffline });
 
     const wasOffline = !model.networkConnected;
-    const isNowOnline = nextNetworkStatus;
 
     const nextModel = updateModel(model, { connectivity: nextConnectivity, networkConnected: nextNetworkStatus });
+    const canSync = nextNetworkStatus && model.sessionStatus === 'AUTHENTICATED' && model.isSessionContextVerified;
 
     return ret(
       nextModel,
-      (wasOffline && isNowOnline)
+      (wasOffline && nextNetworkStatus)
         ? Cmd.batch([
           CoreService.syncNetworkStatus(nextNetworkStatus),
-          CoreService.syncPendingBetsTask()
+          canSync ? CoreService.syncPendingBetsTask() : Cmd.none
         ])
         : (nextNetworkStatus !== model.networkConnected
           ? CoreService.syncNetworkStatus(nextNetworkStatus)
@@ -52,16 +53,16 @@ export const ConnectivityHandler = {
   handleSetManualOffline: (model: CoreModel, payload: boolean): Return<CoreModel, CoreMsg> => {
     const nextNetworkStatus = calculateNetworkStatus({ connectivity: model.connectivity, isOffline: payload });
     const wasOffline = !model.networkConnected;
-    const isNowOnline = nextNetworkStatus;
 
     const nextModel = updateModel(model, { isOffline: payload, networkConnected: nextNetworkStatus });
+    const canSync = nextNetworkStatus && model.sessionStatus === 'AUTHENTICATED' && model.isSessionContextVerified;
 
     return ret(
       nextModel,
-      (wasOffline && isNowOnline)
+      (wasOffline && nextNetworkStatus)
         ? Cmd.batch([
           CoreService.syncNetworkStatus(nextNetworkStatus),
-          CoreService.syncPendingBetsTask()
+          canSync ? CoreService.syncPendingBetsTask() : Cmd.none
         ])
         : (nextNetworkStatus !== model.networkConnected
           ? CoreService.syncNetworkStatus(nextNetworkStatus)

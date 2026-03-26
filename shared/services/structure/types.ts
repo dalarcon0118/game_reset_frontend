@@ -14,6 +14,8 @@ export interface BackendChildStructure {
 export interface BackendListeroDrawDetail {
     draw_id: number;
     draw_name: string;
+    draw_type_code?: string;
+    draw_type_name?: string;
     status: string;
     winning_number: string | null;
     opening_time: string;

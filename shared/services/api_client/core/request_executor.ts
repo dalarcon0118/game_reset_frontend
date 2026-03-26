@@ -179,7 +179,14 @@ export class RequestExecutor {
     const handler = this.onConnectivity();
     if (!handler) return;
 
-    const type = status > 0 ? 'ONLINE' : 'OFFLINE';
+    // CA-06: Filtrado de conectividad basado en semántica de sesión (SSOT)
+    // Un status 401 (Unauthorized) o 403 (Forbidden) indica que el canal físico existe,
+    // pero no es un canal de negocio válido hasta que se resuelva la sesión.
+    // No reportamos ONLINE en estos casos para evitar ráfagas de peticiones de features.
+    const isSessionError = status === 401 || status === 403;
+    const type = (status > 0) ? 'ONLINE' : 'OFFLINE';
+
+
     handler({
       type,
       status: status > 0 ? status : undefined,

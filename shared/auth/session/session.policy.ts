@@ -8,7 +8,7 @@ const log = logger.withTag('SESSION_POLICY');
  * Esta clase NO realiza I/O, es 100% determinística y testeable.
  */
 export class SessionPolicy {
-    private static REFRESH_SKEW_SECONDS = 10; // Margen de seguridad para refresh
+    private static REFRESH_SKEW_SECONDS = 300; // 5 minutos de margen para refresh
 
     /**
      * Determina el estado de un token JWT o marcador offline.
@@ -27,7 +27,7 @@ export class SessionPolicy {
             while (base64.length % 4) base64 += '=';
 
             const payload = JSON.parse(this.atob(base64));
-            
+
             // Usar tiempo confiable si se proporciona, de lo contrario fallback a Date.now()
             const now = Math.floor((trustedNow || Date.now()) / 1000);
 

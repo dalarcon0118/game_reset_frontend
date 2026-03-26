@@ -1,5 +1,5 @@
-import { BackendChildStructure } from '../types/types';
-import { Agency, DashboardSummary, StructureNodeType } from '../domain/models';
+import { BackendChildStructure, BackendDashboardSummary } from '../types/types';
+import { Agency, DashboardSummary, StructureNodeType, HealthMetrics } from '../domain/models';
 
 /**
  * 🛠️ HELPER: Sanitization for financial values
@@ -35,6 +35,40 @@ export const StructureMapper = {
         backendList.map(StructureMapper.toAgency),
 
     /**
+     * Transforms a Backend Dashboard Summary into a Domain DashboardSummary
+     */
+    toDashboardSummary: (backend: BackendDashboardSummary): DashboardSummary => {
+        const metrics = backend.health_metrics;
+        const trendPercentage = metrics.trend_percentage ?? metrics.trend ?? 0;
+        const netResult = metrics.net_result ?? backend.netTotal;
+        const riskLevel = metrics.risk_level ?? (
+            metrics.status === 'healthy'
+                ? 'LOW'
+                : metrics.status === 'warning'
+                    ? 'MEDIUM'
+                    : 'HIGH'
+        );
+
+        return {
+            totalCollected: backend.totalCollected,
+            netCollected: backend.netTotal,
+            totalPremiums: backend.totalPaid,
+            totalPending: backend.totalPending,
+            totalCommissions: 0,
+            netProfit: backend.netTotal,
+            bankReserves: netResult,
+            activeAgencies: 0,
+            health_metrics: {
+                solvency_ratio: metrics.solvency_ratio,
+                trend_percentage: trendPercentage,
+                risk_level: riskLevel,
+                net_result: netResult,
+                total_pending_prizes: metrics.total_pending_prizes
+            }
+        };
+    },
+
+    /**
      * Calculates the Dashboard Summary from a list of Domain Agencies
      * Now includes netProfit and bankReserves directly (Option 1)
      */
@@ -43,12 +77,14 @@ export const StructureMapper = {
             totalCollected: acc.totalCollected + curr.totalCollected,
             netCollected: acc.netCollected + curr.netCollected,
             totalPremiums: acc.totalPremiums + curr.premiumsPaid,
+            totalPending: acc.totalPending, // Agencies don't have pending prizes yet in domain model
             totalCommissions: acc.totalCommissions + curr.commissions,
             activeAgencies: acc.activeAgencies + (curr.totalCollected > 0 ? 1 : 0)
         }), {
             totalCollected: 0,
             netCollected: 0,
             totalPremiums: 0,
+            totalPending: 0,
             totalCommissions: 0,
             activeAgencies: 0
         });

@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Flex } from '@shared/components';
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react-native';
 import { Datepicker } from '@ui-kitten/components';
 import { useTheme } from '@shared/hooks/use_theme';
+import { TimePolicy } from '@/shared/repositories/system/time/time.update';
 
 interface DateNavigationProps {
     selectedDate: Date;
@@ -12,7 +13,7 @@ interface DateNavigationProps {
 }
 
 const formatDateToString = (date: Date) => {
-    return date.toISOString().split('T')[0];
+    return TimePolicy.formatLocalDate(date);
 };
 
 export const DateNavigation: React.FC<DateNavigationProps> = ({
@@ -21,13 +22,19 @@ export const DateNavigation: React.FC<DateNavigationProps> = ({
     onNavigate
 }) => {
     const { colors, spacing } = useTheme();
+    const today = useMemo(() => {
+        const d = new Date();
+        d.setHours(0, 0, 0, 0);
+        return d;
+    }, []);
 
-    const isToday = formatDateToString(selectedDate) === formatDateToString(new Date());
+    const isToday = formatDateToString(selectedDate) === formatDateToString(today);
 
     const canNavigateForward = (days: number) => {
         const newDate = new Date(selectedDate);
         newDate.setDate(newDate.getDate() + days);
-        return newDate <= new Date();
+        newDate.setHours(0, 0, 0, 0);
+        return newDate <= today;
     };
 
     return (
@@ -54,7 +61,7 @@ export const DateNavigation: React.FC<DateNavigationProps> = ({
                 <Datepicker
                     date={selectedDate}
                     onSelect={onDateChange}
-                    max={new Date()}
+                    max={today}
                     accessoryRight={(props: any) => (
                         <Calendar
                             size={18}

@@ -14,11 +14,11 @@ import { HealthStatus, selectHealthMetrics, selectOverallHealth, useBankerDashbo
  */
 const getStatusColor = (status: HealthStatus, theme: any) => {
   switch (status) {
-    case 'excellent': return theme['color-success-500'];
-    case 'good': return theme['color-warning-500'];
-    case 'critical': return theme['color-danger-500'];
-    case 'unknown': return theme['color-basic-400'];
-    default: return theme['color-basic-500'];
+    case 'excellent': return theme['color-success-600'];
+    case 'good': return theme['color-warning-600'];
+    case 'critical': return theme['color-danger-600'];
+    case 'unknown': return theme['color-basic-500'];
+    default: return theme['color-basic-600'];
   }
 };
 
@@ -69,12 +69,12 @@ export function BankHealth() {
           
           <View style={[
             styles.statusBadge, 
-            { backgroundColor: `${overallColor}15` }
+            { backgroundColor: overallHealth.status === 'critical' ? theme['color-danger-500'] : `${overallColor}20` }
           ]}>
             <Label
               type="detail"
               value={overallHealth.label}
-              style={{ color: overallColor, fontWeight: '700', fontSize: 11 }}
+              style={{ color: overallHealth.status === 'critical' ? 'white' : overallColor, fontWeight: '800', fontSize: 12 }}
             />
           </View>
         </Flex>
@@ -110,23 +110,22 @@ export function BankHealth() {
                 </Flex>
 
                 {/* Text Content */}
-                <Flex vertical flex={1}>
+                <Flex vertical flex={1} justify="center">
                    <Label 
                     type="detail" 
-                    numberOfLines={2}
+                    numberOfLines={1}
                     ellipsizeMode="tail"
                     style={{ 
                       color: theme['text-hint-color'], 
-                      marginBottom: 2, 
-                      fontSize: 13, 
-                      lineHeight: 15,
-                      fontWeight: '700'
+                      marginBottom: 0, 
+                      fontSize: 12, 
+                      fontWeight: '600'
                     }} 
                     value={metric.label} 
                    />
                    <Label 
                     type="number" 
-                    style={{ fontSize: 17, fontWeight: '800', color: metricColor, lineHeight: 20 }} 
+                    style={{ fontSize: 16, fontWeight: '800', color: metricColor, lineHeight: 22 }} 
                     value={metric.value} 
                    />
                 </Flex>

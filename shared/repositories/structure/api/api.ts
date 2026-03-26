@@ -1,12 +1,12 @@
 import { apiClient } from '@/shared/services/api_client';
 import { settings } from '@/config/settings';
 import { BackendChildStructure, BackendListeroDetails } from '../types/types';
-import { ChildStructureArrayCodec, ListeroDetailsCodec, decodeOrFallback } from '../codecs/codecs';
+import { ChildStructureArrayCodec, ListeroDetailsCodec, DashboardSummaryCodec, decodeOrFallback } from '../codecs/codecs';
 import { isLeft } from 'fp-ts/Either';
 import { PathReporter } from 'io-ts/PathReporter';
 import { logger } from '@/shared/utils/logger';
 import { StructureMapper } from '../mappers/mappers';
-import { Agency } from '../domain/models';
+import { Agency, DashboardSummary } from '../domain/models';
 
 const log = logger.withTag('STRUCTURE_API');
 
@@ -29,6 +29,24 @@ export const StructureApi = {
         }
 
         return StructureMapper.toAgencies(decoded.right);
+    },
+
+    getSummary: async (id: number, date?: string): Promise<DashboardSummary> => {
+        const params = new URLSearchParams();
+        params.append('structure_id', id.toString());
+        if (date) params.append('date', date);
+
+        const endpoint = `${settings.api.endpoints.financialStatement()}?${params.toString()}`;
+        const response = await apiClient.get<any>(endpoint);
+
+        const decoded = DashboardSummaryCodec.decode(response);
+        if (isLeft(decoded)) {
+            const errorReport = PathReporter.report(decoded).join('; ');
+            log.error('getSummary decode failed', { error: errorReport, id });
+            throw new Error(`Invalid response from summary API: ${errorReport}`);
+        }
+
+        return StructureMapper.toDashboardSummary(decoded.right);
     },
 
     getListeroDetails: async (id: number, date?: string): Promise<BackendListeroDetails> => {

@@ -1,3 +1,26 @@
+export interface BackendHealthMetrics {
+    solvency_ratio: number;
+    trend_percentage?: number;
+    trend?: number;
+    risk_level?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+    risk_score?: number;
+    status?: 'healthy' | 'warning' | 'critical';
+    net_result?: number;
+    total_pending_prizes: number;
+}
+
+export interface BackendDashboardSummary {
+    id_estructura: number;
+    nombre_estructura: string;
+    padre_id: number | null;
+    totalCollected: number;
+    totalPaid: number;
+    totalPending: number;
+    netTotal: number;
+    health_metrics: BackendHealthMetrics;
+    sorteos: any[];
+}
+
 export interface BackendChildStructure {
     id: number;
     name: string;
@@ -14,6 +37,8 @@ export interface BackendChildStructure {
 export interface BackendListeroDrawDetail {
     draw_id: number;
     draw_name: string;
+    draw_type_code?: string;
+    draw_type_name?: string;
     status: string;
     winning_number: string | null;
     opening_time: string;
