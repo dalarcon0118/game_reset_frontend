@@ -7,6 +7,7 @@
 
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ApplicationProvider, IconRegistry } from '@ui-kitten/components';
 import { EvaIconsPack } from '@ui-kitten/eva-icons';
 import * as eva from '@eva-design/eva';
@@ -35,20 +36,20 @@ setViewAdapter('react-native');
  */
 const renderWithProviders = (ctx: DashboardContext) => {
     return render(
-        <>
+        <SafeAreaProvider>
             <IconRegistry icons={EvaIconsPack} />
             <ApplicationProvider {...eva} theme={eva.light}>
-                <CoreModule.Provider storeApi={CoreModule.storeApi}>
-                    <NotificationModule.Provider storeApi={NotificationModule.storeApi}>
-                        <AuthModuleV1.Provider storeApi={AuthModuleV1.storeApi}>
-                            <BankerDashboardStoreProvider storeApi={ctx.dashboardStoreApi}>
+                <CoreModule.Provider>
+                    <NotificationModule.Provider>
+                        <AuthModuleV1.Provider>
+                            <BankerDashboardStoreProvider store={ctx.dashboardStoreApi}>
                                 <BankerDashboardScreen />
                             </BankerDashboardStoreProvider>
                         </AuthModuleV1.Provider>
                     </NotificationModule.Provider>
                 </CoreModule.Provider>
             </ApplicationProvider>
-        </>
+        </SafeAreaProvider>
     );
 };
 
@@ -61,7 +62,7 @@ export const bankerDashboardScenario = scenario<DashboardContext>(
     // === GIVEN ===
     .given('Un Banquero autenticado y el Dashboard renderizado', async (ctx) => {
         // 1. Preparar middleware para esperar a que el Dashboard procese la inicialización
-        const { middleware, promise } = createMsgWaiterMiddleware('DATA_RECEIVED');
+        const { middleware, promise } = createMsgWaiterMiddleware('SUMMARY_RECEIVED');
         ctx.waiterPromise = promise;
 
         // 2. Setup session and mock backend con el middleware
@@ -106,6 +107,8 @@ export const bankerDashboardScenario = scenario<DashboardContext>(
         // 2. Verificación de SSoT (Model) - Opcional pero recomendado
         const model = ctx.dashboardStoreApi.getState().model;
         expect(model.summary.type).toBe('Success');
+        expect(model.summary.data.health_metrics?.solvency_ratio).toBe(46.67);
+        expect(model.summary.data.health_metrics?.risk_level).toBe('MEDIUM');
     })
 
     .and('El listado de colectores debe mostrar las agencias reales en pantalla', async (ctx) => {
@@ -120,5 +123,5 @@ export const bankerDashboardScenario = scenario<DashboardContext>(
         // Verificamos que los datos de la agencia A sean correctos en el modelo
         const agencies = ctx.dashboardStoreApi.getState().model.agencies.data;
         const agenciaAData = agencies.find((a: any) => a.name === 'Agencia-A');
-        expect(agenciaAData.total_collected).toBe(500.00);
+        expect(agenciaAData.totalCollected).toBe(500.00);
     });

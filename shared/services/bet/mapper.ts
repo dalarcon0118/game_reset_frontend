@@ -1,11 +1,10 @@
 import { BetType } from '@/types';
 import { BackendBet, ListBetsFilters } from './types';
 import { BetDomainModel } from '../../repositories/bet/bet.types';
+import { toUtcISODate } from '@/shared/utils/formatters';
 import { logger } from '@/shared/utils/logger';
-import { BET_TYPE_KEYS, BetTypeKind, normalizeBetType, normalizeNumbers, BET_TYPE_ID_MAP } from '@/shared/types/bet_types';
+import { BetTypeKind, normalizeBetType, normalizeNumbers } from '@/shared/types/bet_types';
 import { GameType } from '@/types';
-
-import { TimerRepository } from '@/shared/repositories/system/time';
 
 const log = logger.withTag('BET_MAPPER');
 
@@ -14,20 +13,24 @@ const log = logger.withTag('BET_MAPPER');
  * Usa el mapeo centralizado.
  */
 const mapBackendBetType = (backendBet: BackendBet, betTypes: GameType[] = []): BetTypeKind => {
-    // PRIORIDAD 1: Si hay cache de betTypes, usarlo
-    const betTypeId = backendBet.bet_type?.toString();
-    const betTypeFromCache = betTypes.find(t => t.id?.toString() === betTypeId);
-
-    if (betTypeFromCache) {
-        return normalizeBetType(betTypeFromCache.name);
+    const detailsCode = backendBet.bet_type_details?.code;
+    if (detailsCode) {
+        return normalizeBetType(detailsCode);
     }
 
-    // PRIORIDAD 2: Usar mapeo centralizado por ID
-    if (betTypeId && BET_TYPE_ID_MAP[betTypeId]) {
-        return BET_TYPE_ID_MAP[betTypeId];
+    const betTypeRaw = backendBet.bet_type?.toString() || '';
+    const betTypeFromCacheById = betTypes.find(t => t.id?.toString() === betTypeRaw);
+    if (betTypeFromCacheById) {
+        return normalizeBetType(betTypeFromCacheById.code || betTypeFromCacheById.name);
     }
 
-    // PRIORIDAD 3: Intentar desde bet_type_details
+    const betTypeFromCacheByCode = betTypes.find(
+        t => (t.code || '').toUpperCase() === betTypeRaw.toUpperCase()
+    );
+    if (betTypeFromCacheByCode) {
+        return normalizeBetType(betTypeFromCacheByCode.code || betTypeFromCacheByCode.name);
+    }
+
     const backendTypeName = backendBet.bet_type_details?.name || backendBet.game_type_details?.name || '';
     if (backendTypeName) {
         return normalizeBetType(backendTypeName);
@@ -67,7 +70,8 @@ export const mapBackendBetToFrontend = (backendBet: BackendBet, betTypes: GameTy
             }),
             receiptCode: backendBet.receipt_code || '-----',
             timestamp: backendBet.created_at ? new Date(backendBet.created_at).getTime() : Date.now(),
-            betTypeId: backendBet.bet_type ?? '',
+            betTypeId: backendBet.bet_type_details?.code || (backendBet.bet_type ?? ''),
+            betTypeCode: backendBet.bet_type_details?.code || '',
             status: 'synced'
         };
     } catch (error) {
@@ -90,7 +94,7 @@ export const mapPendingBetsToFrontend = (pendingBets: BetDomainModel[], filters?
     if (filters?.date) {
         // Asegurar que el filtro sea un string ISO (YYYY-MM-DD) incluso si viene como timestamp
         const filterDate = typeof filters.date === 'number' || !isNaN(Number(filters.date))
-            ? TimerRepository.formatUTCDate(Number(filters.date))
+            ? toUtcISODate(Number(filters.date))
             : filters.date;
 
         log.info('Filtering pending bets by date', {
@@ -100,7 +104,7 @@ export const mapPendingBetsToFrontend = (pendingBets: BetDomainModel[], filters?
         });
 
         relevantPendingBets = relevantPendingBets.filter((pb: BetDomainModel) => {
-            const betDate = TimerRepository.formatUTCDate(pb.timestamp);
+            const betDate = toUtcISODate(pb.timestamp);
             const isMatch = betDate === filterDate;
 
             if (!isMatch) {
@@ -143,6 +147,7 @@ export const mapSinglePendingBetToFrontend = (pb: BetDomainModel, betTypes: Game
 
         return {
             id: `offline-${pb.externalId}`,
+            externalId: pb.externalId || '',
             type: normalizedType,
             numbers: normalizedNumbers,
             amount: Number(pb.amount || 0),
@@ -154,21 +159,28 @@ export const mapSinglePendingBetToFrontend = (pb: BetDomainModel, betTypes: Game
             timestamp: pb.timestamp,
             isPending: true,
             receiptCode: pb.receiptCode,
-            betTypeId: pb.betTypeId
+            betTypeId: pb.betTypeCode || pb.betTypeId,
+            betTypeCode: pb.betTypeCode,
+            status: 'pending'
         };
     }
 
     // Fallback: intentar inferir desde betTypeId
-    const betTypeId = String(pb.betTypeId || '');
-    const betTypeFromCache = betTypes.find(t => t.id?.toString() === betTypeId);
+    const betTypeRef = String(pb.betTypeCode || pb.betTypeId || '');
+    const betTypeFromCache = betTypes.find(
+        t =>
+            t.id?.toString() === betTypeRef ||
+            (t.code || '').toUpperCase() === betTypeRef.toUpperCase()
+    );
 
     let mappedType: BetTypeKind = 'Fijo';
     if (betTypeFromCache) {
-        mappedType = normalizeBetType(betTypeFromCache.name);
+        mappedType = normalizeBetType(betTypeFromCache.code || betTypeFromCache.name);
     }
 
     return {
         id: `offline-${pb.externalId}`,
+        externalId: pb.externalId || '',
         type: mappedType,
         numbers: normalizeNumbers(pb.numbers),
         amount: Number(pb.amount || 0),
@@ -180,6 +192,8 @@ export const mapSinglePendingBetToFrontend = (pb: BetDomainModel, betTypes: Game
         timestamp: pb.timestamp,
         isPending: true,
         receiptCode: pb.receiptCode,
-        betTypeId: pb.betTypeId
+        betTypeId: pb.betTypeCode || pb.betTypeId,
+        betTypeCode: pb.betTypeCode,
+        status: 'pending'
     };
 };

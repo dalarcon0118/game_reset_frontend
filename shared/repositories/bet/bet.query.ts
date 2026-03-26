@@ -1,5 +1,5 @@
 import { ListBetsFilters } from '@/shared/services/bet/types';
-import { TimerRepository } from '@/shared/repositories/system/time';
+import { toUtcISODate } from '@/shared/utils/formatters';
 
 /**
  * Fluent API Builder for Bet Filters.
@@ -30,7 +30,7 @@ export class BetQuery {
      */
     onDate(date: string | Date): this {
         this.filters.date = date instanceof Date
-            ? TimerRepository.formatUTCDate(date.getTime())
+            ? toUtcISODate(date.getTime())
             : date;
         return this;
     }

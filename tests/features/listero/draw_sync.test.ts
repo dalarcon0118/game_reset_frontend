@@ -1,7 +1,6 @@
 import { DrawService } from '@/shared/services/draw';
 import { DrawApi } from '@/shared/services/draw/api';
-import { offlineStorage } from '@core/offline-storage/instance';
-import { storageClient } from '@/shared/services/storage_client';
+import { storageClient } from '@/shared/core/offline-storage/storage_client';
 
 // Mock dependencies
 jest.mock('@/shared/services/draw/api');
@@ -11,7 +10,7 @@ jest.mock('@/shared/utils/network', () => ({
 // Do NOT mock OfflineStorage, we want to test its integration
 
 // Mock storageClient
-jest.mock('@/shared/services/storage_client', () => {
+jest.mock('@/shared/core/offline-storage/storage_client', () => {
   const mockStorageClient = {
     set: jest.fn(),
     get: jest.fn(),
@@ -79,10 +78,10 @@ describe('Draw Synchronization Flow', () => {
       expect(DrawApi.list).toHaveBeenCalledWith({ owner_structure: '123' });
 
       // Verify Storage save (OfflineStorage calling storageClient)
-      // We expect the LAST_DRAWS_KEY to be used. We don't know the exact key string here easily without importing it or checking code, 
-      // but we know it saves an object with data and timestamp.
+      // We expect the LAST_DRAWS_KEY to be used.
+      // v2 key format: @v2:draw:instance:list:123:data
       expect(storageClient.set).toHaveBeenCalledWith(
-        expect.stringContaining('last_draws'),
+        expect.stringContaining('draw:instance:list:123:data'),
         expect.objectContaining({
           data: mockDraws,
           timestamp: expect.any(Number)
@@ -113,7 +112,7 @@ describe('Draw Synchronization Flow', () => {
       expect(DrawApi.list).toHaveBeenCalledWith({ owner_structure: '123' });
 
       // Verify Fallback to Storage
-      expect(storageClient.get).toHaveBeenCalledWith(expect.stringContaining('last_draws'));
+      expect(storageClient.get).toHaveBeenCalledWith(expect.stringContaining('draw:instance:list:123:data'));
 
       // Verify result
       expect(result.isOk()).toBe(true);
@@ -140,10 +139,12 @@ describe('Draw Synchronization Flow', () => {
 
       // Verify
       expect(result.isOk()).toBe(true);
-      const draws = result._unsafeUnwrap();
-      expect(draws).toHaveLength(2);
-      expect(draws[0].id).toBe('1');
-      expect(draws[0].name).toBe('Morning Draw');
+      if (result.isOk()) {
+        const draws = result.value;
+        expect(draws).toHaveLength(2);
+        expect(draws[0].id).toBe('1');
+        expect(draws[0].name).toBe('Morning Draw');
+      }
       expect(storageClient.remove).not.toHaveBeenCalled();
     });
 
@@ -167,7 +168,8 @@ describe('Draw Synchronization Flow', () => {
       // Verify
       // OfflineFirstDrawRepository returns error if no internet and no valid cache
       expect(result.isErr()).toBe(true);
-      expect(storageClient.remove).toHaveBeenCalledWith(expect.stringContaining('last_draws'));
+      // It should have cleared the list
+      expect(storageClient.remove).toHaveBeenCalledWith(expect.stringContaining('draw:instance:list:123:data'));
     });
   });
 });

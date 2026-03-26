@@ -1,4 +1,4 @@
-import { Return, singleton } from '../../../shared/core/return';
+import { Return, singleton } from '../../../shared/core/tea-utils/return';
 import { Cmd } from '../../../shared/core/tea-utils/cmd';
 
 describe('Return andMapCmd', () => {

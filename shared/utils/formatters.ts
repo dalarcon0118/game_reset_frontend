@@ -15,6 +15,13 @@ export const formatTimestamp = (timestamp: number): string => {
 };
 
 /**
+ * Returns YYYY-MM-DD in UTC time
+ */
+export const toUtcISODate = (timestamp: number): string => {
+    return new Date(timestamp).toISOString().slice(0, 10);
+};
+
+/**
  * Returns YYYY-MM-DD in local time of the timestamp
  */
 export const toLocalISODate = (timestamp: number): string => {

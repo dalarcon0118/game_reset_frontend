@@ -5,7 +5,7 @@ import { ListBetsFilters } from '@/shared/services/bet/types';
 import { drawRepository } from '../../draw';
 import { mapBackendBetToFrontend, mapPendingBetsToFrontend } from '@/shared/services/bet/mapper';
 import { logger } from '@/shared/utils/logger';
-import { TimerRepository } from '@/shared/repositories/system/time';
+import { toUtcISODate } from '@/shared/utils/formatters';
 
 const log = logger.withTag('GetBetsFlow');
 
@@ -16,8 +16,84 @@ interface GetBetsContext {
     onlineBets: BetType[];
 }
 
+const normalizeKey = (value: unknown): string => String(value ?? '').trim();
+
+const buildOnlineIdentitySets = (onlineRaw: any[]): {
+    backendIds: Set<string>;
+    externalIds: Set<string>;
+} => {
+    const backendIds = new Set<string>();
+    const externalIds = new Set<string>();
+
+    onlineRaw.forEach((bet: any) => {
+        const backendId = normalizeKey(bet?.id);
+        const externalId = normalizeKey(bet?.external_id);
+        if (backendId) backendIds.add(backendId);
+        if (externalId) externalIds.add(externalId);
+    });
+
+    return { backendIds, externalIds };
+};
+
+const shouldKeepOfflineBet = (
+    bet: any,
+    identities: { backendIds: Set<string>; externalIds: Set<string> }
+): boolean => {
+    if (!bet) return false;
+
+    const status = normalizeKey(bet.status).toLowerCase();
+    if (status !== 'synced') return true;
+
+    const offlineExternalId = normalizeKey(bet.externalId);
+    if (offlineExternalId && identities.externalIds.has(offlineExternalId)) {
+        return false;
+    }
+
+    const linkedBackendIds = Array.isArray(bet.backendBets)
+        ? bet.backendBets
+            .map((mapped: any) => normalizeKey(mapped?.id))
+            .filter(Boolean)
+        : [];
+
+    if (linkedBackendIds.some((id: string) => identities.backendIds.has(id))) {
+        return false;
+    }
+
+    return true;
+};
+
+const normalizeNumbersKey = (numbers: BetType['numbers']): string => {
+    if (numbers === null || numbers === undefined) return '';
+    if (typeof numbers === 'string') return numbers.trim();
+    if (typeof numbers === 'number' || typeof numbers === 'boolean') return String(numbers);
+    try {
+        return JSON.stringify(numbers);
+    } catch {
+        return String(numbers);
+    }
+};
+
+const buildDedupKey = (bet: BetType): string => {
+    const drawId = String(bet.drawId || '');
+    const receiptCode = String(bet.receiptCode || '').trim();
+    const typeRef = String(bet.betTypeCode || bet.betTypeId || bet.type || '').toUpperCase();
+    const numbersRef = normalizeNumbersKey(bet.numbers);
+    const amountRef = Number(bet.amount || 0).toFixed(2);
+    const externalId = String(bet.externalId || '').trim();
+
+    if (receiptCode || drawId || typeRef || numbersRef) {
+        return `sig:${drawId}|${receiptCode}|${typeRef}|${numbersRef}|${amountRef}`;
+    }
+
+    if (externalId) {
+        return `external:${externalId}`;
+    }
+
+    return `id:${String(bet.id || '').trim()}`;
+};
+
 /**
- * Merges offline and online bets, deduplicating by receiptCode or id,
+ * Merges offline and online bets, deduplicating by semantic identity,
  * and applying a final safety filter for date in frontend.
  */
 const mergeBets = (ctx: GetBetsContext): Result<BetType[], Error> => {
@@ -25,19 +101,16 @@ const mergeBets = (ctx: GetBetsContext): Result<BetType[], Error> => {
 
     // First add offline bets
     ctx.offlineBets.forEach((bet: BetType) => {
-        // Use ID for deduplication, NOT receiptCode (multiple bets can share a receiptCode)
-        const key = bet.id;
-        if (key && !betsMap.has(key)) {
+        const key = buildDedupKey(bet);
+        if (!betsMap.has(key)) {
             betsMap.set(key, bet);
         }
     });
 
-    // Then add online bets (will overwrite offline if same ID)
+    // Then add online bets (overwrite offline when representing the same semantic bet)
     ctx.onlineBets.forEach((bet: BetType) => {
-        const key = bet.id;
-        if (key) {
-            betsMap.set(key, bet);
-        }
+        const key = buildDedupKey(bet);
+        betsMap.set(key, bet);
     });
 
     let result = Array.from(betsMap.values());
@@ -47,7 +120,7 @@ const mergeBets = (ctx: GetBetsContext): Result<BetType[], Error> => {
     if (ctx.filters?.date) {
         const rawDate = ctx.filters.date;
         const filterDate = (typeof rawDate === 'number' || !isNaN(Number(rawDate)))
-            ? TimerRepository.formatUTCDate(Number(rawDate))
+            ? toUtcISODate(Number(rawDate))
             : String(rawDate);
 
         log.info('Filtering bets by date', {
@@ -57,7 +130,7 @@ const mergeBets = (ctx: GetBetsContext): Result<BetType[], Error> => {
         });
 
         result = result.filter(bet => {
-            const betDate = TimerRepository.formatUTCDate(bet.timestamp || Date.now());
+            const betDate = toUtcISODate(bet.timestamp || Date.now());
             const isMatch = betDate === filterDate;
 
             if (!isMatch) {
@@ -135,7 +208,12 @@ const resolveBets = (ctx: GetBetsContext, storage: IBetStorage, pOffline: Promis
                 })
             ]);
 
-            let offlineBets = mapPendingBetsToFrontend(offlineRaw as any, ctx.filters, ctx.betTypes);
+            const onlineIdentitySets = buildOnlineIdentitySets(onlineRaw as any[]);
+            const reconciledOfflineRaw = (offlineRaw as any[]).filter((bet: any) =>
+                shouldKeepOfflineBet(bet, onlineIdentitySets)
+            );
+
+            let offlineBets = mapPendingBetsToFrontend(reconciledOfflineRaw as any, ctx.filters, ctx.betTypes);
 
             // DEEP FALLBACK: If we have a receiptCode but no matches in recent draw cache, search everything
             if (ctx.filters?.receiptCode && offlineBets.length === 0) {

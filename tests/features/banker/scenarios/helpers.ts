@@ -31,6 +31,7 @@ export interface DashboardContext extends TestContext {
     testEnv?: any;
     user?: any;
     dashboardStoreApi?: any;
+    waiterPromise?: Promise<void>;
 }
 
 /**

@@ -152,9 +152,18 @@ export const RemoteDataHttp = {
 
         // Check for [error, data] pattern (Golang style)
         if (Array.isArray(result) && result.length === 2) {
-          const [error, data] = result;
-          if (error) throw error;
-          return data;
+          const [errorCandidate, data] = result;
+          const isErrorLike =
+            errorCandidate == null ||
+            errorCandidate instanceof Error ||
+            (typeof errorCandidate === 'object' &&
+              errorCandidate !== null &&
+              ('message' in errorCandidate || 'stack' in errorCandidate || 'name' in errorCandidate));
+
+          if (isErrorLike) {
+            if (errorCandidate) throw errorCandidate;
+            return data as T;
+          }
         }
 
         return result as T;

@@ -1,4 +1,4 @@
-import { LOGIN_SUCCESS, STRUCTURE_CHILDREN } from './responses';
+import { FINANCIAL_SUMMARY, LOGIN_SUCCESS, STRUCTURE_CHILDREN } from './responses';
 
 /**
  * 🛠️ Mock Backend Engine
@@ -29,6 +29,15 @@ class MockBackend {
             if (path.match(/\/api\/structures\/(\d+)\/children\//)) {
                 console.log(`[MOCK_BACKEND] Matching children request: ${path}`);
                 return this.jsonResponse(200, STRUCTURE_CHILDREN);
+            }
+
+            if (path.includes('/api/financial-statement/summary/')) {
+                console.log(`[MOCK_BACKEND] Matching summary request: ${path}`);
+                return this.jsonResponse(200, FINANCIAL_SUMMARY);
+            }
+
+            if (path.includes('/api/bets/pending-rewards-count/')) {
+                return this.jsonResponse(200, { count: 0 });
             }
 
             // Default fallback: 404

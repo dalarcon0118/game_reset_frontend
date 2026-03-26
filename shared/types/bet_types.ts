@@ -17,36 +17,6 @@ import { GameRegistry } from '../core/registry/game_registry';
 
 const log = logger.withTag('BET_TYPES');
 
-/**
- * Mapeo canónico de IDs del backend a tipos de apuesta.
- * @deprecated 🛑 SSOT VIOLATION: Usar catálogo dinámico del sorteo. Solo lectura legacy.
- */
-export const BET_TYPE_ID_MAP: Record<string, BetTypeKind> = {
-    '10': 'Lotería',
-    '13': 'Lotería',
-    '1': 'Fijo',
-    '2': 'Corrido',
-    '3': 'Parlet',
-    '4': 'Centena',
-    '5': 'Cuaterna Semanal',
-    '6': 'Quiniela',
-    '7': 'Fijo/Corrido',
-};
-
-/**
- * Mapeo inverso: tipo -> ID del backend (para guardado)
- * @deprecated 🛑 SSOT VIOLATION: Usar catálogo dinámico del sorteo. Solo lectura legacy.
- */
-export const BET_TYPE_TO_ID_MAP: Record<BetTypeKind, string> = {
-    'Lotería': '10',
-    'Fijo': '1',
-    'Corrido': '2',
-    'Parlet': '3',
-    'Centena': '4',
-    'Cuaterna Semanal': '5',
-    'Quiniela': '6',
-    'Fijo/Corrido': '1',
-};
 
 /**
  * Normaliza un mapa de IDs dinámicos provenientes del backend.
@@ -82,9 +52,7 @@ export const resolveBetTypeId = (
 
     // 2. Fallback legacy (Solo si se permite explícitamente)
     if (fallbackToLegacy) {
-        log.warn(`⚠️ Usando ID legacy para ${key}. Se recomienda migrar a resolución dinámica.`);
-        const normalizedType = normalizeBetType(key);
-        return BET_TYPE_TO_ID_MAP[normalizedType] || '1';
+        log.warn(`⚠️ Fallback legacy bloqueado para ${key}. El catálogo dinámico es obligatorio.`);
     }
 
     log.error(`❌ Error de resolución: ${key} no encontrado en el catálogo dinámico y no se permitió fallback.`);
@@ -156,19 +124,13 @@ export const normalizeBetType = (type: string | number): BetTypeKind => {
         return 'Fijo'; // Default bolita
     }
 
-    // 2. Prioridad: Mapa de IDs numéricos (Legacy SSOT del Backend)
-    // Solo se usa si no se reconoce el código alfanumérico.
-    if (BET_TYPE_ID_MAP[typeStr]) {
-        return BET_TYPE_ID_MAP[typeStr];
-    }
-
-    // 3. Coincidencia exacta con llaves canónicas
+    // 2. Coincidencia exacta con llaves canónicas
     const exactMatch = Object.values(BET_TYPE_KEYS).find(
         (key) => key.toUpperCase() === typeStr
     );
     if (exactMatch) return exactMatch as BetTypeKind;
 
-    // 4. Coincidencias parciales o alias (Case-insensitive)
+    // 3. Coincidencias parciales o alias (Case-insensitive)
     if (typeStr.includes('PARLET')) return 'Parlet';
     if (typeStr.includes('CENTENA')) return 'Centena';
     if (typeStr.includes('CORRIDO')) return 'Corrido';
@@ -187,18 +149,8 @@ export const normalizeBetType = (type: string | number): BetTypeKind => {
 export const normalizeBetTypeId = (
     value: string | number | undefined | null
 ): string => {
-    if (!value) return '1'; // Default Fijo
-
-    const strValue = String(value);
-
-    // Si es un ID numérico conocido, devolverlo
-    if (BET_TYPE_ID_MAP[strValue]) {
-        return strValue;
-    }
-
-    // Si es un nombre de tipo, convertir al ID
-    const normalizedType = normalizeBetType(strValue);
-    return BET_TYPE_TO_ID_MAP[normalizedType] || '1';
+    if (!value) return '';
+    return String(value).toUpperCase();
 };
 
 /**

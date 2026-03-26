@@ -20,6 +20,28 @@ export const LOGIN_SUCCESS = {
     }
 };
 
+export const FINANCIAL_SUMMARY = {
+    id_estructura: 54,
+    nombre_estructura: 'BANCA-CENTRAL-01',
+    padre_id: null,
+    totalCollected: 500,
+    totalPaid: 50,
+    totalPending: 50,
+    netTotal: 400,
+    health_metrics: {
+        solvency_ratio: 46.67,
+        trend_percentage: 8.5,
+        risk_level: 'MEDIUM',
+        net_result: 400,
+        total_pending_prizes: 50,
+        risk_score: 13.33,
+        status: 'warning',
+        trend: 20,
+        metrics_period_days: 30
+    },
+    sorteos: []
+};
+
 export const STRUCTURE_CHILDREN: ChildStructure[] = [
     {
         id: 1,
