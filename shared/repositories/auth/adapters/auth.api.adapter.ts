@@ -104,6 +104,7 @@ export const authApiAdapter: IAuthApi = {
                     user: validated.user as User,
                     accessToken: validated.access,
                     refreshToken: validated.refresh || refreshToken,
+                    confirmationToken: validated.confirmation_token,
                     isOffline: false
                 }
             };

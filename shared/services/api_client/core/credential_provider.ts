@@ -142,7 +142,11 @@ export class CredentialProvider {
         if (!data?.access) throw new Error('INVALID_REFRESH_RESPONSE');
 
         // Persistir nuevos tokens si vienen en la respuesta
-        await storage.value.saveToken(data.access, data.refresh || refreshToken);
+        await storage.value.saveToken(
+          data.access,
+          data.refresh || refreshToken,
+          data.confirmation_token
+        );
 
         return data.access as string;
       })(),

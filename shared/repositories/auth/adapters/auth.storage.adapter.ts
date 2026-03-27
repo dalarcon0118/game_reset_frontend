@@ -15,6 +15,7 @@ const isWeb = Platform.OS === 'web';
 const SECURE_KEYS = {
     ACCESS_TOKEN: 'auth_access_token',
     REFRESH_TOKEN: 'auth_refresh_token',
+    CONFIRMATION_TOKEN: 'auth_confirmation_token',
 };
 
 async function setSecureItem(key: string, value: string) {
@@ -48,6 +49,9 @@ export const authStorageAdapter: IAuthStorage = {
             if (session.refreshToken) {
                 await setSecureItem(SECURE_KEYS.REFRESH_TOKEN, session.refreshToken);
             }
+            if (session.confirmationToken) {
+                await setSecureItem(SECURE_KEYS.CONFIRMATION_TOKEN, session.confirmationToken);
+            }
             // Guardar perfil con TTL - se renovará en cada login
             await offlineStorage.set(AuthOfflineKeys.userProfile(), session.user, { ttl: STORAGE_TTL.USER_PROFILE });
             log.info('Session persisted successfully');
@@ -57,18 +61,19 @@ export const authStorageAdapter: IAuthStorage = {
         }
     },
 
-    async getSession(): Promise<{ access: string | null; refresh: string | null; isOffline?: boolean }> {
+    async getSession(): Promise<{ access: string | null; refresh: string | null; confirmationToken?: string | null; isOffline?: boolean }> {
         try {
             const access = await getSecureItem(SECURE_KEYS.ACCESS_TOKEN);
             const refresh = await getSecureItem(SECURE_KEYS.REFRESH_TOKEN);
+            const confirmationToken = await getSecureItem(SECURE_KEYS.CONFIRMATION_TOKEN);
 
             // Verificar si es una sesión offline
             const isOffline = access === 'offline-token';
 
-            return { access, refresh, isOffline };
+            return { access, refresh, confirmationToken, isOffline };
         } catch (error) {
             log.error('Error reading session', error);
-            return { access: null, refresh: null, isOffline: false };
+            return { access: null, refresh: null, confirmationToken: null, isOffline: false };
         }
     },
 
@@ -76,6 +81,7 @@ export const authStorageAdapter: IAuthStorage = {
         try {
             await deleteSecureItem(SECURE_KEYS.ACCESS_TOKEN);
             await deleteSecureItem(SECURE_KEYS.REFRESH_TOKEN);
+            await deleteSecureItem(SECURE_KEYS.CONFIRMATION_TOKEN);
             await offlineStorage.remove(AuthOfflineKeys.userProfile());
             log.info('Session cleared');
         } catch (error) {

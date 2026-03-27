@@ -4,6 +4,7 @@ export interface RequestOptions extends RequestInit {
   skipAuth?: boolean; // New flag to skip token validation and attachment
   skipTimeIntegrity?: boolean; // New flag to skip time integrity check (e.g. for public endpoints or sync)
   silentErrors?: boolean; // New flag to suppress error logging for expected failures
+  authRetryAttempted?: boolean; // Internal guard to avoid infinite reactive refresh loops
   cacheTTL?: number; // In milliseconds
   retryCount?: number;
   abortSignal?: AbortSignal;

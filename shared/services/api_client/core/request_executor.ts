@@ -18,7 +18,7 @@ import { Transport } from '../infra/transport';
 
 type RequestExecutionOptions = Omit<
   RequestOptions,
-  'cacheTTL' | 'retryCount' | 'abortSignal' | 'timeoutProfile' | 'skipAuthHandler' | 'silentErrors' | 'skipTimeIntegrity'
+  'cacheTTL' | 'retryCount' | 'abortSignal' | 'timeoutProfile' | 'skipAuthHandler' | 'silentErrors' | 'skipTimeIntegrity' | 'authRetryAttempted'
 >;
 
 type RequestContext = {
@@ -322,6 +322,11 @@ export class RequestExecutor {
     };
 
     const shouldAttach = SessionPolicy.shouldAttachAuthorization(context);
+    this.log.debug('[AUTH-HEADERS] Resolution', {
+      shouldAttachAuthorization: shouldAttach,
+      hasAccessToken: Boolean(token),
+      hasConfirmationToken: Boolean(confirmationToken)
+    });
 
     const deviceId = await this.deviceIdProvider();
 
@@ -372,6 +377,17 @@ export class RequestExecutor {
 
     this.log.warn(`Auth error ${status} on ${context.endpoint}`);
 
+    if (context.options.authRetryAttempted) {
+      this.log.warn('[REACTIVE-REFRESH] Retry already attempted, skipping second refresh', {
+        endpoint: context.endpoint
+      });
+      const globalHandler = this.getErrorHandler();
+      if (globalHandler) {
+        await globalHandler(error, context.endpoint, context.options);
+      }
+      return null;
+    }
+
     // Check if this is an offline session - if so, don't try to refresh
     const token = await this.credentialProvider.getAccessToken();
     const tokenState = SessionPolicy.resolveTokenState(token);
@@ -385,7 +401,10 @@ export class RequestExecutor {
       if (refreshResult.isOk()) {
         this.log.info(`[REACTIVE-REFRESH] Success, retrying request`, { endpoint: context.endpoint });
         try {
-          const data = await this.retryRequest<T>(context.endpoint, context.options);
+          const data = await this.retryRequest<T>(context.endpoint, {
+            ...context.options,
+            authRetryAttempted: true
+          });
           return { type: 'success', data };
         } catch (retryError) {
           return { type: 'throw', error: retryError };
