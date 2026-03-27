@@ -1,6 +1,7 @@
 import { StoragePort, ClockPort, EventBusPort, StorageEnvelope, StorageKey } from '../types';
 import { MaintenanceResult, CleanupPredicate, MaintenanceOptions } from './types';
 import { logger } from '../../../utils/logger';
+import { batchProcess } from '../../../utils/generators';
 
 const log = logger.withTag('STORAGE_JANITOR');
 
@@ -33,45 +34,15 @@ export class StorageJanitor {
     };
 
     try {
-      // 1. Obtener todas las llaves (o filtrar por patrón si existe)
-      let allKeys = await this.ports.storage.getAllKeys();
+      log.info('Starting cleanup...');
+      const batchSize = options.batchSize && options.batchSize > 0 ? options.batchSize : 50;
+      const keyStream = this.createKeyStream(options.pattern);
+      const removableKeys = this.iterateRemovableKeys(keyStream, predicate, result, batchSize);
 
-      if (options.pattern) {
-        const regex = this.patternToRegex(options.pattern);
-        allKeys = allKeys.filter(k => regex.test(k));
+      for await (const batch of batchProcess(removableKeys, batchSize)) {
+        await this.removeBatch(batch, options, result);
       }
 
-      log.info(`Starting cleanup for ${allKeys.length} keys...`);
-
-      // 2. Iterar sobre llaves y evaluar predicado
-      for (const key of allKeys) {
-        result.keysProcessed++;
-
-        try {
-          const envelope = await this.ports.storage.get<StorageEnvelope<any>>(key);
-
-          // Si no hay sobre o no es un formato válido, ignorar (o registrar si es necesario)
-          if (!envelope || !envelope.metadata) continue;
-
-          if (predicate(envelope, key)) {
-            await this.ports.storage.remove(key);
-            result.keysRemoved++;
-
-            if (!options.silent) {
-              this.ports.events.publish({
-                type: 'ENTITY_REMOVED',
-                entity: key,
-                timestamp: this.ports.clock.now()
-              });
-            }
-          }
-        } catch (err: any) {
-          result.errors.push({ key, error: err.message || 'Unknown error' });
-          log.error(`Error processing key during maintenance: ${key}`, err);
-        }
-      }
-
-      // 3. Emitir evento de fin de mantenimiento
       this.ports.events.publish({
         type: 'MAINTENANCE_COMPLETED',
         entity: 'storage',
@@ -91,6 +62,141 @@ export class StorageJanitor {
     }
 
     return result;
+  }
+
+  private createKeyStream(pattern?: string): AsyncGenerator<StorageKey, void, unknown> {
+    if (this.ports.storage.iterateKeys) {
+      return this.ports.storage.iterateKeys(pattern);
+    }
+    return this.iterateKeysFromAllKeys(pattern);
+  }
+
+  private async *iterateKeysFromAllKeys(pattern?: string): AsyncGenerator<StorageKey> {
+    const allKeys = await this.ports.storage.getAllKeys();
+    if (!pattern) {
+      for (const key of allKeys) {
+        yield key;
+      }
+      return;
+    }
+
+    const regex = this.patternToRegex(pattern);
+    for (const key of allKeys) {
+      if (regex.test(key)) {
+        yield key;
+      }
+    }
+  }
+
+  private async *iterateRemovableKeys(
+    keyStream: AsyncGenerator<StorageKey, void, unknown>,
+    predicate: CleanupPredicate,
+    result: MaintenanceResult,
+    batchSize: number
+  ): AsyncGenerator<StorageKey> {
+    const getMulti = this.ports.storage.getMulti;
+    if (getMulti) {
+      yield* this.iterateRemovableKeysWithGetMulti(keyStream, predicate, result, batchSize, getMulti.bind(this.ports.storage));
+      return;
+    }
+
+    for await (const key of keyStream) {
+      yield* this.evaluateSingleKey(key, predicate, result);
+    }
+  }
+
+  private async *iterateRemovableKeysWithGetMulti(
+    keyStream: AsyncGenerator<StorageKey, void, unknown>,
+    predicate: CleanupPredicate,
+    result: MaintenanceResult,
+    batchSize: number,
+    getMulti: <T>(keys: string[]) => Promise<(T | null)[]>
+  ): AsyncGenerator<StorageKey> {
+    for await (const keyBatch of batchProcess(keyStream, batchSize)) {
+      result.keysProcessed += keyBatch.length;
+      try {
+        const envelopes = await getMulti<StorageEnvelope<any>>(keyBatch);
+        for (let idx = 0; idx < keyBatch.length; idx++) {
+          const key = keyBatch[idx];
+          const envelope = envelopes[idx];
+          if (!envelope || !envelope.metadata) continue;
+          if (predicate(envelope, key)) {
+            yield key;
+          }
+        }
+      } catch (batchErr: any) {
+        log.error('Error processing batch during maintenance', batchErr);
+        for (const key of keyBatch) {
+          yield* this.evaluateSingleKeyWithoutCount(key, predicate, result);
+        }
+      }
+    }
+  }
+
+  private async *evaluateSingleKey(
+    key: StorageKey,
+    predicate: CleanupPredicate,
+    result: MaintenanceResult
+  ): AsyncGenerator<StorageKey> {
+    result.keysProcessed++;
+    yield* this.evaluateSingleKeyWithoutCount(key, predicate, result);
+  }
+
+  private async *evaluateSingleKeyWithoutCount(
+    key: StorageKey,
+    predicate: CleanupPredicate,
+    result: MaintenanceResult
+  ): AsyncGenerator<StorageKey> {
+    try {
+      const envelope = await this.ports.storage.get<StorageEnvelope<any>>(key);
+      if (!envelope || !envelope.metadata) return;
+      if (predicate(envelope, key)) {
+        yield key;
+      }
+    } catch (err: any) {
+      result.errors.push({ key, error: err.message || 'Unknown error' });
+      log.error(`Error processing key during maintenance: ${key}`, err);
+    }
+  }
+
+  private async removeBatch(
+    keys: StorageKey[],
+    options: MaintenanceOptions,
+    result: MaintenanceResult
+  ): Promise<void> {
+    if (keys.length === 0) return;
+
+    try {
+      await this.ports.storage.removeMulti(keys);
+      result.keysRemoved += keys.length;
+      if (!options.silent) {
+        for (const key of keys) {
+          this.ports.events.publish({
+            type: 'ENTITY_REMOVED',
+            entity: key,
+            timestamp: this.ports.clock.now()
+          });
+        }
+      }
+    } catch (batchErr: any) {
+      log.error('Error removing batch during maintenance', batchErr);
+      for (const key of keys) {
+        try {
+          await this.ports.storage.remove(key);
+          result.keysRemoved++;
+          if (!options.silent) {
+            this.ports.events.publish({
+              type: 'ENTITY_REMOVED',
+              entity: key,
+              timestamp: this.ports.clock.now()
+            });
+          }
+        } catch (err: any) {
+          result.errors.push({ key, error: err.message || 'Unknown error' });
+          log.error(`Error removing key during maintenance: ${key}`, err);
+        }
+      }
+    }
   }
 
   /**

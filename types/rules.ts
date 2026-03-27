@@ -58,8 +58,10 @@ export interface ValidationRule {
   scope: RuleScope;
   validationType: ValidationType;
   parameters: Record<string, any>;
+  betTypes: string[];
   examples: string[];
   affectedAgencies: string[];
+  baseTemplateId?: string;
   modificationHistory: ModificationRecord[];
   effectivenessMetrics?: EffectivenessMetrics;
   lastModified: string;

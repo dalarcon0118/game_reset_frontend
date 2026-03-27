@@ -1,10 +1,10 @@
 import { WebData } from '@core/tea-utils';
-import { ChildStructure } from '@/shared/services/structure';
+import { Agency } from '@/shared/repositories/structure/domain/models';
 
 export type Msg =
     | { type: 'INIT_SCREEN'; id: number }
     | { type: 'FETCH_DATA_REQUESTED' }
-    | { type: 'DATA_RECEIVED'; webData: WebData<ChildStructure[]> }
+    | { type: 'DATA_RECEIVED'; webData: WebData<Agency[]> }
     | { type: 'REFRESH_CLICKED' }
     | { type: 'NAVIGATE_BACK' }
     | { type: 'LISTERIA_SELECTED'; listeriaId: number; name: string }

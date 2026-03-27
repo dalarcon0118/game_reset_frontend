@@ -20,132 +20,157 @@ export const BaseOperationCard: React.FC<BaseOperationCardProps> = ({
   onPress, 
   onReglamentoPress 
 }) => {
-  const formatCurrency = (value: number) => `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const formatCurrency = (value: number) => `${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
-    <TouchableOpacity onPress={onPress}>
-      <Card style={styles.card} padding={0}>
-        <View style={[styles.topBar, { backgroundColor: COLORS.primary }]} />
-
-        <Flex align="center" gap={12} style={styles.container}>
-          <IconBox>
-            <Briefcase size={20} color={COLORS.textLight} />
+    <Card style={styles.card} padding={0} onPress={onPress}>
+      <Flex padding={16} vertical gap={16}>
+        {/* Header Section */}
+        <Flex align="center" gap={12}>
+          <IconBox 
+            size={44} 
+            backgroundColor={COLORS.primary + '15'} 
+            style={{ borderRadius: 12 }}
+          >
+            <Briefcase size={22} color={COLORS.primary} />
           </IconBox>
-
-          <Flex vertical flex={1} gap={2} width={"100%"}>
-            <Flex justify="between" align="center">
-              <Flex vertical gap={2} flex={1}>
-                <Label
-                  type="header"
-                  value={name}
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                />
-                <Label
-                  type="detail"
-                  value={match(financialData)
-                    .with({ type: 'Loading' }, () => 'Cargando sorteos...')
-                    .with({ type: 'Success' }, ({ data }) => data.draw_summary || 'N/A')
-                    .otherwise(() => 'N/A')}
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                  style={styles.drawSummary}
-                />
-              </Flex>
-            </Flex>
-
-            {match(financialData)
-              .with({ type: 'Loading' }, () => (
-                <Flex align="center" justify="center" style={styles.statsContainer}>
-                  <ActivityIndicator size="small" color={COLORS.primary} />
-                </Flex>
-              ))
-              .with({ type: 'Success' }, ({ data }) => (
-                <Flex wrap="wrap" gap={8} style={styles.statsContainer}>
-                  <View style={styles.statItem}>
-                    <Label type="detail" style={styles.detailLabel} value="Total:" />
-                    <Label type="detail" style={styles.detailValue} value={formatCurrency(data.total_collected || 0)} />
-                  </View>
-                  <View style={styles.statItem}>
-                    <Label type="detail" style={styles.detailLabel} value="Neto:" />
-                    <Label type="detail" style={styles.detailValue} value={formatCurrency(data.total_net || 0)} />
-                  </View>
-                  <View style={styles.statItem}>
-                    <Label type="detail" style={styles.detailLabel} value="Perdido:" />
-                    <Label type="detail" style={styles.detailValue} value={formatCurrency(data.total_paid || 0)} />
-                  </View>
-                  <View style={styles.statItem}>
-                    <Label type="detail" style={styles.detailLabel} value="Comisión:" />
-                    <Label type="detail" style={styles.detailValue} value={formatCurrency(data.commissions || 0)} />
-                  </View>
-                </Flex>
-              ))
-              .otherwise(() => (
-                 <Flex align="center" justify="center" style={styles.statsContainer}>
-                    <Label type="detail" value="Error al cargar datos" />
-                 </Flex>
-              ))}
-
-            <Flex justify="end" margin={[{ type: "top", value: 8 }]}>
-              <ButtonKit
-                label="Reglamento"
-                size="small"
-                appearance="outline"
-                onPress={(e: GestureResponderEvent) => {
-                  e?.stopPropagation?.();
-                  onReglamentoPress?.();
-                }}
-                style={styles.reglamentoButton}
-              />
-            </Flex>
+          <Flex vertical flex={1} gap={2}>
+            <Label
+              type="header"
+              value={name}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              style={styles.headerLabel}
+            />
+            <Label
+              type="detail"
+              value={match(financialData)
+                .with({ type: 'Loading' }, () => 'Cargando sorteos...')
+                .with({ type: 'Success' }, ({ data }) => data.draw_summary || 'N/A')
+                .otherwise(() => 'N/A')}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              style={styles.drawSummary}
+            />
           </Flex>
         </Flex>
-      </Card>
-    </TouchableOpacity>
+
+        {/* Stats Section */}
+        {match(financialData)
+          .with({ type: 'Loading' }, () => (
+            <Flex align="center" justify="center" style={styles.statsGrid}>
+              <ActivityIndicator size="small" color={COLORS.primary} />
+            </Flex>
+          ))
+          .with({ type: 'Success' }, ({ data }) => (
+            <View style={styles.statsGrid}>
+              <Flex direction="row" justify="between" align="center" style={styles.statsRow}>
+                <Flex vertical gap={4} flex={1}>
+                  <Label type="detail" style={styles.statLabel} value="TOTAL RECAUDADO" />
+                  <Label type="header" style={styles.statValue} value={formatCurrency(data.total_collected || 0)} />
+                </Flex>
+                <View style={styles.verticalDivider} />
+                <Flex vertical gap={4} flex={1} style={{ paddingLeft: 12 }}>
+                  <Label type="detail" style={styles.statLabel} value="NETO" />
+                  <Label type="header" style={[styles.statValue, { color: '#27ae60' }]} value={formatCurrency(data.total_net || 0)} />
+                </Flex>
+              </Flex>
+              
+              <View style={styles.horizontalDivider} />
+
+              <Flex direction="row" justify="between" align="center" style={styles.statsRow}>
+                <Flex vertical gap={4} flex={1}>
+                  <Label type="detail" style={styles.statLabel} value="PREMIOS" />
+                  <Label type="header" style={[styles.statValue, { color: '#e74c3c' }]} value={formatCurrency(data.total_paid || 0)} />
+                </Flex>
+                <View style={styles.verticalDivider} />
+                <Flex vertical gap={4} flex={1} style={{ paddingLeft: 12 }}>
+                  <Label type="detail" style={styles.statLabel} value="COMISIÓN" />
+                  <Label type="header" style={styles.statValue} value={formatCurrency(data.commissions || 0)} />
+                </Flex>
+              </Flex>
+            </View>
+          ))
+          .otherwise(() => (
+             <Flex align="center" justify="center" style={styles.statsGrid}>
+                <Label type="detail" value="Error al cargar datos" />
+             </Flex>
+          ))}
+
+        {/* Footer Actions */}
+        <Flex justify="end">
+          <ButtonKit
+            label="Ver Reglamento"
+            size="small"
+            appearance="ghost"
+            status="primary"
+            onPress={(e: GestureResponderEvent) => {
+              e?.stopPropagation?.();
+              onReglamentoPress?.();
+            }}
+            style={styles.reglamentoButton}
+            labelStyle={{ fontWeight: '700' }}
+          />
+        </Flex>
+      </Flex>
+    </Card>
   );
 };
 
 const styles = StyleSheet.create({
   card: {
-    marginTop: 10,
-    paddingRight: 10,
-    minHeight: 180,
+    borderRadius: 24,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
   },
-  container: {
-    marginTop: 5,
-    paddingLeft: 10,
+  headerLabel: {
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.5,
   },
   drawSummary: {
-    fontSize: 12,
+    fontSize: 13,
     color: COLORS.textLight,
-    fontStyle: 'italic',
+    fontWeight: '500',
   },
-  statsContainer: {
-    marginTop: 12,
+  statsGrid: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 16,
+    padding: 12,
   },
-  statItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    minWidth: '45%',
+  statsRow: {
+    paddingVertical: 8,
   },
-  detailLabel: {
-    fontSize: 12,
-    color: COLORS.textLight,
-  },
-  detailValue: {
-    fontSize: 12,
+  statLabel: {
+    fontSize: 10,
     fontWeight: '700',
-    color: COLORS.textDark,
+    color: '#95a5a6',
+    letterSpacing: 0.8,
   },
-  topBar: {
-    marginLeft: 14,
-    height: 4,
-    width: '95%',
+  statValue: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  verticalDivider: {
+    width: 1,
+    height: '80%',
+    backgroundColor: '#e0e0e0',
+  },
+  horizontalDivider: {
+    height: 1,
+    width: '100%',
+    backgroundColor: '#e0e0e0',
+    marginVertical: 4,
   },
   reglamentoButton: {
-    paddingHorizontal: 10,
-    height: 32,
-    borderRadius: 8,
+    height: 36,
+    borderRadius: 10,
   },
 });

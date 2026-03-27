@@ -122,6 +122,10 @@ export function update(model: Model, msg: Msg): [Model, Cmd] {
             })
         )
 
+        .with({ type: 'SET_WINNING_NUMBER' }, ({ drawId, winningNumber }) =>
+            ret(model, Cmds.setWinningNumber(drawId, winningNumber))
+        )
+
         .exhaustive();
 
     return [result.model, result.cmd];

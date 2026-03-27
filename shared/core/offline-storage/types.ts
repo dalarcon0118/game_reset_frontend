@@ -13,11 +13,13 @@ export type StorageKey = string;
  */
 export interface StoragePort {
   get<T>(key: string): Promise<T | null>;
+  getMulti?<T>(keys: string[]): Promise<(T | null)[]>;
   set(key: string, value: any): Promise<void>;
   setMulti(entries: [string, any][]): Promise<void>;
   remove(key: string): Promise<void>;
   removeMulti(keys: string[]): Promise<void>;
   getAllKeys(): Promise<readonly string[]>;
+  iterateKeys?(pattern?: string): AsyncGenerator<StorageKey, void, unknown>;
   clear(): Promise<void>;
 }
 

@@ -1,16 +1,31 @@
 import React from 'react';
-import { StyleSheet, View, FlatList, Switch, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { ArrowLeft, Plus } from 'lucide-react-native';
-import { useRuleStore, selectRules, selectDispatch } from './store';
-import { Flex, Label, Card } from '@/shared/components';
-import { useTheme } from '@/shared/hooks/use_theme';
-import { ROUTER_BACK, ROUTER_GO, Rule, TOGGLE_RULE_REQUESTED } from './store/types';
+import { BankerRulesStoreProvider } from './core';
+import RulesListScreen from './presentation/screens/rules_list_screen';
+import RuleUpdateScreen from './presentation/screens/rule_update_screen';
 
+/**
+ * 🚀 BANKER RULES FEATURE ENTRY POINT
+ */
 
+export default function BankerRules() {
+  return (
+    <BankerRulesStoreProvider>
+      <RulesListScreen />
+    </BankerRulesStoreProvider>
+  );
+}
 
-// Also export named exports for other components
-export { useRules } from './hook/hook.rule';
-export { default as BankerRulesListScreen } from './list-all';
-export { default as BankerRuleUpdateScreen } from './update';
+// Named exports for routing or other usages
+export const BankerRulesList = () => (
+  <BankerRulesStoreProvider>
+    <RulesListScreen />
+  </BankerRulesStoreProvider>
+);
+
+export const BankerRuleUpdate = () => (
+  <BankerRulesStoreProvider>
+    <RuleUpdateScreen />
+  </BankerRulesStoreProvider>
+);
+
+export { RulesListScreen, RuleUpdateScreen };

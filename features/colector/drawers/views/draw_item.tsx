@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { Flex, Label, Badge, ButtonKit } from '@shared/components';
 import { Clock, DollarSign } from 'lucide-react-native';
@@ -7,12 +7,14 @@ import { COLORS } from '@/shared/components/constants';
 import { useFinancialStore } from '@/shared/store/financial/store';
 import { match } from 'ts-pattern';
 import { logger } from '@/shared/utils/logger';
+import { WinningNumberModal } from '@/features/banker/drawers/winning_number_modal';
 
 const log = logger.withTag('COLECTOR_DRAW_ITEM');
 
 interface Draw {
     draw_id: number;
     draw_name: string;
+    draw_type_extra_data?: Record<string, unknown> | null;
     status: 'open' | 'scheduled' | 'closed' | 'completed' | 'cancelled' | string;
     opening_time: string;
     closing_time: string;
@@ -27,6 +29,7 @@ interface DrawItemProps {
     draw: Draw;
     onConfirm?: (drawId: number) => void;
     onReport?: (drawId: number) => void;
+    onSetWinningNumber?: (drawId: number, winningNumber: string) => void;
 }
 
 const getStatusBadgeProps = (status: string) => {
@@ -46,10 +49,11 @@ const getStatusBadgeProps = (status: string) => {
     }
 };
 
-export const DrawItem: React.FC<DrawItemProps> = ({ draw, onConfirm, onReport }) => {
+export const DrawItem: React.FC<DrawItemProps> = ({ draw, onConfirm, onReport, onSetWinningNumber }) => {
     const { colors, spacing } = useTheme();
     const { model, dispatch } = useFinancialStore();
     const financialData = model.drawSummaries[draw.draw_id];
+    const [showWinningModal, setShowWinningModal] = useState(false);
   
     // Debug log to verify data
     log.debug('Draw item data check', { drawName: draw.draw_name, drawId: draw.draw_id, statusClosed: draw.status_closed });
@@ -94,8 +98,28 @@ export const DrawItem: React.FC<DrawItemProps> = ({ draw, onConfirm, onReport })
             .otherwise(() => null);
     };
 
+    const renderWinningNumberAction = () => {
+        // Solo mostrar si está cerrado y no tiene número ganador
+        if (draw.status === 'closed' && !draw.winning_number) {
+            return (
+                <Flex gap={spacing.md} style={{ marginTop: spacing.lg }}>
+                    <ButtonKit
+                        label="Agregar Número Ganador"
+                        style={{ flex: 1 }}
+                        size="small"
+                        appearance="filled"
+                        status="info"
+                        onPress={() => setShowWinningModal(true)}
+                    />
+                </Flex>
+            );
+        }
+        return null;
+    };
+
     const renderActions = () => {
-        if (isNull) {
+        // Solo mostrar Confirmar/Reportar si está cerrado, tiene número ganador y no está confirmado/reportado
+        if (draw.status === 'closed' && draw.winning_number && isNull) {
             return (
                 <Flex gap={spacing.md} style={{ marginTop: spacing.lg }}>
                     <ButtonKit
@@ -174,16 +198,36 @@ export const DrawItem: React.FC<DrawItemProps> = ({ draw, onConfirm, onReport })
                         <Flex vertical gap={spacing.xs}>
                             <Flex justify="between">
                                 <Label type="detail" value="Jugada de premio:" />
-                                <Label type="detail" value={draw.winning_number || '---'} />
+                                <Label
+                                    type="detail"
+                                    value={draw.winning_number || '---'}
+                                    style={!draw.winning_number ? { color: colors.warning, fontStyle: 'italic' } : undefined}
+                                />
                             </Flex>
                             
                             {/* Nuevos detalles financieros desde REST API */}
                             {renderFinancialDetails()}
 
-                            {/* Action Buttons - Only show if not fully confirmed/success */}
+                            {/* Winning Number Action - Only for closed draws without winning number */}
+                            {renderWinningNumberAction()}
+
+                            {/* Action Buttons - Only show if winning number exists and not confirmed/reported */}
                             {renderActions()}
                         </Flex>
                     )}
+                    
+                    {/* Winning Number Modal */}
+                    <WinningNumberModal
+                        visible={showWinningModal}
+                        drawId={draw.draw_id}
+                        drawName={draw.draw_name}
+                        extraData={draw.draw_type_extra_data}
+                        onClose={() => setShowWinningModal(false)}
+                        onSubmit={(winningNumber) => {
+                            onSetWinningNumber?.(draw.draw_id, winningNumber);
+                            setShowWinningModal(false);
+                        }}
+                    />
                 </Flex>
             </View>
         </View>

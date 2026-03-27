@@ -1,5 +1,5 @@
 import jsonLogic from 'json-logic-js';
-import { ValidationRule } from '@/shared/services/validation_rule';
+import { ValidationRule } from '@/types/rules';
 import { logger } from './logger';
 
 const log = logger.withTag('VALIDATION_UTILS');
@@ -29,11 +29,11 @@ export function validateBet(
     const failedRules: { rule: ValidationRule; message: string }[] = [];
 
     for (const rule of rules) {
-        if (!rule.is_active) continue;
+        if (rule.status !== 'active') continue;
 
         try {
             // Apply JSON Logic rule
-            const result = jsonLogic.apply(rule.json_logic, betData);
+            const result = jsonLogic.apply(rule.parameters, betData);
 
             // If result is false, the validation failed
             if (result === false) {
@@ -84,8 +84,8 @@ export function filterRulesByBetType(
     const betTypeStr = String(betTypeId);
     return rules.filter(
         (rule) =>
-            rule.bet_types.length === 0 || // Rules with no bet types apply to all
-            rule.bet_types.map(String).includes(betTypeStr)
+            rule.betTypes.length === 0 || // Rules with no bet types apply to all
+            rule.betTypes.map(String).includes(betTypeStr)
     );
 }
 

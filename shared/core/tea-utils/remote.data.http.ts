@@ -151,17 +151,23 @@ export const RemoteDataHttp = {
         }
 
         // Check for [error, data] pattern (Golang style)
+        // Strictly check if the first element is explicitly an Error or has error properties
         if (Array.isArray(result) && result.length === 2) {
           const [errorCandidate, data] = result;
-          const isErrorLike =
-            errorCandidate == null ||
-            errorCandidate instanceof Error ||
-            (typeof errorCandidate === 'object' &&
-              errorCandidate !== null &&
-              ('message' in errorCandidate || 'stack' in errorCandidate || 'name' in errorCandidate));
+          
+          const isExplicitError = 
+            errorCandidate instanceof Error || 
+            (typeof errorCandidate === 'object' && 
+             errorCandidate !== null && 
+             ('message' in errorCandidate || 'stack' in errorCandidate));
 
-          if (isErrorLike) {
-            if (errorCandidate) throw errorCandidate;
+          if (isExplicitError) {
+            throw errorCandidate;
+          }
+          
+          // If the first element is null/undefined and it's a 2-element array, 
+          // it's likely the [null, data] pattern.
+          if (errorCandidate === null || errorCandidate === undefined) {
             return data as T;
           }
         }

@@ -3,6 +3,12 @@ import { logger } from '../../utils/logger';
 
 const log = logger.withTag('STORAGE_CLIENT');
 
+function patternToRegex(pattern: string): RegExp {
+  let p = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+  p = p.replace(/\*/g, '.*');
+  return new RegExp(`^${p}$`);
+}
+
 /**
  * Generic Storage Client for handling AsyncStorage operations with logging.
  */
@@ -82,6 +88,25 @@ export const storageClient = {
     }
   },
 
+  async getMulti<T>(keys: string[]): Promise<(T | null)[]> {
+    try {
+      const entries = await AsyncStorage.multiGet(keys);
+      const values = entries.map(([, value]) => {
+        if (value === null) return null;
+        try {
+          return JSON.parse(value) as T;
+        } catch (e) {
+          return value as unknown as T;
+        }
+      });
+      log.debug(`<<< STORAGE MULTI GET: ${keys.length} items`, { keys });
+      return values;
+    } catch (error) {
+      log.error('Error reading multi items from storage', error);
+      return keys.map(() => null);
+    }
+  },
+
   /**
    * Removes an item from AsyncStorage.
    */
@@ -132,6 +157,16 @@ export const storageClient = {
     } catch (error) {
       log.error('Error getting all keys from storage', error);
       return [];
+    }
+  },
+
+  async *iterateKeys(pattern?: string): AsyncGenerator<string, void, unknown> {
+    const keys = await this.getAllKeys();
+    const regex = pattern ? patternToRegex(pattern) : null;
+    for (const key of keys) {
+      if (!regex || regex.test(key)) {
+        yield key;
+      }
     }
   }
 };

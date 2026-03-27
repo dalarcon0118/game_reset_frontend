@@ -1,4 +1,4 @@
-import { ValidationRule } from '@/shared/services/validation_rule';
+import { ValidationRule } from '@/types/rules';
 import { getFixedAmountFromRules, filterRulesByBetType } from '@/shared/utils/validation';
 import { logger } from '@/shared/utils/logger';
 

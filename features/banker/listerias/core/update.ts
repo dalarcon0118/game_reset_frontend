@@ -11,7 +11,8 @@ import {
     ret,
     Return
 } from '@core/tea-utils';
-import { structureRepository, ChildStructure } from '@/shared/repositories/structure';
+import { structureRepository } from '@/shared/repositories/structure';
+import { Agency } from '@/shared/repositories/structure/domain/models';
 import { UpdateResult } from '@core/engine/engine';
 import * as config from '@/config';
 
@@ -21,7 +22,7 @@ export const subscriptions = (_model: Model): SubDescriptor<Msg> => {
 
 const fetchDataCmd = (id: number): Cmd => {
     if (!id || id === 0) return Cmd.none;
-    return RemoteDataHttp.fetch<ChildStructure[], Msg>(
+    return RemoteDataHttp.fetch<Agency[], Msg>(
         () => structureRepository.getChildren(id),
         (webData) => ({ type: 'DATA_RECEIVED', webData })
     );

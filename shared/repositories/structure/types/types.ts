@@ -39,6 +39,7 @@ export interface BackendListeroDrawDetail {
     draw_name: string;
     draw_type_code?: string;
     draw_type_name?: string;
+    draw_type_extra_data?: Record<string, unknown> | null;
     status: string;
     winning_number: string | null;
     opening_time: string;

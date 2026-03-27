@@ -37,53 +37,64 @@ export function selectEmptyMessage(model: Model) {
     return `No hay sorteos para mostrar el ${selectFormattedDate(model)}.`;
 }
 
+type DrawWithCategory = ListeroDrawDetail & {
+    category: string;
+    label: string;
+};
+
+function classifyDraw(draw: ListeroDrawDetail): DrawWithCategory {
+    const category = GameRegistry.getCategoryByDraw({
+        code: draw.draw_type_code,
+        name: draw.draw_name
+    }) || 'other';
+
+    const label = category === 'loteria' ? 'LOTERÍA' :
+        category === 'bolita' ? 'BOLITA' : 'OTROS';
+
+    return { ...draw, category, label };
+}
+
+function* iterateClassifiedDraws(draws: readonly ListeroDrawDetail[]): Generator<DrawWithCategory, void, unknown> {
+    for (const draw of draws) {
+        yield classifyDraw(draw);
+    }
+}
+
 // 🎭 VIEW MODEL SELECTOR
 export const selectDrawersViewModel = (model: Model) => {
     const details = selectDetailsData(model);
     const rawDraws: ListeroDrawDetail[] = details?.draws || [];
-
-    // 1. Clasificación Robusta (Una sola pasada con Fallbacks)
-    const classifiedDraws = rawDraws.map(draw => {
-        const category = GameRegistry.getCategoryByDraw({ 
-            code: draw.draw_type_code, 
-            name: draw.draw_name 
-        }) || 'other'; // Fallback a 'other' si el registro no lo reconoce
-        
-        const label = category === 'loteria' ? 'LOTERÍA' : 
-                     category === 'bolita' ? 'BOLITA' : 'OTROS';
-        
-        return { ...draw, category, label };
-    });
-
-    // 2. Metadata para Filtros (Unicidad Garantizada)
-    const availableStatuses = Array.from(new Set(rawDraws.map(d => d.status)))
-        .sort()
-        .map(status => ({ 
-            id: status, 
-            label: status.toUpperCase() 
-        }));
-    
+    const statuses = new Set<string>();
     const categoriesMap = new Map<string, string>();
-    classifiedDraws.forEach(d => categoriesMap.set(d.category, d.label));
-    
+    const groupedDraws: Record<string, ListeroDrawDetail[]> = {};
+    let filteredCount = 0;
+
+    for (const draw of iterateClassifiedDraws(rawDraws)) {
+        statuses.add(draw.status);
+        categoriesMap.set(draw.category, draw.label);
+
+        const matchesStatus = !model.filters.status || draw.status === model.filters.status;
+        const matchesType = !model.filters.drawType || draw.category === model.filters.drawType;
+        if (!matchesStatus || !matchesType) continue;
+
+        filteredCount++;
+        const groupName = (draw.label || 'OTROS').toUpperCase();
+        if (!groupedDraws[groupName]) {
+            groupedDraws[groupName] = [];
+        }
+        groupedDraws[groupName].push(draw);
+    }
+
+    const availableStatuses = Array.from(statuses)
+        .sort()
+        .map(status => ({
+            id: status,
+            label: status.toUpperCase()
+        }));
+
     const availableTypes = Array.from(categoriesMap.entries())
         .map(([id, label]) => ({ id, label }))
         .sort((a, b) => a.label.localeCompare(b.label));
-
-    // 3. Aplicar filtros
-    const filteredDraws = classifiedDraws.filter(d => {
-        const matchesStatus = !model.filters.status || d.status === model.filters.status;
-        const matchesType = !model.filters.drawType || d.category === model.filters.drawType;
-        return matchesStatus && matchesType;
-    });
-
-    // 4. Agrupar sorteos (Seguro contra undefined)
-    const groupedDraws = filteredDraws.reduce((acc, draw) => {
-        const groupName = (draw.label || 'OTROS').toUpperCase();
-        if (!acc[groupName]) acc[groupName] = [];
-        acc[groupName].push(draw);
-        return acc;
-    }, {} as Record<string, ListeroDrawDetail[]>);
 
     return {
         title: `Sorteo ${details?.listero_name || ''}`,
@@ -92,7 +103,7 @@ export const selectDrawersViewModel = (model: Model) => {
         selectedDate: model.selectedDate,
         emptyMessage: selectEmptyMessage(model),
         hasDraws: rawDraws.length > 0,
-        hasFilteredDraws: filteredDraws.length > 0,
+        hasFilteredDraws: filteredCount > 0,
         groupedDraws,
         availableStatuses,
         availableTypes,

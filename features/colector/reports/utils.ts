@@ -1,4 +1,5 @@
 import { Incident } from '@/shared/services/incident';
+import { match } from 'ts-pattern';
 
 export interface Report {
     id: string;
@@ -12,13 +13,12 @@ export interface Report {
 }
 
 export const mapIncidentToReport = (incident: Incident): Report => {
-    // Map backend status to UI discrepancy status
-    const statusMap: Record<string, Report['discrepancyStatus']> = {
-        'pending': 'Abierto',
-        'in_review': 'En proceso',
-        'resolved': 'Resuelta',
-        'cancelled': 'Cancelada'
-    };
+    const discrepancyStatus = match(incident.status)
+        .with('pending', () => 'Abierto' as const)
+        .with('in_review', () => 'En proceso' as const)
+        .with('resolved', () => 'Resuelta' as const)
+        .with('cancelled', () => 'Cancelada' as const)
+        .otherwise(() => 'Abierto' as const);
 
     return {
         id: String(incident.id),
@@ -27,8 +27,8 @@ export const mapIncidentToReport = (incident: Incident): Report => {
         date: new Date(incident.created_at).toLocaleDateString('es-DO', {
             year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
         }),
-        status: 'Discrepancia', // Assuming all reported incidents are discrepancies/issues
-        discrepancyStatus: statusMap[incident.status] || 'Abierto',
+        status: 'Discrepancia',
+        discrepancyStatus,
         description: incident.description,
         incidentType: incident.incident_type
     };

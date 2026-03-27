@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Alert } from 'react-native';
-import { ValidationRuleService, ValidationRule, StructureSpecificRule } from '../../../../shared/services/validation_rule';
+import { ValidationRuleRepository } from '@/shared/repositories/validation_rule';
+import { ValidationRule as DomainRule } from '@/types/rules';
 import { useAuth } from '../../../auth';
 import { logger } from '@/shared/utils/logger';
 
@@ -35,7 +36,7 @@ interface UseRuleUpdateReturn {
   // Estados
   loading: boolean;
   saving: boolean;
-  rule: StructureSpecificRule | null;
+  rule: DomainRule | null;
   formData: RuleUpdateFormData;
 
   // Funciones
@@ -49,7 +50,7 @@ export const useRuleUpdate = (ruleId?: string): UseRuleUpdateReturn => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [rule, setRule] = useState<StructureSpecificRule | null>(null);
+  const [rule, setRule] = useState<DomainRule | null>(null);
 
   const [formData, setFormData] = useState<RuleUpdateFormData>({
     name: '',
@@ -69,17 +70,17 @@ export const useRuleUpdate = (ruleId?: string): UseRuleUpdateReturn => {
   const loadRule = useCallback(async (id: string) => {
     try {
       setLoading(true);
-      // Ahora usamos el endpoint específico para obtener una regla por ID
-      const ruleData = await ValidationRuleService.getStructureSpecificRuleById(id);
+      // Ahora usamos el repositorio directamente
+      const ruleData = await ValidationRuleRepository.getById(id);
 
       if (ruleData) {
         setRule(ruleData);
         setFormData({
           name: ruleData.name,
           description: ruleData.description,
-          is_active: ruleData.is_active,
-          json_logic: ruleData.json_logic || DEFAULT_JSON_LOGIC,
-          bet_types: ruleData.bet_types || [],
+          is_active: ruleData.status === 'active',
+          json_logic: ruleData.parameters || DEFAULT_JSON_LOGIC,
+          bet_types: ruleData.affectedAgencies || [],
         });
       } else {
         Alert.alert('Error', 'Regla no encontrada');
@@ -115,26 +116,23 @@ export const useRuleUpdate = (ruleId?: string): UseRuleUpdateReturn => {
     try {
       setSaving(true);
 
-      const ruleData = {
+      const updates: Partial<DomainRule> = {
         name: formData.name,
         description: formData.description,
-        is_active: formData.is_active,
-        json_logic: formData.json_logic,
-        bet_types: formData.bet_types,
+        status: formData.is_active ? 'active' : 'inactive',
+        parameters: formData.json_logic,
       };
 
       if (ruleId) {
         // Update existing rule
-        await ValidationRuleService.updateStructureRule(ruleId, ruleData);
+        await ValidationRuleRepository.updateStructureRule(ruleId, updates);
         Alert.alert('Éxito', 'Regla actualizada correctamente');
       } else {
-        // Create new rule - This would need to be implemented in the service
+        // Create new rule - This would need to be implemented in the repository
         // For now, we'll show an alert
         Alert.alert('Info', 'Creación de nuevas reglas no implementada aún');
         return;
       }
-
-      // The navigation back is handled in the component
 
     } catch (error) {
       log.error('Error saving rule', { error, ruleId });

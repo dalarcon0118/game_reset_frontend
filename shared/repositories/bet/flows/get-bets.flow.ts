@@ -4,6 +4,7 @@ import { IBetStorage, IBetApi } from '../bet.ports';
 import { ListBetsFilters } from '@/shared/services/bet/types';
 import { drawRepository } from '../../draw';
 import { mapBackendBetToFrontend, mapPendingBetsToFrontend } from '@/shared/services/bet/mapper';
+import { normalizeBetType } from '@/shared/types/bet_types';
 import { logger } from '@/shared/utils/logger';
 import { toUtcISODate } from '@/shared/utils/formatters';
 
@@ -76,7 +77,11 @@ const normalizeNumbersKey = (numbers: BetType['numbers']): string => {
 const buildDedupKey = (bet: BetType): string => {
     const drawId = String(bet.drawId || '');
     const receiptCode = String(bet.receiptCode || '').trim();
-    const typeRef = String(bet.betTypeCode || bet.betTypeId || bet.type || '').toUpperCase();
+    
+    // Usar el type normalizado como referencia principal para la deduplicación
+    // Esto evita que 'Lotería' y 'Lotería 5 Dígitos' generen claves distintas
+    const typeRef = normalizeBetType(bet.type || bet.betTypeCode || bet.betTypeId || '').toUpperCase();
+    
     const numbersRef = normalizeNumbersKey(bet.numbers);
     const amountRef = Number(bet.amount || 0).toFixed(2);
     const externalId = String(bet.externalId || '').trim();

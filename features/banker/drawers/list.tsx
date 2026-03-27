@@ -185,6 +185,7 @@ interface ListeroDetailContentProps {
   onRefresh: () => void;
   onReport: (drawId: number) => void;
   onConfirm: (drawId: number) => void;
+  onSetWinningNumber?: (drawId: number, winningNumber: string) => void;
   loading: boolean;
   hasFilteredDraws: boolean;
 }
@@ -194,6 +195,7 @@ function ListeroDetailContent({
   onRefresh,
   onReport,
   onConfirm,
+  onSetWinningNumber,
   loading,
   hasFilteredDraws
 }: ListeroDetailContentProps) {
@@ -224,9 +226,10 @@ function ListeroDetailContent({
         draw={item.data}
         onConfirm={onConfirm}
         onReport={onReport}
+        onSetWinningNumber={onSetWinningNumber}
       />
     );
-  }, [onConfirm, onReport, colors.border, spacing.sm]);
+  }, [onConfirm, onReport, onSetWinningNumber, colors.border, spacing.sm]);
 
   const keyExtractor = useCallback((item: any, index: number) => 
     item.type === 'header' ? `h-${item.title}` : `i-${item.data.draw_id}-${index}`, []);
@@ -337,6 +340,7 @@ function DrawerContent() {
         onRefresh={() => dispatch({ type: 'REFRESH_CLICKED' })}
         onReport={(drawId: number) => dispatch({ type: 'REPORT_CLICKED', drawId })}
         onConfirm={(drawId: number) => confirmDraw(drawId)}
+        onSetWinningNumber={(drawId: number, winningNumber: string) => dispatch({ type: 'SET_WINNING_NUMBER', drawId, winningNumber })}
         onRetry={() => dispatch({ type: 'REFRESH_CLICKED' })}
         emptyMessage={vm.emptyMessage}
         // withDataView props

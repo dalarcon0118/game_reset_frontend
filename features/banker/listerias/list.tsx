@@ -4,13 +4,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@ui-kitten/components';
 import { Flex, withDataView } from '@/shared/components';
-import { ChildStructure } from '@/shared/services/structure';
+import { Agency } from '@/shared/repositories/structure/domain/models';
 import { BankerOperationCard } from '../components/banker_operation_card';
 import { Header } from '../common/header';
 import { useListerias } from './hook/use_listerias';
 
 interface AgencyDetailContentProps {
-  childrenData: ChildStructure[] | null;
+  childrenData: Agency[] | null;
   onRefresh: () => void;
   loading: boolean;
   onListeriaPress: (id: number, name: string) => void;

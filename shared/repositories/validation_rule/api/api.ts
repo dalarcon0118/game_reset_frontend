@@ -1,12 +1,12 @@
 import apiClient from '@/shared/services/api_client';
-import { BackendValidationRule, BackendStructureSpecificRule, BackendRuleRepository } from './types';
+import { BackendValidationRule, BackendStructureSpecificRule, BackendRuleRepository } from '../types/types';
 import {
     BackendValidationRuleArrayCodec,
     BackendStructureSpecificRuleCodec,
     BackendStructureSpecificRuleArrayCodec,
     BackendRuleRepositoryArrayCodec,
     decodeOrFallback
-} from './codecs';
+} from '../codecs/codecs';
 
 export const ValidationRuleApi = {
     list: async (params?: { is_active?: boolean }): Promise<BackendValidationRule[]> => {
@@ -63,7 +63,14 @@ export const ValidationRuleApi = {
         return decodeOrFallback(BackendStructureSpecificRuleCodec, response, 'updateStructureRule');
     },
 
+    getStructureSpecificRuleById: async (ruleId: string): Promise<BackendStructureSpecificRule> => {
+        const response = await apiClient.get<BackendStructureSpecificRule>(
+            `/draw/structure-specific-rules/${ruleId}/`
+        );
+        return decodeOrFallback(BackendStructureSpecificRuleCodec, response, 'getStructureSpecificRuleById');
+    },
+
     deleteStructureRule: async (ruleId: string): Promise<void> => {
-        await ApiClient.delete(`/draw/structure-specific-rules/${ruleId}/`);
+        await apiClient.delete(`/draw/structure-specific-rules/${ruleId}/`);
     }
 };

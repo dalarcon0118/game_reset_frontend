@@ -12,7 +12,9 @@ describe('StorageJanitor', () => {
     mockStorage = {
       get: jest.fn(),
       set: jest.fn(),
+      setMulti: jest.fn(),
       remove: jest.fn(),
+      removeMulti: jest.fn(),
       getAllKeys: jest.fn(),
       clear: jest.fn()
     };
@@ -43,7 +45,7 @@ describe('StorageJanitor', () => {
   it('should process keys and remove items that match predicate', async () => {
     const keys = ['key1', 'key2', 'key3'];
     mockStorage.getAllKeys.mockResolvedValue(keys);
-    
+
     // key1 and key2 should be removed (older than 5000)
     mockStorage.get.mockImplementation(async (key) => {
       if (key === 'key1') return mockEnvelope(2000);
@@ -57,8 +59,7 @@ describe('StorageJanitor', () => {
 
     expect(result.keysProcessed).toBe(3);
     expect(result.keysRemoved).toBe(2);
-    expect(mockStorage.remove).toHaveBeenCalledWith('key1');
-    expect(mockStorage.remove).toHaveBeenCalledWith('key2');
+    expect(mockStorage.removeMulti).toHaveBeenCalledWith(['key1', 'key2']);
     expect(mockStorage.remove).not.toHaveBeenCalledWith('key3');
   });
 
@@ -72,8 +73,7 @@ describe('StorageJanitor', () => {
 
     expect(result.keysProcessed).toBe(2);
     expect(result.keysRemoved).toBe(2);
-    expect(mockStorage.remove).toHaveBeenCalledWith('draw:1');
-    expect(mockStorage.remove).toHaveBeenCalledWith('draw:2');
+    expect(mockStorage.removeMulti).toHaveBeenCalledWith(['draw:1', 'draw:2']);
     expect(mockStorage.remove).not.toHaveBeenCalledWith('user:info');
   });
 
@@ -109,7 +109,7 @@ describe('StorageJanitor', () => {
     expect(mockEvents.publish).not.toHaveBeenCalledWith(expect.objectContaining({
       type: 'ENTITY_REMOVED'
     }));
-    
+
     // Should still publish maintenance completion
     expect(mockEvents.publish).toHaveBeenCalledWith(expect.objectContaining({
       type: 'MAINTENANCE_COMPLETED'
@@ -130,5 +130,72 @@ describe('StorageJanitor', () => {
     expect(result.keysRemoved).toBe(1);
     expect(result.errors.length).toBe(1);
     expect(result.errors[0]).toEqual({ key: 'key1', error: 'Storage error' });
+  });
+
+  it('should fallback to remove one by one when removeMulti fails', async () => {
+    mockStorage.getAllKeys.mockResolvedValue(['key1', 'key2']);
+    mockStorage.get.mockResolvedValue(mockEnvelope(2000));
+    mockStorage.removeMulti.mockRejectedValue(new Error('Batch remove failed'));
+
+    const predicate = Cleanup.olderThan(5000, 10000);
+    const result = await janitor.clean(predicate, { batchSize: 10 });
+
+    expect(result.keysProcessed).toBe(2);
+    expect(result.keysRemoved).toBe(2);
+    expect(mockStorage.remove).toHaveBeenCalledWith('key1');
+    expect(mockStorage.remove).toHaveBeenCalledWith('key2');
+  });
+
+  it('should use iterateKeys when storage adapter provides it', async () => {
+    mockStorage.iterateKeys = jest.fn(async function* () {
+      yield 'draw:1';
+      yield 'draw:2';
+    });
+    mockStorage.get.mockResolvedValue(mockEnvelope(2000));
+
+    const predicate = Cleanup.olderThan(5000, 10000);
+    const result = await janitor.clean(predicate, { pattern: 'draw:*', batchSize: 1 });
+
+    expect(result.keysProcessed).toBe(2);
+    expect(result.keysRemoved).toBe(2);
+    expect(mockStorage.iterateKeys).toHaveBeenCalledWith('draw:*');
+    expect(mockStorage.getAllKeys).not.toHaveBeenCalled();
+    expect(mockStorage.removeMulti).toHaveBeenNthCalledWith(1, ['draw:1']);
+    expect(mockStorage.removeMulti).toHaveBeenNthCalledWith(2, ['draw:2']);
+  });
+
+  it('should use getMulti when storage adapter provides it', async () => {
+    mockStorage.getAllKeys.mockResolvedValue(['key1', 'key2', 'key3']);
+    mockStorage.getMulti = jest.fn()
+      .mockResolvedValueOnce([
+        mockEnvelope(2000),
+        mockEnvelope(4000)
+      ])
+      .mockResolvedValueOnce([
+        mockEnvelope(9000)
+      ]);
+
+    const predicate = Cleanup.olderThan(5000, 10000);
+    const result = await janitor.clean(predicate, { batchSize: 2 });
+
+    expect(result.keysProcessed).toBe(3);
+    expect(result.keysRemoved).toBe(2);
+    expect(mockStorage.getMulti).toHaveBeenCalledWith(['key1', 'key2']);
+    expect(mockStorage.getMulti).toHaveBeenCalledWith(['key3']);
+    expect(mockStorage.get).not.toHaveBeenCalled();
+  });
+
+  it('should fallback to single get when getMulti fails', async () => {
+    mockStorage.getAllKeys.mockResolvedValue(['key1', 'key2']);
+    mockStorage.getMulti = jest.fn().mockRejectedValue(new Error('Multi get failed'));
+    mockStorage.get.mockResolvedValue(mockEnvelope(2000));
+
+    const predicate = Cleanup.olderThan(5000, 10000);
+    const result = await janitor.clean(predicate, { batchSize: 10 });
+
+    expect(result.keysProcessed).toBe(2);
+    expect(result.keysRemoved).toBe(2);
+    expect(mockStorage.get).toHaveBeenCalledWith('key1');
+    expect(mockStorage.get).toHaveBeenCalledWith('key2');
   });
 });

@@ -1,40 +1,49 @@
 import React from 'react';
 import { StyleSheet, ScrollView, TouchableOpacity, View, ActivityIndicator } from 'react-native';
-import { Select, SelectItem, Input } from '@ui-kitten/components';
+import { Select, SelectItem, Input, IndexPath } from '@ui-kitten/components';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Flex, Label, Card, ButtonKit, IconBox } from '@/shared/components';
 import { useTheme } from '@/shared/hooks/use_theme';
 import { ArrowLeft, AlertTriangle, CheckCircle2 } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
-import { useReportsForm, INCIDENT_TYPES } from './hooks/use_reports_form';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useAuth } from '../../auth';
+import { INCIDENT_TYPES, useReportsFormStore } from './core';
 
 export default function ReportsFormScreen() {
   const { colors, spacing } = useTheme();
   const router = useRouter();
+  const { user } = useAuth();
+  const { drawId, id: listeroId } = useLocalSearchParams();
+  const { model, dispatch } = useReportsFormStore();
 
-  const {
-    selectedListeroIndex,
-    selectedDrawIndex,
-    selectedTypeIndex,
-    description,
-    isSubmitted,
-    isSubmitting,
-    listeros,
-    drawsDetail,
-    loadingListeros,
-    loadingDraws,
-    displayListero,
-    displayDraw,
-    displayType,
-    setSelectedListeroIndex,
-    setSelectedDrawIndex,
-    setSelectedTypeIndex,
-    setDescription,
-    handleSubmit,
-  } = useReportsForm();
+  React.useEffect(() => {
+    dispatch({
+      type: 'FORM_INIT',
+      userStructureId: Number(user?.structure?.id || 0),
+      listeroId: listeroId ? Number(listeroId) : undefined,
+      drawId: drawId ? Number(drawId) : undefined,
+    });
+  }, [dispatch, user?.structure?.id, listeroId, drawId]);
 
-  const listeroItems = listeros || [];
-  const drawItems = drawsDetail?.draws || [];
+  const listeroItems = model.listeros.type === 'Success' ? model.listeros.data : [];
+  const drawItems = model.drawsDetail.type === 'Success' ? model.drawsDetail.data.draws : [];
+  const selectedListeroIndex = new IndexPath(model.selectedListeroRow);
+  const selectedDrawIndex = new IndexPath(model.selectedDrawRow);
+  const selectedTypeIndex = new IndexPath(model.selectedTypeRow);
+  const description = model.description;
+  const isSubmitted = model.submission.type === 'Success';
+  const isSubmitting = model.submission.type === 'Loading';
+  const loadingListeros = model.listeros.type === 'Loading';
+  const loadingDraws = model.drawsDetail.type === 'Loading';
+  const displayListero = listeroItems[model.selectedListeroRow]?.name || (loadingListeros ? 'Cargando...' : 'Seleccione...');
+  const displayDraw = drawItems[model.selectedDrawRow]?.draw_name || (loadingDraws ? 'Cargando sorteos...' : 'No hay sorteos');
+  const displayType = INCIDENT_TYPES[model.selectedTypeRow]?.title || INCIDENT_TYPES[0].title;
+
+  const setSelectedListeroIndex = (index: IndexPath) => dispatch({ type: 'LISTERO_SELECTED', row: index.row });
+  const setSelectedDrawIndex = (index: IndexPath) => dispatch({ type: 'DRAW_SELECTED', row: index.row });
+  const setSelectedTypeIndex = (index: IndexPath) => dispatch({ type: 'INCIDENT_TYPE_SELECTED', row: index.row });
+  const setDescription = (value: string) => dispatch({ type: 'DESCRIPTION_CHANGED', description: value });
+  const handleSubmit = () => dispatch({ type: 'SUBMIT_REQUESTED' });
 
   if (isSubmitted) {
     return (
@@ -83,12 +92,12 @@ export default function ReportsFormScreen() {
                 <Select
                   selectedIndex={selectedListeroIndex}
                   value={displayListero}
-                  onSelect={index => setSelectedListeroIndex(index)}
+                  onSelect={index => setSelectedListeroIndex(index as IndexPath)}
                   style={styles.select}
                   disabled={loadingListeros}
                   accessoryRight={loadingListeros ? () => <ActivityIndicator size="small" color={colors.primary} /> : undefined}
                 >
-                  {listeroItems.map(item => (
+                  {listeroItems.map((item: any) => (
                     <SelectItem key={item.id} title={item.name} />
                   ))}
                 </Select>
@@ -99,12 +108,12 @@ export default function ReportsFormScreen() {
                 <Select
                   selectedIndex={selectedDrawIndex}
                   value={displayDraw}
-                  onSelect={index => setSelectedDrawIndex(index)}
+                  onSelect={index => setSelectedDrawIndex(index as IndexPath)}
                   style={styles.select}
                   disabled={loadingDraws || drawItems.length === 0}
                   accessoryRight={loadingDraws ? () => <ActivityIndicator size="small" color={colors.primary} /> : undefined}
                 >
-                  {drawItems.map(item => (
+                  {drawItems.map((item: any) => (
                     <SelectItem key={item.draw_id} title={item.draw_name} />
                   ))}
                 </Select>
@@ -115,10 +124,10 @@ export default function ReportsFormScreen() {
                 <Select
                   selectedIndex={selectedTypeIndex}
                   value={displayType}
-                  onSelect={index => setSelectedTypeIndex(index)}
+                  onSelect={index => setSelectedTypeIndex(index as IndexPath)}
                   style={styles.select}
                 >
-                  {INCIDENT_TYPES.map(item => (
+                  {INCIDENT_TYPES.map((item: any) => (
                     <SelectItem key={item.title} title={item.title} />
                   ))}
                 </Select>

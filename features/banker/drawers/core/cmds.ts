@@ -40,7 +40,7 @@ export const Cmds = {
         const trustedNow = TimerRepository.getTrustedNow(Date.now());
         const today = new Date(trustedNow);
         today.setHours(0, 0, 0, 0);
-        
+
         const checkDate = new Date(nextDate);
         checkDate.setHours(0, 0, 0, 0);
 
@@ -66,5 +66,23 @@ export const Cmds = {
                 return { type: 'NO_OP' }; // Or a specific error message
             },
             label: 'confirmDraw'
+        }),
+
+    setWinningNumber: (drawId: number, winningNumber: string): Cmd =>
+        Cmd.task({
+            task: async () => {
+                const today = new Date().toISOString().split('T')[0];
+                const { drawRepository } = await import('@/shared/repositories/draw');
+                return await drawRepository.addWinningNumbers(drawId, {
+                    winning_number: winningNumber,
+                    date: today
+                });
+            },
+            onSuccess: () => ({ type: 'FETCH_DETAILS_REQUESTED' }),
+            onFailure: (error: any) => {
+                console.error('Error setting winning number:', error);
+                return { type: 'NO_OP' };
+            },
+            label: 'setWinningNumber'
         })
 };

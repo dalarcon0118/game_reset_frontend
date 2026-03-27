@@ -12,6 +12,7 @@ import { useIsFocused } from '@react-navigation/native';
 import { ReportItem } from './components/report_item';
 import { mapIncidentToReport, Report } from './utils';
 import { logger } from '@/shared/utils/logger';
+import { match } from 'ts-pattern';
 
 const log = logger.withTag('COLECTOR_REPORTS_LIST');
 
@@ -34,15 +35,12 @@ export default function ReportsListScreen() {
     ], []);
 
     const handleUpdateStatus = async (id: string, status: string, notes: string) => {
-        // Map UI status back to backend status
-        const statusMap: Record<string, string> = {
-            'Abierto': 'pending',
-            'En proceso': 'in_review',
-            'Resuelta': 'resolved',
-            'Cancelada': 'cancelled'
-        };
-
-        const backendStatus = statusMap[status] || 'pending';
+        const backendStatus = match(status)
+            .with('Abierto', () => 'pending')
+            .with('En proceso', () => 'in_review')
+            .with('Resuelta', () => 'resolved')
+            .with('Cancelada', () => 'cancelled')
+            .otherwise(() => 'pending');
 
         try {
             await incidentRepository.updateStatus(id, backendStatus, notes);
@@ -79,6 +77,9 @@ export default function ReportsListScreen() {
     };
 
     const reports: Report[] = incidents ? incidents.map(mapIncidentToReport) : [];
+    const showEmptyState = match({ loading, count: reports.length })
+        .with({ loading: false, count: 0 }, () => true)
+        .otherwise(() => false);
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -146,7 +147,7 @@ export default function ReportsListScreen() {
                     }
                 >
                     <Flex vertical gap={spacing.md}>
-                        {!loading && reports.length === 0 && (
+                        {showEmptyState && (
                             <Card style={[styles.emptyCard, { alignItems: 'center', padding: spacing.xl }]}>
                                 <Label type="detail" value="No hay reportes registrados." />
                             </Card>

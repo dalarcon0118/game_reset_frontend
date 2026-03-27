@@ -1,2 +1,2 @@
-import BankerRulesScreen from "@/features/banker/rules/list-all";
+import BankerRulesScreen from "@/features/banker/rules";
 export default BankerRulesScreen;

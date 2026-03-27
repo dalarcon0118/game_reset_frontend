@@ -45,7 +45,7 @@ export const Cmds = {
     navigateToList: (agencyId: number): Cmd =>
         Cmd.navigate({
             pathname: routes.banker.listerias.screen,
-            params: { id_structure: agencyId }
+            params: { id: agencyId }
         }),
 
     navigateToSettings: (): Cmd =>

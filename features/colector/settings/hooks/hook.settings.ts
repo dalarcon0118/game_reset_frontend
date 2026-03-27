@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../../../auth';
-import { ValidationRuleService, RuleRepository } from '../../../../shared/services/validation_rule';
+import { ValidationRuleRepository } from '@/shared/repositories/validation_rule';
+import { ValidationRule } from '@/types/rules';
 import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('USE_SETTINGS');
@@ -14,7 +15,7 @@ interface ModulesState {
   offlineMode: boolean;
 }
 
-interface TemplateWithStatus extends RuleRepository {
+interface TemplateWithStatus extends ValidationRule {
   isActivated: boolean;
   specificRuleId?: string;
 }
@@ -72,7 +73,7 @@ export const useSettings = (): UseSettingsReturn => {
 
     try {
       // Cargar templates disponibles
-      const templates = await ValidationRuleService.getAvailableTemplates();
+      const templates = await ValidationRuleRepository.getAvailableTemplates();
 
       // Obtener estructura del usuario actual
       const structureId = await getCurrentUserStructureId();
@@ -88,12 +89,12 @@ export const useSettings = (): UseSettingsReturn => {
       }
 
       // Cargar reglas específicas de la estructura actual
-      const specificRules = await ValidationRuleService.getByStructure(structureId);
+      const specificRules = await ValidationRuleRepository.getByStructure(structureId);
 
       // Combinar templates con estado de activación
       const templatesWithStatus: TemplateWithStatus[] = templates.map(template => {
         // Buscar si esta template ya está activada en las reglas específicas
-        const activatedRule = specificRules.find(rule => rule.base_template === template.id);
+        const activatedRule = specificRules.find(rule => rule.baseTemplateId === template.id);
 
         return {
           ...template,
@@ -162,7 +163,7 @@ export const useSettings = (): UseSettingsReturn => {
 
       if (checked) {
         // Activar: Copiar template a regla específica
-        const newRule = await ValidationRuleService.copyTemplateToStructure(
+        const newRule = await ValidationRuleRepository.copyTemplateToStructure(
           rule.id,
           structureId,
           { apply_to_all_children: false }
@@ -179,7 +180,7 @@ export const useSettings = (): UseSettingsReturn => {
       } else {
         // Desactivar: Eliminar regla específica
         if (rule.specificRuleId) {
-          await ValidationRuleService.deleteStructureRule(rule.specificRuleId);
+          await ValidationRuleRepository.deleteStructureRule(rule.specificRuleId);
 
           // Actualizar estado local
           setRules(prevRules =>

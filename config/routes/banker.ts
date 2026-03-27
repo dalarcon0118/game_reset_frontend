@@ -73,6 +73,16 @@ export const bankerRoutes = {
         headerBackVisible: true,
         freezeOnBlur: true,
       }
+    },
+    rule_update: {
+      screen: '/banker/rules/update/[id]',
+      options: {
+        headerShown: false,
+        headerTitle: 'Editar Regla',
+        headerBackTitle: 'Atrás',
+        headerBackVisible: true,
+        freezeOnBlur: true,
+      }
     }
   }
 };

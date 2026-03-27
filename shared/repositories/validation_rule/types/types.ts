@@ -1,37 +1,37 @@
 export interface BackendValidationRule {
-    id: string;
+    id: string | number;
     name: string;
-    description: string;
+    description: string | null;
     json_logic: any;
     is_active: boolean;
-    bet_types: string[];
+    bet_types: (string | number)[];
     created_at: string;
     updated_at: string;
 }
 
 export interface BackendStructureValidationRule {
-    id: string;
-    structure: string;
+    id: string | number;
+    structure: string | number;
     rule: BackendValidationRule;
     apply_to_all_children: boolean;
-    specific_children: string[];
+    specific_children: (string | number)[];
     priority: number;
     is_active: boolean;
 }
 
 export interface BackendBetType {
-    id: string;
+    id: string | number;
     name: string;
     code: string;
 }
 
 export interface BackendRuleRepository {
-    id: string;
+    id: string | number;
     name: string;
-    description: string;
+    description: string | null;
     rule_type: 'validation' | 'reward';
     json_logic: any;
-    bet_types: string[];
+    bet_types: (string | number)[];
     bet_types_details: BackendBetType[];
     is_template: boolean;
     is_active: boolean;
@@ -40,19 +40,19 @@ export interface BackendRuleRepository {
 }
 
 export interface BackendStructureSpecificRule {
-    id: string;
-    structure: string;
+    id: string | number;
+    structure: string | number;
     structure_name: string;
     rule_type: 'validation' | 'reward';
-    base_template?: string | null;
-    base_template_name?: string | null;
+    base_template?: string | number | null;
+    base_template_name?: string | number | null;
     name: string;
-    description: string;
+    description: string | null;
     json_logic: any;
-    bet_types: string[];
+    bet_types: (string | number)[];
     bet_types_details: BackendBetType[];
     apply_to_all_children: boolean;
-    specific_children: string[];
+    specific_children: (string | number)[];
     priority: number;
     is_active: boolean;
     is_modified: boolean;

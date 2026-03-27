@@ -1,40 +1,34 @@
-import { createStream } from '../utils/generators';
-import { transformTemplatesWithStatus, generatorToArray } from '../utils/generators';
 import { ApiClientError } from './api_client';
-import { ValidationRuleApi } from './validation_rule/api';
 import {
+    ValidationRuleRepository,
     BackendValidationRule as ValidationRule,
     BackendStructureValidationRule as StructureValidationRule,
     BackendRuleRepository as RuleRepository,
     BackendStructureSpecificRule as StructureSpecificRule
-} from './validation_rule/types';
-import { logger } from '@/shared/utils/logger';
-
-const log = logger.withTag('VALIDATION_RULE_SERVICE');
+} from '../repositories/validation_rule';
+import { ValidationRule as DomainRule } from '@/types/rules';
 
 export type { ValidationRule, StructureValidationRule, RuleRepository, StructureSpecificRule };
 
+/**
+ * @deprecated Use ValidationRuleRepository directly for new code.
+ * This service acts as a bridge for backward compatibility.
+ */
 export class ValidationRuleService {
     /**
      * Get all validation rules
      */
-    static async list(params?: { is_active?: boolean }): Promise<ValidationRule[]> {
-        try {
-            return await ValidationRuleApi.list(params);
-        } catch (error) {
-            log.error('Error fetching validation rules', error);
-            return [];
-        }
+    static async list(params?: { is_active?: boolean }): Promise<DomainRule[]> {
+        return ValidationRuleRepository.list(params);
     }
 
     /**
      * Get validation rules for the current authenticated user's structure
      */
-    static async getForCurrentUser(includeHierarchy: boolean = false): Promise<ValidationRule[]> {
+    static async getForCurrentUser(includeHierarchy: boolean = false): Promise<DomainRule[]> {
         try {
-            return await ValidationRuleApi.getForCurrentUser(includeHierarchy);
+            return await ValidationRuleRepository.getForCurrentUser(includeHierarchy);
         } catch (error) {
-            log.error('Error fetching validation rules for current user', error);
             if (error instanceof ApiClientError && (error.status === 401 || error.status === 403)) {
                 throw error;
             }
@@ -45,34 +39,22 @@ export class ValidationRuleService {
     /**
      * Get validation rules for a specific structure (bank/listeria)
      */
-    static async getByStructure(structureId: string): Promise<StructureSpecificRule[]> {
-        try {
-            return await ValidationRuleApi.getByStructure(structureId);
-        } catch (error) {
-            log.error('Error fetching validation rules by structure', error);
-            return [];
-        }
+    static async getByStructure(structureId: string): Promise<DomainRule[]> {
+        return ValidationRuleRepository.getByStructure(structureId);
     }
 
     /**
      * Get all available rule templates that can be copied to structures
      */
-    static async getAvailableTemplates(): Promise<RuleRepository[]> {
-        try {
-            return await ValidationRuleApi.getAvailableTemplates();
-        } catch (error) {
-            log.error('Error fetching rule templates', error);
-            return [];
-        }
+    static async getAvailableTemplates(): Promise<DomainRule[]> {
+        return ValidationRuleRepository.getAvailableTemplates();
     }
 
     /**
-     * Get available templates with status using yield *
+     * Get available templates with status
      */
-    static async getAvailableTemplatesWithStatus(): Promise<(RuleRepository & { isActivated: boolean })[]> {
-        const generator = createStream(() => this.getAvailableTemplates());
-        const transformedGenerator = transformTemplatesWithStatus(generator);
-        return generatorToArray(transformedGenerator);
+    static async getAvailableTemplatesWithStatus(): Promise<(DomainRule & { isActivated: boolean })[]> {
+        return ValidationRuleRepository.getAvailableTemplatesWithStatus();
     }
 
     /**
@@ -81,18 +63,9 @@ export class ValidationRuleService {
     static async copyTemplateToStructure(
         templateId: string,
         structureId: string,
-        options?: {
-            apply_to_all_children?: boolean;
-            specific_children?: string[];
-            priority?: number;
-        }
-    ): Promise<StructureSpecificRule> {
-        try {
-            return await ValidationRuleApi.copyTemplateToStructure(templateId, structureId, options);
-        } catch (error) {
-            log.error('Error copying rule template to structure', error);
-            throw error;
-        }
+        options?: any
+    ): Promise<DomainRule> {
+        return ValidationRuleRepository.copyTemplateToStructure(templateId, structureId, options);
     }
 
     /**
@@ -100,26 +73,23 @@ export class ValidationRuleService {
      */
     static async updateStructureRule(
         ruleId: string,
-        updates: Partial<StructureSpecificRule>
-    ): Promise<StructureSpecificRule> {
-        try {
-            return await ValidationRuleApi.updateStructureRule(ruleId, updates);
-        } catch (error) {
-            log.error('Error updating structure rule', { ruleId, error });
-            throw error;
-        }
+        updates: Partial<DomainRule>
+    ): Promise<DomainRule> {
+        return ValidationRuleRepository.updateStructureRule(ruleId, updates);
+    }
+
+    /**
+     * Get a structure-specific rule by ID
+     */
+    static async getStructureSpecificRuleById(ruleId: string): Promise<DomainRule> {
+        return ValidationRuleRepository.getById(ruleId);
     }
 
     /**
      * Delete a structure-specific rule
      */
     static async deleteStructureRule(ruleId: string): Promise<void> {
-        try {
-            await ValidationRuleApi.deleteStructureRule(ruleId);
-        } catch (error) {
-            log.error('Error deleting structure rule', { ruleId, error });
-            throw error;
-        }
+        return ValidationRuleRepository.deleteStructureRule(ruleId);
     }
 }
 

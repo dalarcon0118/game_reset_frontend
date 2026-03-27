@@ -1,7 +1,7 @@
 import { WebData } from '@core/tea-utils';
-import { ChildStructure } from '@/shared/services/structure';
+import { Agency } from '@/shared/repositories/structure/domain/models';
 
 export interface Model {
     id: number | null;
-    listerias: WebData<ChildStructure[]>;
+    listerias: WebData<Agency[]>;
 }

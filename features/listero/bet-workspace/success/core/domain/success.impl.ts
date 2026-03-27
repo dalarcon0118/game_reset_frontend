@@ -1,9 +1,6 @@
 import { VoucherData, FormattedBet, GroupedBets, VoucherMetadata } from './success.types';
 import { VoucherSourceData } from './success.ports';
-import { logger } from '@/shared/utils/logger';
-import { getBetVisualSchema, isLoteriaType, BET_TYPE_KEYS, UI_CONSTANTS } from '@/shared/types/bet_types';
-
-const log = logger.withTag('SUCCESS_IMPL');
+import { getBetVisualSchema, isLoteriaType, BET_TYPE_KEYS, UI_CONSTANTS, normalizeBetType } from '@/shared/types/bet_types';
 
 /**
  * Pure Logic for Success Feature
@@ -52,24 +49,14 @@ export const SuccessImpl = {
     processRawBets: (data: any[], betTypes?: any[]): FormattedBet[] => {
         const groupedFijosCorridos = new Map<string, any>();
         const otherBets: FormattedBet[] = [];
-        const seenIds = new Set<string>();
 
         data.forEach((b: any, index: number) => {
             if (!b) return;
 
-            if (b.id && seenIds.has(String(b.id))) return;
-            if (b.id) seenIds.add(String(b.id));
-
-            // Hydrate type from backend IDs if available
-            let displayType = b.type;
+            // El tipo de apuesta ya viene normalizado desde el repositorio/flow.
+            // Solo aplicamos un fallback de seguridad.
+            const displayType = normalizeBetType(b.type || b.betTypeCode || b.betTypeId || '');
             const betTypeId = b.betTypeId || b.betTypeid || b.bet_type_id || b.bet_type;
-
-            if (betTypeId && betTypes && betTypes.length > 0) {
-                const foundType = betTypes.find(bt => String(bt.id) === String(betTypeId));
-                if (foundType) {
-                    displayType = foundType.name || foundType.description || displayType;
-                }
-            }
 
             const type = typeof displayType === 'string' ? displayType.toLowerCase() : '';
             const numbers = SuccessImpl.formatBetVisuals(displayType, b.numbers || b.bet || b.bets);
@@ -80,8 +67,6 @@ export const SuccessImpl = {
                 displayType === BET_TYPE_KEYS.FIJO_CORRIDO ||
                 displayType === BET_TYPE_KEYS.FIJO ||
                 displayType === BET_TYPE_KEYS.CORRIDO;
-
-            const isLoteria = isLoteriaType(displayType, betTypeId);
 
             if (isFijoCorrido) {
                 const numStr = numbers[0];
@@ -98,7 +83,6 @@ export const SuccessImpl = {
                     betTypeId
                 };
 
-                const amount = Number(b.amount || 0);
                 const fijo = Number(b.fijoAmount || (type === BET_TYPE_KEYS.FIJO.toLowerCase() || displayType === BET_TYPE_KEYS.FIJO ? b.amount : 0));
                 const corrido = Number(b.corridoAmount || (type === BET_TYPE_KEYS.CORRIDO.toLowerCase() || displayType === BET_TYPE_KEYS.CORRIDO ? b.amount : 0));
 

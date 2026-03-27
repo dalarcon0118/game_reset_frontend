@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ValidationRule, ValidationRuleService } from '@/shared/services/validation_rule';
+import { ValidationRuleRepository, BackendValidationRule as ValidationRule } from '@/shared/repositories/validation_rule';
 import { validateBet, validateBets, filterRulesByBetType, ValidationResult, BetData } from '@/shared/utils/validation';
 import { logger } from '@/shared/utils/logger';
 
@@ -54,17 +54,17 @@ export function useValidationRules(options: UseValidationRulesOptions = {}): Use
         setError(null);
 
         try {
-            let fetchedRules: ValidationRule[];
+            let fetchedRules: any[];
 
             if (structureId) {
                 // Fetch rules specific to the structure
-                fetchedRules = await ValidationRuleService.getByStructure(structureId);
+                fetchedRules = await ValidationRuleRepository.getByStructure(structureId);
             } else if (betTypeId) {
                 // Fetch rules specific to the bet type
-                fetchedRules = await ValidationRuleService.getByBetType(betTypeId);
+                fetchedRules = await ValidationRuleRepository.getByBetType(betTypeId);
             } else {
                 // Fetch all active rules
-                fetchedRules = await ValidationRuleService.list({ is_active: true });
+                fetchedRules = await ValidationRuleRepository.list({ is_active: true });
             }
 
             setRules(fetchedRules);
@@ -87,8 +87,8 @@ export function useValidationRules(options: UseValidationRulesOptions = {}): Use
         (betData: BetData): ValidationResult => {
             // Filter rules by bet type if provided in betData
             const applicableRules = betData.bet_type
-                ? filterRulesByBetType(rules, betData.bet_type)
-                : rules;
+                ? filterRulesByBetType(rules as any, betData.bet_type)
+                : rules as any;
 
             return validateBet(betData, applicableRules);
         },
@@ -97,7 +97,7 @@ export function useValidationRules(options: UseValidationRulesOptions = {}): Use
 
     const validateMultipleBets = useCallback(
         (bets: BetData[]): Map<number, ValidationResult> => {
-            return validateBets(bets, rules);
+            return validateBets(bets, rules as any);
         },
         [rules]
     );
@@ -105,7 +105,7 @@ export function useValidationRules(options: UseValidationRulesOptions = {}): Use
     const getApplicableRules = useCallback(
         (targetBetTypeId?: string): ValidationRule[] => {
             if (!targetBetTypeId) return rules;
-            return filterRulesByBetType(rules, targetBetTypeId);
+            return filterRulesByBetType(rules as any, targetBetTypeId) as any;
         },
         [rules]
     );

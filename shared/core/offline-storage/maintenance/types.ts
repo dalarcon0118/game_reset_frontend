@@ -14,7 +14,7 @@ export type CleanupPredicate<T = any> = (
 export interface MaintenanceResult {
   keysProcessed: number;
   keysRemoved: number;
-  errors: Array<{ key: StorageKey; error: string }>;
+  errors: { key: StorageKey; error: string }[];
 }
 
 /**
@@ -25,4 +25,5 @@ export interface MaintenanceOptions {
   pattern?: string;
   /** Si se debe emitir un evento por cada eliminación */
   silent?: boolean;
+  batchSize?: number;
 }

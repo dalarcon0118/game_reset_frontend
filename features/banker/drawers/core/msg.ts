@@ -13,5 +13,6 @@ export type Msg =
     | { type: 'NAVIGATE_DATE'; days: number }
     | { type: 'SET_STATUS_FILTER'; status: string | null }
     | { type: 'SET_TYPE_FILTER'; drawType: string | null }
-    | { type: 'CLEAR_FILTERS' };
+    | { type: 'CLEAR_FILTERS' }
+    | { type: 'SET_WINNING_NUMBER'; drawId: number; winningNumber: string };
 

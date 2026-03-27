@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ValidationRuleService, ValidationRule } from '@shared/services/validation_rule';
+import { ValidationRuleRepository } from '@/shared/repositories/validation_rule';
 import { logger } from '@/shared/utils/logger';
 import { useAuth } from '@/features/auth';
 
@@ -28,12 +28,12 @@ export function useRules() {
       setLoading(true);
       setError(null);
       // Fetch structure rules with hierarchy
-      const validationRules = await ValidationRuleService.getForCurrentUser(true);
+      const validationRules = await ValidationRuleRepository.getForCurrentUser(true);
       const mappedRules: Rule[] = validationRules.map(rule => ({
         id: rule.id,
         name: rule.name,
         description: rule.description,
-        isActive: rule.is_active,
+        isActive: rule.status === 'active',
       }));
       setRules(mappedRules);
     } catch (err) {
@@ -42,7 +42,7 @@ export function useRules() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAuthenticated, isLoading]);
 
   useEffect(() => {
     fetchRules();
