@@ -62,17 +62,21 @@ export const adaptAuthUser = (rawUser: any): DashboardUser | null => {
     }
 
     // Log raw user structure for debugging
-    log.debug('adaptAuthUser: adapting user', {
+    log.debug('[DIAGNOSTIC] adaptAuthUser: rawUser structure details', {
         id: rawUser.id,
-        hasStructure: !!rawUser.structure,
-        structureType: typeof rawUser.structure,
-        structureKeys: rawUser.structure ? Object.keys(rawUser.structure) : [],
-        structureId: rawUser.structure?.id
+        username: rawUser.username,
+        structure: rawUser.structure,
+        commission_rate: rawUser.structure?.commission_rate
     });
 
     // 1. Flatten & Normalize
     // We extract exactly what we need, ignoring extra garbage fields.
     // We handle nested structure nullability here before validation.
+    const rawCommissionRate = rawUser.structure?.commission_rate ?? (rawUser.commission_rate ?? 0);
+    const normalizedCommissionRate = Number(rawCommissionRate) > 1
+        ? Number(rawCommissionRate) / 100
+        : Number(rawCommissionRate) || 0;
+
     const candidate = {
         id: rawUser.id,
         username: rawUser.username,
@@ -80,8 +84,7 @@ export const adaptAuthUser = (rawUser: any): DashboardUser | null => {
         name: rawUser.name,
         // Map nested structure fields to flat DTO
         structureId: rawUser.structure?.id,
-        // Default commission rate to 0 if missing, to satisfy strict contract
-        commissionRate: rawUser.structure?.commission_rate ?? 0
+        commissionRate: normalizedCommissionRate
     };
 
     // 2. Validate against Contract

@@ -149,7 +149,7 @@ export const SummaryComponent: React.FC = () => {
               <View style={styles.secondaryItem}>
                 <View style={styles.secondaryHeader}>
                   <BarChart3 size={16} color="#8F9BB3" style={{ marginRight: 4 }} />
-                  <Text style={styles.secondaryLabel}>Comisión ({Math.round(commissionRate * 100)}%)</Text>
+                  <Text style={styles.secondaryLabel}>Comisión ({Math.round((model.commissionRate || 0) * 100)}%)</Text>
                 </View>
                 <Text style={styles.secondaryValue}>
                   {showBalance ? formatCurrency(dailyTotals.estimatedCommission) : '****'}

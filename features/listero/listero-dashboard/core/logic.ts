@@ -258,6 +258,15 @@ export const handleAuthUserSynced = (model: Model, user: DashboardUser | null): 
     const newStructureId = user.structureId;
     const newCommissionRate = user.commissionRate;
 
+    log.info('[DIAGNOSTIC] logic.handleAuthUserSynced details', {
+        user_id: user.id,
+        user_name: user.username,
+        newStructureId,
+        newCommissionRate,
+        oldStructureId: model.userStructureId,
+        oldCommissionRate: model.commissionRate
+    });
+
     // Check if critical structure changed
     const structureChanged = model.userStructureId !== newStructureId;
 

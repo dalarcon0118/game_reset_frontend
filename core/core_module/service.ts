@@ -119,8 +119,13 @@ export const CoreService = {
     const authRepo = getAuthRepo();
     let user = await authRepo.hydrate();
 
-    if (user && !user.structure) {
-      log.warn('User found but structure is missing, attempting API refresh...');
+    const needsProfileRefresh = !!user && (!user.structure || user.structure.commission_rate === undefined);
+
+    if (needsProfileRefresh) {
+      log.warn('User profile missing required structure context, attempting API refresh...', {
+        hasStructure: !!user?.structure,
+        hasCommissionRate: user?.structure?.commission_rate !== undefined
+      });
       const result = await authRepo.refreshUserProfile();
       if (result.isOk()) {
         user = result.value;

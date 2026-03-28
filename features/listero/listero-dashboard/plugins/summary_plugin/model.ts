@@ -33,7 +33,7 @@ export const initialModel = (): [Model, Cmd] => {
         amountToRemit: 0
       },
       showBalance: true,
-      commissionRate: 0.1,
+      commissionRate: 0,
       structureId: '1',
       context: null,
       contextError: null,

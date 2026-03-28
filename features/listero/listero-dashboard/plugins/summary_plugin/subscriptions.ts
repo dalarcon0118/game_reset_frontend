@@ -12,13 +12,19 @@ export const subscriptions = (model: Model) => {
   const dashboardSyncSub = Sub.watchStore(
     'ListeroDashboard',
     (hostState: any) => {
+      const commission = hostState?.model?.commissionRate;
+      if (commission !== undefined) {
+        log.debug('[DIAGNOSTIC] watchStore detected commissionRate in Host:', commission);
+      }
       return {
         userStructureId: hostState?.model?.userStructureId,
+        commissionRate: hostState?.model?.commissionRate,
         todayStart: hostState?.model?.todayStart,
         trustedNow: hostState?.model?.trustedNow
       };
     },
     (data) => {
+      log.debug('[DIAGNOSTIC] Dispatching DASHBOARD_DATA_SYNCED with data:', data);
       return DASHBOARD_DATA_SYNCED(data);
     },
     'summary-dashboard-sync'

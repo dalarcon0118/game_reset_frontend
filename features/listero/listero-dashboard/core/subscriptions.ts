@@ -1,6 +1,7 @@
 import { Model } from './model';
 import { SubDescriptor, Sub } from '@core/tea-utils';
 import { Msg, SYSTEM_READY as SYSTEM_READY_MSG } from './msg';
+import { adaptAuthUser } from './user.dto';
 import { DASHBOARD_FILTER_CHANGED, SYSTEM_READY, DASHBOARD_RULES_CLICKED, DASHBOARD_REWARDS_CLICKED, DASHBOARD_REFRESH_CLICKED } from '@/config/signals';
 
 export const subscriptions = (model: Model): SubDescriptor<Msg> => {
@@ -44,7 +45,7 @@ export const subscriptions = (model: Model): SubDescriptor<Msg> => {
     const systemReadySub = Sub.receiveMsg(
         SYSTEM_READY,
         (payload, dispatch) => {
-            dispatch(SYSTEM_READY_MSG({ 
+            dispatch(SYSTEM_READY_MSG({
                 date: payload.date,
                 structureId: payload.structureId,
                 user: payload.user
@@ -53,7 +54,7 @@ export const subscriptions = (model: Model): SubDescriptor<Msg> => {
         'listero-dashboard-system-ready'
     );
 
-    // 4. Sincronización con el estado isSystemReady del CoreModule (Idempotencia)
+    // 6. Sincronización con el estado isSystemReady del CoreModule (Idempotencia)
     // Esto previene perder la señal si el mantenimiento terminó antes de que el Dashboard montara.
     const coreReadySub = Sub.watchStore(
         'Core',
@@ -64,5 +65,13 @@ export const subscriptions = (model: Model): SubDescriptor<Msg> => {
         'listero-dashboard-core-ready-sync'
     );
 
-    return Sub.batch([filterSub, rulesSub, rewardsSub, refreshSub, systemReadySub, coreReadySub]);
+    // 7. Sincronización con el perfil de usuario del AuthStore
+    const authUserSub = Sub.watchStore(
+        'Auth',
+        (state: any) => state?.model?.user,
+        (user) => ({ type: 'AUTH_USER_SYNCED', user: user ? adaptAuthUser(user) : null }),
+        'listero-dashboard-auth-user-sync'
+    );
+
+    return Sub.batch([filterSub, rulesSub, rewardsSub, refreshSub, systemReadySub, coreReadySub, authUserSub]);
 };

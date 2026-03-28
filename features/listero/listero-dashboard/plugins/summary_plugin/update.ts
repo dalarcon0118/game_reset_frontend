@@ -65,14 +65,14 @@ function handleLoadPreferences(model: Model): Return<Model, Msg.Msg> {
           id: 'me',
           name: 'Usuario',
           structureId: model.context!.state.userStructureId || '1',
-          commissionRate: model.context!.state.commissionRate || 0.1
+          commissionRate: model.context!.state.commissionRate || 0
         },
         userPreferences: { showBalance: showBalance !== 'false' }
       });
     },
     onSuccess: (msg: Msg.Msg) => msg,
     onFailure: () => Msg.PREFERENCES_LOADED({
-      userProfile: { id: 'unknown', name: 'Usuario', structureId: '1', commissionRate: 0.1 },
+      userProfile: { id: 'unknown', name: 'Usuario', structureId: '1', commissionRate: 0 },
       userPreferences: { showBalance: true }
     })
   }));
@@ -141,11 +141,19 @@ function handleFinancialBetsUpdated(model: Model, webData: WebData<DomainFinanci
   return ret({ ...model, financialSummary: webData }, Cmd.none);
 }
 
-function handleDashboardDataSynced(model: Model, payload: { userStructureId?: string; todayStart?: number; trustedNow?: number }): Return<Model, Msg.Msg> {
+function handleDashboardDataSynced(model: Model, payload: { userStructureId?: string; todayStart?: number; trustedNow?: number; commissionRate?: number }): Return<Model, Msg.Msg> {
   const needsUpdate =
     payload.userStructureId !== model.structureId ||
+    (payload.commissionRate !== undefined && payload.commissionRate !== model.commissionRate) ||
     (payload.todayStart && model.context?.state.todayStart !== payload.todayStart) ||
     (payload.trustedNow && model.trustedNow !== payload.trustedNow);
+
+  logger.debug('[DIAGNOSTIC] handleDashboardDataSynced', { 
+    currentCommission: model.commissionRate, 
+    newCommission: payload.commissionRate,
+    needsUpdate,
+    payload
+  });
 
   if (!needsUpdate) {
     return ret(model, Cmd.none);
@@ -154,6 +162,7 @@ function handleDashboardDataSynced(model: Model, payload: { userStructureId?: st
   const newModel: Model = {
     ...model,
     structureId: payload.userStructureId || model.structureId,
+    commissionRate: payload.commissionRate !== undefined ? payload.commissionRate : model.commissionRate,
     trustedNow: payload.trustedNow || model.trustedNow,
     context: model.context ? {
       ...model.context,

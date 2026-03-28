@@ -6,7 +6,7 @@ import { fetchDrawsCmd, loadPendingBetsCmd, fetchUserDataCmd } from '../commands
 import { fetchPromotionsCmd } from '../../../../../shared/components/promotion/services/DataServices';
 import { PROMOTION_MSG } from '../msg';
 import { logger } from '@/shared/utils/logger';
-import { DashboardUser } from '../user.dto';
+import { adaptAuthUser, DashboardUser } from '../user.dto';
 
 const log = logger.withTag('DASHBOARD_AUTH_HANDLER');
 
@@ -54,10 +54,11 @@ const triggerInitialLoad = (model: Model): Return<Model, Msg> => {
 
 export const AuthHandler = {
     handleAuthUserSynced: (model: Model, user: DashboardUser | null): Return<Model, Msg> => {
-        log.info('[DIAGNOSTIC] handleAuthUserSynced', { 
-            hasUser: !!user, 
+        log.info('[DIAGNOSTIC] handleAuthUserSynced', {
+            hasUser: !!user,
             structureId: user?.structureId,
-            currentModelStatus: model.status.type 
+            commissionRate: user?.commissionRate,
+            currentModelStatus: model.status.type
         });
         const nextModel = logicHandleAuthUserSynced(model, user);
 
@@ -71,7 +72,15 @@ export const AuthHandler = {
     },
 
     handleSystemReady: (model: Model, date: string, structureId?: string, user?: any): Return<Model, Msg> => {
-        log.info('SYSTEM_READY received from CoreModule. Context is guaranteed.', { date, structureId });
+        const adaptedUser = user ? adaptAuthUser(user) : null;
+
+        log.info('SYSTEM_READY received from CoreModule. Context is guaranteed.', {
+            date,
+            structureId,
+            hasUser: !!user,
+            adaptedStructureId: adaptedUser?.structureId,
+            adaptedCommissionRate: adaptedUser?.commissionRate
+        });
 
         if (model.draws.type === 'Success' && model.status.type === 'READY') {
             return singleton(model);
@@ -81,17 +90,18 @@ export const AuthHandler = {
         const updatedModel: Model = {
             ...model,
             status: { type: 'LOADING_DATA' },
-            userStructureId: structureId || model.userStructureId
+            userStructureId: structureId || adaptedUser?.structureId || model.userStructureId
         };
+        const hydratedModel = adaptedUser ? logicHandleAuthUserSynced(updatedModel, adaptedUser) : updatedModel;
 
         // Si ya tenemos el ID (vía payload o previo), procedemos.
-        if (updatedModel.userStructureId) {
-            return triggerInitialLoad(updatedModel);
+        if (hydratedModel.userStructureId) {
+            return triggerInitialLoad(hydratedModel);
         }
 
         // Fallback: Si por alguna razón no vino en el payload, lo pedimos al repositorio
         log.info('SYSTEM_READY: userStructureId missing in payload. Fetching from AuthRepository...');
-        return ret(updatedModel, fetchUserDataCmd());
+        return ret(hydratedModel, fetchUserDataCmd());
     },
 
     handleAuthTokenUpdated: (model: Model, token: string): Return<Model, Msg> => {
