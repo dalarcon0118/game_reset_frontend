@@ -113,5 +113,24 @@ export const BetApi = {
         log.info('Deleting bet', { betId });
         const endpoint = `${settings.api.endpoints.bets()}${betId}/`;
         await apiClient.delete(endpoint);
+    },
+
+    /**
+     * DLQ: Report a blocked bet to the backend
+     */
+    reportToDlq: async (data: {
+        idempotency_key: string;
+        local_id: string;
+        draw_id: string;
+        amount: number;
+        error: string;
+        bet_data: any;
+    }): Promise<void> => {
+        log.info('REPORTING BLOCKED BET TO DLQ', {
+            idempotencyKey: data.idempotency_key,
+            error: data.error
+        });
+        const endpoint = `${settings.api.endpoints.bets()}dead-letter-queue/report/`;
+        await apiClient.post(endpoint, data);
     }
 };

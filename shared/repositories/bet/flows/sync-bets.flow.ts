@@ -1,4 +1,4 @@
-import { Result, ok, err, okAsync, ResultAsync } from 'neverthrow';
+import { Result, ok, err } from 'neverthrow';
 import { IBetStorage, IBetApi } from '../bet.ports';
 import { drawRepository } from '../../draw';
 import { GameType } from '@/types';
@@ -16,62 +16,63 @@ const syncSingleBet = async (
     storage: IBetStorage,
     api: IBetApi
 ): Promise<Result<void, Error>> => {
-    return okAsync(bet)
-        .andThen(b => {
-            const amount = Number(b.amount) || 0;
-            const structureId = b.ownerStructure;
-            if (amount <= 0 || !structureId) {
-                return err(new Error(`ERROR_CRITICO_SYNC: Datos inválidos en apuesta ${b.externalId}`));
-            }
-            return ok(b);
-        })
-        .andThen(b => {
-            return new ResultAsync((async () => {
-                log.info(`Syncing bet ${b.externalId} with backend...`);
-                const response = await api.create(b as any, b.externalId);
-                const backendBets = Array.isArray(response) ? response : [response];
-                return ok({ bet: b, backendBets });
-            })());
-        })
-        .andThen(ctx => {
-            return new ResultAsync((async () => {
-                const betTypesResult = await drawRepository.getBetTypes(String(ctx.bet.drawId || ''));
-                const betTypes: GameType[] = betTypesResult.isOk()
-                    ? betTypesResult.value.map((t): GameType => ({
-                        id: String(t.id),
-                        name: t.name,
-                        code: t.code || '',
-                        description: t.description || ''
-                    }))
-                    : [];
+    const amount = Number(bet.amount) || 0;
+    const structureId = bet.ownerStructure;
+    if (amount <= 0 || !structureId) {
+        return err(new Error(`ERROR_CRITICO_SYNC: Datos inválidos en apuesta ${bet.externalId}`));
+    }
 
-                const mappedBets = ctx.backendBets.map(b => mapBackendBetToFrontend(b, betTypes));
-                await storage.updateStatus(ctx.bet.externalId, 'synced', { backendBets: mappedBets });
-                return ok<void, Error>(undefined);
-            })());
-        })
-        .orElse(error => {
-            return new ResultAsync((async () => {
-                log.error(`Failed to sync bet ${bet.externalId}`, error);
-                
-                const attemptsCount = (bet.syncContext?.attemptsCount || 0) + 1;
-                const status = (error as any).status;
-                
-                // Los errores 401 (Unauthorized) y 403 (Forbidden) no son fatales para los datos,
-                // son problemas de sesión que deben reintentarse tras un login exitoso.
-                const isFatal = status >= 400 && status < 500 && status !== 401 && status !== 403;
-                
-                await storage.updateStatus(bet.externalId, isFatal ? 'error' : 'pending', {
-                    syncContext: {
-                        lastAttempt: Date.now(),
-                        attemptsCount,
-                        lastError: error instanceof Error ? error.message : String(error),
-                        errorType: isFatal ? 'FATAL' : 'RETRYABLE'
-                    }
-                });
-                return err<void, Error>(error instanceof Error ? error : new Error(String(error)));
-            })());
+    try {
+        log.info(`Syncing bet ${bet.externalId} with backend...`);
+        const response = await api.create(bet as any, bet.externalId);
+        const backendBets = Array.isArray(response) ? response : [response];
+
+        const betTypesResult = await drawRepository.getBetTypes(String(bet.drawId || ''));
+        const betTypes: GameType[] = betTypesResult.isOk()
+            ? betTypesResult.value.map((t): GameType => ({
+                id: String(t.id),
+                name: t.name,
+                code: t.code || '',
+                description: t.description || ''
+            }))
+            : [];
+
+        const mappedBets = backendBets.map(b => mapBackendBetToFrontend(b, betTypes));
+        await storage.updateStatus(bet.externalId, 'synced', { backendBets: mappedBets });
+        return ok<void, Error>(undefined);
+    } catch (error) {
+        log.error(`Failed to sync bet ${bet.externalId}`, error);
+
+        const attemptsCount = (bet.syncContext?.attemptsCount || 0) + 1;
+        const status = (error as any)?.status ?? (error as any)?.response?.status;
+        const isFatal = status >= 400 && status < 500 && status !== 401 && status !== 403;
+        const lastError = (error as any)?.message
+            || (error as any)?.data?.detail
+            || (error as any)?.data?.message
+            || String(error);
+
+        const errorType = isFatal ? 'FATAL' : 'RETRYABLE';
+
+        await storage.updateStatus(bet.externalId, isFatal ? 'blocked' : 'pending', {
+            syncContext: {
+                lastAttempt: Date.now(),
+                attemptsCount,
+                lastError,
+                errorType
+            },
+            lastError
         });
+
+        // Si es un error fatal, intentamos reportar a la DLQ del backend
+        // Hacemos esto de forma asíncrona (fire-and-forget) para no bloquear el flujo local
+        if (isFatal) {
+            api.reportToDlq(bet, lastError).catch(err => {
+                log.error(`Failed to report fatal error to backend DLQ for bet ${bet.externalId}`, err);
+            });
+        }
+
+        return err<void, Error>(error instanceof Error ? error : new Error(String(lastError)));
+    }
 };
 
 /**

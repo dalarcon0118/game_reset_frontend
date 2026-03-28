@@ -9,7 +9,9 @@ import { scenario, setViewAdapter, createTestContext, TestContext } from '@/test
 import { ScenarioConfig } from '@/tests/core/scenario';
 import { betRepository } from '@/shared/repositories/bet';
 import { notificationRepository } from '@/shared/repositories/notification';
-import { CoreModule } from '@/core/core_module';
+import { BetApi } from '@/shared/services/bet/api';
+import { drawRepository } from '@/shared/repositories/draw';
+import { isServerReachable } from '@/shared/utils/network';
 import { storeRegistry } from '@/shared/core/engine/store_registry';
 import NotificationsScreen from '@/features/notification/screens/notifications_screen';
 
@@ -22,6 +24,21 @@ import NotificationsScreen from '@/features/notification/screens/notifications_s
 
 // Configure view adapter for React Native
 setViewAdapter('react-native');
+
+jest.mock('@/shared/utils/network', () => ({
+    isServerReachable: jest.fn().mockResolvedValue(false)
+}));
+
+jest.mock('@/shared/services/bet/api', () => ({
+    BetApi: {
+        create: jest.fn(),
+        createWithIdempotencyKey: jest.fn(),
+        getSyncStatus: jest.fn(),
+        list: jest.fn(),
+        listByDrawId: jest.fn(),
+        delete: jest.fn()
+    }
+}));
 
 /**
  * Context for the sync and notification test
@@ -64,14 +81,17 @@ scenario('Notificaciones - Sincronización offline y visualización en UI', init
         if (coreStore) {
             coreStore.getState().dispatch({ type: 'SET_OFFLINE_MODE', payload: true });
         }
+        (isServerReachable as jest.Mock).mockResolvedValue(false);
         ctx.data.online = false;
 
         // Crear una apuesta offline usando el repositorio directamente
         await betRepository.placeBet({
             drawId: '395',
-            number: '42',
+            numbers: '42',
             amount: 50,
-            type: 'simple'
+            type: 'Fijo',
+            betTypeId: '1',
+            ownerStructure: '1'
         } as any);
 
         const pending = await betRepository.getPendingBets();
@@ -97,14 +117,37 @@ scenario('Notificaciones - Sincronización offline y visualización en UI', init
         }
         ctx.data.online = true;
 
-        // Activar sincronización (lo que haría el core_module al detectar conexión)
-        await betRepository.syncPending();
+        (isServerReachable as jest.Mock).mockResolvedValue(true);
+        (BetApi.createWithIdempotencyKey as jest.Mock).mockResolvedValue({
+            id: 99901,
+            draw: '395',
+            bet_type: '1',
+            numbers_played: '42',
+            amount: 50,
+            created_at: new Date().toISOString(),
+            is_winner: false,
+            payout_amount: 0,
+            owner_structure: '1',
+            receipt_code: 'SYNC1',
+            external_id: 'test-sync-id',
+            bet_type_details: { id: '1', name: 'Fijo', code: 'FIJO' }
+        });
+        const drawTypesSpy = jest.spyOn(drawRepository, 'getBetTypes').mockResolvedValue({
+            isOk: () => true,
+            value: [],
+            isErr: () => false
+        } as any);
+
+        const syncResult = await betRepository.syncPending();
+        drawTypesSpy.mockRestore();
         
         const remainingPending = await betRepository.getPendingBets();
         ctx.data.finalPendingCount = remainingPending.length;
         
+        expect(syncResult.success).toBeGreaterThan(0);
+        expect(BetApi.createWithIdempotencyKey).toHaveBeenCalled();
         expect(ctx.data.finalPendingCount).toBeLessThan(ctx.data.initialPendingCount);
-        ctx.log('✅ Sincronización exitosa completada');
+        ctx.log('✅ Intento de sincronización ejecutado');
     })
 
     // THEN 1: Se debe haber generado una notificación en el repositorio

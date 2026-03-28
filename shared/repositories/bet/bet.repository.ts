@@ -4,6 +4,7 @@ import { IBetStorage, IBetApi } from './bet.ports';
 import { logger } from '@/shared/utils/logger';
 import { ListBetsFilters } from '@/shared/services/bet/types';
 import { BetType } from '@/types';
+import { isServerReachable } from '@/shared/utils/network';
 
 // Flows
 import { placeBetFlow, placeBatchFlow } from './flows/place-bet.flow';
@@ -28,6 +29,7 @@ export class BetRepository implements IBetRepository {
     private readonly log = log;
     private readonly syncListener: BetSyncListener;
     private readonly subscribers: Set<() => void> = new Set();
+    private syncPendingInFlight: Promise<{ success: number; failed: number }> | null = null;
 
     constructor(
         private readonly storage: IBetStorage,
@@ -71,7 +73,9 @@ export class BetRepository implements IBetRepository {
      */
     async placeBet(betData: BetPlacementInput): Promise<Result<BetRepositoryResult, Error>> {
         try {
-            return await placeBetFlow(betData, this.storage, this.api);
+            const result = await placeBetFlow(betData, this.storage, this.api);
+            this.triggerGlobalPendingSyncIfOnline();
+            return result;
         } catch (error) {
             this.log.error('Error in placeBet', error);
             return err(error instanceof Error ? error : new Error(String(error)));
@@ -84,6 +88,7 @@ export class BetRepository implements IBetRepository {
     async placeBatch(bets: BetPlacementInput[]): Promise<Result<BetType[], Error>> {
         try {
             const result = await placeBatchFlow(bets, this.storage, this.api);
+            this.triggerGlobalPendingSyncIfOnline();
             return result as Result<BetType[], Error>;
         } catch (error) {
             this.log.error('Error in placeBatch', error);
@@ -102,27 +107,51 @@ export class BetRepository implements IBetRepository {
      * Sincroniza todas las apuestas pendientes.
      */
     async syncPending(): Promise<{ success: number; failed: number }> {
-        const result = await syncPendingFlow(this.storage, this.api);
-
-        if (result.success > 0) {
-            await notificationRepository.addNotification({
-                title: 'Sincronización completada',
-                message: `Se han sincronizado ${result.success} apuestas exitosamente.`,
-                type: 'success',
-                metadata: { count: result.success, type: 'SYNC_SUCCESS' }
-            });
+        if (this.syncPendingInFlight) {
+            return this.syncPendingInFlight;
         }
 
-        if (result.failed > 0) {
-            await notificationRepository.addNotification({
-                title: 'Error de sincronización',
-                message: `${result.failed} apuestas no pudieron sincronizarse. Se reintentará más tarde.`,
-                type: 'error',
-                metadata: { count: result.failed, type: 'SYNC_ERROR' }
-            });
-        }
+        this.syncPendingInFlight = (async () => {
+            const result = await syncPendingFlow(this.storage, this.api);
 
-        return result;
+            if (result.success > 0) {
+                await notificationRepository.addNotification({
+                    title: 'Sincronización completada',
+                    message: `Se han sincronizado ${result.success} apuestas exitosamente.`,
+                    type: 'success',
+                    metadata: { count: result.success, type: 'SYNC_SUCCESS' }
+                });
+            }
+
+            if (result.failed > 0) {
+                await notificationRepository.addNotification({
+                    title: 'Error de sincronización',
+                    message: `${result.failed} apuestas no pudieron sincronizarse. Se reintentará más tarde.`,
+                    type: 'error',
+                    metadata: { count: result.failed, type: 'SYNC_ERROR' }
+                });
+            }
+
+            return result;
+        })();
+
+        try {
+            return await this.syncPendingInFlight;
+        } finally {
+            this.syncPendingInFlight = null;
+        }
+    }
+
+    private triggerGlobalPendingSyncIfOnline(): void {
+        void (async () => {
+            try {
+                const online = await isServerReachable();
+                if (!online) return;
+                await this.syncPending();
+            } catch (error) {
+                this.log.warn('Background global pending sync skipped after place flow', error);
+            }
+        })();
     }
 
     /**

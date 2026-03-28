@@ -29,4 +29,9 @@ export interface IBetApi {
     // Structure related methods (moved from StructureService)
     getChildren(id: number, level?: number): Promise<BackendChildStructure[]>;
     getListeroDetails(id: number, date?: string): Promise<BackendListeroDetails>;
+
+    /**
+     * DLQ: Report a blocked bet to the backend for administrative visibility.
+     */
+    reportToDlq(bet: BetDomainModel, error: string): Promise<void>;
 }

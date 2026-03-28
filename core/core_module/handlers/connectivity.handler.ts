@@ -10,18 +10,24 @@ export const ConnectivityHandler = {
     const nextNetworkStatus = calculateNetworkStatus({ connectivity: nextConnectivity, isOffline: model.isOffline });
 
     const wasOffline = !model.networkConnected;
-    const isNowOnline = nextNetworkStatus;
 
     const nextModel = updateModel(model, { connectivity: nextConnectivity, networkConnected: nextNetworkStatus });
-    const canSync = nextNetworkStatus && model.sessionStatus === 'AUTHENTICATED' && model.isSessionContextVerified;
+
+    const commands: Cmd[] = [CoreService.syncNetworkStatus(nextNetworkStatus)];
+    const isAuthenticated = model.sessionStatus === 'AUTHENTICATED';
+
+    if (wasOffline && nextNetworkStatus && isAuthenticated) {
+      if (model.isSessionContextVerified) {
+        commands.push(CoreService.syncPendingBetsTask());
+      } else if (!model.isVerifyingSession) {
+        commands.push(CoreService.verifySessionContextTask());
+      }
+    }
 
     return ret(
       nextModel,
       (wasOffline && nextNetworkStatus)
-        ? Cmd.batch([
-          CoreService.syncNetworkStatus(nextNetworkStatus),
-          canSync ? CoreService.syncPendingBetsTask() : Cmd.none
-        ])
+        ? Cmd.batch(commands)
         : (nextNetworkStatus !== model.networkConnected
           ? CoreService.syncNetworkStatus(nextNetworkStatus)
           : Cmd.none)
@@ -35,15 +41,22 @@ export const ConnectivityHandler = {
     const wasOffline = !model.networkConnected;
 
     const nextModel = updateModel(model, { connectivity: nextConnectivity, networkConnected: nextNetworkStatus });
-    const canSync = nextNetworkStatus && model.sessionStatus === 'AUTHENTICATED' && model.isSessionContextVerified;
+
+    const commands: Cmd[] = [CoreService.syncNetworkStatus(nextNetworkStatus)];
+    const isAuthenticated = model.sessionStatus === 'AUTHENTICATED';
+
+    if (wasOffline && nextNetworkStatus && isAuthenticated) {
+      if (model.isSessionContextVerified) {
+        commands.push(CoreService.syncPendingBetsTask());
+      } else if (!model.isVerifyingSession) {
+        commands.push(CoreService.verifySessionContextTask());
+      }
+    }
 
     return ret(
       nextModel,
       (wasOffline && nextNetworkStatus)
-        ? Cmd.batch([
-          CoreService.syncNetworkStatus(nextNetworkStatus),
-          canSync ? CoreService.syncPendingBetsTask() : Cmd.none
-        ])
+        ? Cmd.batch(commands)
         : (nextNetworkStatus !== model.networkConnected
           ? CoreService.syncNetworkStatus(nextNetworkStatus)
           : Cmd.none)
@@ -55,15 +68,22 @@ export const ConnectivityHandler = {
     const wasOffline = !model.networkConnected;
 
     const nextModel = updateModel(model, { isOffline: payload, networkConnected: nextNetworkStatus });
-    const canSync = nextNetworkStatus && model.sessionStatus === 'AUTHENTICATED' && model.isSessionContextVerified;
+
+    const commands: Cmd[] = [CoreService.syncNetworkStatus(nextNetworkStatus)];
+    const isAuthenticated = model.sessionStatus === 'AUTHENTICATED';
+
+    if (wasOffline && nextNetworkStatus && isAuthenticated) {
+      if (model.isSessionContextVerified) {
+        commands.push(CoreService.syncPendingBetsTask());
+      } else if (!model.isVerifyingSession) {
+        commands.push(CoreService.verifySessionContextTask());
+      }
+    }
 
     return ret(
       nextModel,
       (wasOffline && nextNetworkStatus)
-        ? Cmd.batch([
-          CoreService.syncNetworkStatus(nextNetworkStatus),
-          canSync ? CoreService.syncPendingBetsTask() : Cmd.none
-        ])
+        ? Cmd.batch(commands)
         : (nextNetworkStatus !== model.networkConnected
           ? CoreService.syncNetworkStatus(nextNetworkStatus)
           : Cmd.none)

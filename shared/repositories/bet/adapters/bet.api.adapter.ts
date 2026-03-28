@@ -58,4 +58,15 @@ export class BetApiAdapter implements IBetApi {
     async delete(betId: number): Promise<void> {
         await LegacyBetApi.delete(betId);
     }
+
+    async reportToDlq(bet: BetDomainModel, error: string): Promise<void> {
+        await LegacyBetApi.reportToDlq({
+            idempotency_key: bet.externalId,
+            local_id: bet.externalId,
+            draw_id: String(bet.drawId),
+            amount: bet.amount,
+            error: error,
+            bet_data: bet
+        });
+    }
 }

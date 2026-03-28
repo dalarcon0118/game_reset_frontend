@@ -1,13 +1,11 @@
 
 import { AuthRepository } from '@/shared/repositories/auth';
-import { CoreService, setAuthRepository } from '@/core/core_module/service';
+import { setAuthRepository } from '@/core/core_module/service';
 import { CoreModule } from '@/core/core_module';
 import { createElmStore } from '@/shared/core/engine/engine';
-import { apiClient } from '@/shared/services/api_client';
 import { AuthErrorType } from '@/shared/repositories/auth/types/types';
 import { isServerReachable } from '@/shared/utils/network';
 import { logger } from '@/shared/utils/logger';
-import { settings } from '@/config/settings';
 
 // Mocks
 jest.mock('@react-native-community/netinfo', () => ({
@@ -20,12 +18,19 @@ jest.mock('@react-native-community/netinfo', () => ({
 
 describe('Connectivity Sync & Auth Fallback Policy', () => {
     const log = logger.withTag('CONNECTIVITY_TEST');
+    const waitForEffects = () => new Promise(resolve => setTimeout(resolve, 50));
 
     beforeEach(() => {
         jest.clearAllMocks();
         setAuthRepository(AuthRepository);
-        // Resetear estado interno del repositorio
+        // Reset singleton state for proper test isolation
         (AuthRepository as any).isNetworkOnline = true;
+        (AuthRepository as any).offlineConditionChecker = null;
+        (AuthRepository as any).api = undefined;
+        (AuthRepository as any).storage = undefined;
+        (AuthRepository as any).timeRepo = {
+            validateIntegrity: jest.fn(() => ({ status: 'ok' }))
+        };
     });
 
     describe('isServerReachable SSoT Policy', () => {
@@ -59,33 +64,25 @@ describe('Connectivity Sync & Auth Fallback Policy', () => {
     });
 
     describe('CoreModule to AuthRepository Propagation', () => {
-        test('CoreModule should update AuthRepository network status when changed', async () => {
-            // No podemos usar hooks en tests de Node/Jest. Usamos el store directamente.
+        test('CoreModule should update AuthRepository network status when physical connectivity changes', async () => {
             const testStore = createElmStore(CoreModule.definition);
-            const { dispatch } = testStore.getState();
+            const { dispatch, cleanup } = testStore.getState();
 
-            // Simular cambio a OFFLINE
-            dispatch({ type: 'NETWORK_STATUS_CHANGED', payload: false });
-
-            // Esperar a que los comandos asíncronos se ejecuten
-            await new Promise(resolve => setTimeout(resolve, 50));
-
-            // El Repositorio debe estar OFFLINE
+            // Use PHYSICAL_CONNECTION_CHANGED (valid TEA message for CoreModule)
+            dispatch({ type: 'PHYSICAL_CONNECTION_CHANGED', payload: false });
+            await waitForEffects();
             expect((AuthRepository as any).isNetworkOnline).toBe(false);
 
-            // Simular cambio a ONLINE
-            dispatch({ type: 'NETWORK_STATUS_CHANGED', payload: true });
-
-            await new Promise(resolve => setTimeout(resolve, 50));
-
-            // El Repositorio debe estar ONLINE
+            dispatch({ type: 'PHYSICAL_CONNECTION_CHANGED', payload: true });
+            await waitForEffects();
             expect((AuthRepository as any).isNetworkOnline).toBe(true);
+
+            cleanup();
         });
     });
 
     describe('AuthRepository Fallback Blocking', () => {
         test('Should block offline fallback when server returns 500', async () => {
-            // Setup: Simular que el API retorna 500
             const mockApi = {
                 login: jest.fn().mockResolvedValue({
                     success: false,
@@ -98,28 +95,37 @@ describe('Connectivity Sync & Auth Fallback Policy', () => {
                 getMe: jest.fn(),
                 refresh: jest.fn()
             };
+            const mockStorage = {
+                validateOffline: jest.fn(),
+                saveSession: jest.fn(),
+                saveOfflineCredentials: jest.fn(),
+                getUserProfile: jest.fn(),
+                getOfflineProfile: jest.fn(),
+                getSession: jest.fn(),
+                purgeLegacyData: jest.fn(),
+                clearSession: jest.fn(),
+                saveLastUsername: jest.fn(),
+                getLastUsername: jest.fn()
+            };
 
-            // Inyectar mock API en el repositorio real
             (AuthRepository as any).api = mockApi;
+            (AuthRepository as any).storage = mockStorage;
             (AuthRepository as any).isNetworkOnline = true;
 
             const result = await AuthRepository.login('tester', '123456');
 
+            expect(mockApi.login).toHaveBeenCalledWith('tester', '123456');
+            // Ensure no offline fallback attempt occurred for 500 error
+            expect(mockStorage.validateOffline).not.toHaveBeenCalled();
             expect(result.success).toBe(false);
-            if (!result.success) {
+            if (!result.success && result.error) {
                 expect(result.error.type).toBe(AuthErrorType.SERVER_ERROR);
             }
 
-            // Verificar que NO se intentó validación offline (mock de storage no llamado para validateOffline)
-            // En una implementación real, esto se verificaría con un spy en el storage adapter.
             log.info('Confirmed: Offline fallback blocked for SERVER_ERROR (500)');
         });
 
         test('Should allow offline fallback when network is truly OFFLINE', async () => {
-            // Setup: Simular red OFFLINE
-            (AuthRepository as any).isNetworkOnline = false;
-
-            // Mock de storage para validar offline
             const mockStorage = {
                 validateOffline: jest.fn().mockResolvedValue({
                     success: true,
@@ -137,15 +143,21 @@ describe('Connectivity Sync & Auth Fallback Policy', () => {
             };
 
             (AuthRepository as any).storage = mockStorage;
+            (AuthRepository as any).isNetworkOnline = false;
+            (AuthRepository as any).offlineConditionChecker = {
+                canContinueOffline: jest.fn().mockResolvedValue(true)
+            };
 
             const result = await AuthRepository.login('tester', '123456');
 
             expect(result.success).toBe(true);
-            if (result.success) {
+            expect(mockStorage.validateOffline).toHaveBeenCalledWith('tester', '123456');
+            expect(mockStorage.saveSession).toHaveBeenCalled();
+            if (result.success && result.data) {
+                // Confirm the response correctly identifies the offline session
                 expect(result.data.isOffline).toBe(true);
             }
 
-            expect(mockStorage.validateOffline).toHaveBeenCalled();
             log.info('Confirmed: Offline fallback allowed when global sensor reports OFFLINE');
         });
     });

@@ -39,6 +39,7 @@ export const SessionHandler = {
       nextModel,
       Cmd.batch([
         CoreService.syncPendingBetsOnStartupTask(),
+        CoreService.syncPendingBetsTask(),
         nextModel.isSystemReady
           ? CoreService.notifySystemReady(new Date().toISOString().split('T')[0], payload)
           : Cmd.none

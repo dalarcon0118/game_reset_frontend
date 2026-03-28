@@ -127,9 +127,10 @@ const attemptSync = async (
     } catch (error) {
         log.warn('Sync failed, bet remains pending', error);
 
-        const isFatal = (error as any).status >= 400 && (error as any).status < 500;
+        const status = (error as any)?.status ?? (error as any)?.response?.status;
+        const isFatal = status >= 400 && status < 500 && status !== 401 && status !== 403;
 
-        await storage.updateStatus(bet.externalId, isFatal ? 'error' : 'pending', {
+        await storage.updateStatus(bet.externalId, isFatal ? 'blocked' : 'pending', {
             syncContext: {
                 lastAttempt: Date.now(),
                 attemptsCount: 1,
