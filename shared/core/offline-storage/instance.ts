@@ -2,6 +2,7 @@ import { SyncWorkerCore } from './sync/worker';
 import { StorageJanitor } from './maintenance/janitor';
 import { SYNC_CONSTANTS, STORAGE_TTL } from './types';
 import { offlineEventBus } from './event_bus';
+console.log('[OFFLINE-INSTANCE] offlineEventBus imported', offlineEventBus);
 import { offlineStorage, commonPorts } from './storage';
 
 export { StorageJanitor } from './maintenance/janitor';

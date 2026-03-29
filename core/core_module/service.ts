@@ -6,6 +6,10 @@ import { apiClient } from '@shared/services/api_client';
 import { ConnectivityEvent } from '@shared/services/api_client/api_client.types';
 import { isServerReachable } from '@shared/utils/network';
 import { logger } from '@shared/utils/logger';
+import { syncWorker } from '@shared/core/offline-storage/instance';
+import { BetPushStrategy } from '@shared/repositories/bet/sync/bet.push.strategy';
+import { DlqPushStrategy } from '@shared/repositories/dlq/sync/dlq.push.strategy';
+import { DrawsPullStrategy } from '@shared/repositories/draw/sync/draws.pull.strategy';
 import { CoreMsg } from './msg';
 import { CoreModel } from './model';
 import { systemJanitor } from './services/system-janitor.service';
@@ -334,6 +338,43 @@ export const CoreService = {
         return { type: 'NO_OP' } as any;
       },
       label: 'SYNC_PENDING_BETS_ON_STARTUP'
+    });
+  },
+
+  /**
+   * Inicializa el Worker de Sincronización global y registra sus estrategias.
+   */
+  initializeSyncWorker(): void {
+    log.info('Initializing SyncWorker with domain strategies...');
+
+    // 1. Registrar estrategias
+    syncWorker.registerStrategy('bet', new BetPushStrategy());
+    syncWorker.registerStrategy('dlq', new DlqPushStrategy());
+    syncWorker.registerStrategy('draw', new DrawsPullStrategy());
+
+    // 2. Iniciar el worker (comenzará a procesar cuando haya conexión)
+    syncWorker.start().catch(err => {
+      log.error('Failed to start SyncWorker', err);
+    });
+
+    log.info('SyncWorker initialized successfully.');
+  },
+
+  /**
+   * Tarea para inicializar el SyncWorker dentro del flujo de TEA.
+   */
+  initializeSyncWorkerTask(): Cmd {
+    return Cmd.task({
+      task: () => {
+        this.initializeSyncWorker();
+        return Promise.resolve();
+      },
+      onSuccess: () => ({ type: 'NO_OP' } as any),
+      onFailure: (err) => {
+        log.error('Failed task: initializeSyncWorker', err);
+        return { type: 'NO_OP' } as any;
+      },
+      label: 'INITIALIZE_SYNC_WORKER'
     });
   },
 

@@ -227,6 +227,7 @@ export class SyncWorkerCore {
                     const outcome = outcomes[i];
 
                     if (outcome.type === 'SUCCESS') {
+                        log.info(`[SYNC-CORE-FLOW] 1. Sincronización EXITOSA: ${item.type}/${item.entityId} (BackendID: ${outcome.backendId})`);
                         itemsToRemove.push(item.id);
                         succeeded++;
                         this.emitEvent('SYNC_ITEM_SUCCESS', item.type, {
@@ -236,6 +237,7 @@ export class SyncWorkerCore {
                     } else {
                         const reason = outcome.reason || 'Unknown error';
                         const isFatal = outcome.type === 'FATAL_ERROR';
+                        log.error(`[SYNC-CORE-FLOW] 2. Sincronización FALLIDA: ${item.type}/${item.entityId} (Fatal: ${isFatal}, Reason: ${reason})`);
 
                         itemsToUpdate.push({
                             id: item.id,

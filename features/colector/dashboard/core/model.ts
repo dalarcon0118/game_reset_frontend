@@ -16,6 +16,7 @@ export interface Model {
     stats: WebData<DashboardStats>;
     currentDate: string;
     userStructureId: string | null;
+    commissionRate: number;
     showBalance: boolean;
     user: any;
 }

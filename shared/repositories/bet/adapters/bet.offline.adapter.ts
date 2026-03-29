@@ -2,13 +2,13 @@ import { IBetStorage } from '../bet.ports';
 import { BetDomainModel } from '../bet.types';
 import { offlineStorage } from '@core/offline-storage/instance';
 import { BetOfflineKeys } from '../bet.offline.keys';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('BetOfflineAdapter');
 
 /**
  * Adaptador de almacenamiento offline para apuestas que utiliza el motor agnóstico
  * Cumple con el puerto IBetStorage definido en el dominio de apuestas.
- * 
- * Nota: Los datos se almacenan sin TTL. Las apuestas pendientes se limpian
- * manualmente después de sincronizarse o mediante el flujo diario de cleanup.
  */
 export class BetOfflineAdapter implements IBetStorage {
 
@@ -18,6 +18,7 @@ export class BetOfflineAdapter implements IBetStorage {
     async save(bet: BetDomainModel): Promise<void> {
         const id = bet.externalId || (bet as any).offlineId;
         const key = BetOfflineKeys.bet(id);
+        log.info(`[BET-OFFLINE] Guardando apuesta: ${id} (Estado: ${bet.status})`);
         // Sin TTL - las apuestas pendientes persisten hasta sincronización manual
         await offlineStorage.set(key, bet);
     }
@@ -26,6 +27,7 @@ export class BetOfflineAdapter implements IBetStorage {
      * Guarda un lote de apuestas en una sola operación
      */
     async saveBatch(bets: BetDomainModel[]): Promise<void> {
+        log.info(`[BET-OFFLINE] Guardando lote de ${bets.length} apuestas.`);
         const entries = bets.map(bet => {
             const id = bet.externalId || (bet as any).offlineId;
             return {
@@ -42,9 +44,14 @@ export class BetOfflineAdapter implements IBetStorage {
      * incluso si vienen de estructuras legacy o anidadas.
      */
     async getAll(): Promise<BetDomainModel[]> {
+        log.info('[BET-OFFLINE] Recuperando todas las apuestas del almacenamiento...');
         const pattern = BetOfflineKeys.getPattern('pending', '*');
+        log.info(`[BET-OFFLINE] Pattern usado para búsqueda: ${pattern}`);
         const results = await offlineStorage.query<BetDomainModel>(pattern).all();
-        return results.filter((b): b is BetDomainModel => b !== null);
+        log.info(`[BET-OFFLINE] Resultados brutos de query: ${results.length}`);
+        const validBets = results.filter((b): b is BetDomainModel => b !== null);
+        log.info(`[BET-OFFLINE] Recuperadas ${validBets.length} apuestas válidas.`);
+        return validBets;
     }
 
     /**
@@ -66,14 +73,18 @@ export class BetOfflineAdapter implements IBetStorage {
      * Obtiene las apuestas pendientes de sincronizar
      */
     async getPending(): Promise<BetDomainModel[]> {
+        log.info('[BET-OFFLINE] 1. Recuperando apuestas pendientes (pending, error, blocked)...');
         const all = await this.getAll();
-        return all.filter(b => b.status === 'pending' || b.status === 'error');
+        const pending = all.filter(b => b.status === 'pending' || b.status === 'error' || b.status === 'blocked');
+        log.info(`[BET-OFFLINE] 2. Encontradas ${pending.length} apuestas pendientes.`);
+        return pending;
     }
 
     /**
      * Obtiene apuestas por estado
      */
     async getByStatus(status: BetDomainModel['status']): Promise<BetDomainModel[]> {
+        log.info(`[BET-OFFLINE] Recuperando apuestas por estado: ${status}`);
         const all = await this.getAll();
         return all.filter(b => b.status === status);
     }
@@ -104,8 +115,11 @@ export class BetOfflineAdapter implements IBetStorage {
         const bet = await offlineStorage.get<BetDomainModel>(key);
 
         if (bet) {
+            log.info(`[BET-OFFLINE] Actualizando estado de apuesta ${offlineId}: ${bet.status} -> ${status}`);
             const updatedBet = { ...bet, status, ...extra };
             await this.save(updatedBet);
+        } else {
+            log.warn(`[BET-OFFLINE] No se encontró apuesta para actualizar: ${offlineId}`);
         }
     }
 
@@ -113,6 +127,7 @@ export class BetOfflineAdapter implements IBetStorage {
      * Elimina una apuesta del almacenamiento
      */
     async delete(offlineId: string): Promise<void> {
+        log.info(`[BET-OFFLINE] Eliminando apuesta del almacenamiento: ${offlineId}`);
         const key = BetOfflineKeys.bet(offlineId);
         await offlineStorage.remove(key);
     }

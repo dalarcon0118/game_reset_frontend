@@ -59,8 +59,8 @@ export class BetSyncListener {
         const { entityId, error, isFatal, attempts } = payload;
 
         try {
-            log.debug(`Updating syncContext for bet ${entityId} after error (Fatal: ${isFatal})`);
-
+            log.info(`[BET-SYNC-FLOW] 1. Recibido error de sincronización para apuesta: ${entityId} (Fatal: ${isFatal}, Attempts: ${attempts})`);
+            
             // Actualizamos la apuesta en el almacenamiento local con el nuevo contexto
             // Usamos 'error' si es fatal o 'pending' si es reintentable
             await this.storage.updateStatus(entityId, isFatal ? 'error' : 'pending', {
@@ -71,8 +71,9 @@ export class BetSyncListener {
                     errorType: isFatal ? 'FATAL' : 'RETRYABLE'
                 }
             });
+            log.info(`[BET-SYNC-FLOW] 2. Estado de apuesta ${entityId} actualizado a: ${isFatal ? 'error' : 'pending'}`);
         } catch (e) {
-            log.error(`Failed to update syncContext for bet ${entityId}`, e);
+            log.error(`[BET-SYNC-FLOW] ERROR al actualizar syncContext para apuesta ${entityId}`, e);
         }
     }
 
@@ -82,9 +83,10 @@ export class BetSyncListener {
     private async handleSyncSuccess(payload: { entityId: string; backendId?: string }): Promise<void> {
         const { entityId } = payload;
         try {
+            log.info(`[BET-SYNC-FLOW] 3. Recibido éxito de sincronización para apuesta: ${entityId}`);
             log.debug(`Bet ${entityId} synced successfully, syncContext handled by success flow`);
         } catch (e) {
-            log.error(`Error in handleSyncSuccess for bet ${entityId}`, e);
+            log.error(`[BET-SYNC-FLOW] Error en handleSyncSuccess para apuesta ${entityId}`, e);
         }
     }
 }

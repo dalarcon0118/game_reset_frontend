@@ -8,4 +8,5 @@ export type Msg =
     | { type: 'SYNC_NODES'; nodeIds: number[] }
     | { type: 'FETCH_DRAW_SUMMARY_REQUESTED'; drawId: number }
     | { type: 'DRAW_SUMMARY_RECEIVED'; drawId: number; webData: WebData<FinancialSummary> }
-    | { type: 'SYNC_DRAWS'; drawIds: number[] };
+    | { type: 'SYNC_DRAWS'; drawIds: number[] }
+    | { type: 'AUTH_USER_SYNCED'; user: any };

@@ -4,6 +4,7 @@ import { drawRepository } from '../../draw';
 import { GameType } from '@/types';
 import { mapBackendBetToFrontend } from '@/shared/services/bet/mapper';
 import { logger } from '@/shared/utils/logger';
+import { dlqRepository } from '../../dlq';
 
 const log = logger.withTag('SyncBetsFlow');
 
@@ -19,11 +20,12 @@ const syncSingleBet = async (
     const amount = Number(bet.amount) || 0;
     const structureId = bet.ownerStructure;
     if (amount <= 0 || !structureId) {
+        log.error(`[SYNC-BET-FLOW] 1. Datos inválidos para apuesta ${bet.externalId}`, { amount, structureId });
         return err(new Error(`ERROR_CRITICO_SYNC: Datos inválidos en apuesta ${bet.externalId}`));
     }
 
     try {
-        log.info(`Syncing bet ${bet.externalId} with backend...`);
+        log.info(`[SYNC-BET-FLOW] 2. Iniciando sincronización de apuesta: ${bet.externalId}`);
         const response = await api.create(bet as any, bet.externalId);
         const backendBets = Array.isArray(response) ? response : [response];
 
@@ -38,10 +40,11 @@ const syncSingleBet = async (
             : [];
 
         const mappedBets = backendBets.map(b => mapBackendBetToFrontend(b, betTypes));
+        log.info(`[SYNC-BET-FLOW] 3. Sincronización exitosa para apuesta: ${bet.externalId}. Actualizando estado...`);
         await storage.updateStatus(bet.externalId, 'synced', { backendBets: mappedBets });
         return ok<void, Error>(undefined);
     } catch (error) {
-        log.error(`Failed to sync bet ${bet.externalId}`, error);
+        log.error(`[SYNC-BET-FLOW] 4. FALLO en sincronización de apuesta: ${bet.externalId}`, error);
 
         const attemptsCount = (bet.syncContext?.attemptsCount || 0) + 1;
         const status = (error as any)?.status ?? (error as any)?.response?.status;
@@ -53,6 +56,8 @@ const syncSingleBet = async (
 
         const errorType = isFatal ? 'FATAL' : 'RETRYABLE';
 
+        log.info(`[SYNC-BET-FLOW] 5. Clasificación de error: ${errorType} (Status: ${status}). Marcando apuesta como ${isFatal ? 'blocked' : 'pending'}`);
+
         await storage.updateStatus(bet.externalId, isFatal ? 'blocked' : 'pending', {
             syncContext: {
                 lastAttempt: Date.now(),
@@ -63,11 +68,26 @@ const syncSingleBet = async (
             lastError
         });
 
-        // Si es un error fatal, intentamos reportar a la DLQ del backend
-        // Hacemos esto de forma asíncrona (fire-and-forget) para no bloquear el flujo local
+        // Si es un error fatal, agregamos a la DLQ local y reportamos al backend
+        // Fire-and-forget: no bloqueamos el flujo local por la sincronización
         if (isFatal) {
-            api.reportToDlq(bet, lastError).catch(err => {
-                log.error(`Failed to report fatal error to backend DLQ for bet ${bet.externalId}`, err);
+            log.info(`[SYNC-BET-FLOW] 6. ERROR FATAL detectado. Agregando apuesta ${bet.externalId} a DLQ local...`);
+            dlqRepository.add('bet', bet.externalId, bet, {
+                message: lastError,
+                code: String(status),
+                status,
+                timestamp: Date.now()
+            }).then(() => {
+                log.info(`[SYNC-BET-FLOW] 7. Apuesta ${bet.externalId} agregada exitosamente a DLQ local.`);
+            }).catch(dlqErr => {
+                log.error(`[SYNC-BET-FLOW] ERROR: No se pudo agregar apuesta ${bet.externalId} a DLQ local`, dlqErr);
+            });
+
+            log.info(`[SYNC-BET-FLOW] 8. Reportando error fatal al backend para apuesta ${bet.externalId}...`);
+            api.reportToDlq(bet, lastError).then(() => {
+                log.info(`[SYNC-BET-FLOW] 9. Reporte de error fatal enviado exitosamente al backend.`);
+            }).catch(err => {
+                log.error(`[SYNC-BET-FLOW] ERROR: No se pudo reportar error fatal al backend para apuesta ${bet.externalId}`, err);
             });
         }
 

@@ -152,7 +152,7 @@ export const storageClient = {
   async getAllKeys(): Promise<readonly string[]> {
     try {
       const keys = await AsyncStorage.getAllKeys();
-      log.debug(`<<< STORAGE GET ALL KEYS: ${keys.length} keys found`);
+      log.info(`<<< [STORAGE-TRACE] STORAGE GET ALL KEYS: ${keys.length} keys found: [${keys.join(', ')}]`);
       return keys;
     } catch (error) {
       log.error('Error getting all keys from storage', error);

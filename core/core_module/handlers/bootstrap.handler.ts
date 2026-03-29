@@ -26,6 +26,7 @@ export const BootstrapHandler = {
         ? Cmd.batch([
           CoreService.verifySessionContextTask(),
           CoreService.maintenanceTask('INITIAL_MAINTENANCE'),
+          CoreService.initializeSyncWorkerTask(),
           CoreService.syncPendingBetsOnStartupTask()
         ])
         : (nextModel.isSystemReady ? CoreService.notifySystemReady(new Date().toISOString().split('T')[0]) : Cmd.none)

@@ -10,46 +10,56 @@ import {
 } from '@core/tea-utils';
 import { FinancialRepository, financialRepository } from '@/shared/repositories/financial';
 import { TimerRepository } from '@/shared/repositories/system/time';
+import { calculateFinancials } from '@/shared/utils/financial.logic';
 
-const fetchSummaryCmd = (nodeId: number): Cmd => {
+const fetchSummaryCmd = (nodeId: number, commissionRate: number): Cmd => {
     return RemoteDataHttp.fetch(
         async () => {
             const trustedNow = await TimerRepository.getTrustedNow(Date.now());
             const aggregation = await financialRepository.getAggregation(trustedNow, `structure:${nodeId}`);
+
+            const { totals } = calculateFinancials(
+                {
+                    totalCollected: aggregation.credits,
+                    premiumsPaid: aggregation.debits,
+                    betCount: aggregation.count
+                },
+                commissionRate
+            );
+
             return {
-                nodeId,
-                totalCollected: aggregation.credits,
-                totalPaid: aggregation.debits,
-                netResult: aggregation.total,
-                date: new Date(trustedNow).toISOString().split('T')[0]
+                structure_id: nodeId,
+                date: new Date(trustedNow).toISOString().split('T')[0],
+                total_collected: totals.totalCollected,
+                total_paid: totals.premiumsPaid,
+                total_net: totals.netResult,
+                commissions: totals.estimatedCommission,
+                draw_summary: '' // No extra data for this summary level
             };
         },
         (webData) => ({ type: 'SUMMARY_RECEIVED', nodeId, webData })
     );
 };
 
-const fetchDrawSummaryCmd = (drawId: number): Cmd => {
+const fetchDrawSummaryCmd = (drawId: number, commissionRate: number): Cmd => {
     return RemoteDataHttp.fetch(
         async () => {
             const trustedNow = TimerRepository.getTrustedNow(Date.now());
             const aggregation = await financialRepository.getAggregation(trustedNow, `structure:0:draw:${drawId}`);
 
-            // Return a zeroed summary if no data
-            if (aggregation.count === 0) {
-                return {
-                    totalCollected: 0,
-                    premiumsPaid: 0,
-                    netResult: 0,
-                    draw: { id: drawId } as any,
-                    date: new Date(trustedNow).toISOString().split('T')[0],
-                    level: 'DRAW'
-                };
-            }
+            const { totals } = calculateFinancials(
+                {
+                    totalCollected: aggregation.credits,
+                    premiumsPaid: aggregation.debits,
+                    betCount: aggregation.count
+                },
+                commissionRate
+            );
 
             return {
-                totalCollected: aggregation.credits,
-                premiumsPaid: aggregation.debits,
-                netResult: aggregation.total,
+                totalCollected: totals.totalCollected,
+                premiumsPaid: totals.premiumsPaid,
+                netResult: totals.netResult,
                 draw: { id: drawId } as any,
                 date: new Date(trustedNow).toISOString().split('T')[0],
                 level: 'DRAW'
@@ -77,7 +87,7 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
                         [nodeId]: RemoteData.loading(),
                     },
                 },
-                fetchSummaryCmd(nodeId)
+                fetchSummaryCmd(nodeId, model.commissionRate)
             );
         })
 
@@ -95,26 +105,13 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
             // Trigger fetch for any node that doesn't have data yet
             const cmds = nodeIds
                 .filter(id => !model.summaries[id] || model.summaries[id].type === 'NotAsked')
-                .map(id => fetchSummaryCmd(id));
+                .map(id => fetchSummaryCmd(id, model.commissionRate));
 
             if (cmds.length === 0) {
                 return singleton(model);
             }
 
-            const nextSummaries = { ...model.summaries };
-            nodeIds.forEach(id => {
-                if (!nextSummaries[id] || nextSummaries[id].type === 'NotAsked') {
-                    nextSummaries[id] = RemoteData.loading();
-                }
-            });
-
-            return ret(
-                {
-                    ...model,
-                    summaries: nextSummaries,
-                },
-                Cmd.batch(cmds)
-            );
+            return ret(model, Cmd.batch(cmds));
         })
 
         .with({ type: 'FETCH_DRAW_SUMMARY_REQUESTED' }, ({ drawId }) => {
@@ -132,7 +129,7 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
                         [drawId]: RemoteData.loading(),
                     },
                 },
-                fetchDrawSummaryCmd(drawId)
+                fetchDrawSummaryCmd(drawId, model.commissionRate)
             );
         })
 
@@ -149,27 +146,28 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
         .with({ type: 'SYNC_DRAWS' }, ({ drawIds }) => {
             const cmds = drawIds
                 .filter(id => !model.drawSummaries[id] || model.drawSummaries[id].type === 'NotAsked')
-                .map(id => fetchDrawSummaryCmd(id));
+                .map(id => fetchDrawSummaryCmd(id, model.commissionRate));
 
             if (cmds.length === 0) {
                 return singleton(model);
             }
 
-            const nextSummaries = { ...model.drawSummaries };
-            drawIds.forEach(id => {
-                if (!nextSummaries[id] || nextSummaries[id].type === 'NotAsked') {
-                    nextSummaries[id] = RemoteData.loading();
-                }
-            });
-
-            return ret(
-                {
-                    ...model,
-                    drawSummaries: nextSummaries,
-                },
-                Cmd.batch(cmds)
-            );
+            return ret(model, Cmd.batch(cmds));
         })
+
+        .with({ type: 'AUTH_USER_SYNCED' }, ({ user }) => {
+            const commissionRate = user?.structure?.commission_rate ?? model.commissionRate;
+
+            if (commissionRate === model.commissionRate) {
+                return singleton(model);
+            }
+
+            return singleton({
+                ...model,
+                commissionRate
+            });
+        })
+
         .exhaustive();
 
     return [result.model, result.cmd];

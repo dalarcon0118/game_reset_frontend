@@ -19,35 +19,110 @@ import { BetSyncListener } from './sync/bet.sync.listener';
 import { offlineEventBus } from '@/shared/core/offline-storage/instance';
 import { notificationRepository } from '../notification';
 
+import { dlqRepository } from '../dlq';
+
 const log = logger.withTag('BetRepository');
 
-/**
- * Agnostic Bet Repository following the Refactor Workflow.
- * Orchestrates Storage and API through specialized Flows.
- */
 export class BetRepository implements IBetRepository {
     private readonly log = log;
     private readonly syncListener: BetSyncListener;
     private readonly subscribers: Set<() => void> = new Set();
     private syncPendingInFlight: Promise<{ success: number; failed: number }> | null = null;
+    private busUnsubscribe: (() => void) | null = null;
 
     constructor(
         private readonly storage: IBetStorage,
         private readonly api: IBetApi
     ) {
-        // Iniciar el listener de eventos de sincronización para mantener el syncContext actualizado
+        this.log.info(`[INIT] BetRepository constructor initialized. Instancia: ${Math.random().toString(36).substring(7)}`);
+        // Iniciar el listener de eventos de sincronización
         this.syncListener = new BetSyncListener(this.storage);
         this.syncListener.start();
 
-        // Suscribirse a los eventos del bus para notificar a nuestros suscriptores
-        offlineEventBus.subscribe((event) => {
+        this.setupEventBus();
+    }
+
+    /**
+     * Configura las suscripciones al bus de eventos.
+     * Puede ser llamado múltiples veces para re-suscribirse si es necesario (ej. en tests).
+     */
+    public setupEventBus(): void {
+        if (this.busUnsubscribe) {
+            this.busUnsubscribe();
+        }
+
+        this.log.info('[INIT] Suscribiéndose al offlineEventBus...');
+        this.busUnsubscribe = offlineEventBus.subscribe((event) => {
+            this.log.info(`[EVENT-BUS] Received event: ${event.type} for entity: ${event.entity} (Payload: ${JSON.stringify(event.payload)})`);
             const isBetSync = (event.type === 'SYNC_ITEM_SUCCESS' || event.type === 'SYNC_ITEM_ERROR') && event.entity === 'bet';
             const isBetChange = event.type === 'ENTITY_CHANGED' && event.entity?.includes('bet');
 
             if (isBetSync || isBetChange) {
                 this.notifySubscribers();
             }
+
+            // ESTRATEGIA: Reconciliar cuando el sistema está listo (Online + Auth)
+            if (event.type === 'MAINTENANCE_COMPLETED' && (event.payload as any)?.status === 'ready') {
+                this.log.info(`[RECONCILE-FLOW] Evento MAINTENANCE_COMPLETED recibido en instancia ${this.constructor.name}. Iniciando reconciliación...`);
+                this.reconcileOrphanBets().catch(err => {
+                    this.log.error(`[RECONCILE-FLOW] Error crítico en reconcileOrphanBets (Instancia ${this.constructor.name})`, err);
+                });
+            }
         });
+    }
+
+    /**
+     * Busca apuestas bloqueadas o con errores persistentes y las mueve a la DLQ.
+     */
+    private async reconcileOrphanBets(): Promise<void> {
+        this.log.info(`[RECONCILE-FLOW] 1. Buscando apuestas huérfanas (blocked o >3 intentos)... Instancia: ${this.constructor.name}`);
+
+        const pendingBets = await this.storage.getPending();
+        this.log.info(`[RECONCILE-FLOW] 2. Total pendientes recuperadas: ${pendingBets.length}. IDs: ${pendingBets.map(b => b.externalId).join(', ')}`);
+
+        const orphanBets = pendingBets.filter(bet => {
+            const attempts = bet.syncContext?.attemptsCount || 0;
+            const isOrphan = bet.status === 'blocked' || attempts >= 3;
+            if (isOrphan) {
+                this.log.info(`[RECONCILE-FLOW] Bet ${bet.externalId} identificada como huérfana (Status: ${bet.status}, Attempts: ${attempts}, syncContext: ${JSON.stringify(bet.syncContext)})`);
+            }
+            return isOrphan;
+        });
+
+        if (orphanBets.length === 0) {
+            this.log.info('[RECONCILE-FLOW] No se encontraron apuestas huérfanas para reconciliación');
+            return;
+        }
+
+        this.log.info(`[RECONCILE-FLOW] 3. Encontradas ${orphanBets.length} apuestas huérfanas. Iniciando traspaso a DLQ.`);
+
+        for (const bet of orphanBets) {
+            try {
+                this.log.info(`[RECONCILE-FLOW] 4. Procesando traspaso a DLQ para bet: ${bet.externalId}`);
+                // 1. Mover a DLQ
+                await dlqRepository.add('bet', bet.externalId, bet, {
+                    message: bet.syncContext?.lastError || 'Reconciliación automática: Error persistente',
+                    code: 'ORPHAN_RECONCILED',
+                    status: 400,
+                    timestamp: Date.now()
+                });
+
+                this.log.info(`[RECONCILE-FLOW] 5. Marcando localmente como synced: ${bet.externalId}`);
+                // 2. Marcar localmente como sincronizada/resuelta
+                await this.storage.updateStatus(bet.externalId, 'synced', {
+                    syncContext: {
+                        ...bet.syncContext,
+                        attemptsCount: bet.syncContext?.attemptsCount || 1,
+                        lastError: 'Movido a DLQ para auditoría',
+                        lastAttempt: Date.now()
+                    }
+                });
+
+                this.log.info(`[RECONCILE-FLOW] 6. Bet ${bet.externalId} completada exitosamente.`);
+            } catch (err) {
+                this.log.error(`[RECONCILE-FLOW] ERROR en traspaso de bet ${bet.externalId}`, err);
+            }
+        }
     }
 
     /**
@@ -73,7 +148,7 @@ export class BetRepository implements IBetRepository {
      */
     async placeBet(betData: BetPlacementInput): Promise<Result<BetRepositoryResult, Error>> {
         try {
-            const result = await placeBetFlow(betData, this.storage, this.api);
+            const result = await placeBetFlow(betData as any, this.storage, this.api);
             this.triggerGlobalPendingSyncIfOnline();
             return result;
         } catch (error) {
@@ -87,7 +162,7 @@ export class BetRepository implements IBetRepository {
      */
     async placeBatch(bets: BetPlacementInput[]): Promise<Result<BetType[], Error>> {
         try {
-            const result = await placeBatchFlow(bets, this.storage, this.api);
+            const result = await placeBatchFlow(bets as any, this.storage, this.api);
             this.triggerGlobalPendingSyncIfOnline();
             return result as Result<BetType[], Error>;
         } catch (error) {

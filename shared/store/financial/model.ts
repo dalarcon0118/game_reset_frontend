@@ -6,9 +6,11 @@ import { Any } from 'io-ts';
 export interface Model {
     summaries: Record<number, WebData<NodeFinancialSummary>>;
     drawSummaries: Record<number, WebData<FinancialSummary>>;
+    commissionRate: number;
 }
 
 export const initialModel: () => [Model, any] = () => ([{
     summaries: {},
     drawSummaries: {},
+    commissionRate: 0.10, // Default 10%
 }, Cmd.none]);

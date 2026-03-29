@@ -84,6 +84,11 @@ export const settings = {
       draws: () => '/draw/draws/',
       incidents: () => '/incidents/',
       closureConfirmations: () => '/draw/draw-closure-confirmations/',
+      dlq: {
+        sync: () => '/dlq/sync/',
+        report: (id: string) => `/dlq/${id}/report/`,
+        reconcile: (id: string) => `/dlq/${id}/reconcile/`,
+      },
       changePin: () => '/auth/change-pin/',
       financialStatement: () => '/financial-statement/summary/',
       financialStatements: () => '/financial-statement/',

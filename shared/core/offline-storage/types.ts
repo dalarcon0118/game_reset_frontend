@@ -37,6 +37,10 @@ export interface ClockPort {
 export interface EventBusPort {
   publish<T>(event: DomainEvent<T>): void;
   subscribe(callback: DomainEventCallback): Unsubscribe;
+  /**
+   * Limpia todos los suscriptores (solo para testing)
+   */
+  clearSubscribers?(): void;
 }
 
 // --- Motor Core ---
@@ -87,7 +91,7 @@ export type Unsubscribe = () => void;
 
 export type SyncStatus = 'pending' | 'syncing' | 'synced' | 'blocked' | 'error';
 export type QueueItemStatus = 'pending' | 'processing' | 'completed' | 'failed';
-export type SyncEntityType = 'bet' | 'financial_update' | 'bet_deletion';
+export type SyncEntityType = 'bet' | 'financial_update' | 'bet_deletion' | 'dlq';
 export type WorkerStatus = 'idle' | 'running' | 'paused' | 'error' | 'stopping' | 'stopped';
 
 export interface SyncQueueItem {

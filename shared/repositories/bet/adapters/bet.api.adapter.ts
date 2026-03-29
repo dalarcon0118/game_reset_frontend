@@ -4,6 +4,9 @@ import { CreateBetDTO, BackendBet, ListBetsFilters } from '@/shared/services/bet
 import { BetApi as LegacyBetApi } from '@/shared/services/bet/api';
 import { StructureApi } from '@/shared/services/structure/api';
 import { BackendChildStructure, BackendListeroDetails } from '@/shared/services/structure/types';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('BetApiAdapter');
 
 /**
  * Adapter for Bet API using the existing BetApi.
@@ -11,6 +14,7 @@ import { BackendChildStructure, BackendListeroDetails } from '@/shared/services/
  */
 export class BetApiAdapter implements IBetApi {
     async create(bet: BetDomainModel, idempotencyKey: string): Promise<BackendBet | BackendBet[]> {
+        log.info(`[BET-API] Enviando apuesta: ${idempotencyKey}`);
         // ============================================================
         // FASE 2: Soporte para betTypeCode además de betTypeId
         // El backend ahora acepta código (FIJO, CORRIDO) además de ID

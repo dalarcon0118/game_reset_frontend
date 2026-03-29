@@ -12,6 +12,7 @@ import {
 import { structureRepository, ChildStructure } from '@/shared/repositories/structure';
 import { financialRepository, FinancialKeys } from '@/shared/repositories/financial/ledger.repository';
 import { TimerRepository } from '@/shared/repositories/system/time';
+import { calculateFinancials } from '@/shared/utils/financial.logic';
 
 import { AuthModuleV1 } from '@/features/auth/v1/adapters/auth_provider';
 
@@ -35,22 +36,31 @@ const fetchChildrenCmd = (structureId: string | null): Cmd => {
     );
 };
 
-const fetchStatsCmd = (structureId: string | null): Cmd => {
+const fetchStatsCmd = (structureId: string | null, commissionRate: number): Cmd => {
     if (!structureId || structureId === '0') return Cmd.none;
     return RemoteDataHttp.fetch(
         async () => {
             const trustedNow = TimerRepository.getTrustedNow(Date.now());
             const filter = FinancialKeys.forStructure(structureId);
             const aggregation = await financialRepository.getAggregation(trustedNow, filter);
-            const commissions = aggregation.credits * 0.10; // 10% hardcoded for now or from config
+
+            const { totals } = calculateFinancials(
+                {
+                    totalCollected: aggregation.credits,
+                    premiumsPaid: aggregation.debits,
+                    betCount: aggregation.count
+                },
+                commissionRate
+            );
+
             const stats: DashboardStats = {
                 total: aggregation.count,
                 pending: 0, // Ledger doesn't track pending yet
                 completed: aggregation.count,
-                netTotal: String(aggregation.total - commissions),
-                grossTotal: String(aggregation.credits),
-                commissions: String(commissions),
-                dailyProfit: String(aggregation.total - commissions)
+                netTotal: String(totals.netResult),
+                grossTotal: String(totals.totalCollected),
+                commissions: String(totals.estimatedCommission),
+                dailyProfit: String(totals.netResult)
             };
             return {
                 stats,
@@ -107,7 +117,7 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
                     userStructureId: id,
                     stats: RemoteData.loading()
                 },
-                fetchStatsCmd(id)
+                fetchStatsCmd(id, model.commissionRate)
             );
         })
 
@@ -133,13 +143,29 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
                 });
             }
             const structureId = user.structure?.id ? String(user.structure.id) : model.userStructureId;
-            return ret(
-                { ...model, user, userStructureId: structureId },
-                structureId !== model.userStructureId ? Cmd.batch([
-                    fetchChildrenCmd(structureId),
-                    fetchStatsCmd(structureId)
-                ]) : Cmd.none
-            );
+            const commissionRate = user.structure?.commission_rate ?? model.commissionRate;
+
+            const nextModel = {
+                ...model,
+                user,
+                userStructureId: structureId,
+                commissionRate
+            };
+
+            const structureChanged = structureId !== model.userStructureId;
+            const commissionChanged = commissionRate !== model.commissionRate;
+
+            if (structureChanged || commissionChanged) {
+                return ret(
+                    nextModel,
+                    Cmd.batch([
+                        fetchChildrenCmd(structureId),
+                        fetchStatsCmd(structureId, commissionRate)
+                    ])
+                );
+            }
+
+            return singleton(nextModel);
         })
 
         .with({ type: 'REFRESH_CLICKED' }, () => {
@@ -151,7 +177,7 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
                 },
                 Cmd.batch([
                     fetchChildrenCmd(model.userStructureId),
-                    fetchStatsCmd(model.userStructureId)
+                    fetchStatsCmd(model.userStructureId, model.commissionRate)
                 ])
             );
         })

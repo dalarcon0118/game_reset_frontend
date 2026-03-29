@@ -2,6 +2,16 @@
 import 'react-native-gesture-handler/jestSetup';
 import { EventSourcePolyfill } from 'event-source-polyfill';
 
+jest.mock('@/shared/utils/logger', () => ({
+    logger: {
+        info: jest.fn(),
+        error: jest.fn(),
+        warn: jest.fn(),
+        debug: jest.fn(),
+        withTag: jest.fn().mockReturnThis(),
+    },
+}));
+
 // Polyfill EventSource for Node/Jest environment
 if (typeof global.EventSource === 'undefined') {
     (global as any).EventSource = EventSourcePolyfill;

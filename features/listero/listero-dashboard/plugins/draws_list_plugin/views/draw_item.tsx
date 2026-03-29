@@ -1,9 +1,10 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { match } from 'ts-pattern';
-import { Label, Card, Flex, ButtonKit, Badge } from '@/shared/components';
-import { CalendarClock, Clock3, AlarmClock, CloudOff } from 'lucide-react-native';
+import { Badge, ButtonKit, Card, Flex, Label } from '@/shared/components';
+import { TimerRepository } from '@/shared/repositories/system/time';
 import { DRAW_STATUS } from '@/types';
+import { AlarmClock, CalendarClock, Clock3, CloudOff } from 'lucide-react-native';
 import { Draw } from '../core/types';
 import { TotalsByDrawIdMap, DrawFinancialTotals } from '../model';
 import SummaryCard from './summary_card';
@@ -55,8 +56,11 @@ export default function DrawItem({
     if (draw.is_betting_open === true) return DRAW_STATUS.OPEN;
     
     if (!draw.betting_end_time) return draw.status;
-    const now = new Date();
+    
+    // Usar tiempo sincronizado (Server Time Offset) en lugar de hora local pura
+    const now = new Date(TimerRepository.getTrustedNow(Date.now()));
     const endTime = new Date(draw.betting_end_time);
+    
     if (now >= endTime) return DRAW_STATUS.CLOSED;
     return draw.status;
   };
@@ -66,9 +70,9 @@ export default function DrawItem({
   const getClosingTimeInfo = () => {
     if (!draw.betting_end_time || effectiveStatus !== DRAW_STATUS.OPEN) return null;
     
-    const now = new Date();
-    const endTime = new Date(draw.betting_end_time);
-    const diffMs = endTime.getTime() - now.getTime();
+    const now = TimerRepository.getTrustedNow(Date.now());
+    const endTime = new Date(draw.betting_end_time).getTime();
+    const diffMs = endTime - now;
     const diffMins = Math.floor(diffMs / (1000 * 60));
     const diffSecs = Math.floor((diffMs % (1000 * 60)) / 1000);
 

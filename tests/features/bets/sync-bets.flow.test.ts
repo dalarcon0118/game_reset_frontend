@@ -1,5 +1,7 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 
+import { syncPendingFlow } from '@/shared/repositories/bet/flows/sync-bets.flow';
+
 const mockStorage = {
     updateStatus: jest.fn(),
     getPending: jest.fn(),
@@ -23,19 +25,6 @@ const mockDrawRepository = {
 jest.mock('@/shared/repositories/draw', () => ({
     drawRepository: mockDrawRepository,
 }));
-
-const mockLogger = {
-    info: jest.fn(),
-    error: jest.fn(),
-    warn: jest.fn(),
-    withTag: jest.fn().mockReturnThis(),
-};
-
-jest.mock('@/shared/utils/logger', () => ({
-    logger: mockLogger,
-}));
-
-import { syncPendingFlow } from '@/shared/repositories/bet/flows/sync-bets.flow';
 
 describe('syncBetsFlow', () => {
     beforeEach(() => {

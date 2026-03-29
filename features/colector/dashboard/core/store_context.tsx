@@ -27,6 +27,7 @@ const createDashboardStore = () => {
         stats: RemoteData.notAsked(),
         currentDate: '',
         userStructureId: null,
+        commissionRate: 0.10, // Default 10%
         showBalance: true,
         user: null,
     };
