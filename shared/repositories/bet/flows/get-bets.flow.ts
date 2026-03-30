@@ -75,25 +75,11 @@ const normalizeNumbersKey = (numbers: BetType['numbers']): string => {
 };
 
 const buildDedupKey = (bet: BetType): string => {
-    const drawId = String(bet.drawId || '');
     const receiptCode = String(bet.receiptCode || '').trim();
-    
-    // Usar el type normalizado como referencia principal para la deduplicación
-    // Esto evita que 'Lotería' y 'Lotería 5 Dígitos' generen claves distintas
-    const typeRef = normalizeBetType(bet.type || bet.betTypeCode || bet.betTypeId || '').toUpperCase();
-    
-    const numbersRef = normalizeNumbersKey(bet.numbers);
-    const amountRef = Number(bet.amount || 0).toFixed(2);
     const externalId = String(bet.externalId || '').trim();
-
-    if (receiptCode || drawId || typeRef || numbersRef) {
-        return `sig:${drawId}|${receiptCode}|${typeRef}|${numbersRef}|${amountRef}`;
-    }
-
-    if (externalId) {
-        return `external:${externalId}`;
-    }
-
+    // 1. Prioridad Máxima: Identificadores Únicos
+    if (receiptCode) return `rc:${receiptCode}`;
+    if (externalId) return `ext:${externalId}`;
     return `id:${String(bet.id || '').trim()}`;
 };
 
@@ -260,13 +246,14 @@ export const getBetsFlow = async (
     log.info('Starting GetBetsFlow (Resilient Pipeline)', { filters });
 
     // 1. PRE-FETCH (Parallel Request Layer)
-    // We start all tasks immediately to maximize network/disk usage.
-    const pTypes = drawRepository.getBetTypes(filters?.drawId || '');
-
-    // Mejorado: Obtenemos apuestas locales RECIENTES (pendientes + sincronizadas hace poco)
-    // para evitar que desaparezcan mientras el backend las indexa.
-    const pOffline = storage.getRecentByDraw(filters?.drawId || '');
+    // PRIORIDAD VOUCHER: Si buscamos por receiptCode, hacemos una búsqueda profunda inmediata
+    // para evitar fallos por sincronización ultra-rápida o filtros de caché.
+    const pOffline = filters?.receiptCode 
+        ? storage.getAll().then(all => all.filter(b => b.receiptCode === filters.receiptCode))
+        : storage.getRecentByDraw(filters?.drawId || '');
+        
     const pOnline = api.list(filters);
+    const pTypes = drawRepository.getBetTypes(filters?.drawId || '');
 
     const initialContext: GetBetsContext = {
         filters,

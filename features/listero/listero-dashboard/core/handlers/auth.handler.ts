@@ -24,12 +24,17 @@ const triggerInitialLoad = (model: Model): Return<Model, Msg> => {
     }
 
     // 2. Data Status: Check if we need to fetch
-    const needsFetch = model.draws.type === 'NotAsked' || model.draws.type === 'Failure';
+    const needsFetch = 
+        model.draws.type === 'NotAsked' || 
+        model.draws.type === 'Failure' ||
+        (model.draws.type === 'Loading' && !model.userStructureId); // Safety fallback
 
     if (!needsFetch) {
         if (model.draws.type === 'Success') {
+            log.info('Data already loaded, transitioning to READY');
             return singleton({ ...model, status: { type: 'READY' } });
         }
+        log.debug('triggerInitialLoad: already fetching or loaded');
         return singleton(model);
     }
 

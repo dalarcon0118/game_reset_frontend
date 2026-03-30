@@ -58,8 +58,13 @@ export const subscriptions = (model: Model): SubDescriptor<Msg> => {
     // Esto previene perder la señal si el mantenimiento terminó antes de que el Dashboard montara.
     const coreReadySub = Sub.watchStore(
         'Core',
-        (state: any) => state?.isSystemReady ?? state?.model?.isSystemReady ?? false,
-        (isReady) => isReady
+        (state: any) => {
+            const isReady = state?.isSystemReady ?? state?.model?.isSystemReady ?? false;
+            // Solo disparar si el sistema está listo y el dashboard aún no tiene su ID
+            // O si el estado del dashboard es IDLE
+            return isReady && (model.status.type === 'IDLE' || !model.userStructureId);
+        },
+        (shouldTrigger) => shouldTrigger
             ? SYSTEM_READY_MSG({ date: new Date().toISOString().split('T')[0] })
             : { type: 'NONE' },
         'listero-dashboard-core-ready-sync'

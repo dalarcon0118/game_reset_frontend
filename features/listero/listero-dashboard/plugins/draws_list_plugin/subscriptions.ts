@@ -9,8 +9,18 @@ import { dashboardService } from '../../services/dashboard.service';
 
 const log = logger.withTag('DRAWS_LIST_PLUGIN_SUBS');
 
+// Variables de control encapsuladas en el closure del módulo pero reseteables
 let lastDrawsHash: string | null = null;
 let lastPayload: HostStatePayload | null = null;
+
+/**
+ * Resetea el estado de sincronización. Útil al re-montar el dashboard.
+ */
+export const resetSyncState = () => {
+  log.info('Resetting draws_list_plugin sync state');
+  lastDrawsHash = null;
+  lastPayload = null;
+};
 
 /**
  * Función helper para obtener los datos financieros de las apuestas y transformarlos al formato del plugin

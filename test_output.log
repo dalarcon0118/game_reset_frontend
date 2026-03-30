@@ -1,0 +1,1416 @@
+
+> Monster Game@1.0.0 test
+> jest --verbose frontend/tests/features/system/telemetry_e2e_hybrid.test.tsx
+
+  console.log
+    15:39:34 [32m[SETTINGS][0m Environment detection {
+      APP_ENV: 'development',
+      IS_DEVELOPMENT: true,
+      API_URL: 'http://127.0.0.1:8000/api'
+    }
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    [OFFLINE-INSTANCE] offlineEventBus imported OfflineEventBus { subscribers: Set(0) {} }
+
+      at Object.log (shared/core/offline-storage/instance.ts:5:9)
+
+  console.log
+    15:39:34 [34m[INIT][0m Could not determine app version from expoConfig
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    🔧 DevTools: Call clearStorage(), Dev.clearStorage() or DevTools.clearStorage() in console
+
+      at Object.log (config/init.ts:127:9)
+
+  console.log
+    15:39:34 EVENT_REGISTRY: Registered 'navigation.beforeRemove' REGISTRY
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:34 EVENT_REGISTRY: Registered 'navigation.focus' REGISTRY
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:34 EVENT_REGISTRY: Registered 'navigation.blur' REGISTRY
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:34 EVENT_REGISTRY: Registered 'navigation.state' REGISTRY
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:35 [96m[EFFECT_REGISTRY][0m EffectRegistry initialized [zmbta]
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:35 EFFECT_REGISTRY: Registered 'MSG' REGISTRY
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+          at Array.forEach (<anonymous>)
+
+  console.log
+    15:39:35 EFFECT_REGISTRY: Registered 'HTTP' REGISTRY
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+          at Array.forEach (<anonymous>)
+
+  console.log
+    15:39:35 EFFECT_REGISTRY: Registered 'TASK' REGISTRY
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+          at Array.forEach (<anonymous>)
+
+  console.log
+    15:39:35 EFFECT_REGISTRY: Registered 'NAVIGATE' REGISTRY
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+          at Array.forEach (<anonymous>)
+
+  console.log
+    15:39:35 EFFECT_REGISTRY: Registered 'ALERT' REGISTRY
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+          at Array.forEach (<anonymous>)
+
+  console.log
+    15:39:35 [34m[REMOTE_DATA_HTTP][0m RemoteDataHttp module loaded {
+      hasRemoteData: true,
+      remoteDataKeys: [
+        'NotAsked',    'Loading',
+        'Failure',     'Success',
+        'notAsked',    'loading',
+        'failure',     'success',
+        'isNotAsked',  'isLoading',
+        'isFailure',   'isSuccess',
+        'map',         'mapFailure',
+        'withDefault', 'fold',
+        'andThen'
+      ]
+    }
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:35 [94m[STORE_REGISTRY][0m Store registered: system/time REGISTRY
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:35 [96m[AUTH_V1_UPDATE][0m AuthModuleV1.update loaded - Instance: #8W63NU
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    [OFFLINE-EVENT-BUS] New subscriber added. Total subscribers: 1
+
+      at OfflineEventBus.log [as subscribe] (shared/core/offline-storage/event_bus.ts:22:13)
+
+  console.log
+    15:39:36 [95m[DlqSyncListener][0m DlqSyncListener started and subscribed to offlineEventBus
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:36 [92m[BetRepository][0m [INIT] BetRepository constructor initialized. Instancia: 76lmr
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    [OFFLINE-EVENT-BUS] New subscriber added. Total subscribers: 2
+
+      at OfflineEventBus.log [as subscribe] (shared/core/offline-storage/event_bus.ts:22:13)
+
+  console.log
+    15:39:36 [96m[BetSyncListener][0m BetSyncListener started and subscribed to offlineEventBus
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:36 [92m[BetRepository][0m [INIT] Suscribiéndose al offlineEventBus...
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    [OFFLINE-EVENT-BUS] New subscriber added. Total subscribers: 3
+
+      at OfflineEventBus.log [as subscribe] (shared/core/offline-storage/event_bus.ts:22:13)
+
+  console.log
+    15:39:36 [34m[API_CLIENT][0m [API_CLIENT] Global configuration updated
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:36 [92m[BOOTSTRAP][0m API Client configured with Device Identity Provider
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:36 [92m[BOOTSTRAP][0m AuthRepository injected into CoreService
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:36 [35m[AUTH_REPOSITORY][0m [SSOT-SYNC] Offline condition checker injected into AuthRepository
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:36 [34m[CORE_SERVICE][0m Offline condition checker initialized in AuthRepository
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:36 [92m[BOOTSTRAP][0m Offline condition checker initialized
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    [BOOTSTRAP] 🚀 Infraestructura base configurada (Synchronous)
+
+      at Object.log (core/bootstrap.ts:60:9)
+
+  console.log
+      ✓ given: La aplicación está inicializada y el usuario autenticado
+
+      at Object.log (tests/core/jest-adapter.ts:60:29)
+
+  console.warn
+    ⚠️ AsyncStorage._resetStorage not found, using clear()
+
+      90 |         storage._resetStorage();
+      91 |     } else {
+    > 92 |         console.warn('⚠️ AsyncStorage._resetStorage not found, using clear()');
+         |                 ^
+      93 |         await storage.clear();
+      94 |     }
+      95 |
+
+      at warn (tests/utils/test-env.ts:92:17)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12
+      at apply (tests/utils/test-env.ts:85:27)
+      at Object.<anonymous> (tests/features/system/telemetry_e2e_hybrid.test.tsx:81:44)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at Object.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+      at Object.apply [as fn] (tests/features/system/telemetry_e2e_hybrid.test.tsx:113:6)
+      at Object.fn (tests/core/jest-adapter.ts:61:33)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at Object.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+
+  console.log
+    Attempting real login for user: jose
+
+      at Object.log (tests/utils/test-env.ts:142:21)
+
+  console.log
+    15:39:36 [35m[AUTH_REPOSITORY][0m Evaluating login strategy... { username: 'jose', isNetworkOnline: true }
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:36 [35m[AUTH_REPOSITORY][0m Attempting online login (Network is ONLINE)... { username: 'jose' }
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:36 [94m[AUTH_API_ADAPTER][0m Attempting online login { username: 'jose' }
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    [TRANSPORT] Fetching: POST http://127.0.0.1:8000/api/auth/token/
+
+      at Transport.log (shared/services/api_client/infra/transport.ts:13:15)
+
+  console.log
+    [TRANSPORT] Response: 200 http://127.0.0.1:8000/api/auth/token/
+
+      at Transport.log (shared/services/api_client/infra/transport.ts:21:15)
+
+  console.log
+    15:39:40 [35m[AUTH_REPOSITORY][0m Online login successful, persisting session { username: 'jose' }
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:40 [96m[STORAGE_CLIENT][0m >>> STORAGE SET: @v2:auth:user:profile:data {
+      value: {
+        data: {
+          id: 5,
+          username: 'jose',
+          email: 'jose@example.com',
+          first_name: '',
+          last_name: '',
+          name: 'jose',
+          role: 'LISTER',
+          structure: [Object]
+        },
+        metadata: {
+          version: 'v2',
+          timestamp: 1774809580245,
+          expiresAt: 1774895980245
+        }
+      }
+    }
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    [OFFLINE-EVENT-BUS] Publishing event: ENTITY_CHANGED to 3 subscribers {
+      type: 'ENTITY_CHANGED',
+      entity: '@v2:auth:user:profile:data',
+      payload: {
+        id: 5,
+        username: 'jose',
+        email: 'jose@example.com',
+        first_name: '',
+        last_name: '',
+        name: 'jose',
+        role: 'LISTER',
+        structure: {
+          id: 18,
+          name: 'Listeria X',
+          type: 'listero',
+          path: 'Occidental/Habana/Centro-Habana/Banco 1/Colectoria-1/Listeria X',
+          role_in_structure: 'member',
+          commission_rate: 30
+        }
+      },
+      timestamp: 1774809580245
+    }
+
+      at OfflineEventBus.log [as publish] (shared/core/offline-storage/event_bus.ts:10:13)
+
+  console.log
+    15:39:40 [92m[BetRepository][0m [EVENT-BUS] Received event: ENTITY_CHANGED for entity: @v2:auth:user:profile:data (Payload: {"id":5,"username":"jose","email":"jose@example.com","first_name":"","last_name":"","name":"jose","role":"LISTER","structure":{"id":18,"name":"Listeria X","type":"listero","path":"Occidental/Habana/Centro-Habana/Banco 1/Colectoria-1/Listeria X","role_in_structure":"member","commission_rate":30}})
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+          at Set.forEach (<anonymous>)
+
+  console.log
+    15:39:40 [35m[AUTH_STORAGE_ADAPTER][0m Session persisted successfully
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:40 [96m[STORAGE_CLIENT][0m >>> STORAGE SET: @v2:auth:user:pin_hash:data {
+      value: {
+        data: '',
+        metadata: { version: 'v2', timestamp: 1774809580257, expiresAt: undefined }
+      }
+    }
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    [OFFLINE-EVENT-BUS] Publishing event: ENTITY_CHANGED to 3 subscribers {
+      type: 'ENTITY_CHANGED',
+      entity: '@v2:auth:user:pin_hash:data',
+      payload: '',
+      timestamp: 1774809580257
+    }
+
+      at OfflineEventBus.log [as publish] (shared/core/offline-storage/event_bus.ts:10:13)
+
+  console.log
+    15:39:40 [92m[BetRepository][0m [EVENT-BUS] Received event: ENTITY_CHANGED for entity: @v2:auth:user:pin_hash:data (Payload: "")
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+          at Set.forEach (<anonymous>)
+
+  console.log
+    15:39:40 [96m[STORAGE_CLIENT][0m >>> STORAGE SET: @v2:auth:user:last_username:data {
+      value: {
+        data: 'jose',
+        metadata: { version: 'v2', timestamp: 1774809580261, expiresAt: undefined }
+      }
+    }
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    [OFFLINE-EVENT-BUS] Publishing event: ENTITY_CHANGED to 3 subscribers {
+      type: 'ENTITY_CHANGED',
+      entity: '@v2:auth:user:last_username:data',
+      payload: 'jose',
+      timestamp: 1774809580261
+    }
+
+      at OfflineEventBus.log [as publish] (shared/core/offline-storage/event_bus.ts:10:13)
+
+  console.log
+    15:39:40 [92m[BetRepository][0m [EVENT-BUS] Received event: ENTITY_CHANGED for entity: @v2:auth:user:last_username:data (Payload: "jose")
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+          at Set.forEach (<anonymous>)
+
+  console.log
+    15:39:40 [96m[STORAGE_CLIENT][0m >>> STORAGE SET: @v2:auth:user:offline_profile:data {
+      value: {
+        data: {
+          id: 5,
+          username: 'jose',
+          email: 'jose@example.com',
+          first_name: '',
+          last_name: '',
+          name: 'jose',
+          role: 'LISTER',
+          structure: [Object]
+        },
+        metadata: { version: 'v2', timestamp: 1774809580264, expiresAt: undefined }
+      }
+    }
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    [OFFLINE-EVENT-BUS] Publishing event: ENTITY_CHANGED to 3 subscribers {
+      type: 'ENTITY_CHANGED',
+      entity: '@v2:auth:user:offline_profile:data',
+      payload: {
+        id: 5,
+        username: 'jose',
+        email: 'jose@example.com',
+        first_name: '',
+        last_name: '',
+        name: 'jose',
+        role: 'LISTER',
+        structure: {
+          id: 18,
+          name: 'Listeria X',
+          type: 'listero',
+          path: 'Occidental/Habana/Centro-Habana/Banco 1/Colectoria-1/Listeria X',
+          role_in_structure: 'member',
+          commission_rate: 30
+        }
+      },
+      timestamp: 1774809580264
+    }
+
+      at OfflineEventBus.log [as publish] (shared/core/offline-storage/event_bus.ts:10:13)
+
+  console.log
+    15:39:40 [92m[BetRepository][0m [EVENT-BUS] Received event: ENTITY_CHANGED for entity: @v2:auth:user:offline_profile:data (Payload: {"id":5,"username":"jose","email":"jose@example.com","first_name":"","last_name":"","name":"jose","role":"LISTER","structure":{"id":18,"name":"Listeria X","type":"listero","path":"Occidental/Habana/Centro-Habana/Banco 1/Colectoria-1/Listeria X","role_in_structure":"member","commission_rate":30}})
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+          at Set.forEach (<anonymous>)
+
+  console.log
+    15:39:40 [35m[AUTH_STORAGE_ADAPTER][0m Offline credentials updated { username: 'jose' }
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    Login successful
+
+      at Object.log (tests/utils/test-env.ts:150:21)
+
+  console.log
+    15:39:40 [96m[STORAGE_CLIENT][0m <<< STORAGE GET: @v2:auth:user:profile:data {
+      value: {
+        data: {
+          id: 5,
+          username: 'jose',
+          email: 'jose@example.com',
+          first_name: '',
+          last_name: '',
+          name: 'jose',
+          role: 'LISTER',
+          structure: [Object]
+        },
+        metadata: {
+          version: 'v2',
+          timestamp: 1774809580245,
+          expiresAt: 1774895980245
+        }
+      }
+    }
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:40 [96m[STORAGE_CLIENT][0m >>> STORAGE SET: @v2:auth:user:profile:data {
+      value: {
+        data: {
+          id: 5,
+          username: 'jose',
+          email: 'jose@example.com',
+          first_name: '',
+          last_name: '',
+          name: 'jose',
+          role: 'LISTER',
+          structure: [Object]
+        },
+        metadata: {
+          version: 'v2',
+          timestamp: 1774809580276,
+          expiresAt: 1774895980276
+        }
+      }
+    }
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    [OFFLINE-EVENT-BUS] Publishing event: ENTITY_CHANGED to 3 subscribers {
+      type: 'ENTITY_CHANGED',
+      entity: '@v2:auth:user:profile:data',
+      payload: {
+        id: 5,
+        username: 'jose',
+        email: 'jose@example.com',
+        first_name: '',
+        last_name: '',
+        name: 'jose',
+        role: 'LISTER',
+        structure: {
+          id: 18,
+          name: 'Listeria X',
+          type: 'listero',
+          path: 'Occidental/Habana/Centro-Habana/Banco 1/Colectoria-1/Listeria X',
+          role_in_structure: 'member',
+          commission_rate: 30
+        }
+      },
+      timestamp: 1774809580276
+    }
+
+      at OfflineEventBus.log [as publish] (shared/core/offline-storage/event_bus.ts:10:13)
+
+  console.log
+    15:39:40 [92m[BetRepository][0m [EVENT-BUS] Received event: ENTITY_CHANGED for entity: @v2:auth:user:profile:data (Payload: {"id":5,"username":"jose","email":"jose@example.com","first_name":"","last_name":"","name":"jose","role":"LISTER","structure":{"id":18,"name":"Listeria X","type":"listero","path":"Occidental/Habana/Centro-Habana/Banco 1/Colectoria-1/Listeria X","role_in_structure":"member","commission_rate":30}})
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+          at Set.forEach (<anonymous>)
+
+  console.log
+    15:39:40 [35m[AUTH_STORAGE_ADAPTER][0m Session persisted successfully
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:40 [92m[SYNC_WORKER_CORE][0m Strategy registered for: telemetry
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:40 [34m[CORE_SERVICE][0m Initializing SyncWorker with domain strategies...
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:40 [92m[SYNC_WORKER_CORE][0m Strategy registered for: bet
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:40 [92m[SYNC_WORKER_CORE][0m Strategy registered for: dlq
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:40 [92m[SYNC_WORKER_CORE][0m Strategy registered for: draw
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:40 [92m[SYNC_WORKER_CORE][0m Strategy registered for: telemetry
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:40 [92m[SYNC_WORKER_CORE][0m Starting Sync Worker...
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:40 [34m[CORE_SERVICE][0m SyncWorker initialized successfully.
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    [DEBUG_TEST] Telemetry Repository and SyncWorker initialized with AUTH
+
+      at Object.log (tests/features/system/telemetry_e2e_hybrid.test.tsx:92:17)
+
+  console.log
+    [DEBUG_TEST] API Base URL: http://127.0.0.1:8000/api
+
+      at Object.log (tests/features/system/telemetry_e2e_hybrid.test.tsx:93:17)
+
+  console.log
+    15:39:40 [95m[NETWORK_UTILS][0m Checking server reachability (timeout: 15000ms)...
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    [BDD] App renderizada y usuario autenticado para test de telemetría
+
+      at Object.apply [as log] (tests/core/context.ts:68:28)
+
+  console.log
+      ✓ when: Se ingresa un TraceID único y se presiona el botón de error
+
+      at Object.log (tests/core/jest-adapter.ts:66:29)
+
+  console.log
+    [DEBUG_TELEMETRY] Error observer triggered: E2E Telemetry Test Error { tag: undefined }
+
+      at log (shared/repositories/system/telemetry/telemetry.repository.ts:34:21)
+
+  console.log
+    [DEBUG_TELEMETRY] Capturing error: E2E Telemetry Test Error { type: 'TEA_UPDATE_FAILURE', traceId: 'e2e-test-1774809576175' }
+
+      at TelemetryRepository.log (shared/repositories/system/telemetry/telemetry.repository.ts:82:17)
+
+  console.log
+    15:39:40 E2E Telemetry Test Error { traceId: 'e2e-test-1774809576175' }
+
+      at Logger.apply [as log] (shared/utils/logger.ts:164:32)
+
+  console.log
+    [DEBUG_TELEMETRY] Error observer triggered: DIRECT TEST ERROR { tag: undefined }
+
+      at log (shared/repositories/system/telemetry/telemetry.repository.ts:34:21)
+
+  console.log
+    15:39:40 DIRECT TEST ERROR { traceId: 'e2e-test-1774809576175' }
+
+      at Logger.apply [as log] (shared/utils/logger.ts:164:32)
+
+  console.log
+    15:39:40 [96m[STORAGE_CLIENT][0m <<< [STORAGE-TRACE] STORAGE GET ALL KEYS: 4 keys found: [@v2:auth:user:profile:data, @v2:auth:user:pin_hash:data, @v2:auth:user:last_username:data, @v2:auth:user:offline_profile:data]
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:40 [96m[STORAGE_CLIENT][0m >>> STORAGE SET: @v2:system:telemetry:te_tea_update_failure_1774809580685_d284d9n4:data {
+      value: {
+        data: {
+          id: 'te_tea_update_failure_1774809580685_d284d9n4',
+          type: 'TEA_UPDATE_FAILURE',
+          priority: 'HIGH',
+          timestamp: 1774809580685,
+          message: 'E2E Telemetry Test Error',
+          context: [Object],
+          traceId: 'e2e-test-1774809576175',
+          synced: false
+        },
+        metadata: { version: 'v2', timestamp: 1774809580688, expiresAt: undefined }
+      }
+    }
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    [OFFLINE-EVENT-BUS] Publishing event: ENTITY_CHANGED to 3 subscribers {
+      type: 'ENTITY_CHANGED',
+      entity: '@v2:system:telemetry:te_tea_update_failure_1774809580685_d284d9n4:data',
+      payload: {
+        id: 'te_tea_update_failure_1774809580685_d284d9n4',
+        type: 'TEA_UPDATE_FAILURE',
+        priority: 'HIGH',
+        timestamp: 1774809580685,
+        message: 'E2E Telemetry Test Error',
+        context: {
+          traceId: 'e2e-test-1774809576175',
+          loggerTag: 'UNKNOWN',
+          error: undefined
+        },
+        traceId: 'e2e-test-1774809576175',
+        synced: false
+      },
+      timestamp: 1774809580688
+    }
+
+      at OfflineEventBus.log [as publish] (shared/core/offline-storage/event_bus.ts:10:13)
+
+  console.log
+    15:39:40 [92m[BetRepository][0m [EVENT-BUS] Received event: ENTITY_CHANGED for entity: @v2:system:telemetry:te_tea_update_failure_1774809580685_d284d9n4:data (Payload: {"id":"te_tea_update_failure_1774809580685_d284d9n4","type":"TEA_UPDATE_FAILURE","priority":"HIGH","timestamp":1774809580685,"message":"E2E Telemetry Test Error","context":{"traceId":"e2e-test-1774809576175","loggerTag":"UNKNOWN"},"traceId":"e2e-test-1774809576175","synced":false})
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+          at Set.forEach (<anonymous>)
+
+  console.log
+    [DEBUG_SYNC_ADAPTER] Adding to queue: telemetry { entityId: 'te_tea_update_failure_1774809580685_d284d9n4' }
+
+      at Object.log (shared/core/offline-storage/sync/adapter.ts:22:17)
+
+  console.log
+    15:39:40 [96m[STORAGE_CLIENT][0m >>> STORAGE SET: @v2:system:sync_queue:og3oo1m87:data {
+      value: {
+        data: {
+          type: 'telemetry',
+          entityId: 'te_tea_update_failure_1774809580685_d284d9n4',
+          priority: 2,
+          status: 'pending',
+          attempts: 0,
+          data: [Object],
+          id: 'og3oo1m87',
+          createdAt: 1774809580691
+        },
+        metadata: { version: 'v2', timestamp: 1774809580691, expiresAt: undefined }
+      }
+    }
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    [OFFLINE-EVENT-BUS] Publishing event: ENTITY_CHANGED to 3 subscribers {
+      type: 'ENTITY_CHANGED',
+      entity: '@v2:system:sync_queue:og3oo1m87:data',
+      payload: {
+        type: 'telemetry',
+        entityId: 'te_tea_update_failure_1774809580685_d284d9n4',
+        priority: 2,
+        status: 'pending',
+        attempts: 0,
+        data: {
+          id: 'te_tea_update_failure_1774809580685_d284d9n4',
+          type: 'TEA_UPDATE_FAILURE',
+          priority: 'HIGH',
+          timestamp: 1774809580685,
+          message: 'E2E Telemetry Test Error',
+          context: [Object],
+          traceId: 'e2e-test-1774809576175',
+          synced: false
+        },
+        id: 'og3oo1m87',
+        createdAt: 1774809580691
+      },
+      timestamp: 1774809580691
+    }
+
+      at OfflineEventBus.log [as publish] (shared/core/offline-storage/event_bus.ts:10:13)
+
+  console.log
+    15:39:40 [92m[BetRepository][0m [EVENT-BUS] Received event: ENTITY_CHANGED for entity: @v2:system:sync_queue:og3oo1m87:data (Payload: {"type":"telemetry","entityId":"te_tea_update_failure_1774809580685_d284d9n4","priority":2,"status":"pending","attempts":0,"data":{"id":"te_tea_update_failure_1774809580685_d284d9n4","type":"TEA_UPDATE_FAILURE","priority":"HIGH","timestamp":1774809580685,"message":"E2E Telemetry Test Error","context":{"traceId":"e2e-test-1774809576175","loggerTag":"UNKNOWN"},"traceId":"e2e-test-1774809576175","synced":false},"id":"og3oo1m87","createdAt":1774809580691})
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+          at Set.forEach (<anonymous>)
+
+  console.log
+    15:39:40 [35m[TELEMETRY_REPOSITORY][0m Telemetry event queued {
+      id: 'te_tea_update_failure_1774809580685_d284d9n4',
+      type: 'TEA_UPDATE_FAILURE',
+      queueId: 'og3oo1m87'
+    }
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:40 [95m[NETWORK_UTILS][0m Server reachability result: true (Status: 200)
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    [OFFLINE-EVENT-BUS] Publishing event: SYNC_STARTED to 3 subscribers {
+      type: 'SYNC_STARTED',
+      entity: 'system',
+      payload: undefined,
+      timestamp: 1774809580700
+    }
+
+      at OfflineEventBus.log [as publish] (shared/core/offline-storage/event_bus.ts:10:13)
+
+  console.log
+    15:39:40 [92m[BetRepository][0m [EVENT-BUS] Received event: SYNC_STARTED for entity: system (Payload: undefined)
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+          at Set.forEach (<anonymous>)
+
+  console.log
+    [DEBUG_TEST] Triggering manual sync for traceId: e2e-test-1774809576175
+
+      at Object.log (tests/features/system/telemetry_e2e_hybrid.test.tsx:132:17)
+
+  console.log
+    15:39:41 [95m[NETWORK_UTILS][0m Checking server reachability (timeout: 15000ms)...
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:41 [95m[NETWORK_UTILS][0m Server reachability result: true (Status: 200)
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:41 [92m[SYNC_WORKER_CORE][0m [DEBUG_SYNC_WORKER] Manual trigger started - isOnline: true
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:41 [95m[NETWORK_UTILS][0m Checking server reachability (timeout: 15000ms)...
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:41 [95m[NETWORK_UTILS][0m Server reachability result: true (Status: 200)
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:41 [96m[STORAGE_CLIENT][0m <<< [STORAGE-TRACE] STORAGE GET ALL KEYS: 6 keys found: [@v2:auth:user:profile:data, @v2:auth:user:pin_hash:data, @v2:auth:user:last_username:data, @v2:auth:user:offline_profile:data, @v2:system:telemetry:te_tea_update_failure_1774809580685_d284d9n4:data, @v2:system:sync_queue:og3oo1m87:data]
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:41 [96m[STORAGE_CLIENT][0m <<< STORAGE GET: @v2:system:sync_queue:og3oo1m87:data {
+      value: {
+        data: {
+          type: 'telemetry',
+          entityId: 'te_tea_update_failure_1774809580685_d284d9n4',
+          priority: 2,
+          status: 'pending',
+          attempts: 0,
+          data: [Object],
+          id: 'og3oo1m87',
+          createdAt: 1774809580691
+        },
+        metadata: { version: 'v2', timestamp: 1774809580691 }
+      }
+    }
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    [DEBUG_SYNC_ADAPTER] Found 1 pending items out of 1 total
+
+      at Object.log (shared/core/offline-storage/sync/adapter.ts:91:17)
+
+  console.log
+    15:39:41 [92m[SYNC_WORKER_CORE][0m Manual sync started: 1 items found.
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    [OFFLINE-EVENT-BUS] Publishing event: SYNC_STARTED to 3 subscribers {
+      type: 'SYNC_STARTED',
+      entity: 'system',
+      payload: undefined,
+      timestamp: 1774809581232
+    }
+
+      at OfflineEventBus.log [as publish] (shared/core/offline-storage/event_bus.ts:10:13)
+
+  console.log
+    15:39:41 [92m[BetRepository][0m [EVENT-BUS] Received event: SYNC_STARTED for entity: system (Payload: undefined)
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+          at Set.forEach (<anonymous>)
+
+  console.log
+    15:39:41 [96m[STORAGE_CLIENT][0m <<< STORAGE GET: @v2:system:sync_queue:og3oo1m87:data {
+      value: {
+        data: {
+          type: 'telemetry',
+          entityId: 'te_tea_update_failure_1774809580685_d284d9n4',
+          priority: 2,
+          status: 'pending',
+          attempts: 0,
+          data: [Object],
+          id: 'og3oo1m87',
+          createdAt: 1774809580691
+        },
+        metadata: { version: 'v2', timestamp: 1774809580691 }
+      }
+    }
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:41 [96m[STORAGE_CLIENT][0m >>> STORAGE MULTI SET: 1 items { keys: [ '@v2:system:sync_queue:og3oo1m87:data' ] }
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    [OFFLINE-EVENT-BUS] Publishing event: ENTITY_CHANGED to 3 subscribers {
+      type: 'ENTITY_CHANGED',
+      entity: '@v2:system:sync_queue:og3oo1m87:data',
+      payload: {
+        type: 'telemetry',
+        entityId: 'te_tea_update_failure_1774809580685_d284d9n4',
+        priority: 2,
+        status: 'processing',
+        attempts: 0,
+        data: {
+          id: 'te_tea_update_failure_1774809580685_d284d9n4',
+          type: 'TEA_UPDATE_FAILURE',
+          priority: 'HIGH',
+          timestamp: 1774809580685,
+          message: 'E2E Telemetry Test Error',
+          context: [Object],
+          traceId: 'e2e-test-1774809576175',
+          synced: false
+        },
+        id: 'og3oo1m87',
+        createdAt: 1774809580691
+      },
+      timestamp: 1774809581236
+    }
+
+      at OfflineEventBus.log [as publish] (shared/core/offline-storage/event_bus.ts:10:13)
+          at Array.forEach (<anonymous>)
+
+  console.log
+    15:39:41 [92m[BetRepository][0m [EVENT-BUS] Received event: ENTITY_CHANGED for entity: @v2:system:sync_queue:og3oo1m87:data (Payload: {"type":"telemetry","entityId":"te_tea_update_failure_1774809580685_d284d9n4","priority":2,"status":"processing","attempts":0,"data":{"id":"te_tea_update_failure_1774809580685_d284d9n4","type":"TEA_UPDATE_FAILURE","priority":"HIGH","timestamp":1774809580685,"message":"E2E Telemetry Test Error","context":{"traceId":"e2e-test-1774809576175","loggerTag":"UNKNOWN"},"traceId":"e2e-test-1774809576175","synced":false},"id":"og3oo1m87","createdAt":1774809580691})
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+          at Set.forEach (<anonymous>)
+          at Array.forEach (<anonymous>)
+
+  console.log
+    15:39:41 [92m[SYNC_WORKER_CORE][0m [DEBUG_SYNC_WORKER] Using sequential push for telemetry
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+          at _loop.next (<anonymous>)
+
+  console.log
+    [DEBUG_TELEMETRY] Push strategy triggered for 1 items
+
+      at TelemetryPushStrategy.log (shared/repositories/system/telemetry/sync/telemetry.push.strategy.ts:15:17)
+          at Array.map (<anonymous>)
+          at _loop.next (<anonymous>)
+
+  console.log
+    [TRANSPORT] Fetching: POST http://127.0.0.1:8000/api/v1/system/telemetry/batch/
+
+      at Transport.log (shared/services/api_client/infra/transport.ts:13:15)
+
+  console.log
+    [TRANSPORT] Response: 401 http://127.0.0.1:8000/api/v1/system/telemetry/batch/
+
+      at Transport.log (shared/services/api_client/infra/transport.ts:21:15)
+
+  console.log
+    15:39:41 [92m[SYNC_WORKER_CORE][0m [DEBUG_SYNC_WORKER] Received 1 outcomes for telemetry
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+          at _loop.next (<anonymous>)
+
+  console.log
+    [DEBUG_TELEMETRY] Error observer triggered: [SYNC-CORE-FLOW] 2. Sincronización FALLIDA: telemetry/te_tea_update_failure_1774809580685_d284d9n4 (Fatal: false, Reason: Authentication credentials were not provided.) { tag: 'SYNC_WORKER_CORE' }
+
+      at log (shared/repositories/system/telemetry/telemetry.repository.ts:34:21)
+          at _loop.next (<anonymous>)
+
+  console.log
+    [DEBUG_TELEMETRY] Capturing error: [SYNC-CORE-FLOW] 2. Sincronización FALLIDA: telemetry/te_tea_update_failure_1774809580685_d284d9n4 (Fatal: false, Reason: Authentication credentials were not provided.) { type: 'SYNC_STALLED', traceId: undefined }
+
+      at TelemetryRepository.log (shared/repositories/system/telemetry/telemetry.repository.ts:82:17)
+          at _loop.next (<anonymous>)
+
+  console.log
+    15:39:41 [92m[SYNC_WORKER_CORE][0m [SYNC-CORE-FLOW] 2. Sincronización FALLIDA: telemetry/te_tea_update_failure_1774809580685_d284d9n4 (Fatal: false, Reason: Authentication credentials were not provided.)
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+          at _loop.next (<anonymous>)
+
+  console.log
+    [OFFLINE-EVENT-BUS] Publishing event: SYNC_ITEM_ERROR to 3 subscribers {
+      type: 'SYNC_ITEM_ERROR',
+      entity: 'telemetry',
+      payload: {
+        entityId: 'te_tea_update_failure_1774809580685_d284d9n4',
+        error: 'Authentication credentials were not provided.',
+        isFatal: false,
+        attempts: 1
+      },
+      timestamp: 1774809581273
+    }
+
+      at OfflineEventBus.log [as publish] (shared/core/offline-storage/event_bus.ts:10:13)
+          at _loop.next (<anonymous>)
+
+  console.log
+    15:39:41 [92m[BetRepository][0m [EVENT-BUS] Received event: SYNC_ITEM_ERROR for entity: telemetry (Payload: {"entityId":"te_tea_update_failure_1774809580685_d284d9n4","error":"Authentication credentials were not provided.","isFatal":false,"attempts":1})
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+          at Set.forEach (<anonymous>)
+          at _loop.next (<anonymous>)
+
+  console.log
+    15:39:41 [96m[STORAGE_CLIENT][0m <<< [STORAGE-TRACE] STORAGE GET ALL KEYS: 6 keys found: [@v2:auth:user:profile:data, @v2:auth:user:pin_hash:data, @v2:auth:user:last_username:data, @v2:auth:user:offline_profile:data, @v2:system:telemetry:te_tea_update_failure_1774809580685_d284d9n4:data, @v2:system:sync_queue:og3oo1m87:data]
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:41 [96m[STORAGE_CLIENT][0m <<< STORAGE GET: @v2:system:sync_queue:og3oo1m87:data {
+      value: {
+        data: {
+          type: 'telemetry',
+          entityId: 'te_tea_update_failure_1774809580685_d284d9n4',
+          priority: 2,
+          status: 'processing',
+          attempts: 0,
+          data: [Object],
+          id: 'og3oo1m87',
+          createdAt: 1774809580691
+        },
+        metadata: { version: 'v2', timestamp: 1774809581236 }
+      }
+    }
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:41 [96m[STORAGE_CLIENT][0m <<< STORAGE GET: @v2:system:telemetry:te_tea_update_failure_1774809580685_d284d9n4:data {
+      value: {
+        data: {
+          id: 'te_tea_update_failure_1774809580685_d284d9n4',
+          type: 'TEA_UPDATE_FAILURE',
+          priority: 'HIGH',
+          timestamp: 1774809580685,
+          message: 'E2E Telemetry Test Error',
+          context: [Object],
+          traceId: 'e2e-test-1774809576175',
+          synced: false
+        },
+        metadata: { version: 'v2', timestamp: 1774809580688 }
+      }
+    }
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    15:39:41 [96m[STORAGE_CLIENT][0m >>> STORAGE MULTI SET: 1 items { keys: [ '@v2:system:sync_queue:og3oo1m87:data' ] }
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    [OFFLINE-EVENT-BUS] Publishing event: ENTITY_CHANGED to 3 subscribers {
+      type: 'ENTITY_CHANGED',
+      entity: '@v2:system:sync_queue:og3oo1m87:data',
+      payload: {
+        type: 'telemetry',
+        entityId: 'te_tea_update_failure_1774809580685_d284d9n4',
+        priority: 2,
+        status: 'pending',
+        attempts: 1,
+        data: {
+          id: 'te_tea_update_failure_1774809580685_d284d9n4',
+          type: 'TEA_UPDATE_FAILURE',
+          priority: 'HIGH',
+          timestamp: 1774809580685,
+          message: 'E2E Telemetry Test Error',
+          context: [Object],
+          traceId: 'e2e-test-1774809576175',
+          synced: false
+        },
+        id: 'og3oo1m87',
+        createdAt: 1774809580691,
+        error: 'Authentication credentials were not provided.',
+        lastAttempt: 1774809581273
+      },
+      timestamp: 1774809581276
+    }
+
+      at OfflineEventBus.log [as publish] (shared/core/offline-storage/event_bus.ts:10:13)
+          at Array.forEach (<anonymous>)
+
+  console.log
+    15:39:41 [92m[BetRepository][0m [EVENT-BUS] Received event: ENTITY_CHANGED for entity: @v2:system:sync_queue:og3oo1m87:data (Payload: {"type":"telemetry","entityId":"te_tea_update_failure_1774809580685_d284d9n4","priority":2,"status":"pending","attempts":1,"data":{"id":"te_tea_update_failure_1774809580685_d284d9n4","type":"TEA_UPDATE_FAILURE","priority":"HIGH","timestamp":1774809580685,"message":"E2E Telemetry Test Error","context":{"traceId":"e2e-test-1774809576175","loggerTag":"UNKNOWN"},"traceId":"e2e-test-1774809576175","synced":false},"id":"og3oo1m87","createdAt":1774809580691,"error":"Authentication credentials were not provided.","lastAttempt":1774809581273})
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+          at Set.forEach (<anonymous>)
+          at Array.forEach (<anonymous>)
+
+  console.log
+    [OFFLINE-EVENT-BUS] Publishing event: SYNC_COMPLETED to 3 subscribers {
+      type: 'SYNC_COMPLETED',
+      entity: 'system',
+      payload: {
+        timestamp: 1774809581279,
+        status: 'FAILED',
+        processed: 1,
+        succeeded: 0,
+        failed: 1,
+        errors: [ [Object] ],
+        duration: 89
+      },
+      timestamp: 1774809581279
+    }
+
+      at OfflineEventBus.log [as publish] (shared/core/offline-storage/event_bus.ts:10:13)
+
+  console.log
+    15:39:41 [92m[BetRepository][0m [EVENT-BUS] Received event: SYNC_COMPLETED for entity: system (Payload: {"timestamp":1774809581279,"status":"FAILED","processed":1,"succeeded":0,"failed":1,"errors":[{"entityId":"te_tea_update_failure_1774809580685_d284d9n4","type":"telemetry","reason":"Authentication credentials were not provided."}],"duration":89})
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+          at Set.forEach (<anonymous>)
+
+  console.log
+    [DEBUG_TEST] Sync Report: {
+      "timestamp": 1774809581279,
+      "status": "FAILED",
+      "processed": 1,
+      "succeeded": 0,
+      "failed": 1,
+      "errors": [
+        {
+          "entityId": "te_tea_update_failure_1774809580685_d284d9n4",
+          "type": "telemetry",
+          "reason": "Authentication credentials were not provided."
+        }
+      ],
+      "duration": 89
+    }
+
+      at Object.log (tests/features/system/telemetry_e2e_hybrid.test.tsx:134:17)
+
+  console.log
+    [BDD] Evento de error disparado y sincronización forzada con TraceID: e2e-test-1774809576175
+
+      at Object.apply [as log] (tests/core/context.ts:68:28)
+
+  console.log
+    15:39:41 [96m[STORAGE_CLIENT][0m >>> STORAGE SET: @v2:system:telemetry:te_sync_stalled_1774809581272_cdls3331:data {
+      value: {
+        data: {
+          id: 'te_sync_stalled_1774809581272_cdls3331',
+          type: 'SYNC_STALLED',
+          priority: 'MEDIUM',
+          timestamp: 1774809581272,
+          message: '[SYNC-CORE-FLOW] 2. Sincronización FALLIDA: telemetry/te_tea_update_failure_1774809580685_d284d9n4 (Fatal: false, Reason: Authentication credentials were not provided.)',
+          context: [Object],
+          traceId: undefined,
+          synced: false
+        },
+        metadata: { version: 'v2', timestamp: 1774809581280, expiresAt: undefined }
+      }
+    }
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+      ✓ then: El evento debe persistirse en el backend (Determinismo E2E)
+
+      at Object.log (tests/core/jest-adapter.ts:72:29)
+
+  console.log
+    [E2E_TELEMETRY] Starting verification for trace: e2e-test-1774809576175
+
+      at Object.log (tests/features/system/helpers/telemetry_verifier.ts:24:17)
+
+  console.log
+    [OFFLINE-EVENT-BUS] Publishing event: ENTITY_CHANGED to 3 subscribers {
+      type: 'ENTITY_CHANGED',
+      entity: '@v2:system:telemetry:te_sync_stalled_1774809581272_cdls3331:data',
+      payload: {
+        id: 'te_sync_stalled_1774809581272_cdls3331',
+        type: 'SYNC_STALLED',
+        priority: 'MEDIUM',
+        timestamp: 1774809581272,
+        message: '[SYNC-CORE-FLOW] 2. Sincronización FALLIDA: telemetry/te_tea_update_failure_1774809580685_d284d9n4 (Fatal: false, Reason: Authentication credentials were not provided.)',
+        context: { loggerTag: 'SYNC_WORKER_CORE', error: undefined },
+        traceId: undefined,
+        synced: false
+      },
+      timestamp: 1774809581280
+    }
+
+      at OfflineEventBus.log [as publish] (shared/core/offline-storage/event_bus.ts:10:13)
+
+  console.log
+    15:39:41 [92m[BetRepository][0m [EVENT-BUS] Received event: ENTITY_CHANGED for entity: @v2:system:telemetry:te_sync_stalled_1774809581272_cdls3331:data (Payload: {"id":"te_sync_stalled_1774809581272_cdls3331","type":"SYNC_STALLED","priority":"MEDIUM","timestamp":1774809581272,"message":"[SYNC-CORE-FLOW] 2. Sincronización FALLIDA: telemetry/te_tea_update_failure_1774809580685_d284d9n4 (Fatal: false, Reason: Authentication credentials were not provided.)","context":{"loggerTag":"SYNC_WORKER_CORE"},"synced":false})
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+          at Set.forEach (<anonymous>)
+
+  console.log
+    [DEBUG_SYNC_ADAPTER] Adding to queue: telemetry { entityId: 'te_sync_stalled_1774809581272_cdls3331' }
+
+      at Object.log (shared/core/offline-storage/sync/adapter.ts:22:17)
+
+  console.log
+    15:39:41 [96m[STORAGE_CLIENT][0m >>> STORAGE SET: @v2:system:sync_queue:ppposl9fm:data {
+      value: {
+        data: {
+          type: 'telemetry',
+          entityId: 'te_sync_stalled_1774809581272_cdls3331',
+          priority: 3,
+          status: 'pending',
+          attempts: 0,
+          data: [Object],
+          id: 'ppposl9fm',
+          createdAt: 1774809581285
+        },
+        metadata: { version: 'v2', timestamp: 1774809581285, expiresAt: undefined }
+      }
+    }
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    [OFFLINE-EVENT-BUS] Publishing event: ENTITY_CHANGED to 3 subscribers {
+      type: 'ENTITY_CHANGED',
+      entity: '@v2:system:sync_queue:ppposl9fm:data',
+      payload: {
+        type: 'telemetry',
+        entityId: 'te_sync_stalled_1774809581272_cdls3331',
+        priority: 3,
+        status: 'pending',
+        attempts: 0,
+        data: {
+          id: 'te_sync_stalled_1774809581272_cdls3331',
+          type: 'SYNC_STALLED',
+          priority: 'MEDIUM',
+          timestamp: 1774809581272,
+          message: '[SYNC-CORE-FLOW] 2. Sincronización FALLIDA: telemetry/te_tea_update_failure_1774809580685_d284d9n4 (Fatal: false, Reason: Authentication credentials were not provided.)',
+          context: [Object],
+          traceId: undefined,
+          synced: false
+        },
+        id: 'ppposl9fm',
+        createdAt: 1774809581285
+      },
+      timestamp: 1774809581285
+    }
+
+      at OfflineEventBus.log [as publish] (shared/core/offline-storage/event_bus.ts:10:13)
+
+  console.log
+    15:39:41 [92m[BetRepository][0m [EVENT-BUS] Received event: ENTITY_CHANGED for entity: @v2:system:sync_queue:ppposl9fm:data (Payload: {"type":"telemetry","entityId":"te_sync_stalled_1774809581272_cdls3331","priority":3,"status":"pending","attempts":0,"data":{"id":"te_sync_stalled_1774809581272_cdls3331","type":"SYNC_STALLED","priority":"MEDIUM","timestamp":1774809581272,"message":"[SYNC-CORE-FLOW] 2. Sincronización FALLIDA: telemetry/te_tea_update_failure_1774809580685_d284d9n4 (Fatal: false, Reason: Authentication credentials were not provided.)","context":{"loggerTag":"SYNC_WORKER_CORE"},"synced":false},"id":"ppposl9fm","createdAt":1774809581285})
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+          at Set.forEach (<anonymous>)
+
+  console.log
+    15:39:41 [35m[TELEMETRY_REPOSITORY][0m Telemetry event queued {
+      id: 'te_sync_stalled_1774809581272_cdls3331',
+      type: 'SYNC_STALLED',
+      queueId: 'ppposl9fm'
+    }
+
+      at Logger.apply [as log] (shared/utils/logger.ts:166:32)
+
+  console.log
+    [E2E_TELEMETRY] Trace e2e-test-1774809576175 not found (Attempt 1/15)...
+
+      at Object.log (tests/features/system/helpers/telemetry_verifier.ts:52:29)
+
+  console.log
+    [E2E_TELEMETRY] Trace e2e-test-1774809576175 not found (Attempt 2/15)...
+
+      at Object.log (tests/features/system/helpers/telemetry_verifier.ts:52:29)
+
+  console.log
+    [E2E_TELEMETRY] Trace e2e-test-1774809576175 not found (Attempt 3/15)...
+
+      at Object.log (tests/features/system/helpers/telemetry_verifier.ts:52:29)
+
+  console.log
+    [E2E_TELEMETRY] Trace e2e-test-1774809576175 not found (Attempt 4/15)...
+
+      at Object.log (tests/features/system/helpers/telemetry_verifier.ts:52:29)
+
+  console.log
+    [E2E_TELEMETRY] Trace e2e-test-1774809576175 not found (Attempt 5/15)...
+
+      at Object.log (tests/features/system/helpers/telemetry_verifier.ts:52:29)
+
+  console.log
+    [E2E_TELEMETRY] Trace e2e-test-1774809576175 not found (Attempt 6/15)...
+
+      at Object.log (tests/features/system/helpers/telemetry_verifier.ts:52:29)
+
+  console.log
+    [E2E_TELEMETRY] Trace e2e-test-1774809576175 not found (Attempt 7/15)...
+
+      at Object.log (tests/features/system/helpers/telemetry_verifier.ts:52:29)
+
+FAIL tests/features/system/telemetry_e2e_hybrid.test.tsx (33.403 s)
+  ✕ E2E Híbrido: Telemetría desde UI hasta Backend (RNTL) (30012 ms)
+
+  ● E2E Híbrido: Telemetría desde UI hasta Backend (RNTL)
+
+    thrown: "Exceeded timeout of 30000 ms for a test.
+    Add a timeout value to this test to increase the timeout, if this is a long-running test. See https://jestjs.io/docs/api#testname-fn-timeout."
+
+      36 | ): void {
+      37 |     // Crear test de Jest
+    > 38 |     test(description, async () => {
+         |     ^
+      39 |         // Crear contexto fresco para cada test
+      40 |         const ctx = createTestContext({
+      41 |             initialData: initialContext.data,
+
+      at test (tests/core/jest-adapter.ts:38:5)
+      at ScenarioBuilder.test (tests/core/scenario.ts:202:23)
+      at Object.test (tests/features/system/telemetry_e2e_hybrid.test.tsx:150:6)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 1 total
+Snapshots:   0 total
+Time:        33.566 s, estimated 34 s
+Ran all test suites matching /frontend\/tests\/features\/system\/telemetry_e2e_hybrid.test.tsx/i.
+Jest did not exit one second after the test run has completed.
+
+'This usually means that there are asynchronous operations that weren't stopped in your tests. Consider running Jest with `--detectOpenHandles` to troubleshoot this issue.
+
+  ●  Cannot log after tests are done. Did you forget to wait for something async in your test?
+    Attempted to log "[E2E_TELEMETRY] Trace e2e-test-1774809576175 not found (Attempt 8/15)...".
+
+      50 |                 } else if (response.status === 404) {
+      51 |                     // Not found yet, continue polling
+    > 52 |                     console.log(`[E2E_TELEMETRY] Trace ${traceId} not found (Attempt ${i + 1}/${maxRetries})...`);
+         |                             ^
+      53 |                 } else {
+      54 |                     console.warn(`[E2E_TELEMETRY] Unexpected response: ${response.status}`);
+      55 |                 }
+
+      at console.log (node_modules/@jest/console/build/CustomConsole.js:141:10)
+      at Object.log (tests/features/system/helpers/telemetry_verifier.ts:52:29)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+
+  ●  Cannot log after tests are done. Did you forget to wait for something async in your test?
+    Attempted to log "[E2E_TELEMETRY] Trace e2e-test-1774809576175 not found (Attempt 9/15)...".
+
+      50 |                 } else if (response.status === 404) {
+      51 |                     // Not found yet, continue polling
+    > 52 |                     console.log(`[E2E_TELEMETRY] Trace ${traceId} not found (Attempt ${i + 1}/${maxRetries})...`);
+         |                             ^
+      53 |                 } else {
+      54 |                     console.warn(`[E2E_TELEMETRY] Unexpected response: ${response.status}`);
+      55 |                 }
+
+      at console.log (node_modules/@jest/console/build/CustomConsole.js:141:10)
+      at Object.log (tests/features/system/helpers/telemetry_verifier.ts:52:29)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+
+  ●  Cannot log after tests are done. Did you forget to wait for something async in your test?
+    Attempted to log "[E2E_TELEMETRY] Trace e2e-test-1774809576175 not found (Attempt 10/15)...".
+
+      50 |                 } else if (response.status === 404) {
+      51 |                     // Not found yet, continue polling
+    > 52 |                     console.log(`[E2E_TELEMETRY] Trace ${traceId} not found (Attempt ${i + 1}/${maxRetries})...`);
+         |                             ^
+      53 |                 } else {
+      54 |                     console.warn(`[E2E_TELEMETRY] Unexpected response: ${response.status}`);
+      55 |                 }
+
+      at console.log (node_modules/@jest/console/build/CustomConsole.js:141:10)
+      at Object.log (tests/features/system/helpers/telemetry_verifier.ts:52:29)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+
+  ●  Cannot log after tests are done. Did you forget to wait for something async in your test?
+    Attempted to log "[E2E_TELEMETRY] Trace e2e-test-1774809576175 not found (Attempt 11/15)...".
+
+      50 |                 } else if (response.status === 404) {
+      51 |                     // Not found yet, continue polling
+    > 52 |                     console.log(`[E2E_TELEMETRY] Trace ${traceId} not found (Attempt ${i + 1}/${maxRetries})...`);
+         |                             ^
+      53 |                 } else {
+      54 |                     console.warn(`[E2E_TELEMETRY] Unexpected response: ${response.status}`);
+      55 |                 }
+
+      at console.log (node_modules/@jest/console/build/CustomConsole.js:141:10)
+      at Object.log (tests/features/system/helpers/telemetry_verifier.ts:52:29)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+
+  ●  Cannot log after tests are done. Did you forget to wait for something async in your test?
+    Attempted to log "[E2E_TELEMETRY] Trace e2e-test-1774809576175 not found (Attempt 12/15)...".
+
+      50 |                 } else if (response.status === 404) {
+      51 |                     // Not found yet, continue polling
+    > 52 |                     console.log(`[E2E_TELEMETRY] Trace ${traceId} not found (Attempt ${i + 1}/${maxRetries})...`);
+         |                             ^
+      53 |                 } else {
+      54 |                     console.warn(`[E2E_TELEMETRY] Unexpected response: ${response.status}`);
+      55 |                 }
+
+      at console.log (node_modules/@jest/console/build/CustomConsole.js:141:10)
+      at Object.log (tests/features/system/helpers/telemetry_verifier.ts:52:29)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+
+  ●  Cannot log after tests are done. Did you forget to wait for something async in your test?
+    Attempted to log "[E2E_TELEMETRY] Trace e2e-test-1774809576175 not found (Attempt 13/15)...".
+
+      50 |                 } else if (response.status === 404) {
+      51 |                     // Not found yet, continue polling
+    > 52 |                     console.log(`[E2E_TELEMETRY] Trace ${traceId} not found (Attempt ${i + 1}/${maxRetries})...`);
+         |                             ^
+      53 |                 } else {
+      54 |                     console.warn(`[E2E_TELEMETRY] Unexpected response: ${response.status}`);
+      55 |                 }
+
+      at console.log (node_modules/@jest/console/build/CustomConsole.js:141:10)
+      at Object.log (tests/features/system/helpers/telemetry_verifier.ts:52:29)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+
+  ●  Cannot log after tests are done. Did you forget to wait for something async in your test?
+    Attempted to log "[E2E_TELEMETRY] Trace e2e-test-1774809576175 not found (Attempt 14/15)...".
+
+      50 |                 } else if (response.status === 404) {
+      51 |                     // Not found yet, continue polling
+    > 52 |                     console.log(`[E2E_TELEMETRY] Trace ${traceId} not found (Attempt ${i + 1}/${maxRetries})...`);
+         |                             ^
+      53 |                 } else {
+      54 |                     console.warn(`[E2E_TELEMETRY] Unexpected response: ${response.status}`);
+      55 |                 }
+
+      at console.log (node_modules/@jest/console/build/CustomConsole.js:141:10)
+      at Object.log (tests/features/system/helpers/telemetry_verifier.ts:52:29)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+
+  ●  Cannot log after tests are done. Did you forget to wait for something async in your test?
+    Attempted to log "[E2E_TELEMETRY] Trace e2e-test-1774809576175 not found (Attempt 15/15)...".
+
+      50 |                 } else if (response.status === 404) {
+      51 |                     // Not found yet, continue polling
+    > 52 |                     console.log(`[E2E_TELEMETRY] Trace ${traceId} not found (Attempt ${i + 1}/${maxRetries})...`);
+         |                             ^
+      53 |                 } else {
+      54 |                     console.warn(`[E2E_TELEMETRY] Unexpected response: ${response.status}`);
+      55 |                 }
+
+      at console.log (node_modules/@jest/console/build/CustomConsole.js:141:10)
+      at Object.log (tests/features/system/helpers/telemetry_verifier.ts:52:29)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  console.error
+    [E2E_TELEMETRY] Timeout reached. Trace e2e-test-1774809576175 never appeared in backend.
+
+      64 |         }
+      65 |
+    > 66 |         console.error(`[E2E_TELEMETRY] Timeout reached. Trace ${traceId} never appeared in backend.`);
+         |                 ^
+      67 |         return { found: false };
+      68 |     }
+      69 | };
+
+      at Object.error (tests/features/system/helpers/telemetry_verifier.ts:66:17)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+

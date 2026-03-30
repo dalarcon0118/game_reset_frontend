@@ -46,9 +46,11 @@ async function checkAppUpdate() {
 checkAppUpdate();
 
 // Ignore specific warnings
-LogBox.ignoreLogs([
-    'MeasureElement: Support for defaultProps',
-]);
+if (LogBox && LogBox.ignoreLogs) {
+    LogBox.ignoreLogs([
+        'MeasureElement: Support for defaultProps',
+    ]);
+}
 
 // Setup EventSource for React Native
 if (typeof window !== 'undefined') {

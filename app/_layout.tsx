@@ -1,6 +1,7 @@
+import React, { useState } from 'react';
 import '../config/init'; // Global side effects first
 import { Stack } from 'expo-router';
-import { View, TouchableOpacity, Text, StyleSheet, Alert } from 'react-native';
+import { View, TouchableOpacity, Text, StyleSheet, Alert, TextInput } from 'react-native';
 import { DevTools } from '../config/init';
 import { AppProviders } from '../providers/AppProviders';
 import { useAuthV1 } from '../features/auth/v1';
@@ -11,6 +12,7 @@ import { useAuthNavigation } from '../hooks/useAuthNavigation';
 import { useNavigationLogger } from '../hooks/useNavigationLogger';
 import { routes } from '../config/routes';
 import setings from '../config/settings';
+import { logger } from '../shared/utils/logger';
 
 // Export ErrorBoundary for Expo Router
 export { GlobalErrorBoundary as ErrorBoundary };
@@ -61,9 +63,24 @@ function RootLayoutInner() {
   );
 }
 
-function DevToolbar() {
+export function DevToolbar() {
+  const [e2eTraceId, setE2eTraceId] = useState('');
+
   return (
     <View style={styles.devBar}>
+      <TextInput
+        testID="e2e-trace-id-input"
+        style={{ width: 0, height: 0, opacity: 0 }} // Hidden but interactable by Detox
+        value={e2eTraceId}
+        onChangeText={setE2eTraceId}
+      />
+      <TouchableOpacity 
+        onPress={() => logger.error('E2E Telemetry Test Error', { traceId: e2eTraceId || 'e2e-default-trace' })} 
+        style={[styles.devButton, { backgroundColor: '#c0392b' }]}
+        testID="trigger-telemetry-error"
+      >
+        <Text style={styles.devText}>Err</Text>
+      </TouchableOpacity>
       <TouchableOpacity onPress={() => DevTools.clearStorage()} style={styles.devButton}>
         <Text style={styles.devText}>Clear</Text>
       </TouchableOpacity>

@@ -16,6 +16,8 @@ const log = logger.withTag('DASHBOARD_INIT');
  */
 const makeModel = (promotion: PromotionState) => (params?: Partial<Model>): Model => {
     const isReady = (params as any)?.isSystemReady ?? false;
+    const userStructureId = params?.userStructureId || null;
+    
     return {
         status: isReady ? { type: 'LOADING_DATA' } : { type: 'IDLE' },
         draws: RemoteData.notAsked(),
@@ -29,7 +31,7 @@ const makeModel = (promotion: PromotionState) => (params?: Partial<Model>): Mode
             estimatedCommission: 0,
             amountToRemit: 0,
         },
-        userStructureId: null,
+        userStructureId,
         statusFilter: 'open',
         appliedFilter: 'open',
         commissionRate: 0,
@@ -44,7 +46,13 @@ const makeModel = (promotion: PromotionState) => (params?: Partial<Model>): Mode
 
 export const initialState = (params?: Partial<Model>): Return<Model, Msg> => {
     const isReady = (params as any)?.isSystemReady ?? false;
-    const initialCmd = isReady ? fetchUserDataCmd() : Cmd.none;
+    const userStructureId = params?.userStructureId || null;
+    
+    // Si ya estamos listos y tenemos el ID (re-montaje), disparamos la carga completa
+    // Si no tenemos el ID, pedimos los datos del usuario primero
+    const initialCmd = isReady 
+        ? (userStructureId ? Cmd.ofMsg({ type: 'FETCH_DATA_REQUESTED', structureId: userStructureId }) : fetchUserDataCmd())
+        : Cmd.none;
 
     return ret<any, Msg>(makeModel, initialCmd)
         .andMapCmd(

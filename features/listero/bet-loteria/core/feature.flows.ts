@@ -24,6 +24,7 @@ import { drawRepository } from '@/shared/repositories/draw';
 import { logger } from '@/shared/utils/logger';
 import { BET_TYPE_KEYS, isLoteriaType } from '@/shared/types/bet_types';
 import { BetType } from '@/types';
+import { CalculationLogic } from './domain/calculation.logic';
 
 const log = logger.withTag('LOTERIA_FLOWS');
 
@@ -97,27 +98,23 @@ export const FeatureFlows = {
             },
             listSession: {
                 ...baseState.listSession,
-                // Si estamos anotando, iniciamos con lista limpia (Success([])).
-                // Si es solo lectura, iniciamos en Loading para cargar las existentes desde el servidor.
-                remoteData: isEditing ? RemoteData.success({ loteria: [] }) : RemoteData.loading()
+                remoteData: RemoteData.loading()
             }
         };
 
-        // Obtenemos los tipos de apuesta dinámicos (SSOT)
-        // NOTA: No usamos betTypes.loteria (legacy) sino el catálogo dinámico cargado
-        const cmds = [
+        // ESTRATEGIA: Carga en Paralelo con Prioridad de Disco
+        // 1. CARGA INMEDIATA (Disco): Las apuestas existentes se piden sin esperar a la red.
+        const localCmd = !isEditing ? FeatureFlows.fetchExistingBets(drawId, null) : Cmd.none;
+
+        // 2. CARGA DE METADATOS (Red/Caché): Sorteo y tipos de apuesta.
+        const networkCmds = Cmd.batch([
             FeatureFlows.fetchDrawDetails(drawId),
             FeatureFlows.fetchBetTypes(drawId),
-        ];
-
-        // Solo cargamos apuestas existentes si NO estamos en modo anotación (isEditing: false)
-        if (!isEditing) {
-            cmds.push(FeatureFlows.fetchExistingBets(drawId, null));
-        }
+        ]);
 
         return ret(
             loadingModel,
-            Cmd.batch(cmds)
+            Cmd.batch([localCmd, networkCmds])
         );
     },
 
@@ -277,14 +274,22 @@ export const FeatureFlows = {
     },
 
     executeSave: (model: LoteriaFeatureModel, drawId: string): Return<LoteriaFeatureModel, FeatureMsg> => {
-        // 1. Set Loading State
+        // 1. Generación Determinista del receiptCode (Estrategia Elm: Garantía por Construcción)
+        const receiptCode = CalculationLogic.generateReceiptCode();
+
+        // 2. Set Loading State con el código ya inyectado
         const loadingModel = {
             ...model,
-            summary: { ...model.summary, isSaving: true, error: null }
+            summary: { 
+                ...model.summary, 
+                isSaving: true, 
+                error: null,
+                pendingReceiptCode: receiptCode
+            }
         };
 
-        // 2. Create HTTP Command via RemoteDataHttp.fetch with Chain Pattern
-        const saveCmd = RemoteDataHttp.fetch<any, FeatureMsg>(
+        // 3. Create HTTP Command con el receiptCode en el payload del mensaje de respuesta
+        const saveCmd = RemoteDataHttp.fetch<BetType[], FeatureMsg>(
             () => {
                 return okAsync(model)
                     .andThen((m) => {
@@ -294,11 +299,19 @@ export const FeatureFlows = {
                             : okAsync(payloadResult.value);
                     })
                     .andThen((payload) => {
-                        // Use placeBatch for multiple bets in one flow
+                        // Inyectamos el receiptCode en cada apuesta del lote si el repo lo permite
+                        // o lo usamos como referencia para el guardado offline.
+                        const payloadWithCode = payload.map(p => ({ ...p, receiptCode }));
+                        
                         return ResultAsync.fromPromise(
-                            betRepository.placeBatch(payload),
+                            betRepository.placeBatch(payloadWithCode).then((result) => {
+                                if (result.isErr()) {
+                                    throw result.error;
+                                }
+                                return result.value;
+                            }),
                             (e) => e instanceof Error ? e : new Error(String(e))
-                        ).andThen(result => result); // betRepository returns Result
+                        );
                     })
                     .match(
                         (data) => data,
@@ -308,42 +321,51 @@ export const FeatureFlows = {
                         }
                     );
             },
-            (response: WebData<any>) => LoteriaFeatMsg(SAVE_BETS_RESPONSE({ response }))
+            (response: WebData<BetType[]>) => LoteriaFeatMsg(SAVE_BETS_RESPONSE({ response, drawId, receiptCode }))
         );
 
         return ret(loadingModel, saveCmd);
     },
 
-    handleSaveResponse: (model: LoteriaFeatureModel, response: WebData<any>): Return<LoteriaFeatureModel, FeatureMsg> => {
-        // 1. Use match to handle all states
+    handleSaveResponse: (model: LoteriaFeatureModel, response: WebData<BetType[]>, drawId: string, receiptCode: string): Return<LoteriaFeatureModel, FeatureMsg> => {
         return match(response)
             .with({ type: 'Failure' }, ({ error }) => FeatureFlows.finalizeSaveFailure(model, error))
-            .with({ type: 'Success' }, ({ data }) => FeatureFlows.finalizeSaveSuccess(model, data))
+            .with({ type: 'Success' }, ({ data }) => FeatureFlows.finalizeSaveSuccess(model, data, drawId, receiptCode))
             .otherwise(() => ret(model, Cmd.none));
     },
 
-    finalizeSaveSuccess: (model: LoteriaFeatureModel, bets: any[] = []): Return<LoteriaFeatureModel, FeatureMsg> => {
-        // Extract receipt code from the first bet or fallback to model
-        const receiptCode = (bets && bets[0]?.receiptCode) || model.summary.pendingReceiptCode;
-        const drawId = model.currentDrawId;
+    finalizeSaveSuccess: (model: LoteriaFeatureModel, bets: any[] = [], drawIdFromMsg?: string, receiptCodeFromMsg?: string): Return<LoteriaFeatureModel, FeatureMsg> => {
+        
+        // ESTRATEGIA ELM: El dato del Mensaje (inyectado en el fetch) es la ÚNICA fuente de verdad.
+        // Ignoramos el modelo (que puede estar sucio) y la respuesta (que puede venir vacía en offline).
+        const receiptCode = receiptCodeFromMsg || (bets && bets.length > 0 && bets[0]?.receiptCode);
+        const drawId = drawIdFromMsg || model.currentDrawId;
 
-        log.debug('FINALIZE_SAVE_SUCCESS', { receiptCode, drawId, betsCount: bets?.length });
+        log.info('FINALIZE_SAVE_SUCCESS: Preparando navegación', { 
+            receiptCode, 
+            drawId, 
+            hasBets: bets?.length > 0,
+            source: receiptCodeFromMsg ? 'MSG_INJECTED' : 'BETS_DATA'
+        });
 
-        if (!receiptCode) {
-            log.warn('SAVE_SUCCESS_WITHOUT_RECEIPT_CODE', {
-                hasBets: model.entrySession.loteria.length > 0,
-                currentDrawId: model.currentDrawId
-            });
+        // 1. Validación Crítica: Si no tenemos receiptCode o drawId, no podemos navegar con éxito al voucher
+        if (!receiptCode || !drawId) {
+            const error = `Error de navegación: receiptCode=${receiptCode}, drawId=${drawId}`;
+            log.error('FINALIZE_SAVE_SUCCESS_ERROR', { receiptCode, drawId, betsCount: bets?.length });
+            return FeatureFlows.finalizeSaveFailure(model, error);
         }
 
-        // 1. Update State (Clear bets, success message)
-        const successModel = LoteriaDomain.handleSaveSuccess(model);
-
-        // 2. Side Effect: Navigation and Signal
+        // 2. Side Effect: Navegación con parámetros explícitos y Notificación de Éxito
         const navigationCmd = Cmd.batch([
-            Cmd.navigate(receiptCode ? `/lister/bet_success?receiptCode=${receiptCode}&drawId=${drawId}` : '/lister/bet_success'),
+            Cmd.navigate({
+                pathname: '/lister/bet_success',
+                params: { receiptCode, drawId }
+            }),
             Cmd.ofMsg(LoteriaFeatMsg(SAVE_SUCCESS()))
         ]);
+
+        // 3. Update State (Clear bets, success message) - El dominio limpia la lista
+        const successModel = LoteriaDomain.handleSaveSuccess(model);
 
         return ret(successModel, navigationCmd);
     },

@@ -20,22 +20,12 @@ import {
 } from '../loteria/loteria.types';
 import { updateLoteria } from '../loteria/loteria.update';
 import { updateRules } from '../../bet-workspace/rules/core/update';
-import {
-    FETCH_RULES_REQUESTED,
-    REFRESH_RULES_REQUESTED,
-    FETCH_RULES_SUCCEEDED,
-    FETCH_RULES_FAILED,
-    SHOW_RULES_DRAWER,
-    HIDE_RULES_DRAWER,
-    SELECT_RULE,
-    CLEAR_SELECTION
-} from '../../bet-workspace/rules/core/types';
 import { Return, singleton, Cmd } from '@core/tea-utils';
 import { FeatureFlows } from './feature.flows';
 import { LoteriaDomain } from './feature.domain';
 import logger from '@/shared/utils/logger';
 
-const log = logger.withTag('[LoteriaFeatureUpdate]');
+const log = logger.withTag('LoteriaFeatureUpdate');
 // ============================================================================
 // 🔄 UPDATE FUNCTION
 // ============================================================================
@@ -43,11 +33,11 @@ const log = logger.withTag('[LoteriaFeatureUpdate]');
 export const updateFeature = (model: LoteriaFeatureModel, msg: FeatureMsg): Return<LoteriaFeatureModel, FeatureMsg> => {
 
     if (!msg || !msg.type) {
-        console.error('FEATURE_UPDATE_ERROR: msg or msg.type is undefined', { msg });
+        log.error('FEATURE_UPDATE_ERROR: msg or msg.type is undefined', { msg });
         return singleton(model);
     }
 
-    return (match<FeatureMsg>(msg)
+    return match<FeatureMsg, Return<LoteriaFeatureModel, FeatureMsg>>(msg)
         .with({ type: 'FETCH_DRAW_DETAILS_RESPONSE' }, ({ response }) => {
             return singleton(LoteriaDomain.updateDrawDetails(model, response));
         })
@@ -64,18 +54,14 @@ export const updateFeature = (model: LoteriaFeatureModel, msg: FeatureMsg): Retu
                 drawTypeCode: webData
             });
         })
-        .with({ type: 'FETCH_RULES_REQUESTED' }, (msg) => updateRules(model, msg as any))
-        .with({ type: 'REFRESH_RULES_REQUESTED' }, (msg) => updateRules(model, msg as any))
-        .with({ type: 'FETCH_RULES_SUCCEEDED' }, (msg) => updateRules(model, msg as any))
-        .with({ type: 'FETCH_RULES_FAILED' }, (msg) => updateRules(model, msg as any))
-        .with({ type: 'SHOW_RULES_DRAWER' }, (msg) => updateRules(model, msg as any))
-        .with({ type: 'HIDE_RULES_DRAWER' }, (msg) => updateRules(model, msg as any))
-        .with({ type: 'SELECT_RULE' }, (msg) => updateRules(model, msg as any))
-        .with({ type: 'CLEAR_SELECTION' }, (msg) => updateRules(model, msg as any))
+        .with({ type: 'RULES' }, ({ payload: rulesMsg }) => {
+            return updateRules(model, rulesMsg)
+                .mapMsg((subMsg) => ({ type: 'RULES', payload: subMsg }));
+        })
         .with({ type: 'LOTERIA' }, ({ payload: loteriaMsg }) => {
             return updateLoteriaOrchestration(model, loteriaMsg);
         })
-        .exhaustive() as any);
+        .exhaustive();
 };
 
 // ============================================================================
@@ -126,8 +112,8 @@ const updateLoteriaOrchestration = (model: LoteriaFeatureModel, loteriaMsg: Lote
             FeatureFlows.executeSave(model, drawId)
         )
 
-        .with(SAVE_BETS_RESPONSE.type(), ({ payload: { response } }) =>
-            FeatureFlows.handleSaveResponse(model, response)
+        .with(SAVE_BETS_RESPONSE.type(), ({ payload: { response, drawId, receiptCode } }) =>
+            FeatureFlows.handleSaveResponse(model, response, drawId, receiptCode)
         )
 
         // --- Orchestration ---

@@ -19,6 +19,7 @@ export const SyncAdapter = {
      * Agrega un item a la cola
      */
     async addToQueue(item: Omit<SyncQueueItem, 'id' | 'createdAt'>): Promise<string> {
+        console.log(`[DEBUG_SYNC_ADAPTER] Adding to queue: ${item.type}`, { entityId: item.entityId });
         const id = Math.random().toString(36).substring(2, 11);
         const newItem: SyncQueueItem = {
             ...item,
@@ -84,9 +85,11 @@ export const SyncAdapter = {
      */
     async getPendingItems(): Promise<SyncQueueItem[]> {
         const queue = await this.getQueue();
-        return queue
+        const pending = queue
             .filter(item => item.status === 'pending' || item.status === 'failed')
             .sort((a, b) => a.priority - b.priority);
+        console.log(`[DEBUG_SYNC_ADAPTER] Found ${pending.length} pending items out of ${queue.length} total`);
+        return pending;
     },
 
     /**

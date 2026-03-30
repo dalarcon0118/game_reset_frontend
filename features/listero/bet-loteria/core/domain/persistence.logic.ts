@@ -43,7 +43,7 @@ export const PersistenceLogic = {
             ...model.summary,
             isSaving: true,
             error: null,
-            pendingReceiptCode: null // Ahora lo maneja el repositorio
+            pendingReceiptCode: model.summary.pendingReceiptCode
         }
     }),
 

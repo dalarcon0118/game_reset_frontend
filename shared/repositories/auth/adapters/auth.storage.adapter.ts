@@ -22,7 +22,10 @@ async function setSecureItem(key: string, value: string) {
     if (isWeb) {
         await storageClient.set(key, value);
     } else {
-        await SecureStore.setItemAsync(key, value);
+        // Defensive check: Ensure value is a string before calling SecureStore
+        // This prevents "Invalid value provided to SecureStore" errors
+        const stringValue = typeof value === 'string' ? value : String(value ?? '');
+        await SecureStore.setItemAsync(key, stringValue);
     }
 }
 

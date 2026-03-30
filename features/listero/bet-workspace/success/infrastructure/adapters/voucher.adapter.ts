@@ -18,7 +18,11 @@ export const VoucherAdapter: VoucherPort = {
 
         const [drawRes, betsRes, betTypesRes] = await Promise.all([
             drawId ? drawRepository.getDraw(drawId) : Promise.resolve(null),
-            betRepository.getBets(receiptCode ? { receiptCode } : { drawId }),
+            betRepository.getBets({ 
+                receiptCode, 
+                drawId, // Siempre incluir drawId para facilitar la búsqueda en caché local
+                date: undefined // Desactivar filtro de fecha para el voucher por seguridad
+            }),
             drawId ? drawRepository.getBetTypes(drawId) : Promise.resolve(null)
         ]);
 

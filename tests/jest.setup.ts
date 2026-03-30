@@ -54,18 +54,41 @@ jest.mock('expo-secure-store', () => ({
     deleteItemAsync: jest.fn(),
 }));
 
-jest.mock('@react-native-async-storage/async-storage', () => ({
-    getItem: jest.fn(),
-    setItem: jest.fn(),
-    removeItem: jest.fn(),
+let internalAsyncStorage: Record<string, string> = {};
+const mockAsyncStorage = {
+    setItem: jest.fn(async (key: string, value: string) => {
+        internalAsyncStorage[key] = value;
+    }),
+    getItem: jest.fn(async (key: string) => internalAsyncStorage[key] || null),
+    removeItem: jest.fn(async (key: string) => {
+        delete internalAsyncStorage[key];
+    }),
     mergeItem: jest.fn(),
-    clear: jest.fn(),
-    getAllKeys: jest.fn(),
+    clear: jest.fn(async () => { internalAsyncStorage = {}; }),
+    getAllKeys: jest.fn(async () => Object.keys(internalAsyncStorage)),
     flushGetRequests: jest.fn(),
-    multiGet: jest.fn(),
-    multiSet: jest.fn(),
-    multiRemove: jest.fn(),
+    multiGet: jest.fn(async (keys: string[]) => {
+        return keys.map(key => [key, internalAsyncStorage[key] || null]);
+    }),
+    multiSet: jest.fn(async (pairs: [string, string][]) => {
+        pairs.forEach(([key, value]) => {
+            internalAsyncStorage[key] = value;
+        });
+    }),
+    multiRemove: jest.fn(async (keys: string[]) => {
+        keys.forEach(key => {
+            delete internalAsyncStorage[key];
+        });
+    }),
     multiMerge: jest.fn(),
+    _getStorage: () => internalAsyncStorage,
+    _resetStorage: () => { internalAsyncStorage = {}; }
+};
+
+jest.mock('@react-native-async-storage/async-storage', () => ({
+    __esModule: true,
+    default: mockAsyncStorage,
+    ...mockAsyncStorage
 }));
 
 jest.mock('expo-router', () => ({

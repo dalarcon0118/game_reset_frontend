@@ -7,6 +7,22 @@ import {
 } from './logger.types';
 import { LogFormatter } from './logger.formatter';
 
+type ErrorObserverInput = {
+    message: string;
+    error?: any;
+    args: any[];
+    context: LogContext;
+};
+
+const errorObservers = new Set<(input: ErrorObserverInput) => void>();
+
+export function registerErrorObserver(observer: (input: ErrorObserverInput) => void): () => void {
+    errorObservers.add(observer);
+    return () => {
+        errorObservers.delete(observer);
+    };
+}
+
 /**
  * SRP: This class is a Facade that coordinates the formatter and the output (console).
  * It manages context propagation and filtering.
@@ -113,6 +129,15 @@ export class Logger {
 
     private log(level: LogLevel, message: string, args: any[], error?: any) {
         try {
+            if (level === 'error') {
+                for (const observer of errorObservers) {
+                    try {
+                        observer({ message, error, args, context: this.context });
+                    } catch (_) {
+                    }
+                }
+            }
+
             const event: LogEvent = {
                 timestamp: new Date(),
                 level,
@@ -171,7 +196,8 @@ try {
     loggerInstance = new Logger();
 } catch (e) {
     // If Logger fails, create a minimal working logger
-    console.warn('[Logger] Failed to initialize Logger, using fallback');
+    console.error('[Logger] CRITICAL ERROR INITIALIZING LOGGER:', e);
+    console.warn('[Logger] Falling back to console-only logging');
     loggerInstance = {
         withTag: (tag: string) => loggerInstance,
         withContext: (ctx: any) => loggerInstance,

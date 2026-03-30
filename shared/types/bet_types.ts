@@ -55,7 +55,7 @@ export const resolveBetTypeId = (
         log.warn(`⚠️ Fallback legacy bloqueado para ${key}. El catálogo dinámico es obligatorio.`);
     }
 
-    log.error(`❌ Error de resolución: ${key} no encontrado en el catálogo dinámico y no se permitió fallback.`);
+    log.error(`❌ Error de resolución: ${key}-${upperKey} no encontrado en el catálogo dinámico y no se permitió fallback.`);
     return null;
 };
 

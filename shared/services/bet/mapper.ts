@@ -157,11 +157,11 @@ export const mapSinglePendingBetToFrontend = (pb: BetDomainModel, betTypes: Game
                 minute: '2-digit'
             }),
             timestamp: pb.timestamp,
-            isPending: true,
+            isPending: pb.status !== 'synced',
             receiptCode: pb.receiptCode,
             betTypeId: pb.betTypeCode || pb.betTypeId,
             betTypeCode: pb.betTypeCode,
-            status: 'pending'
+            status: pb.status || 'pending'
         };
     }
 
@@ -190,10 +190,10 @@ export const mapSinglePendingBetToFrontend = (pb: BetDomainModel, betTypes: Game
             minute: '2-digit'
         }),
         timestamp: pb.timestamp,
-        isPending: true,
+        isPending: pb.status !== 'synced',
         receiptCode: pb.receiptCode,
         betTypeId: pb.betTypeCode || pb.betTypeId,
         betTypeCode: pb.betTypeCode,
-        status: 'pending'
+        status: pb.status || 'pending'
     };
 };

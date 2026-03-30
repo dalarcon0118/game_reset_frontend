@@ -1,10 +1,13 @@
-import { Result, err } from 'neverthrow';
+import { Result, ok, err, ResultAsync } from 'neverthrow';
 import { IBetRepository, BetRepositoryResult, BetDomainModel, ChildStructure, ListeroDetails, BetPlacementInput, RawBetTotals } from './bet.types';
 import { IBetStorage, IBetApi } from './bet.ports';
 import { logger } from '@/shared/utils/logger';
 import { ListBetsFilters } from '@/shared/services/bet/types';
 import { BetType } from '@/types';
 import { isServerReachable } from '@/shared/utils/network';
+import { offlineEventBus } from '@/shared/core/offline-storage/instance';
+import { notificationRepository } from '../notification';
+import { dlqRepository } from '../dlq';
 
 // Flows
 import { placeBetFlow, placeBatchFlow } from './flows/place-bet.flow';
@@ -16,10 +19,6 @@ import { getFinancialSummaryFlow, getTotalsByDrawIdFlow } from './flows/financia
 import { BetStorageAdapter } from './adapters/bet.storage.adapter';
 import { BetApiAdapter } from './adapters/bet.api.adapter';
 import { BetSyncListener } from './sync/bet.sync.listener';
-import { offlineEventBus } from '@/shared/core/offline-storage/instance';
-import { notificationRepository } from '../notification';
-
-import { dlqRepository } from '../dlq';
 
 const log = logger.withTag('BetRepository');
 
@@ -143,39 +142,62 @@ export class BetRepository implements IBetRepository {
         });
     }
 
-    /**
-     * Optimistic Place Bet: Saves locally and tries to sync.
-     */
-    async placeBet(betData: BetPlacementInput): Promise<Result<BetRepositoryResult, Error>> {
-        try {
-            const result = await placeBetFlow(betData as any, this.storage, this.api);
-            this.triggerGlobalPendingSyncIfOnline();
-            return result;
-        } catch (error) {
-            this.log.error('Error in placeBet', error);
-            return err(error instanceof Error ? error : new Error(String(error)));
-        }
-    }
+    // ============================================================================
+    // REPOSITORIO DE APUESTAS (SENIOR SYMMETRIC IMPLEMENTATION)
+    // ============================================================================
 
     /**
-     * Optimistic Place Batch: Saves all locally and returns pending results.
-     */
-    async placeBatch(bets: BetPlacementInput[]): Promise<Result<BetType[], Error>> {
-        try {
-            const result = await placeBatchFlow(bets as any, this.storage, this.api);
-            this.triggerGlobalPendingSyncIfOnline();
-            return result as Result<BetType[], Error>;
-        } catch (error) {
-            this.log.error('Error in placeBatch', error);
-            return err(error instanceof Error ? error : new Error(String(error)));
-        }
-    }
-
-    /**
-     * Get all bets (Offline + Online) with deduplication.
+     * Obtiene apuestas (Caché local + Refresco remoto asíncrono)
      */
     async getBets(filters?: ListBetsFilters): Promise<Result<BetType[], Error>> {
-        return await getBetsFlow(this.storage, this.api, filters);
+        // 1. CACHE-FIRST: Retorno inmediato de datos locales (incluye pendientes)
+        const local = await getBetsFlow(this.storage, this.api, filters);
+        
+        // 2. REMOTE-FALLBACK: Disparo de refresco en fondo si hay red
+        if (local.isOk()) {
+            this.fetchAndCacheRemote(filters).catch(() => {}); 
+        }
+
+        return local;
+    }
+
+    /**
+     * Crea una apuesta (Local-First / Confirmación Instantánea)
+     */
+    async placeBet(betData: BetPlacementInput): Promise<Result<BetRepositoryResult, Error>> {
+        return ResultAsync.fromPromise(placeBetFlow(betData as any, this.storage, this.api), e => e as Error)
+            .andThen(result => {
+                this.triggerGlobalPendingSyncIfOnline();
+                return ok(result);
+            });
+    }
+
+    /**
+     * Crea un lote de apuestas (Batch Local-First)
+     */
+    async placeBatch(bets: BetPlacementInput[]): Promise<Result<BetType[], Error>> {
+        return ResultAsync.fromPromise(placeBatchFlow(bets as any, this.storage, this.api), e => e as Error)
+            .andThen(result => {
+                this.triggerGlobalPendingSyncIfOnline();
+                return ok(result as BetType[]);
+            });
+    }
+
+    // ============================================================================
+    // MÉTODOS PRIVADOS DE APOYO (ORQUESTACIÓN)
+    // ============================================================================
+
+    private async fetchAndCacheRemote(filters?: ListBetsFilters): Promise<void> {
+        const isOnline = await isServerReachable();
+        if (!isOnline) return;
+
+        try {
+            // El flow de obtención ya orquesta la mezcla, aquí solo forzamos el refresco de la API
+            await this.api.list(filters);
+            this.notifySubscribers();
+        } catch (error) {
+            this.log.debug('Background refresh skipped or failed', error);
+        }
     }
 
     /**

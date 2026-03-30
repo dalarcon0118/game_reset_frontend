@@ -81,10 +81,20 @@ export class BetSyncListener {
      * Maneja el éxito de sincronización.
      */
     private async handleSyncSuccess(payload: { entityId: string; backendId?: string }): Promise<void> {
-        const { entityId } = payload;
+        const { entityId, backendId } = payload;
         try {
-            log.info(`[BET-SYNC-FLOW] 3. Recibido éxito de sincronización para apuesta: ${entityId}`);
-            log.debug(`Bet ${entityId} synced successfully, syncContext handled by success flow`);
+            log.info(`[BET-SYNC-FLOW] 3. Recibido éxito de sincronización para apuesta: ${entityId} (BackendID: ${backendId})`);
+            
+            // Actualizamos la apuesta a estado 'synced' y guardamos el ID del backend
+            await this.storage.updateStatus(entityId, 'synced', {
+                backendId: backendId,
+                syncContext: {
+                    lastAttempt: Date.now(),
+                    syncedAt: Date.now()
+                }
+            });
+            
+            log.info(`[BET-SYNC-FLOW] 4. Estado de apuesta ${entityId} actualizado a: synced`);
         } catch (e) {
             log.error(`[BET-SYNC-FLOW] Error en handleSyncSuccess para apuesta ${entityId}`, e);
         }

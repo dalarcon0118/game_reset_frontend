@@ -12,3 +12,13 @@ jest.mock('@react-native-community/netinfo', () => ({
   addEventListener: jest.fn(),
   useNetInfo: jest.fn(),
 }));
+
+// Mock LogBox for tests
+jest.mock('react-native', () => {
+  const RN = jest.requireActual('react-native');
+  RN.LogBox = {
+    ignoreLogs: jest.fn(),
+    ignoreAllLogs: jest.fn(),
+  };
+  return RN;
+});

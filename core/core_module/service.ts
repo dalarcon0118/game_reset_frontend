@@ -10,6 +10,7 @@ import { syncWorker } from '@shared/core/offline-storage/instance';
 import { BetPushStrategy } from '@shared/repositories/bet/sync/bet.push.strategy';
 import { DlqPushStrategy } from '@shared/repositories/dlq/sync/dlq.push.strategy';
 import { DrawsPullStrategy } from '@shared/repositories/draw/sync/draws.pull.strategy';
+import { TelemetryPushStrategy } from '@shared/repositories/system/telemetry/sync/telemetry.push.strategy';
 import { CoreMsg } from './msg';
 import { CoreModel } from './model';
 import { systemJanitor } from './services/system-janitor.service';
@@ -351,6 +352,7 @@ export const CoreService = {
     syncWorker.registerStrategy('bet', new BetPushStrategy());
     syncWorker.registerStrategy('dlq', new DlqPushStrategy());
     syncWorker.registerStrategy('draw', new DrawsPullStrategy());
+    syncWorker.registerStrategy('telemetry', new TelemetryPushStrategy());
 
     // 2. Iniciar el worker (comenzará a procesar cuando haya conexión)
     syncWorker.start().catch(err => {

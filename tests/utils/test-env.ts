@@ -9,10 +9,10 @@ import { apiClient, setAuthRepository } from '@/shared/services/api_client';
 import { AuthRepository, User } from '@/shared/repositories/auth';
 import { settings } from '@/config/settings';
 import { logger } from '@/shared/utils/logger';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthModuleV1 } from '@/features/auth/v1/adapters/auth_provider';
 import { AuthStatus } from '@/shared/auth/v1/model';
 import { AuthMsg } from '@/shared/auth/v1/msg';
+const AsyncStorage = require('@react-native-async-storage/async-storage');
 // Mock de expo-crypto para generar UUIDs reales en tests
 jest.mock('expo-crypto', () => {
     const crypto = require('crypto');
@@ -52,36 +52,6 @@ jest.mock('expo-secure-store', () => {
     };
 });
 
-jest.mock('@react-native-async-storage/async-storage', () => {
-    let internalStorage: Record<string, string> = {};
-    return {
-        setItem: jest.fn(async (key: string, value: string) => {
-            internalStorage[key] = value;
-        }),
-        getItem: jest.fn(async (key: string) => internalStorage[key] || null),
-        removeItem: jest.fn(async (key: string) => {
-            delete internalStorage[key];
-        }),
-        multiSet: jest.fn(async (pairs: [string, string][]) => {
-            pairs.forEach(([key, value]) => {
-                internalStorage[key] = value;
-            });
-        }),
-        multiGet: jest.fn(async (keys: string[]) => {
-            return keys.map(key => [key, internalStorage[key] || null]);
-        }),
-        multiRemove: jest.fn(async (keys: string[]) => {
-            keys.forEach(key => {
-                delete internalStorage[key];
-            });
-        }),
-        clear: jest.fn(async () => { internalStorage = {}; }),
-        getAllKeys: jest.fn(async () => Object.keys(internalStorage)),
-        _getStorage: () => internalStorage,
-        _resetStorage: () => { internalStorage = {}; }
-    };
-});
-
 jest.mock('@react-native-community/netinfo', () => ({
     fetch: jest.fn().mockResolvedValue({ isConnected: true }),
     addEventListener: jest.fn(() => jest.fn()),
@@ -114,8 +84,16 @@ jest.mock('@/shared/utils/logger', () => {
 
 export const createTestEnv = async () => {
     // 1. Reset Storage
-    (AsyncStorage as unknown as MockedAsyncStorage)._resetStorage();
-    const mockStorage = (AsyncStorage as unknown as MockedAsyncStorage)._getStorage();
+    const storage = (AsyncStorage as any)._resetStorage ? AsyncStorage : ((AsyncStorage as any).default || AsyncStorage);
+
+    if (typeof storage._resetStorage === 'function') {
+        storage._resetStorage();
+    } else {
+        console.warn('⚠️ AsyncStorage._resetStorage not found, using clear()');
+        await storage.clear();
+    }
+
+    const mockStorage = typeof storage._getStorage === 'function' ? storage._getStorage() : {};
 
     // 2. Setup Middleware
     const testMiddleware = createTestMiddleware<Model, Msg>();

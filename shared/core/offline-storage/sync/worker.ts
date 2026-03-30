@@ -68,20 +68,25 @@ export class SyncWorkerCore {
      * Ejecuta una pasada de sincronización y devuelve un reporte detallado.
      */
     async triggerSync(): Promise<SyncReport> {
+        return this.forceSync();
+    }
+
+    async forceSync(entityType?: string): Promise<SyncReport> {
         const startTime = Date.now();
         const errors: { entityId: string; type: string; reason: string }[] = [];
 
         if (workerState.currentPromise) {
-            log.debug('Sync already in progress, waiting...');
+            log.debug('[DEBUG_SYNC_WORKER] Sync already in progress, waiting...');
             return workerState.currentPromise;
         }
 
         const run = async (): Promise<SyncReport> => {
-            log.debug(`[TRIGGER_SYNC] Manual trigger started - isOnline: ${await isServerReachable()}`);
+            log.debug(`[DEBUG_SYNC_WORKER] Manual trigger started - isOnline: ${await isServerReachable()}`);
             const isOnline = await isServerReachable();
             WorkerStateManager.setOnline(isOnline);
 
             if (!isOnline) {
+                log.debug('[DEBUG_SYNC_WORKER] Worker is offline, skipping sync');
                 return {
                     timestamp: Date.now(),
                     status: 'OFFLINE',
@@ -93,7 +98,10 @@ export class SyncWorkerCore {
                 };
             }
 
-            const pendingItems = await SyncAdapter.getPendingItems();
+            const allPendingItems = await SyncAdapter.getPendingItems();
+            const pendingItems = entityType
+                ? allPendingItems.filter((item) => item.type.toLowerCase() === entityType.toLowerCase())
+                : allPendingItems;
             if (pendingItems.length === 0) {
                 return {
                     timestamp: Date.now(),
@@ -209,14 +217,16 @@ export class SyncWorkerCore {
                 let outcomes: SyncOutcome[];
 
                 if (strategy.pushBatch && group.length > 1) {
-                    log.debug(`Using pushBatch for ${type} with ${group.length} items`);
+                    log.debug(`[DEBUG_SYNC_WORKER] Using pushBatch for ${type} with ${group.length} items`);
                     outcomes = await strategy.pushBatch(group);
                 } else if (strategy.push) {
-                    log.debug(`Using sequential push for ${type}`);
+                    log.debug(`[DEBUG_SYNC_WORKER] Using sequential push for ${type}`);
                     outcomes = await Promise.all(group.map(item => strategy.push!(item)));
                 } else {
                     throw new Error(`Strategy for ${type} does not support push or pushBatch`);
                 }
+
+                log.debug(`[DEBUG_SYNC_WORKER] Received ${outcomes.length} outcomes for ${type}`);
 
                 // Preparar actualizaciones y eliminaciones por lote
                 const itemsToRemove: string[] = [];

@@ -57,8 +57,8 @@ export interface ManagementSession {
  * Each sub-module message is wrapped in its own variant.
  */
 export type FeatureMsg =
-    | LoteriaFeatMsg
-    | RulesMsg
+    | { type: 'LOTERIA'; payload: LoteriaMsg }
+    | { type: 'RULES'; payload: RulesMsg }
     | { type: 'FETCH_DRAW_DETAILS_RESPONSE'; response: WebData<DrawType> }
     | { type: 'FETCH_BET_TYPES_RESPONSE'; response: WebData<GameType[]> }
     | { type: 'FETCH_EXISTING_BETS_RESPONSE'; response: WebData<LoteriaBet[]> }

@@ -72,7 +72,8 @@ class DeviceRepositoryImpl implements IDeviceRepository {
 
         if (!securedId && cachedId) {
             log.debug('Restoring DeviceID to SecureStore from cache');
-            await SecureStore.setItemAsync(DEVICE_IDENTITY_KEY, cachedId, DEVICE_SECURE_OPTIONS);
+            const stringId = typeof cachedId === 'string' ? cachedId : String(cachedId ?? '');
+            await SecureStore.setItemAsync(DEVICE_IDENTITY_KEY, stringId, DEVICE_SECURE_OPTIONS);
         }
 
         return securedId || cachedId;
@@ -83,7 +84,9 @@ class DeviceRepositoryImpl implements IDeviceRepository {
             localStorage.setItem(DEVICE_IDENTITY_KEY, id);
         } else {
             // Guardar en ambas fuentes (SSoT Multinivel)
-            await SecureStore.setItemAsync(DEVICE_IDENTITY_KEY, id, DEVICE_SECURE_OPTIONS);
+            // Defensive check: Ensure id is a string
+            const stringId = typeof id === 'string' ? id : String(id ?? '');
+            await SecureStore.setItemAsync(DEVICE_IDENTITY_KEY, stringId, DEVICE_SECURE_OPTIONS);
             await storageClient.set(DEVICE_IDENTITY_KEY, id);
         }
     }

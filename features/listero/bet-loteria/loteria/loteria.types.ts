@@ -1,4 +1,5 @@
-import { createMsg } from '@core/tea-utils';
+import { createMsg, WebData } from '@core/tea-utils';
+import { BetType } from '@/types';
 
 // ============================================================================
 // Message Constructors
@@ -17,7 +18,7 @@ export const REQUEST_SAVE = createMsg<'REQUEST_SAVE', { drawId: string }>('REQUE
 export const INIT = createMsg<'INIT', { drawId: string; isEditing?: boolean; structureId?: string }>('INIT');
 export const REFRESH_BETS = createMsg<'REFRESH_BETS', { drawId: string }>('REFRESH_BETS');
 export const CONFIRM_SAVE_BETS = createMsg<'CONFIRM_SAVE_BETS', { drawId: string }>('CONFIRM_SAVE_BETS');
-export const SAVE_BETS_RESPONSE = createMsg<'SAVE_BETS_RESPONSE', { response: any }>('SAVE_BETS_RESPONSE');
+export const SAVE_BETS_RESPONSE = createMsg<'SAVE_BETS_RESPONSE', { response: WebData<BetType[]>; drawId: string; receiptCode: string }>('SAVE_BETS_RESPONSE');
 export const SAVE_SUCCESS = createMsg<'SAVE_SUCCESS'>('SAVE_SUCCESS');
 export const SAVE_FAILURE = createMsg<'SAVE_FAILURE', { error: string }>('SAVE_FAILURE');
 

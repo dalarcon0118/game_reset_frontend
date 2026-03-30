@@ -91,7 +91,7 @@ export type Unsubscribe = () => void;
 
 export type SyncStatus = 'pending' | 'syncing' | 'synced' | 'blocked' | 'error';
 export type QueueItemStatus = 'pending' | 'processing' | 'completed' | 'failed';
-export type SyncEntityType = 'bet' | 'financial_update' | 'bet_deletion' | 'dlq';
+export type SyncEntityType = 'bet' | 'financial_update' | 'bet_deletion' | 'dlq' | 'telemetry';
 export type WorkerStatus = 'idle' | 'running' | 'paused' | 'error' | 'stopping' | 'stopped';
 
 export interface SyncQueueItem {
@@ -176,8 +176,8 @@ export const SYNC_CONSTANTS = {
  * Define cuánto tiempo persistirán los datos en el almacenamiento local
  */
 export const STORAGE_TTL = {
-  /** Sorteos (Draws): 4 horas - suficiente para el día actual */
-  DRAW: 8 * 60 * 60 * 1000,
+  /** Sorteos (Draws): 20 horas - suficiente para el día actual */
+  DRAW: 20 * 60 * 60 * 1000,
 
   /** Tipos de apuesta (Bet Types): 24 horas */
   BET_TYPE: 24 * 60 * 60 * 1000,
