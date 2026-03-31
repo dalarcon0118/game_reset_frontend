@@ -1,10 +1,12 @@
 export interface Notification {
     id: string;
+    clientId?: string; // ID único generado en el cliente para reconciliación
     title: string;
     message: string;
     type: 'info' | 'warning' | 'error' | 'success';
     status: 'pending' | 'read';
     createdAt: string;
+    updatedAt: string; // Timestamp de la última modificación local
     readAt?: string | null;
     userId?: string | null;
     metadata?: Record<string, any>;

@@ -3,7 +3,7 @@ import storageClient from './storage_client';
 import { offlineEventBus } from './event_bus';
 
 /**
- * Puertos compartidos
+ * Puertos compartidos por defecto (Infraestructura pura)
  */
 export const commonPorts = {
   storage: storageClient,

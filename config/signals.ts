@@ -15,6 +15,8 @@ export const DASHBOARD_REFRESH_CLICKED = createMsg<'DASHBOARD_REFRESH_CLICKED', 
 export const SYSTEM_READY = createMsg<'SYSTEM_READY', { date: string; structureId?: string; user?: any }>('SYSTEM_READY');
 // Nueva señal para通知 cuando el dashboard está listo con los draws
 export const DASHBOARD_READY = createMsg<'DASHBOARD_READY', { draws: WebData<DrawType[]> }>('DASHBOARD_READY');
+// Nuevo: Señal para sincronizar el contador de notificaciones
+export const NOTIFICATIONS_UPDATED = createMsg<'NOTIFICATIONS_UPDATED', { unreadCount: number }>('NOTIFICATIONS_UPDATED');
 
 export const GLOBAL = createMsg<'GLOBAL', typeof GLOBAL_LOGOUT._type>('GLOBAL');
 
@@ -27,4 +29,5 @@ export const GlobalSignals = {
     DASHBOARD_REFRESH_CLICKED,
     SYSTEM_READY,
     DASHBOARD_READY,
+    NOTIFICATIONS_UPDATED,
 } as const;

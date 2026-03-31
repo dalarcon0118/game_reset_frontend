@@ -1,5 +1,5 @@
 import { createTEAModule, defineTeaModule } from '@core/engine/tea_module';
-import { Cmd, ret } from '@core/tea-utils';
+import { Cmd, ret, singleton } from '@core/tea-utils';
 import { Model } from './model';
 import { Msg, FETCH_NOTIFICATIONS_REQUESTED, FETCH_PENDING_REWARDS_COUNT_REQUESTED } from './msg';
 import { update, subscriptions } from './update';
@@ -28,13 +28,9 @@ export const initialNotificationModel: Model = {
 export const notificationDefinition = defineTeaModule<Model, Msg>({
     name: 'Notification',
     initial: () => {
-        return ret(
-            initialNotificationModel,
-            Cmd.batch([
-                Cmd.ofMsg(FETCH_NOTIFICATIONS_REQUESTED()),
-                Cmd.ofMsg(FETCH_PENDING_REWARDS_COUNT_REQUESTED())
-            ])
-        );
+        // No disparamos comandos iniciales. 
+        // Esperamos a que la suscripción de sesión detecte un usuario válido.
+        return singleton(initialNotificationModel);
     },
     update,
     subscriptions

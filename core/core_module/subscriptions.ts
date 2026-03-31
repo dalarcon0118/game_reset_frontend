@@ -10,12 +10,16 @@ import { CoreService } from './service';
  */
 export function subscriptions(model: CoreModel): SubDescriptor<CoreMsg> {
   const isBootstraping = model.bootstrapStatus !== 'IDLE';
+  const isAuthenticated = model.sessionStatus === 'AUTHENTICATED';
 
   return Sub.batch([
     // 1. Suscripción al sensor de conectividad global (Activo desde el inicio del bootstrap)
     isBootstraping ? Sub.custom((dispatch) => {
       return CoreService.subscribeToConnectivity(dispatch);
     }, 'CORE_CONNECTIVITY_SENSOR') : Sub.none(),
+
+    // 2. Verificar expiración de sesión cada 5 minutos si está autenticado
+    isAuthenticated ? Sub.every(5 * 60 * 1000, { type: 'CHECK_SESSION_EXPIRATION' }, 'SESSION_EXPIRATION_CHECKER') : Sub.none(),
 
     // 2. Suscripción al cambio de sesión en AuthRepository
     Sub.custom((dispatch) => {

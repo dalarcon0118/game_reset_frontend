@@ -1,7 +1,7 @@
-import { NotificationApiAdapter } from './adapters/notification.api.adapter';
+import { NotificationRepository } from './notification.repository';
 import { INotificationRepository } from './notification.ports';
 
 export * from './notification.ports';
 
-// Singleton instance of the repository
-export const notificationRepository: INotificationRepository = new NotificationApiAdapter();
+// Singleton instance of the repository (SSOT & Offline-First)
+export const notificationRepository: INotificationRepository = new NotificationRepository();

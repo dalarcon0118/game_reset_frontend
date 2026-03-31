@@ -1,26 +1,40 @@
 import React from 'react';
 import { StyleSheet, View, TouchableOpacity } from 'react-native';
 import { Bell, HelpCircle, Eye, EyeOff, User } from 'lucide-react-native';
-import { Label, Flex } from '@/shared/components';
-import { useAuth } from '@/features/auth';
+import { Label, Flex, Badge } from '@/shared/components';
 import { COLORS } from '@/shared/components/constants';
-import { useDashboardStore } from '../core/store';
-import { 
-  HELP_CLICKED, 
-  NOTIFICATIONS_CLICKED, 
-  SETTINGS_CLICKED, 
-  TOGGLE_BALANCE, 
-  REFRESH_CLICKED 
-} from '../core/msg';
 
 interface HeaderProps {
-  onRefresh: () => void;
+  username: string;
+  structureName: string;
+  showBalance: boolean;
+  unreadCount: number;
+  pendingRewardsCount?: number;
+  onHelp: () => void;
+  onNotifications: () => void;
+  onSettings: () => void;
+  onToggleBalance: () => void;
 }
 
-export default function Header({ onRefresh }: HeaderProps) {
-  const { user } = useAuth();
-  const showBalance = useDashboardStore((state) => state.model.showBalance);
-  const dispatch = useDashboardStore((state) => state.dispatch);
+export default function Header({ 
+  username, 
+  structureName, 
+  showBalance, 
+  unreadCount,
+  pendingRewardsCount = 0,
+  onHelp,
+  onNotifications,
+  onSettings,
+  onToggleBalance
+}: HeaderProps) {
+  
+  const formatBadgeCount = (count: number): string | null => {
+    if (count <= 0) return null;
+    return count > 99 ? '99+' : count.toString();
+  };
+
+  const notificationBadge = formatBadgeCount(unreadCount);
+  const rewardsBadge = formatBadgeCount(pendingRewardsCount);
 
   return (
     <View style={styles.container}>
@@ -29,7 +43,7 @@ export default function Header({ onRefresh }: HeaderProps) {
         <Flex align="center" gap={10}>
           <TouchableOpacity 
             style={styles.profileIcon}
-            onPress={() => dispatch(SETTINGS_CLICKED())}
+            onPress={onSettings}
             activeOpacity={0.7}
           >
             <User size={24} color={COLORS.primary} />
@@ -37,9 +51,9 @@ export default function Header({ onRefresh }: HeaderProps) {
           <View>
             <Flex align="baseline" gap={6}>
               <Label type="detail" style={styles.welcomeText}>Hola,</Label>
-              <Label type="header" style={styles.userName}>{user?.username || 'Usuario'}</Label>
+              <Label type="header" style={styles.userName}>{username}</Label>
             </Flex>
-            <Label type="subheader" style={styles.structureName}>{user?.structure?.name || 'Mi Estructura'}</Label>
+            <Label type="subheader" style={styles.structureName}>{structureName}</Label>
           </View>
         </Flex>
         <Label type="subheader" style={styles.appName}>MONSTER</Label>
@@ -48,7 +62,7 @@ export default function Header({ onRefresh }: HeaderProps) {
       {/* Action Icons Row */}
       <Flex justify="end" align="center" gap={12} style={styles.actionRow}>
         <TouchableOpacity 
-          onPress={() => dispatch(HELP_CLICKED())} 
+          onPress={onHelp} 
           style={styles.iconButton}
           activeOpacity={0.7}
         >
@@ -56,15 +70,33 @@ export default function Header({ onRefresh }: HeaderProps) {
         </TouchableOpacity>
 
         <TouchableOpacity 
-          onPress={() => dispatch(NOTIFICATIONS_CLICKED())} 
+          onPress={onNotifications} 
           style={styles.iconButton}
           activeOpacity={0.7}
         >
-          <Bell size={20} color={COLORS.textDark} />
+          <View>
+            <Bell size={20} color={COLORS.textDark} />
+            {notificationBadge && (
+              <Badge 
+                content={notificationBadge}
+                color={COLORS.danger}
+                textColor="#FFF"
+                style={styles.notificationBadge}
+              />
+            )}
+            {rewardsBadge && (
+              <Badge 
+                content={rewardsBadge}
+                color={COLORS.success}
+                textColor="#FFF"
+                style={styles.rewardsBadge}
+              />
+            )}
+          </View>
         </TouchableOpacity>
 
         <TouchableOpacity 
-          onPress={() => dispatch(TOGGLE_BALANCE())} 
+          onPress={onToggleBalance} 
           style={styles.iconButton}
           activeOpacity={0.7}
         >
@@ -96,6 +128,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: COLORS.border,
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -8,
+    right: -10,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    paddingVertical: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FFF',
+    zIndex: 2,
+  },
+  rewardsBadge: {
+    position: 'absolute',
+    bottom: -6,
+    left: -10,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 3,
+    paddingVertical: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FFF',
+    zIndex: 1,
   },
   welcomeText: {
     fontSize: 12,

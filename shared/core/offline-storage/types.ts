@@ -91,7 +91,7 @@ export type Unsubscribe = () => void;
 
 export type SyncStatus = 'pending' | 'syncing' | 'synced' | 'blocked' | 'error';
 export type QueueItemStatus = 'pending' | 'processing' | 'completed' | 'failed';
-export type SyncEntityType = 'bet' | 'financial_update' | 'bet_deletion' | 'dlq' | 'telemetry';
+export type SyncEntityType = 'bet' | 'financial_update' | 'bet_deletion' | 'dlq' | 'telemetry' | 'notification';
 export type WorkerStatus = 'idle' | 'running' | 'paused' | 'error' | 'stopping' | 'stopped';
 
 export interface SyncQueueItem {

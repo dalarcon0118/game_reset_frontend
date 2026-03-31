@@ -11,11 +11,17 @@ import { BetPushStrategy } from '@shared/repositories/bet/sync/bet.push.strategy
 import { DlqPushStrategy } from '@shared/repositories/dlq/sync/dlq.push.strategy';
 import { DrawsPullStrategy } from '@shared/repositories/draw/sync/draws.pull.strategy';
 import { TelemetryPushStrategy } from '@shared/repositories/system/telemetry/sync/telemetry.push.strategy';
+import { NotificationSyncStrategy } from '@shared/repositories/notification/sync/notification.sync.strategy';
+import { offlineStorage } from '@shared/core/offline-storage/instance';
+import { TimerRepository } from '@shared/repositories/system/time';
 import { CoreMsg } from './msg';
 import { CoreModel } from './model';
 import { systemJanitor } from './services/system-janitor.service';
 import { Cmd } from '@core/tea-utils/cmd';
 import { SYSTEM_READY } from '@/config/signals';
+import { notificationRepository } from '@/shared/repositories/notification';
+import { SessionPolicy } from '@/shared/auth/session/session.policy';
+import { TokenState } from '@/shared/auth/session/session.types';
 
 const log = logger.withTag('CORE_SERVICE');
 
@@ -215,6 +221,44 @@ export const CoreService = {
   },
 
   /**
+   * Verifica la proximidad de expiración del token y notifica si es necesario.
+   */
+  async checkSessionExpirationProximity(): Promise<void> {
+    try {
+      const authRepo = getAuthRepo();
+      const { access } = await authRepo.getToken();
+      if (!access) return;
+
+      const tokenState = SessionPolicy.resolveTokenState(access);
+      
+      // Si el token está por expirar (dentro del umbral de skew), notificamos
+      if (tokenState === TokenState.EXPIRED_SKEW) {
+        log.warn('Session close to expiration, notifying user...');
+        await notificationRepository.addNotification({
+          title: 'Sesión por expirar',
+          message: 'Tu sesión expirará pronto. Asegúrate de sincronizar tus apuestas pendientes.',
+          type: 'warning',
+          metadata: { type: 'SESSION_EXPIRING_SOON' }
+        });
+      }
+    } catch (e) {
+      log.error('Error checking session expiration proximity', e);
+    }
+  },
+
+  /**
+   * Tarea para verificar la expiración de la sesión.
+   */
+  checkSessionExpirationTask(): Cmd {
+    return Cmd.task({
+      task: () => this.checkSessionExpirationProximity(),
+      onSuccess: () => ({ type: 'NO_OP' } as any),
+      onFailure: () => ({ type: 'NO_OP' } as any),
+      label: 'CHECK_SESSION_EXPIRATION'
+    });
+  },
+
+  /**
    * Suscribe el dispatch a los eventos de conectividad del API Client y NetInfo.
    */
   subscribeToConnectivity(dispatch: (msg: CoreMsg) => void): () => void {
@@ -348,11 +392,15 @@ export const CoreService = {
   initializeSyncWorker(): void {
     log.info('Initializing SyncWorker with domain strategies...');
 
+    // 0. Configurar SSOT de Tiempo en el OfflineStorage
+
+
     // 1. Registrar estrategias
     syncWorker.registerStrategy('bet', new BetPushStrategy());
     syncWorker.registerStrategy('dlq', new DlqPushStrategy());
     syncWorker.registerStrategy('draw', new DrawsPullStrategy());
     syncWorker.registerStrategy('telemetry', new TelemetryPushStrategy());
+    syncWorker.registerStrategy('notification', new NotificationSyncStrategy());
 
     // 2. Iniciar el worker (comenzará a procesar cuando haya conexión)
     syncWorker.start().catch(err => {

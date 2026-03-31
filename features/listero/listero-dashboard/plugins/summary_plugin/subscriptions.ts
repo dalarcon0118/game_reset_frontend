@@ -6,6 +6,14 @@ import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('SUMMARY_PLUGIN_SUBS');
 
+/**
+ * Resetea el estado de sincronización. 
+ * Implementado para consistencia con el protocolo de limpieza de plugins.
+ */
+export const resetSyncState = () => {
+  log.info('Resetting summary_plugin sync state');
+};
+
 export const subscriptions = (model: Model) => {
   // 1. Suscripción reactiva al Store del Dashboard (Host)
   // Observamos cambios en el model del host para sincronizar userStructureId y todayStart

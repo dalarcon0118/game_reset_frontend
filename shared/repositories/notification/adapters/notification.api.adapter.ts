@@ -2,20 +2,38 @@ import { INotificationRepository, Notification } from '../notification.ports';
 import { NotificationApi } from '../api/api';
 import settings from '../../../../config/settings';
 import { logger } from '../../../utils/logger';
+import { NotificationOfflineAdapter } from './notification.offline.adapter';
+import { isServerReachable } from '@/shared/utils/network';
 
 const log = logger.withTag('NOTIFICATION_ADAPTER');
 
+/**
+ * Orchestrator for Notification infrastructure.
+ * Stateless and deterministic: delegates storage to specialized adapters.
+ */
 export class NotificationApiAdapter implements INotificationRepository {
-    private localNotifications: Notification[] = [];
+    private offlineAdapter = new NotificationOfflineAdapter();
 
     async getNotifications(): Promise<Notification[]> {
+        // 1. Siempre obtener el inbox local persistido (Determinismo)
+        const local = await this.offlineAdapter.getAll();
+
         try {
+            // 2. Intentar refresco remoto solo si hay red
+            const isOnline = await isServerReachable();
+            if (!isOnline) {
+                log.info('System offline: returning local notifications only');
+                return local;
+            }
+
             const remote = await NotificationApi.getNotifications();
-            // Merge local and remote
-            return [...this.localNotifications, ...(remote as Notification[])];
+            
+            // 3. Mezclar resultados (Lógica de dominio básica en infraestructura)
+            // En una arquitectura más estricta, esto lo haría un mapper o el repositorio padre.
+            return [...local, ...(remote as Notification[])];
         } catch (error) {
             log.error('Failed to fetch remote notifications, returning local only', error);
-            return this.localNotifications;
+            return local;
         }
     }
 
@@ -27,46 +45,65 @@ export class NotificationApiAdapter implements INotificationRepository {
             status: 'pending'
         };
 
-        // Store locally
-        this.localNotifications.unshift(newNotification);
-        log.debug('Notification added locally', newNotification);
+        // Persistencia inmediata en el puerto offline (Efecto determinista)
+        await this.offlineAdapter.save(newNotification);
+        log.debug('Notification persisted offline', newNotification.id);
 
-        // Try to send to server (fire and forget for now, but in production we'd want to sync)
-        NotificationApi.createNotification(notification as any)
-            .then(() => log.debug('Notification synced to server'))
-            .catch(err => log.error('Failed to sync notification to server', err));
+        // Intento de sincronización remota (Fire and forget)
+        const isOnline = await isServerReachable();
+        if (isOnline) {
+            NotificationApi.createNotification(notification as any)
+                .then(() => log.debug('Notification synced to server'))
+                .catch(err => log.error('Failed to sync notification to server', err));
+        }
 
         return newNotification;
     }
 
     async markAsRead(notificationId: string): Promise<Notification> {
-        // Handle local notifications
-        const localIdx = this.localNotifications.findIndex(n => n.id === notificationId);
-        if (localIdx !== -1) {
-            this.localNotifications[localIdx] = {
-                ...this.localNotifications[localIdx],
-                status: 'read',
-                readAt: new Date().toISOString()
-            };
-            return this.localNotifications[localIdx];
+        // Intentar actualizar en storage local primero
+        const isLocal = notificationId.startsWith('local-');
+        
+        if (isLocal) {
+            const readAt = new Date().toISOString();
+            await this.offlineAdapter.updateStatus(notificationId, 'read', readAt);
+            
+            const updated = await this.offlineAdapter.getById(notificationId);
+            if (updated) return updated;
         }
 
+        // Si no es local o falló el storage, ir a API
         const result = await NotificationApi.markAsRead(notificationId);
         return result as Notification;
     }
 
     async markAllAsRead(): Promise<void> {
-        this.localNotifications = this.localNotifications.map(n => ({
-            ...n,
-            status: 'read',
-            readAt: new Date().toISOString()
-        }));
-        await NotificationApi.markAllAsRead();
+        // 1. Limpiar local inbox determinísticamente
+        const local = await this.offlineAdapter.getAll();
+        const readAt = new Date().toISOString();
+        
+        for (const n of local) {
+            if (n.status === 'pending') {
+                await this.offlineAdapter.updateStatus(n.id, 'read', readAt);
+            }
+        }
+
+        // 2. Sincronizar con API si hay red
+        const isOnline = await isServerReachable();
+        if (isOnline) {
+            await NotificationApi.markAllAsRead();
+        }
     }
 
     async deleteNotification(notificationId: string): Promise<void> {
-        this.localNotifications = this.localNotifications.filter(n => n.id !== notificationId);
-        await NotificationApi.deleteNotification(notificationId);
+        // Borrar de storage local
+        await this.offlineAdapter.delete(notificationId);
+
+        // Borrar de API si hay red
+        const isOnline = await isServerReachable();
+        if (isOnline) {
+            await NotificationApi.deleteNotification(notificationId);
+        }
     }
 
     getStreamUrl(token: string): string {
@@ -74,6 +111,6 @@ export class NotificationApiAdapter implements INotificationRepository {
     }
 
     isReady(): boolean {
-        return true; // Simple readiness check
+        return true;
     }
 }

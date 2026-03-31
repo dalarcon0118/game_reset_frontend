@@ -8,15 +8,11 @@ import { NotificationModule } from '../core/store';
 import { NAVIGATE_BACK, NAVIGATE_TO_DETAIL } from '../core/msg';
 
 export default function NotificationsScreen() {
-  return (
-    <NotificationModule.Provider>
-      <NotificationsContent />
-    </NotificationModule.Provider>
-  );
-}
-
-function NotificationsContent() {
   const dispatch = NotificationModule.useDispatch();
+
+  React.useEffect(() => {
+    dispatch({ type: 'REFRESH_NOTIFICATIONS' });
+  }, [dispatch]);
 
   const handleNotificationPress = React.useCallback((notification: AppNotification) => {
     dispatch(NAVIGATE_TO_DETAIL(notification));

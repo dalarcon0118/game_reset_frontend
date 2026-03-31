@@ -11,6 +11,10 @@ import {
 import { logger } from '@/shared/utils/logger';
 
 import { NotificationService } from './service';
+import { NOTIFICATIONS_UPDATED } from '@/config/signals';
+import { offlineEventBus } from '@core/offline-storage/instance';
+import { AuthRepository } from '@/shared/repositories/auth';
+import { NotificationOfflineKeys } from '@/shared/repositories/notification/NotificationOfflineKeys';
 
 
 // 🛠️ INJECT SERVICE
@@ -20,10 +24,52 @@ const log = logger.withTag('NOTIFICATION_CORE');
  * 🛰️ SUBSCRIPTIONS
  * Pure reaction to external state changes.
  */
-export const subscriptions = (_model: Model) => {
-    // SSE is now managed by the infrastructure/kernel.
-    // We only react to messages injected by the system.
-    return Sub.none();
+export const subscriptions = (model: Model) => {
+    return Sub.batch([
+        // 1. Escuchar cambios en el almacenamiento offline (SSOT) de forma reactiva.
+        Sub.custom((dispatch) => {
+            let isCancelled = false;
+            let unsubscribe = () => { };
+
+            AuthRepository.getUserIdentity().then(user => {
+                if (isCancelled || !user) return;
+
+                const userPattern = NotificationOfflineKeys.getPattern(String(user.id));
+                const prefix = userPattern.split('*')[0];
+
+                unsubscribe = offlineEventBus.subscribe((event) => {
+                    // Si cualquier notificación del usuario actual cambia, refrescamos el store.
+                    if (event.type === 'ENTITY_CHANGED' && event.entity.startsWith(prefix)) {
+                        log.debug('Notification storage changed, refreshing store UI');
+                        dispatch({ type: 'REFRESH_NOTIFICATIONS' });
+                    }
+                });
+            });
+
+            return () => {
+                isCancelled = true;
+                unsubscribe();
+            };
+        }, 'notification_storage_subscription'),
+
+        // 2. Escuchar cambios en la sesión para iniciar/resetear el sistema de notificaciones.
+        Sub.custom((dispatch) => {
+            log.info('Starting session subscription for notifications');
+
+            const unsubscribe = AuthRepository.onSessionChange((user) => {
+                if (user) {
+                    log.info(`User authenticated (ID: ${user.id}), fetching notifications...`);
+                    dispatch({ type: 'REFRESH_NOTIFICATIONS' });
+                    dispatch({ type: 'FETCH_PENDING_REWARDS_COUNT_REQUESTED' });
+                } else {
+                    log.info('User logged out, resetting notification state');
+                    dispatch({ type: 'RESET_STATE' });
+                }
+            });
+
+            return unsubscribe;
+        }, 'notification_session_subscription')
+    ]);
 };
 
 // --- Pure Helper Functions ---
@@ -66,12 +112,15 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
             if (webData.type === 'Success') {
                 const filteredNotifications = filterNotifications(webData.data, model.currentFilter);
                 const unreadCount = calculateUnreadCount(webData.data);
-                return singleton({
-                    ...model,
-                    notifications: RemoteData.success(filteredNotifications),
-                    unreadCount,
-                    allNotifications: webData.data
-                });
+                return ret(
+                    {
+                        ...model,
+                        notifications: RemoteData.success(filteredNotifications),
+                        unreadCount,
+                        allNotifications: webData.data
+                    },
+                    Cmd.sendMsg(NOTIFICATIONS_UPDATED({ unreadCount }))
+                );
             }
             return singleton({ ...model, notifications: webData });
         })
@@ -95,7 +144,10 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
                     notifications: RemoteData.success(filteredNotifications),
                     unreadCount
                 },
-                NotificationService.getInstance().markAsRead(notificationId)
+                Cmd.batch([
+                    NotificationService.getInstance().markAsRead(notificationId),
+                    Cmd.sendMsg(NOTIFICATIONS_UPDATED({ unreadCount }))
+                ])
             );
         })
 
@@ -110,12 +162,15 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
                 );
                 const filteredNotifications = filterNotifications(updatedNotifications, model.currentFilter);
                 const unreadCount = calculateUnreadCount(updatedNotifications);
-                return singleton({
-                    ...model,
-                    allNotifications: updatedNotifications,
-                    notifications: RemoteData.success(filteredNotifications),
-                    unreadCount
-                });
+                return ret(
+                    {
+                        ...model,
+                        allNotifications: updatedNotifications,
+                        notifications: RemoteData.success(filteredNotifications),
+                        unreadCount
+                    },
+                    Cmd.sendMsg(NOTIFICATIONS_UPDATED({ unreadCount }))
+                );
             }
             return singleton({ ...model, notifications: webData as any });
         })
@@ -137,7 +192,10 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
                     notifications: RemoteData.success(filteredNotifications),
                     unreadCount: 0
                 },
-                NotificationService.getInstance().markAllAsRead()
+                Cmd.batch([
+                    NotificationService.getInstance().markAllAsRead(),
+                    Cmd.sendMsg(NOTIFICATIONS_UPDATED({ unreadCount: 0 }))
+                ])
             );
         })
 
@@ -150,12 +208,15 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
                     readAt: timestamp
                 }));
                 const filteredNotifications = filterNotifications(updatedNotifications, model.currentFilter);
-                return singleton({
-                    ...model,
-                    allNotifications: updatedNotifications,
-                    notifications: RemoteData.success(filteredNotifications),
-                    unreadCount: 0
-                });
+                return ret(
+                    {
+                        ...model,
+                        allNotifications: updatedNotifications,
+                        notifications: RemoteData.success(filteredNotifications),
+                        unreadCount: 0
+                    },
+                    Cmd.sendMsg(NOTIFICATIONS_UPDATED({ unreadCount: 0 }))
+                );
             }
             return singleton({ ...model, notifications: webData as any });
         })
@@ -208,12 +269,15 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
             const filteredNotifications = filterNotifications(allNotifications, model.currentFilter);
             const unreadCount = calculateUnreadCount(allNotifications);
 
-            return singleton({
-                ...model,
-                allNotifications: allNotifications,
-                notifications: RemoteData.success(filteredNotifications),
-                unreadCount
-            });
+            return ret(
+                {
+                    ...model,
+                    allNotifications: allNotifications,
+                    notifications: RemoteData.success(filteredNotifications),
+                    unreadCount
+                },
+                Cmd.sendMsg(NOTIFICATIONS_UPDATED({ unreadCount }))
+            );
         })
 
         .with({ type: 'REMOVE_NOTIFICATION' }, ({ notificationId }) => {

@@ -11,20 +11,39 @@ import { RemoteData } from '@core/tea-utils';
 import { Label } from '@/shared/components';
 import Header from '../views/header';
 import { useDashboardStore, useListeroDashboardStoreApi } from '../store';
-import { REFRESH_CLICKED, PROMOTION_MSG } from '../core/msg';
+import { useNotificationStore, NotificationModule } from '@/features/notification';
+import { FETCH_NOTIFICATIONS_REQUESTED } from '@/features/notification/core/msg';
+import { 
+    REFRESH_CLICKED, 
+    PROMOTION_MSG,
+    HELP_CLICKED,
+    NOTIFICATIONS_CLICKED,
+    SETTINGS_CLICKED,
+    TOGGLE_BALANCE
+} from '../core/msg';
+import { useAuth } from '@/features/auth';
 import { CLOSE_PROMOTIONS_MODAL, PARTICIPATE_CLICKED } from '../../../../shared/components/promotion/msg';
 import { Slot } from '@core/plugins';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDashboardLifecycle } from '../core/lifecycle';
 import { PromotionModal } from '../../../../shared/components/promotion/PromotionModal';
 import { pipe as $ } from 'fp-ts/lib/function';
-$()
+
 export default function DashboardScreen() {
     
     // Using useShallow to only re-render if the model properties actually change.
     // This helps avoid re-renders from the 1s TICK if those specific fields don't change.
     const model = useDashboardStore(useShallow((state) => state.model));
     const dispatch = useDashboardStore((state) => state.dispatch);
+
+    const { user } = useAuth();
+    const { unreadCount, pendingRewardsCount } = useNotificationStore(
+        useShallow((state) => ({
+            unreadCount: state.model.unreadCount,
+            pendingRewardsCount: state.model.pendingRewardsCount
+        }))
+    );
+    const notificationDispatch = NotificationModule.useDispatch();
 
     // Manage Dashboard Lifecycle (Initialization & Cleanup)
     // Pass the actual store API (Zustand store) to lifecycle
@@ -33,7 +52,17 @@ export default function DashboardScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
-            <Header onRefresh={() => dispatch(REFRESH_CLICKED())} />
+            <Header 
+                username={user?.username || 'Usuario'}
+                structureName={user?.structure?.name || 'Mi Estructura'}
+                showBalance={model.showBalance}
+                unreadCount={unreadCount}
+                pendingRewardsCount={pendingRewardsCount}
+                onHelp={() => dispatch(HELP_CLICKED())}
+                onNotifications={() => dispatch(NOTIFICATIONS_CLICKED())}
+                onSettings={() => dispatch(SETTINGS_CLICKED())}
+                onToggleBalance={() => dispatch(TOGGLE_BALANCE())}
+            />
             <ScrollView 
                 style={styles.container} 
                 contentContainerStyle={styles.scrollContent}

@@ -23,13 +23,30 @@ export interface CoreConfig {
  */
 export class OfflineStorageCore {
   constructor(
-    private readonly ports: {
+    private ports: {
       storage: StoragePort;
       clock: ClockPort;
       events: EventBusPort;
     },
     private readonly config: CoreConfig = { version: 'v2' }
   ) { }
+
+  /**
+   * Configura los puertos del motor dinámicamente.
+   * Permite inyección de dependencias desde capas superiores (ej. CoreModule).
+   */
+  configure(ports: Partial<{
+    storage: StoragePort;
+    clock: ClockPort;
+    events: EventBusPort;
+  }>): void {
+    this.ports = { ...this.ports, ...ports };
+    log.info('OfflineStorageCore configured with new ports', { 
+      hasClock: !!ports.clock,
+      hasStorage: !!ports.storage,
+      hasEvents: !!ports.events
+    });
+  }
 
   /**
    * Guarda un item con metadatos y emite evento

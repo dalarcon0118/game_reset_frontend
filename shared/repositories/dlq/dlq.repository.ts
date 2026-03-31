@@ -3,6 +3,7 @@ import { DlqItem, DlqError, DlqStats } from './dlq.types';
 import { logger } from '@/shared/utils/logger';
 import { DlqSyncListener } from './sync/dlq.sync.listener';
 import { SyncAdapter } from '@core/offline-storage/sync/adapter';
+import { notificationRepository } from '../notification';
 
 const log = logger.withTag('DlqRepository');
 
@@ -54,6 +55,14 @@ export class DlqRepository implements IDlqRepository {
                 });
                 this.log.info(`[DLQ-REPO] 3. Item ${id} registrado en la cola de sincronización.`);
             }
+
+            // 4. Notificar proactivamente al usuario
+            await notificationRepository.addNotification({
+                title: 'Revisión requerida',
+                message: `Una operación de ${domain} ha fallado repetidamente y requiere revisión manual.`,
+                type: 'error',
+                metadata: { entityId, domain, errorCode: error.code }
+            });
 
             this.notifyChanged();
             return id;

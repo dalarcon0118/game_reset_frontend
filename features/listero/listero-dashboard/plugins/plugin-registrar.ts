@@ -13,6 +13,7 @@ import { DrawsListPlugin } from './draws_list_plugin';
 import { FiltersPlugin } from './filters_plugin';
 import { SummaryPluginExport as SummaryPlugin } from './summary_plugin';
 import { resetSyncState as resetDrawsListSyncState } from './draws_list_plugin/subscriptions';
+import { resetSyncState as resetSummarySyncState } from './summary_plugin/subscriptions';
 
 // Lista de plugins a registrar
 const dashboardPlugins: Plugin[] = [
@@ -36,6 +37,7 @@ export function registerDashboardPlugins(store: any): void {
 
     // Resetear estados de sincronización de los plugins para que no hereden hashes de la sesión anterior
     resetDrawsListSyncState();
+    resetSummarySyncState();
 
     const currentState = store.getState();
 
@@ -61,6 +63,7 @@ export function unregisterDashboardPlugins(): void {
 
     // También reseteamos al desregistrar para mayor seguridad
     resetDrawsListSyncState();
+    resetSummarySyncState();
 
     dashboardPlugins.forEach((plugin) => {
         try {

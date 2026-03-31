@@ -38,5 +38,8 @@ export type CoreMsg =
   /** Acción sin efecto (usada para Cmd.task que no necesitan respuesta) */
   | { type: 'NO_OP' }
 
+  /** Dispara la verificación de expiración de sesión */
+  | { type: 'CHECK_SESSION_EXPIRATION' }
+
   /** Trigger para reintento de inicialización */
   | { type: 'RETRY_BOOTSTRAP' };

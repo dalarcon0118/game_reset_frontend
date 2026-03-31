@@ -8,6 +8,8 @@ import { apiClient } from '@shared/services/api_client';
 import { AuthRepository } from '@shared/repositories/auth';
 import { deviceRepository } from '@shared/repositories/system/device';
 import { setAuthRepository, CoreService } from './core_module/service';
+import { offlineStorage } from '@/shared/core/offline-storage/storage';
+import { TimerRepository } from '@/shared/repositories/system/time';
 
 /**
  * Bootstrapping de infraestructura base del motor TEA.
@@ -56,5 +58,10 @@ elmEngine.configure({
     effectHandlers,
     middlewares: MiddlewareRegistry.getGlobals()
 });
-
+offlineStorage.configure({
+    clock: {
+        now: () => TimerRepository.getTrustedNow(Date.now()),
+        iso: () => new Date(TimerRepository.getTrustedNow(Date.now())).toISOString()
+    }
+});
 console.log('[BOOTSTRAP] 🚀 Infraestructura base configurada (Synchronous)');

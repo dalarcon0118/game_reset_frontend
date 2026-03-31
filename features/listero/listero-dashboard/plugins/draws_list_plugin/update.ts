@@ -108,22 +108,6 @@ function handleSyncState(
     }, Cmd.none);
   }
 
-  // 🛡️ PROTECCIÓN CONTRA RE-MONTAJE:
-  // Si el plugin ya tiene datos exitosos y el dashboard (payload) está en Loading/NotAsked,
-  // NO pisamos nuestro estado local. Esto evita que la lista desaparezca y se quede el spinner
-  // infinito del dashboard mientras el host vuelve a cargar.
-  const isHostResetting = model.draws.type === 'Success' && payload.draws.type !== 'Success';
-  
-  if (isHostResetting) {
-    log.info('🛡️ Protection: Host is resetting (NotAsked/Loading), keeping local Success data');
-    // Solo actualizamos filtro y resumen si han cambiado, pero mantenemos nuestros draws
-    return ret({
-      ...model,
-      currentFilter: payload.filter,
-      summary: payload.summary
-    }, Cmd.none);
-  }
-
   const needsUpdate =
     model.draws.type !== payload.draws.type ||
     (RemoteData.isSuccess(model.draws) && RemoteData.isSuccess(payload.draws) && currentDrawsData !== nextDrawsData) ||
