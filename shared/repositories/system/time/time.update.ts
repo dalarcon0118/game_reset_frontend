@@ -1,6 +1,7 @@
 import { Return, ret, singleton } from '@/shared/core/tea-utils/return';
 import { Cmd } from '@/shared/core/tea-utils/cmd';
 import { RemoteData } from '@/shared/core/tea-utils/remote.data';
+import { match } from 'ts-pattern';
 import { TimeModel, TimeMetadata, TimeIntegrityResult } from './time.types';
 import { Msg } from './time.msg';
 import { TimeStorage } from './time.storage';
@@ -164,9 +165,9 @@ export const init = (): Return<TimeModel, Msg> => {
 };
 
 export const update = (msg: Msg, model: TimeModel): Return<TimeModel, Msg> => {
-    switch (msg.type) {
-        case 'SERVER_DATE_RECEIVED': {
-            const { dateHeader, clientNow, systemNow } = msg.payload;
+    return match<Msg, Return<TimeModel, Msg>>(msg)
+        .with(Msg.serverDateReceived.type(), ({ payload }) => {
+            const { dateHeader, clientNow, systemNow } = payload;
             if (!dateHeader) return singleton(model);
 
             const serverDate = new Date(dateHeader);
@@ -189,19 +190,16 @@ export const update = (msg: Msg, model: TimeModel): Return<TimeModel, Msg> => {
                     label: 'SaveTimeMetadata'
                 })
             );
-        }
+        })
 
-        case 'METADATA_LOADED': {
-            const payload = msg.payload;
+        .with(Msg.metadataLoaded.type(), ({ payload }) => {
             return singleton({
                 ...model,
                 metadata: payload ? RemoteData.success<string, TimeMetadata>(payload) : RemoteData.notAsked<string, TimeMetadata>()
             });
-        }
+        })
 
-        case 'VALIDATE_INTEGRITY': {
-            const { clientNow } = msg.payload;
-
+        .with(Msg.validateIntegrity.type(), ({ payload: { clientNow } }) => {
             if (model.metadata.type === 'Success') {
                 const metadata = model.metadata.data;
                 const result = TimePolicy.evaluateIntegrity(
@@ -250,19 +248,15 @@ export const update = (msg: Msg, model: TimeModel): Return<TimeModel, Msg> => {
                 { ...model, status: 'ok' as const },
                 Cmd.ofMsg(Msg.integrityValidated({ status: 'ok', deltaMs: 0 }))
             );
-        }
+        })
 
-        case 'INTEGRITY_VALIDATED': {
-            return singleton({ ...model, status: msg.payload.status });
-        }
+        .with(Msg.integrityValidated.type(), ({ payload }) => {
+            return singleton({ ...model, status: payload.status });
+        })
 
-        case 'METADATA_SAVED':
-            return singleton(model);
+        .with(Msg.metadataSaved.type(), () => singleton(model))
 
-        case 'ERROR_OCCURRED':
-            return singleton({ ...model, lastError: msg.payload });
+        .with(Msg.errorOccurred.type(), ({ payload }) => singleton({ ...model, lastError: payload }))
 
-        default:
-            return singleton(model);
-    }
+        .otherwise(() => singleton(model));
 };

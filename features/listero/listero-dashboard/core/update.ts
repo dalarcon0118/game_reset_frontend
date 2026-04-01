@@ -5,6 +5,7 @@ import { Cmd, Return, ret } from '@core/tea-utils';
 import { logger } from '@/shared/utils/logger';
 
 import { updateAuthTokenCmd } from './commands';
+import { ensureError } from '@/shared/utils/error';
 
 // Handlers
 import { DataHandler } from './handlers/data.handler';
@@ -82,6 +83,11 @@ export const update = (model: Model, msg: Msg): Return<Model, Msg> => {
         // Error Handling
         .with({ type: 'ERROR' }, ({ error }) => {
             log.error('Dashboard error received', error);
+            // Si hay un error durante la carga, permitimos que el Dashboard pase a READY
+            // para que el usuario pueda al menos ver los datos locales o reintentar.
+            if (model.status.type === 'LOADING_DATA') {
+                return DataHandler.handleDrawsReceived(model, { type: 'Failure', error: ensureError(error) });
+            }
             return ret(model, Cmd.none);
         })
 

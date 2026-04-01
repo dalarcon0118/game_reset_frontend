@@ -22,7 +22,7 @@ export const storageClient = {
       const stringValue = typeof value === 'string' ? value : JSON.stringify(value);
       await AsyncStorage.setItem(key, stringValue);
 
-      log.debug(`>>> STORAGE SET: ${key}`, { value });
+      //log.debug(`>>> STORAGE SET: ${key}`, { value });
     } catch (error) {
       log.error(`Error saving to storage: ${key}`, error);
       throw error;
@@ -39,7 +39,7 @@ export const storageClient = {
         typeof value === 'string' ? value : JSON.stringify(value)
       ]);
       await AsyncStorage.multiSet(stringifiedEntries);
-      log.debug(`>>> STORAGE MULTI SET: ${entries.length} items`, { keys: entries.map(([k]) => k) });
+      //log.debug(`>>> STORAGE MULTI SET: ${entries.length} items`, { keys: entries.map(([k]) => k) });
     } catch (error) {
       log.error('Error saving multi items to storage', error);
       throw error;
@@ -54,7 +54,10 @@ export const storageClient = {
     try {
       const value = await AsyncStorage.getItem(key);
       if (value === null) {
-        log.debug(`<<< STORAGE GET: ${key} (Not Found)`);
+        // Only log "Not Found" for non-tombstone keys to reduce noise
+        if (!key.includes(':tombstones:')) {
+          log.debug(`<<< STORAGE GET: ${key} (Not Found)`);
+        }
         return null;
       }
 
@@ -80,7 +83,7 @@ export const storageClient = {
         }
       }
 
-      log.debug(`<<< STORAGE GET: ${key}`, logData);
+      //log.debug(`<<< STORAGE GET: ${key}`, logData);
       return parsedValue;
     } catch (error) {
       log.error(`Error reading from storage: ${key}`, error);
@@ -99,7 +102,7 @@ export const storageClient = {
           return value as unknown as T;
         }
       });
-      log.debug(`<<< STORAGE MULTI GET: ${keys.length} items`, { keys });
+      //log.debug(`<<< STORAGE MULTI GET: ${keys.length} items`, { keys });
       return values;
     } catch (error) {
       log.error('Error reading multi items from storage', error);
@@ -139,7 +142,7 @@ export const storageClient = {
   async clear(): Promise<void> {
     try {
       await AsyncStorage.clear();
-      log.info('--- STORAGE CLEAR ALL ---');
+      //log.info('--- STORAGE CLEAR ALL ---');
     } catch (error) {
       log.error('Error clearing storage', error);
       throw error;
@@ -152,7 +155,7 @@ export const storageClient = {
   async getAllKeys(): Promise<readonly string[]> {
     try {
       const keys = await AsyncStorage.getAllKeys();
-      log.info(`<<< [STORAGE-TRACE] STORAGE GET ALL KEYS: ${keys.length} keys found: [${keys.join(', ')}]`);
+      //log.info(`<<< [STORAGE-TRACE] STORAGE GET ALL KEYS: ${keys.length} keys found: [${keys.join(', ')}]`);
       return keys;
     } catch (error) {
       log.error('Error getting all keys from storage', error);

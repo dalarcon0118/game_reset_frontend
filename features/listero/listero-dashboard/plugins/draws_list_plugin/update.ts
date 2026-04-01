@@ -81,7 +81,7 @@ function handleInitContext(
 
 function handleSyncState(
   model: Model,
-  payload: { draws: Model['draws']; filter: string; summary: Model['summary'] }
+  payload: { draws: Model['draws']; filter: string; summary: Model['summary']; commissionRate: number }
 ): Return<Model, Msg.Msg> {
   const currentDrawsData = (model.draws as any).data || [];
   const nextDrawsData = (payload.draws as any).data || [];
@@ -97,14 +97,15 @@ function handleSyncState(
   // NO pisamos nuestro estado local. Esto evita que la lista desaparezca y se quede el spinner
   // infinito del dashboard mientras el host vuelve a cargar.
   const isHostResetting = model.draws.type === 'Success' && payload.draws.type !== 'Success';
-  
+
   if (isHostResetting) {
     log.info('🛡️ Protection: Host is resetting (NotAsked/Loading), keeping local Success data');
     // Solo actualizamos filtro y resumen si han cambiado, pero mantenemos nuestros draws
     return ret({
       ...model,
       currentFilter: payload.filter,
-      summary: payload.summary
+      summary: payload.summary,
+      commissionRate: payload.commissionRate
     }, Cmd.none);
   }
 
@@ -112,7 +113,8 @@ function handleSyncState(
     model.draws.type !== payload.draws.type ||
     (RemoteData.isSuccess(model.draws) && RemoteData.isSuccess(payload.draws) && currentDrawsData !== nextDrawsData) ||
     model.currentFilter !== payload.filter ||
-    model.summary !== payload.summary;
+    model.summary !== payload.summary ||
+    model.commissionRate !== payload.commissionRate;
 
   // 🛡️ Siempre permitimos la sincronización si el estado actual es Loading/NotAsked
   // pero el host ya tiene datos exitosos.
@@ -126,7 +128,8 @@ function handleSyncState(
     ...model,
     draws: payload.draws,
     currentFilter: payload.filter,
-    summary: payload.summary
+    summary: payload.summary,
+    commissionRate: payload.commissionRate
   };
 
   return ret(nextModel, Cmd.ofMsg(Msg.FILTER_DRAWS()));

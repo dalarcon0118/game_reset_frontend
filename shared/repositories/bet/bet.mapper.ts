@@ -1,4 +1,4 @@
-import { Result, ok, err } from 'neverthrow';
+import { Result, ok, err } from '@/shared/core';
 import { BetPlacementInput } from './bet.types';
 import { normalizeBetType, normalizeNumbers, normalizeOwnerStructure as normalizeOwnerStructureFn } from '@/shared/types/bet_types';
 import { GameRegistry } from '../../core/registry/game_registry';
@@ -21,7 +21,7 @@ export interface BetPlacementCandidate {
 /**
  * Normaliza el amount a número.
  */
-const normalizeAmount = (value: BetPlacementCandidate['amount']): Result<number, Error> => {
+const normalizeAmount = (value: BetPlacementCandidate['amount']): Result<Error, number> => {
     const amount = typeof value === 'number' ? value : Number(value);
     if (!Number.isFinite(amount) || amount <= 0) {
         return err(new Error(`ERROR_CRITICO: Monto inválido (${String(value)})`));
@@ -34,7 +34,7 @@ const normalizeAmount = (value: BetPlacementCandidate['amount']): Result<number,
  */
 const normalizeOwnerStructure = (
     value: BetPlacementCandidate['ownerStructure']
-): Result<string, Error> => {
+): Result<Error, string> => {
     const normalized = normalizeOwnerStructureFn(value);
     if (!normalized) {
         return err(new Error('ERROR_CRITICO: ownerStructure es obligatorio'));
@@ -81,7 +81,7 @@ export const BetMapper = {
      * Convierte un candidato de apuesta en un BetPlacementInput validado.
      * Aplica normalización centralizada para asegurar consistencia.
      */
-    toPlacementInput: (candidate: BetPlacementCandidate): Result<BetPlacementInput, Error> => {
+    toPlacementInput: (candidate: BetPlacementCandidate): Result<Error, BetPlacementInput> => {
         // Validar amount
         const amountResult = normalizeAmount(candidate.amount);
         if (amountResult.isErr()) return err(amountResult.error);
@@ -114,7 +114,7 @@ export const BetMapper = {
      * Convierte un array de candidatos en un array de BetPlacementInput.
      * Si algún candidato falla, retorna error inmediatamente.
      */
-    toPlacementBatch: (candidates: BetPlacementCandidate[]): Result<BetPlacementInput[], Error> => {
+    toPlacementBatch: (candidates: BetPlacementCandidate[]): Result<Error, BetPlacementInput[]> => {
         const mapped: BetPlacementInput[] = [];
         for (const candidate of candidates) {
             const result = BetMapper.toPlacementInput(candidate);

@@ -172,6 +172,61 @@ export const Cmd = {
 
   ofMsg: (msg: any): CommandDescriptor => Cmd.sleep(0, msg),
 
+  /**
+   * Ejecuta un comando personalizado (Custom Effect)
+   */
+  run: (type: string, payload?: any): CommandDescriptor => ({
+    type,
+    payload,
+  }),
+
+  /**
+   * Ejecuta un efecto custom con constructor de mensajes para el resultado.
+   * Patrón TEA puro: handler retorna Task → motor mapea resultado a Msg.
+   *
+   * Acepta dos formas:
+   * 1. Objeto Fx: Cmd.effect(Fx.placeBet, payload) - constructores co-localizados
+   * 2. String + constructores: Cmd.effect(FX, payload, toMsg, errorToMsg) - explícito
+   *
+   * Si no se provee toErrorMsg, se usa un mensaje global EFFECT_FAILED.
+   *
+   * @example
+   * // Forma 1: Fx con constructores (recomendado)
+   * Cmd.effect(Fx.placeBet, payload)
+   *
+   * // Forma 2: Explícito
+   * Cmd.effect('FX_PLACE_BET', payload, Msg.betPlaced, Msg.betPlaceFailed)
+   */
+  effect: <T, E = Error>(
+    typeOrFx: string | { type: string; toMsg?: (result: any) => any; toErrorMsg?: (error: any) => any },
+    payload: any,
+    toMsg?: (result: T) => any,
+    errorToMsg?: (error: E) => any
+  ): CommandDescriptor => {
+    const fx = typeof typeOrFx === 'string'
+      ? { type: typeOrFx, toMsg, toErrorMsg: errorToMsg }
+      : typeOrFx;
+
+    const successHandler = fx.toMsg || ((r: T) => ({ type: `${fx.type}_SUCCESS`, payload: r }));
+    const errorHandler = fx.toErrorMsg
+      ? (e: E) => fx.toErrorMsg!(e)
+      : (e: E) => ({
+          type: 'EFFECT_FAILED',
+          payload: { effectType: fx.type, error: e }
+        });
+
+    return {
+      type: 'EFFECT',
+      payload: {
+        effectType: fx.type,
+        payload,
+        onSuccess: successHandler,
+        onFailure: errorHandler,
+        label: `effect:${fx.type}`
+      }
+    };
+  },
+
   batch: (cmds: (Cmd | null | undefined)[]): Cmd => {
     const flat: CommandDescriptor[] = [];
     for (const c of cmds) {

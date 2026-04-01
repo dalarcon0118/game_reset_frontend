@@ -1,8 +1,8 @@
-import { Result, ok, err } from 'neverthrow';
-import { IBetStorage, IBetApi } from '../bet.ports';
+import { Result } from '@/shared/core';
+import { IBetStorage, IBetApi } from '../bet.types';
 import { drawRepository } from '../../draw';
 import { GameType } from '@/types';
-import { mapBackendBetToFrontend } from '@/shared/services/bet/mapper';
+import { mapBackendBetToFrontend } from '../bet.mapper.backend';
 import { logger } from '@/shared/utils/logger';
 import { dlqRepository } from '../../dlq';
 
@@ -16,12 +16,12 @@ const syncSingleBet = async (
     bet: any,
     storage: IBetStorage,
     api: IBetApi
-): Promise<Result<void, Error>> => {
+): Promise<Result<Error, void>> => {
     const amount = Number(bet.amount) || 0;
     const structureId = bet.ownerStructure;
     if (amount <= 0 || !structureId) {
         log.error(`[SYNC-BET-FLOW] 1. Datos inválidos para apuesta ${bet.externalId}`, { amount, structureId });
-        return err(new Error(`ERROR_CRITICO_SYNC: Datos inválidos en apuesta ${bet.externalId}`));
+        return Result.error(new Error(`ERROR_CRITICO_SYNC: Datos inválidos en apuesta ${bet.externalId}`));
     }
 
     try {
@@ -29,9 +29,9 @@ const syncSingleBet = async (
         const response = await api.create(bet as any, bet.externalId);
         const backendBets = Array.isArray(response) ? response : [response];
 
-        const betTypesResult = await drawRepository.getBetTypes(String(bet.drawId || ''));
+        const betTypesResult = await drawRepository.getBetTypes(String(bet.drawId || '')) as any;
         const betTypes: GameType[] = betTypesResult.isOk()
-            ? betTypesResult.value.map((t): GameType => ({
+            ? (betTypesResult.value as any[]).map((t: any): GameType => ({
                 id: String(t.id),
                 name: t.name,
                 code: t.code || '',
@@ -42,7 +42,7 @@ const syncSingleBet = async (
         const mappedBets = backendBets.map(b => mapBackendBetToFrontend(b, betTypes));
         log.info(`[SYNC-BET-FLOW] 3. Sincronización exitosa para apuesta: ${bet.externalId}. Actualizando estado...`);
         await storage.updateStatus(bet.externalId, 'synced', { backendBets: mappedBets });
-        return ok<void, Error>(undefined);
+        return Result.ok(undefined);
     } catch (error) {
         log.error(`[SYNC-BET-FLOW] 4. FALLO en sincronización de apuesta: ${bet.externalId}`, error);
 
@@ -91,7 +91,7 @@ const syncSingleBet = async (
             });
         }
 
-        return err<void, Error>(error instanceof Error ? error : new Error(String(lastError)));
+        return Result.error(error instanceof Error ? error : new Error(String(lastError)));
     }
 };
 
@@ -101,16 +101,26 @@ const syncSingleBet = async (
 export const syncPendingFlow = async (
     storage: IBetStorage,
     api: IBetApi
-): Promise<{ success: number; failed: number }> => {
+): Promise<{ success: number; failed: number; successBets: string[]; failedBets: { receiptCode: string; error: string }[] }> => {
     const pending = await storage.getPending();
     let success = 0;
     let failed = 0;
+    const successBets: string[] = [];
+    const failedBets: { receiptCode: string; error: string }[] = [];
 
     for (const bet of pending) {
         const res = await syncSingleBet(bet, storage, api);
-        if (res.isOk()) success++;
-        else failed++;
+        if (res.isOk()) {
+            success++;
+            successBets.push(bet.receiptCode || 'Sin código');
+        } else {
+            failed++;
+            failedBets.push({
+                receiptCode: bet.receiptCode || 'Sin código',
+                error: res.error?.message || 'Error desconocido'
+            });
+        }
     }
 
-    return { success, failed };
+    return { success, failed, successBets, failedBets };
 };

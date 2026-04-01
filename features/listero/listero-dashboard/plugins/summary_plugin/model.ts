@@ -34,7 +34,7 @@ export const initialModel = (): [Model, Cmd] => {
       },
       showBalance: true,
       commissionRate: 0,
-      structureId: '1',
+      structureId: '',
       context: null,
       contextError: null,
       trustedNow: null

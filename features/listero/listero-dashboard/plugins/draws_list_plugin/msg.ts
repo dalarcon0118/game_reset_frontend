@@ -10,6 +10,7 @@ export const SYNC_STATE = createMsg<'SYNC_STATE', {
   draws: WebData<Draw[]>;
   filter: string;
   summary: FinancialSummary | null;
+  commissionRate: number;
 }>('SYNC_STATE');
 export const FILTER_DRAWS = createMsg<'FILTER_DRAWS', void>('FILTER_DRAWS');
 export const REFRESH_CLICKED = createMsg<'REFRESH_CLICKED', void>('REFRESH_CLICKED');

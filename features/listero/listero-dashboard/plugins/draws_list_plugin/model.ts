@@ -61,6 +61,7 @@ export interface Model {
   syncedBets: PendingBet[];
   filteredDraws: Draw[];
   currentFilter: string;
+  commissionRate: number;
   // SSOT: Totales financieros por drawId (desde BetRepository)
   totalsByDrawId: TotalsByDrawIdMap;
 }
@@ -79,6 +80,7 @@ export const initialModel = (params?: { context: PluginContext; config: DrawsLis
       syncedBets: [],
       filteredDraws: [],
       currentFilter: DRAW_FILTER.ALL,
+      commissionRate: 0,
       totalsByDrawId: new Map(),
     },
     Cmd.none

@@ -19,7 +19,6 @@ import {
     LoteriaFeatMsg
 } from '../loteria/loteria.types';
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
-import { BetQuery } from '@/shared/repositories/bet/bet.query';
 import { drawRepository } from '@/shared/repositories/draw';
 import { logger } from '@/shared/utils/logger';
 import { BET_TYPE_KEYS, isLoteriaType } from '@/shared/types/bet_types';
@@ -175,9 +174,7 @@ export const FeatureFlows = {
         return RemoteDataHttp.fetch<LoteriaBet[], FeatureMsg>(
             async () => {
                 // Filtrar solo por drawId (sin filtro de fecha)
-                const query = BetQuery.create()
-                    .forDraw(drawId)
-                    .build();
+                const query = { drawId: String(drawId) };
 
                 const betsResult = await betRepository.getBets(query);
 
@@ -186,7 +183,7 @@ export const FeatureFlows = {
                 }
 
                 const bets = betsResult.value;
-                log.info(`[LOTERIA_FLOW] Fetching bets for Draw: ${drawId}`, { filterDate: query.date });
+                log.info(`[LOTERIA_FLOW] Fetching bets for Draw: ${drawId}`);
 
                 const mapped = bets
                     .filter((b: BetType) => {

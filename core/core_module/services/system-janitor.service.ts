@@ -51,9 +51,10 @@ export class SystemJanitor {
             if (!force) {
                 const isPrepared = await maintenanceRepository.isDayPrepared(today);
                 if (isPrepared) {
-                    log.info('La sesión ya estaba preparada para hoy. Omitiendo limpieza.', { today });
-                    this.notifyReady(today);
-                    return true;
+                    log.info('La sesión ya estaba preparada para hoy. Ejecutando limpieza forzada por actualización de política.', { today });
+                    // Temporalmente ignoramos el return true para forzar el barrido
+                    // this.notifyReady(today);
+                    // return true;
                 }
             }
 

@@ -9,9 +9,9 @@ import { scenario, setViewAdapter, createTestContext, TestContext } from '@/test
 import { ScenarioConfig } from '@/tests/core/scenario';
 import { betRepository } from '@/shared/repositories/bet';
 import { notificationRepository } from '@/shared/repositories/notification';
-import { BetApi } from '@/shared/services/bet/api';
 import { drawRepository } from '@/shared/repositories/draw';
 import { isServerReachable } from '@/shared/utils/network';
+import apiClient from '@/shared/services/api_client';
 import { storeRegistry } from '@/shared/core/engine/store_registry';
 import NotificationsScreen from '@/features/notification/screens/notifications_screen';
 
@@ -29,13 +29,10 @@ jest.mock('@/shared/utils/network', () => ({
     isServerReachable: jest.fn().mockResolvedValue(false)
 }));
 
-jest.mock('@/shared/services/bet/api', () => ({
-    BetApi: {
-        create: jest.fn(),
-        createWithIdempotencyKey: jest.fn(),
-        getSyncStatus: jest.fn(),
-        list: jest.fn(),
-        listByDrawId: jest.fn(),
+jest.mock('@/shared/services/api_client', () => ({
+    default: {
+        post: jest.fn(),
+        get: jest.fn(),
         delete: jest.fn()
     }
 }));
@@ -118,7 +115,7 @@ scenario('Notificaciones - Sincronización offline y visualización en UI', init
         ctx.data.online = true;
 
         (isServerReachable as jest.Mock).mockResolvedValue(true);
-        (BetApi.createWithIdempotencyKey as jest.Mock).mockResolvedValue({
+        (apiClient.post as jest.Mock).mockResolvedValue({
             id: 99901,
             draw: '395',
             bet_type: '1',
@@ -145,7 +142,7 @@ scenario('Notificaciones - Sincronización offline y visualización en UI', init
         ctx.data.finalPendingCount = remainingPending.length;
         
         expect(syncResult.success).toBeGreaterThan(0);
-        expect(BetApi.createWithIdempotencyKey).toHaveBeenCalled();
+        expect(apiClient.post).toHaveBeenCalled();
         expect(ctx.data.finalPendingCount).toBeLessThan(ctx.data.initialPendingCount);
         ctx.log('✅ Intento de sincronización ejecutado');
     })

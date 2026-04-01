@@ -65,3 +65,66 @@ export function view(model: Model) {
         success: (data: Vehicle[]) => `Vehículos cargados: ${data.length}`
     }, model.vehicles);
 }
+
+
+
+
+/// algo asi 
+
+/* 
+
+export const Ports = {
+    // Salida: TEA → Repository (resuelven Promises)
+    betPlaced: 'port/betPlaced',
+    batchPlaced: 'port/batchPlaced',
+    betsLoaded: 'port/betsLoaded',
+    syncCompleted: 'port/syncCompleted',
+    cleanupCompleted: 'port/cleanupCompleted',
+    // ...
+} as const;
+ //En update.ts - Enviar por puerto
+
+.with(Msg.syncCompleted.type(), ({ payload }) =>
+    ret(
+        { ...model, syncStatus: 'IDLE' as const },
+        Cmd.sendPort({type: Ports.betPlaced}, payload)  // ← Sale por puerto
+    )
+)
+
+// se crea el adapter para el respositorio 
+/ port.system.ts - Abstracción formal
+class PortSystem {
+    private pending = new Map<string, { resolve: (v: any) => void; reject: (e: any) => void }>();
+
+    // Crear puerto (Promise)
+    create<T>(id: string): Promise<T> {
+        return new Promise((resolve, reject) => {
+            this.pending.set(id, { resolve, reject });
+        });
+    }
+
+    // Resolver puerto cuando llega resultado
+    resolve<T>(id: string, value: T): void {
+        this.pending.get(id)?.resolve(value);
+        this.pending.delete(id);
+    }
+
+    // Rechazar puerto cuando hay error
+    reject(id: string, error: unknown): void {
+        this.pending.get(id)?.reject(error);
+        this.pending.delete(id);
+    }
+}
+...  // API pública - crea puerto y dispara efecto
+    async placeBet(betData: BetPlacementInput): Promise<Result<Error, BetRepositoryResult>> {
+        const port = this.ports.create<Result<Error, BetRepositoryResult>>('placeBet');
+        this.store.getState().dispatch(Msg.placeBetRequested({ data: betData }));
+        return port;  // ← Port se resuelve cuando llega el resultado
+    }
+//
+
+// en el engine se define un subcriptor
+ Sub.subscribe({type: Ports.betPlaced}, (msg) => {
+    port.resolve('placeBet', msg.payload);
+ })
+*/

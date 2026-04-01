@@ -13,6 +13,8 @@ export interface HostStatePayload {
   draws: WebData<Draw[]>;
   filter: string;
   summary: FinancialSummary | null;
+  commissionRate: number;
+  userStructureId: string | null;
 }
 
 /**
@@ -41,6 +43,8 @@ export function extractHostState(state: any, config: DrawsListPluginConfig): Hos
   const rawDraws = hostModel[config.drawsStateKey];
   const filter = hostModel.statusFilter || DRAW_FILTER.ALL;
   const summary = hostModel.summary || null;
+  const commissionRate = hostModel.commissionRate || 0;
+  const userStructureId = hostModel.userStructureId || null;
 
   // Las apuestas (pendingBets y syncedBets) se omiten ya que se sincronizarán manualmente
 
@@ -90,6 +94,8 @@ export function extractHostState(state: any, config: DrawsListPluginConfig): Hos
   return {
     draws: validatedDraws,
     filter,
-    summary
+    summary,
+    commissionRate,
+    userStructureId
   };
 }

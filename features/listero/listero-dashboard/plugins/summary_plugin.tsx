@@ -24,7 +24,7 @@ const SummaryPluginComponent: React.FC<SlotProps> = ({ context }) => {
       // las actualizaciones posteriores vendrán por Sub.watchStore.
       state: { ...context.state } 
     };
-  }, []); // Dependencias vacías: solo se calcula una vez al montar el plugin.
+  }, [context]); // Re-calcular si el contexto cambia (estabilización inicial)
 
   return (
     <SummaryModule.Provider initialParams={stableInitialParams}>

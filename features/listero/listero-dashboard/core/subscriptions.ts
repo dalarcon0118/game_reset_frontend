@@ -1,8 +1,9 @@
 import { Model } from './model';
 import { SubDescriptor, Sub } from '@core/tea-utils';
-import { Msg, SYSTEM_READY as SYSTEM_READY_MSG } from './msg';
+import { Msg, TICK, FINANCIAL_UPDATE_RECEIVED, SYSTEM_READY as SYSTEM_READY_MSG } from './msg';
 import { adaptAuthUser } from './user.dto';
 import { DASHBOARD_FILTER_CHANGED, SYSTEM_READY, DASHBOARD_RULES_CLICKED, DASHBOARD_REWARDS_CLICKED, DASHBOARD_REFRESH_CLICKED } from '@/config/signals';
+import { settings } from '@/config/settings';
 
 export const subscriptions = (model: Model): SubDescriptor<Msg> => {
     // 1. Escucha señales globales para cambios de filtros
@@ -77,6 +78,14 @@ export const subscriptions = (model: Model): SubDescriptor<Msg> => {
         (user) => ({ type: 'AUTH_USER_SYNCED', user: user ? adaptAuthUser(user) : null }),
         'listero-dashboard-auth-user-sync'
     );
+
+    // 8. Periodic data refresh (TICK) — only when dashboard is READY
+    /*const tickSub = model.status.type === 'READY' && model.userStructureId
+        ? Sub.every(30000, TICK(), 'listero-dashboard-tick')
+        : Sub.none();*/
+
+    // 9. SSE subscription for real-time financial updates — only when authenticated
+
 
     return Sub.batch([filterSub, rulesSub, rewardsSub, refreshSub, systemReadySub, coreReadySub, authUserSub]);
 };

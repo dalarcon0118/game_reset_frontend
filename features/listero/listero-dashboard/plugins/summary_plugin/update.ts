@@ -99,7 +99,9 @@ function handleGetFinancialBets(model: Model): Return<Model, Msg.Msg> {
     Cmd.task({
       task: async () => {
         // LLAMADA DIRECTA AL BET REPOSITORY (LA REALIDAD)
+        logger.info('[SUMMARY_PLUGIN] Calling getFinancialSummary...', { todayStart, structureId: model.structureId });
         const rawData = await betRepository.getFinancialSummary(todayStart, model.structureId);
+        logger.info('[SUMMARY_PLUGIN] getFinancialSummary success', rawData);
 
         // CÁLCULO EN CALIENTE USANDO LÓGICA PURA
         const { summary } = calculateFinancials(
@@ -114,7 +116,10 @@ function handleGetFinancialBets(model: Model): Return<Model, Msg.Msg> {
         return summary;
       },
       onSuccess: (data) => Msg.FINANCIAL_BETS_UPDATED(RemoteData.success(data)),
-      onFailure: (error) => Msg.FINANCIAL_BETS_UPDATED(RemoteData.failure(error))
+      onFailure: (error) => {
+        logger.error('[SUMMARY_PLUGIN] getFinancialSummary failed', error);
+        return Msg.FINANCIAL_BETS_UPDATED(RemoteData.failure(error));
+      }
     })
   );
 }
@@ -143,13 +148,14 @@ function handleFinancialBetsUpdated(model: Model, webData: WebData<DomainFinanci
 
 function handleDashboardDataSynced(model: Model, payload: { userStructureId?: string; todayStart?: number; trustedNow?: number; commissionRate?: number }): Return<Model, Msg.Msg> {
   const needsUpdate =
-    payload.userStructureId !== model.structureId ||
+    (!model.structureId && payload.userStructureId) ||
+    (payload.userStructureId !== undefined && payload.userStructureId !== model.structureId) ||
     (payload.commissionRate !== undefined && payload.commissionRate !== model.commissionRate) ||
     (payload.todayStart && model.context?.state.todayStart !== payload.todayStart) ||
     (payload.trustedNow && model.trustedNow !== payload.trustedNow);
 
-  logger.debug('[DIAGNOSTIC] handleDashboardDataSynced', { 
-    currentCommission: model.commissionRate, 
+  logger.debug('[DIAGNOSTIC] handleDashboardDataSynced', {
+    currentCommission: model.commissionRate,
     newCommission: payload.commissionRate,
     needsUpdate,
     payload

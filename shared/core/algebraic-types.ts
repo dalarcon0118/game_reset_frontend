@@ -204,61 +204,136 @@ export const Either = {
 // ------------------------------------------
 
 /**
- * Result es un alias de Either para operaciones que pueden fallar
- * 
+ * Ok - Resultado exitoso con métodos de instancia
+ */
+export interface Ok<E, T> {
+  readonly _tag: 'Ok';
+  readonly value: T;
+  readonly error?: undefined;
+  isOk(): this is Ok<E, T>;
+  isErr(): this is Err<E, T>;
+  isError(): this is Err<E, T>;
+  map<B>(f: (a: T) => B): Result<E, B>;
+  mapError<F>(f: (e: E) => F): Result<F, T>;
+  andThen<B>(f: (a: T) => Result<E, B>): Result<E, B>;
+  unwrapOr(_defaultValue: T): T;
+  match<B>(onOk: (a: T) => B, onError: (e: E) => B): B;
+  tap(f: (a: T) => void): Result<E, T>;
+  tapError(f: (e: E) => void): Result<E, T>;
+}
+
+/**
+ * Err - Resultado fallido con métodos de instancia
+ */
+export interface Err<E, T> {
+  readonly _tag: 'Err';
+  readonly value?: undefined;
+  readonly error: E;
+  isOk(): this is Ok<E, T>;
+  isErr(): this is Err<E, T>;
+  isError(): this is Err<E, T>;
+  map<B>(f: (a: T) => B): Result<E, B>;
+  mapError<F>(f: (e: E) => F): Result<F, T>;
+  andThen<B>(f: (a: T) => Result<E, B>): Result<E, B>;
+  unwrapOr(defaultValue: T): T;
+  match<B>(onOk: (a: T) => B, onError: (e: E) => B): B;
+  tap(f: (a: T) => void): Result<E, T>;
+  tapError(f: (e: E) => void): Result<E, T>;
+}
+
+/**
+ * Result es un tipo que representa éxito (Ok) o error (Err).
+ * Soporta métodos de instancia para encadenamiento fluent y type narrowing.
+ *
  * @template E - Tipo del error
  * @template T - Tipo del valor exitoso
  */
-export type Result<E, T> = Either<E, T>;
+export type Result<E, T> = Ok<E, T> | Err<E, T>;
+
+const createOk = <E, T>(value: T): Ok<E, T> => ({
+  _tag: 'Ok',
+  value,
+  isOk: (): this is Ok<E, T> => true,
+  isErr: (): this is Err<E, T> => false,
+  isError: (): this is Err<E, T> => false,
+  map: <B>(f: (a: T) => B): Result<E, B> => createOk<E, B>(f(value)),
+  mapError: <F>(): Result<F, T> => createOk<F, T>(value),
+  andThen: <B>(f: (a: T) => Result<E, B>): Result<E, B> => f(value),
+  unwrapOr: (_defaultValue: T): T => value,
+  match: <B>(onOk: (a: T) => B, _onError: (e: E) => B): B => onOk(value),
+  tap: (f: (a: T) => void): Result<E, T> => { f(value); return createOk<E, T>(value); },
+  tapError: (_f: (e: E) => void): Result<E, T> => createOk<E, T>(value),
+});
+
+const createErr = <E, T>(error: E): Err<E, T> => ({
+  _tag: 'Err',
+  error,
+  isOk: (): this is Ok<E, T> => false,
+  isErr: (): this is Err<E, T> => true,
+  isError: (): this is Err<E, T> => true,
+  map: <B>(_f: (a: T) => B): Result<E, B> => createErr<E, B>(error),
+  mapError: <F>(f: (e: E) => F): Result<F, T> => createErr<F, T>(f(error)),
+  andThen: <B>(_f: (a: T) => Result<E, B>): Result<E, B> => createErr<E, B>(error),
+  unwrapOr: (defaultValue: T): T => defaultValue,
+  match: <B>(_onOk: (a: T) => B, onError: (e: E) => B): B => onError(error),
+  tap: (_f: (a: T) => void): Result<E, T> => createErr<E, T>(error),
+  tapError: (f: (e: E) => void): Result<E, T> => { f(error); return createErr<E, T>(error); },
+});
 
 /**
- * Alias para construir resultados exitosos o fallidos
+ * Constructores y operadores para Result
  */
 export const Result = {
-  /**
-   * Crea un resultado exitoso
-   */
-  ok: <T, E = never>(value: T): Result<E, T> => Either.right(value),
+  ok: <T, E = never>(value: T): Result<E, T> => createOk<E, T>(value),
 
-  /**
-   * Crea un resultado fallido
-   */
-  error: <E, T = never>(error: E): Result<E, T> => Either.left(error),
+  error: <E, T = never>(error: E): Result<E, T> => createErr<E, T>(error),
 
-  /**
-   * Mapea el valor exitoso
-   */
   map: <E, A, B>(f: (a: A) => B, result: Result<E, A>): Result<E, B> =>
-    Either.map(f, result),
+    result.isOk() ? createOk<E, B>(f(result.value)) : result as unknown as Result<E, B>,
 
- /**
-   * Mapea el error
-   */
   mapError: <E, F, T>(f: (error: E) => F, result: Result<E, T>): Result<F, T> =>
-    Either.mapLeft(f, result),
+    result.isErr() ? createErr<F, T>(f(result.error)) : result as unknown as Result<F, T>,
 
-  /**
-   * Mapea un valor exitoso con una función que puede fallar
-   */
   andThen: <E, A, B>(f: (a: A) => Result<E, B>, result: Result<E, A>): Result<E, B> =>
-    Either.andThen(f, result),
+    result.isOk() ? f(result.value) : result as unknown as Result<E, B>,
 
-  /**
-   * Obtiene el valor o un valor por defecto
-   */
   withDefault: <E, T>(defaultValue: T, result: Result<E, T>): T =>
-    Either.getOrElse(defaultValue, result),
+    result.isOk() ? result.value : defaultValue,
 
-  /**
-   * Verifica si es un resultado exitoso
-   */
-  isOk: <E, T>(result: Result<E, T>): boolean => Either.isRight(result),
+  isOk: <E, T>(result: Result<E, T>): result is Ok<E, T> => result._tag === 'Ok',
 
-  /**
-   * Verifica si es un resultado fallido
-   */
-  isError: <E, T>(result: Result<E, T>): boolean => Either.isLeft(result)
+  isError: <E, T>(result: Result<E, T>): result is Err<E, T> => result._tag === 'Err',
+
+  combine: <E, T>(results: Result<E, T>[]): Result<E, T[]> => {
+    const values: T[] = [];
+    for (const r of results) {
+      if (r.isErr()) return r as unknown as Result<E, T[]>;
+      values.push(r.value);
+    }
+    return createOk<E, T[]>(values);
+  },
+
+  fromNullable: <E, T>(error: E, value: T | null | undefined): Result<E, NonNullable<T>> =>
+    value == null ? createErr<E, NonNullable<T>>(error) : createOk<E, NonNullable<T>>(value as NonNullable<T>),
+
+  tryCatch: <E, T>(fn: () => T, onError: (e: unknown) => E): Result<E, T> => {
+    try {
+      return createOk<E, T>(fn());
+    } catch (e) {
+      return createErr<E, T>(onError(e));
+    }
+  },
+
+  match: <E, T, B>(onOk: (a: T) => B, onError: (e: E) => B, result: Result<E, T>): B =>
+    result.match(onOk, onError)
 };
+
+/**
+ * Standalone constructors compatible with neverthrow API.
+ * Permite: import { ok, err } from '@/shared/core'
+ */
+export const ok = <T, E = never>(value: T): Result<E, T> => createOk<E, T>(value);
+export const err = <E, T = never>(error: E): Result<E, T> => createErr<E, T>(error);
 
 // ------------------------------------------
 // UTILIDADES PARA INTEGRACIÓN CON TEA
@@ -288,9 +363,9 @@ export const TEAAlgebraicUtils = {
    * Convierte un Result a RemoteData
    */
   resultToRemoteData: <E, A>(result: Result<E, A>) =>
-    result._tag === 'Right'
-      ? { type: 'Success', data: result.right } as const
-      : { type: 'Failure', error: result.left } as const,
+    result.isOk()
+      ? { type: 'Success', data: result.value } as const
+      : { type: 'Failure', error: result.error } as const,
 
   /**
    * Convierte un RemoteData a Maybe

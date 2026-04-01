@@ -1,4 +1,4 @@
-import { IBetStorage } from '../bet.ports';
+import { IBetStorage } from '../bet.types';
 import { BetDomainModel, RawBetTotals } from '../bet.types';
 import { logger } from '@/shared/utils/logger';
 
@@ -9,6 +9,8 @@ const getTodayEnd = (todayStart: number): number =>
 
 const createEmptyTotals = (): RawBetTotals => ({
     totalCollected: 0,
+    commissions: 0,
+    netResult: 0,
     betCount: 0
 });
 
@@ -18,12 +20,14 @@ const createEmptyTotals = (): RawBetTotals => ({
 export const getFinancialSummaryFlow = async (
     storage: IBetStorage,
     todayStart: number,
-    structureId?: string
+    structureId?: string,
+    defaultCommissionRate?: number
 ): Promise<RawBetTotals> => {
     try {
         log.debug('Financial flow input', {
             todayStart,
-            structureId: structureId ?? 'all'
+            structureId: structureId ?? 'all',
+            defaultCommissionRate
         });
 
         // CENTRALIZACIÓN SSOT: El storage ahora se encarga de filtrar
@@ -31,15 +35,24 @@ export const getFinancialSummaryFlow = async (
 
         const totals = filteredBets.reduce<RawBetTotals>((acc, bet) => {
             const amount = Number(bet.amount) || 0;
+            const rate = bet.commissionRate !== undefined ? bet.commissionRate : (defaultCommissionRate || 0);
+            // Asegurar que la tasa sea decimal (ej: 20 -> 0.2)
+            const safeRate = rate > 1 ? rate / 100 : rate;
+            const commission = amount * safeRate;
+
             return {
                 ...acc,
                 totalCollected: acc.totalCollected + amount,
+                commissions: acc.commissions + commission,
+                netResult: acc.netResult + (amount - commission),
                 betCount: acc.betCount + 1
             };
         }, createEmptyTotals());
 
         log.debug('Financial flow final', {
             totalCollected: totals.totalCollected,
+            commissions: totals.commissions,
+            netResult: totals.netResult,
             betCount: totals.betCount,
             totalBetsFiltered: filteredBets.length
         });
@@ -56,12 +69,14 @@ export const getFinancialSummaryFlow = async (
 export const getTotalsByDrawIdFlow = async (
     storage: IBetStorage,
     todayStart: number,
-    structureId?: string
+    structureId?: string,
+    defaultCommissionRate?: number
 ): Promise<Record<string, RawBetTotals>> => {
     try {
         log.debug('Totals by draw input', {
             todayStart,
-            structureId: structureId ?? 'all'
+            structureId: structureId ?? 'all',
+            defaultCommissionRate
         });
 
         // CENTRALIZACIÓN SSOT: El storage ahora se encarga de filtrar
@@ -70,12 +85,19 @@ export const getTotalsByDrawIdFlow = async (
         const totalsByDraw = filteredBets.reduce<Record<string, RawBetTotals>>((acc, bet) => {
             const drawId = String(bet.drawId || 'unknown');
             const amount = Number(bet.amount) || 0;
+            const rate = bet.commissionRate !== undefined ? bet.commissionRate : (defaultCommissionRate || 0);
+            // Asegurar que la tasa sea decimal (ej: 20 -> 0.2)
+            const safeRate = rate > 1 ? rate / 100 : rate;
+            const commission = amount * safeRate;
+
             const currentDrawTotals = acc[drawId] || createEmptyTotals();
 
             return {
                 ...acc,
                 [drawId]: {
                     totalCollected: currentDrawTotals.totalCollected + amount,
+                    commissions: currentDrawTotals.commissions + commission,
+                    netResult: currentDrawTotals.netResult + (amount - commission),
                     betCount: currentDrawTotals.betCount + 1
                 }
             };

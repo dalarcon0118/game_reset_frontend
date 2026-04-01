@@ -46,6 +46,7 @@ export const calculatePendingDelta = (pendingBets: BetType[], commissionRate: nu
  */
 export const enrichDraws = (
     draws: DrawType[],
+    commissionRate: number,
     pendingBets: BetType[] = [],
     syncedBets: BetType[] = []
 ): DrawType[] => {
@@ -82,7 +83,11 @@ export const enrichDraws = (
         // Note: premiumsPaid calculation is not yet implemented (still in design)
         // For now we set it to 0 as requested.
         const paid = 0;
-        const net = collected - paid;
+        
+        // Calculate commission for this draw
+        const safeRate = commissionRate > 1 ? commissionRate / 100 : commissionRate;
+        const commission = collected * safeRate;
+        const net = collected - paid - commission;
 
         return {
             ...draw,
@@ -184,7 +189,7 @@ export const recalculateDashboardState = (
 
     // 1. Enrich draws with bet sums
     const enrichedDraws = safeDrawsData
-        ? enrichDraws(safeDrawsData, pendingBets, syncedBets)
+        ? enrichDraws(safeDrawsData, commissionRate, pendingBets, syncedBets)
         : [];
 
     // 2. Filter enriched draws

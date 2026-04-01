@@ -44,6 +44,36 @@ export const CoreEffectsModule: EffectModule = {
                 );
             });
         },
+        /**
+         * EFFECT handler - Ejecuta efectos custom con constructor de mensajes.
+         * El handler registrado debe retornar un Task o Promise.
+         * El resultado se mapea a un Msg vía onSuccess/onFailure.
+         */
+        EFFECT: async (payload: { effectType: string; payload: any; onSuccess: (r: any) => any; onFailure: (e: any) => any; label?: string }, dispatch: (msg: any) => void) => {
+            const { effectType, payload: effectPayload, onSuccess, onFailure, label } = payload;
+            const handler = EffectRegistry.get(effectType);
+
+            if (!handler) {
+                console.error(`[EFFECT] ❌ Handler not found: ${effectType}`);
+                const msg = onFailure(new Error(`Effect handler not found: ${effectType}`));
+                if (msg) dispatch(msg);
+                return;
+            }
+
+            try {
+                console.log(`[EFFECT] Executing: ${effectType}`, { label });
+                // El handler retorna Task o Promise. Task tiene .fork(), Promise no.
+                const result: any = await handler(effectPayload, dispatch);
+                // Si el resultado es un Task (tiene fork), ejecutarlo
+                const value = result?.fork ? await result.fork() : result;
+                const msg = onSuccess(value);
+                if (msg) dispatch(msg);
+            } catch (error) {
+                console.error(`[EFFECT] Failed: ${effectType}`, error);
+                const msg = onFailure(error);
+                if (msg) dispatch(msg);
+            }
+        },
     },
 };
 

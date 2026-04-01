@@ -1,12 +1,12 @@
 import NetInfo from '@react-native-community/netinfo';
 import { IAuthRepository, IOfflineConditionChecker } from '@shared/repositories/auth';
 import { hasDrawAvailable } from '@shared/repositories/draw';
-import { betRepository } from '@shared/repositories/bet';
+import { betRepository } from '@shared/repositories/bet/bet.repository';
 import { apiClient } from '@shared/services/api_client';
 import { ConnectivityEvent } from '@shared/services/api_client/api_client.types';
 import { isServerReachable } from '@shared/utils/network';
 import { logger } from '@shared/utils/logger';
-import { syncWorker } from '@shared/core/offline-storage/instance';
+import { syncWorker, offlineEventBus } from '@shared/core/offline-storage/instance';
 import { BetPushStrategy } from '@shared/repositories/bet/sync/bet.push.strategy';
 import { DlqPushStrategy } from '@shared/repositories/dlq/sync/dlq.push.strategy';
 import { DrawsPullStrategy } from '@shared/repositories/draw/sync/draws.pull.strategy';
@@ -111,10 +111,24 @@ export const CoreService = {
    */
   maintenanceTask(label: string): Cmd {
     return Cmd.task({
-      task: () => systemJanitor.prepareDailySession(),
+      task: async () => {
+        // Add timeout to maintenance to prevent hanging
+        const maintenancePromise = systemJanitor.prepareDailySession();
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Maintenance task timed out')), 10000)
+        );
+        return await Promise.race([maintenancePromise, timeoutPromise]);
+      },
       onSuccess: () => ({ type: 'NO_OP' } as any),
       onFailure: (err) => {
         log.error(`${label} maintenance failed`, err);
+        // Even on failure, notify maintenance completed to unblock system
+        offlineEventBus.publish({
+          type: 'MAINTENANCE_COMPLETED',
+          entity: 'system',
+          payload: { date: new Date().toISOString().split('T')[0], status: 'ready' },
+          timestamp: Date.now()
+        });
         return { type: 'NO_OP' } as any;
       },
       label
@@ -232,13 +246,13 @@ export const CoreService = {
       const tokenState = SessionPolicy.resolveTokenState(access);
       
       // Si el token está por expirar (dentro del umbral de skew), notificamos
-      if (tokenState === TokenState.EXPIRED_SKEW) {
+      if (tokenState === TokenState.EXPIRED) {
         log.warn('Session close to expiration, notifying user...');
         await notificationRepository.addNotification({
           title: 'Sesión por expirar',
           message: 'Tu sesión expirará pronto. Asegúrate de sincronizar tus apuestas pendientes.',
           type: 'warning',
-          metadata: { type: 'SESSION_EXPIRING_SOON' }
+          updatedAt: new Date().toISOString()
         });
       }
     } catch (e) {

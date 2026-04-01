@@ -8,6 +8,15 @@ export * from './tea-utils/effect_registry';
 export * from './engine/engine';
 export * from './tea-utils/effect_handlers';
 
+// Algebraic types
+export { Maybe, Either, Result, ok, err, TEAAlgebraicUtils } from './algebraic-types';
+
+// Task monad (pure + orchestration + DI + TEA)
+export { Task } from './task';
+export { TaskRuntime } from './task-runtime';
+export { ReaderTask } from './reader-task';
+export { TaskTEA } from './task-tea';
+
 // TEAStore exports (avoiding duplicate exports from dependencies)
 export type { Entity } from './tea-store/tea-store.types';
 export type { TEAStoreConfig } from './tea-store/tea-store.types';

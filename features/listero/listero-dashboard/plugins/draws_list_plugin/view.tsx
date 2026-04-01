@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ActivityIndicator, View, TouchableOpacity } from 'react-native';
 import { match } from 'ts-pattern';
 import { RemoteData } from '@core/tea-utils';
@@ -22,6 +22,10 @@ interface DrawsListComponentProps {
 export const DrawsListComponent: React.FC<DrawsListComponentProps> = ({ context }) => {
   const model = DrawsListModule.useStore(selectModel);
   const dispatch = DrawsListModule.useStore(selectDispatch);
+
+  useEffect(() => {
+   console.log('-----Render DrawsListComponent mounted---');
+  }, []);
 
   const handleRefresh = () => {
     dispatch(REFRESH_CLICKED());

@@ -19,14 +19,15 @@ const checkReadyState = (model: Model): Return<Model, Msg> => {
         currentStatus: model.status.type
     });
 
-    if (model.draws.type === 'Success') {
-        log.info('Transitioning dashboard to READY state');
-        // Los plugins leen directamente del store via watchStore
-        // No necesitamos señales globales - el plugin detectará el cambio de estado
+    // El Dashboard está listo si los sorteos ya terminaron de cargar (éxito o error)
+    const isDataLoaded = model.draws.type === 'Success' || model.draws.type === 'Failure';
+
+    if (isDataLoaded) {
+        log.info('Transitioning dashboard to READY state', { type: model.draws.type });
         return singleton({ ...model, status: { type: 'READY' } });
     }
 
-    log.debug('checkReadyState: draws not ready yet', { drawsType: model.draws.type });
+    log.debug('checkReadyState: draws still loading', { drawsType: model.draws.type });
     return singleton(model);
 };
 
@@ -58,13 +59,6 @@ export const DataHandler = {
 
         log.debug('Bets loaded', { pending: safeBets.length, synced: allSynced.length });
 
-        // Don't call checkReadyState here - it will be called in handleDrawsReceived when draws arrive
-        // This avoids premature READY transition when draws are still loading
-        log.debug('handlePendingBetsLoaded: bets loaded, waiting for draws', {
-            drawsType: model.draws.type,
-            currentStatus: model.status.type
-        });
-
         const drawsData = model.draws.type === 'Success' ? model.draws.data : null;
         const now = TimerRepository.getTrustedNow(Date.now());
 
@@ -78,7 +72,9 @@ export const DataHandler = {
             allSynced
         );
 
-        return singleton({
+        // CAMBIO CRÍTICO: El dashboard puede estar READY si las apuestas ya cargaron, 
+        // permitiendo mostrar el resumen financiero local de inmediato.
+        return checkReadyState({
             ...model,
             pendingBets: safeBets,
             syncedBets: allSynced,
@@ -166,13 +162,20 @@ export const DataHandler = {
     },
 
     handleTick: (model: Model): Return<Model, Msg> => {
-        if (model.userStructureId && !model.isRateLimited) {
+        const isCurrentlyLoading = model.draws.type === 'Loading';
+        
+        if (model.userStructureId && !model.isRateLimited && !isCurrentlyLoading) {
             log.debug('Tick triggered fetch');
             return ret(model, [
                 fetchDrawsCmd(model.userStructureId),
                 loadPendingBetsCmd()
             ] as Cmd);
         }
+        
+        if (isCurrentlyLoading) {
+            log.debug('Tick skipped: fetch already in progress');
+        }
+        
         return singleton(model);
     },
 

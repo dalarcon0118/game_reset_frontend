@@ -12,6 +12,7 @@ const log = logger.withTag('DRAWS_LIST_PLUGIN_SUBS');
 // Variables de control encapsuladas en el closure del módulo pero reseteables
 let lastDrawsHash: string | null = null;
 let lastPayload: HostStatePayload | null = null;
+let lastHostStatus: string | null = null;
 
 /**
  * Resetea el estado de sincronización. Útil al re-montar el dashboard.
@@ -20,13 +21,14 @@ export const resetSyncState = () => {
   log.info('Resetting draws_list_plugin sync state');
   lastDrawsHash = null;
   lastPayload = null;
+  lastHostStatus = null;
 };
 
 /**
  * Función helper para obtener los datos financieros de las apuestas y transformarlos al formato del plugin
  * Ahora usa cálculo on-demand desde BetRepository en lugar del Ledger
  */
-async function fetchBetTotalsByDrawId(): Promise<DrawTotalsUpdate[]> {
+async function fetchBetTotalsByDrawId(commissionRate: number, structureId?: string): Promise<DrawTotalsUpdate[]> {
   // Obtener hora confiable del servidor
   const trustedNow = await TimerRepository.getTrustedNow(Date.now());
   const trustedDate = new Date(trustedNow);
@@ -38,11 +40,13 @@ async function fetchBetTotalsByDrawId(): Promise<DrawTotalsUpdate[]> {
 
   log.debug('Financial totals input', {
     trustedNow,
-    todayStart
+    todayStart,
+    commissionRate,
+    structureId
   });
 
   // Obtener totales por drawId desde BetRepository (cálculo on-demand)
-  const totalsByDrawId = await betRepository.getTotalsByDrawId(todayStart);
+  const totalsByDrawId = await betRepository.getTotalsByDrawId(todayStart, structureId, commissionRate);
 
   const entries = Object.entries(totalsByDrawId);
   log.debug('Financial totals intermediate', {
@@ -53,7 +57,7 @@ async function fetchBetTotalsByDrawId(): Promise<DrawTotalsUpdate[]> {
     drawId,
     totalCollected: data.totalCollected,
     premiumsPaid: 0, // No disponible en RawBetTotals (SSOT de BetRepository)
-    netResult: data.totalCollected, // Por ahora igual a totalCollected (sin premios)
+    netResult: data.netResult, // Ahora calculado en BetRepository (Ventas - Comisiones)
     betCount: data.betCount,
   }));
 
@@ -65,9 +69,13 @@ async function fetchBetTotalsByDrawId(): Promise<DrawTotalsUpdate[]> {
   return updates;
 }
 
-async function recomputeAndDispatchFinancialTotals(dispatch: (msg: ReturnType<typeof BATCH_OFFLINE_UPDATE>) => void): Promise<void> {
+async function recomputeAndDispatchFinancialTotals(
+  dispatch: (msg: ReturnType<typeof BATCH_OFFLINE_UPDATE>) => void,
+  commissionRate: number,
+  structureId?: string
+): Promise<void> {
   try {
-    const updates = await fetchBetTotalsByDrawId();
+    const updates = await fetchBetTotalsByDrawId(commissionRate, structureId);
     const timestamp = await TimerRepository.getTrustedNow(Date.now());
     dispatch(BATCH_OFFLINE_UPDATE({ updates, timestamp }));
   } catch (error) {
@@ -125,11 +133,11 @@ export const subscriptions = (model: Model) => {
         });
 
         // 🛡️ SOLUCIÓN AL PROBLEMA DE TIMING:
-        // Si el dashboard cambió a READY, siempre forzamos la sincronización
-        // Esto asegura que el plugin reciba los datos aunque el estado inicial
-        // del store aún estuviera en Loading/NotAsked
+        // Solo forzamos la sincronización si el estado CAMBIÓ a READY
+        // o si los datos realmente han cambiado.
         const hostStatus = state.status?.type;
-        const shouldForceSync = hostStatus === 'READY';
+        const statusChangedToReady = hostStatus === 'READY' && lastHostStatus !== 'READY';
+        const dataChanged = currentHash !== lastDrawsHash;
 
         // También forzamos sync si es la primera vez (lastDrawsHash es null)
         // o si los datos del host son exitosos pero el plugin aún no tiene datos
@@ -137,15 +145,21 @@ export const subscriptions = (model: Model) => {
         const hostHasData = currentPayload.draws.type === 'Success';
         const pluginHasNoData = !lastPayload || lastPayload.draws.type !== 'Success';
 
-        const shouldSync = shouldForceSync || isFirstSync || (hostHasData && pluginHasNoData);
+        const shouldSync = statusChangedToReady || dataChanged || isFirstSync || (hostHasData && pluginHasNoData);
 
-        if (!shouldSync && lastDrawsHash !== null && currentHash === lastDrawsHash && lastPayload) {
-          log.debug('Skipping sync - no changes detected', { lastDrawsHash, currentHash });
+        if (!shouldSync) {
+          log.debug('Skipping sync - no relevant changes detected', { 
+            hostStatus, 
+            lastHostStatus,
+            dataChanged,
+            isFirstSync 
+          });
+          lastHostStatus = hostStatus; // Actualizamos el status para la próxima comparación
           return lastPayload;
         }
 
-        if (shouldForceSync) {
-          log.info('FORCING SYNC: Dashboard is READY, updating plugin state');
+        if (statusChangedToReady) {
+          log.info('FORCING SYNC: Dashboard transitioned to READY, updating plugin state');
         }
 
         if (isFirstSync) {
@@ -155,11 +169,12 @@ export const subscriptions = (model: Model) => {
         log.info('Syncing Plugin State', {
           drawsState: currentPayload.draws.type,
           drawsCount: currentPayload.draws.type === 'Success' ? currentPayload.draws.data.length : 0,
-          reason: shouldForceSync ? 'READY status' : (isFirstSync ? 'first sync' : 'data changed')
+          reason: statusChangedToReady ? 'READY status transition' : (isFirstSync ? 'first sync' : 'data changed')
         });
 
         lastDrawsHash = currentHash;
         lastPayload = currentPayload;
+        lastHostStatus = hostStatus;
         return currentPayload;
       },
       (payload) => SYNC_STATE(payload),
@@ -170,21 +185,34 @@ export const subscriptions = (model: Model) => {
     Sub.custom((dispatch) => {
       log.info('Subscribing to DashboardService for Bet totals');
 
-      recomputeAndDispatchFinancialTotals(dispatch);
+      // Obtenemos el structureId inicial del contexto
+      let initialStructureId: string | undefined;
+      if (model.context?.hostStore) {
+        const hostState = model.context.hostStore.getState();
+        const initialPayload = extractHostState(hostState, model.config);
+        initialStructureId = initialPayload.userStructureId ?? undefined;
+      }
+
+      recomputeAndDispatchFinancialTotals(dispatch, model.commissionRate, initialStructureId);
 
       const unsubscribe = dashboardService.onDashboardInvalided(() => {
         log.info('🔄 DRAWS_LIST_PLUGIN: Refreshing draws and totals due to Dashboard Invalidation');
 
         // Forzamos la sincronización del estado del host para obtener los draws actualizados
         // Sin setTimeout - directamente leemos el estado actual del store
+        let currentCommissionRate = model.commissionRate;
+        let currentStructureId = initialStructureId;
         if (model.context?.hostStore) {
-          const currentPayload = extractHostState(model.context.hostStore.getState(), model.config);
+          const hostState = model.context.hostStore.getState();
+          const currentPayload = extractHostState(hostState, model.config);
+          currentCommissionRate = currentPayload.commissionRate;
+          currentStructureId = currentPayload.userStructureId ?? undefined;
           log.info('SYNC_STATE from invalidation', { drawsType: currentPayload.draws.type });
           dispatch(SYNC_STATE(currentPayload));
         }
 
         // También recalculamos los totales financieros
-        recomputeAndDispatchFinancialTotals(dispatch);
+        recomputeAndDispatchFinancialTotals(dispatch, currentCommissionRate, currentStructureId);
       });
 
       return () => {

@@ -4,7 +4,7 @@
 
 import { Cmd, CommandDescriptor } from '../tea-utils/cmd';
 import { SubDescriptor } from '../tea-utils/sub';
-import { TeaMiddleware } from '../middleware.types';
+import { TeaMiddleware } from '../tea-utils/middleware.types';
 
 /**
  * Result from update function
@@ -34,11 +34,16 @@ export interface StoreState<TModel, TMsg> {
 
 /**
  * Effect handler signature
+ * Can return:
+ * - void: fire-and-forget
+ * - Promise<void>: async fire-and-forget
+ * - Task: async effect that will be executed by the EFFECT handler
+ * - Promise<any>: async effect that returns a value
  */
 export type EffectHandler<T = any> = (
     payload: T,
     dispatch: (msg: any) => void
-) => Promise<void> | void;
+) => Promise<void> | void | { fork: () => Promise<any> } | Promise<any>;
 
 /**
  * Config object for createElmStore (alternative to positional params)

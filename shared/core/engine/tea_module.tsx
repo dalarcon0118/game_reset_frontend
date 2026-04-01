@@ -2,6 +2,7 @@ import React, { createContext, useContext, ReactNode, useEffect, useRef } from '
 import { createElmStore } from './engine';
 import { UseBoundStore, StoreApi } from 'zustand';
 import { storeRegistry } from './store_registry';
+import { Cmd } from '../tea-utils';
 
 /**
  * TEA Module Definition
@@ -64,7 +65,11 @@ export function createTEAModule<TModel, TMsg>(
 
         if (!storeRef.current) {
             const store = createElmStore({
-                initial: def.initial,
+                initial: () => {
+                    if (typeof def.initial === 'function') {
+                        return def.initial(initialParams);
+                    }  return [def.initial, Cmd.none];
+                },
                 update: def.update,
                 subscriptions: def.subscriptions || (() => null),
                 effectHandlers: def.effectHandlers,
@@ -72,9 +77,7 @@ export function createTEAModule<TModel, TMsg>(
                 name: def.name
             });
 
-            if (initialParams !== undefined) {
-                store.getState().init(initialParams);
-            }
+           
 
             storeRegistry.register(def.name, store);
             storeRef.current = store as any;

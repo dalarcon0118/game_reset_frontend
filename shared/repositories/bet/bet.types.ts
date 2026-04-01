@@ -1,25 +1,55 @@
-import { Result } from 'neverthrow';
+import { Result } from '@/shared/core';
 import { BetType } from '@/types';
-import { ListBetsFilters } from '@/shared/services/bet/types';
 import { SyncStatus } from '@core/offline-storage/types';
 import { BackendChildStructure, BackendListeroDetails } from '@/shared/services/structure/types';
 
+// ============================================================================
+// API CONTRACT TYPES (absorbed from services/bet/types.ts)
+// ============================================================================
+
+export interface GenericBetItemDTO {
+    betTypeId: number | string;
+    drawId: number | string;
+    amount: number;
+    numbers: string | number | number[] | Record<string, any>;
+    external_id?: string;
+    owner_structure?: number | string;
+}
+
+export interface CreateBetDTO {
+    drawId: string | number;
+    bets: GenericBetItemDTO[];
+    receiptCode?: string;
+}
+
+export interface BackendBet {
+    id: number | string;
+    draw: number | string;
+    game_type?: number | string;
+    bet_type?: number | string;
+    numbers_played: any;
+    amount: string | number;
+    created_at: string;
+    is_winner: boolean;
+    payout_amount: string | number;
+    owner_structure: number | string;
+    receipt_code?: string;
+    external_id?: string;
+    draw_details?: { id: number | string; name: string; description?: string };
+    game_type_details?: { id: number | string; name: string };
+    bet_type_details?: { id: number | string; name: string; code?: string };
+}
+
+export interface ListBetsFilters {
+    drawId?: string;
+    receiptCode?: string;
+    date?: string;
+    limit?: number;
+    offset?: number;
+}
+
 export type ChildStructure = BackendChildStructure;
 export type ListeroDetails = BackendListeroDetails;
-
-/**
- * Impacto financiero de una apuesta individual
- */
-export interface FinancialImpact {
-    /** Monto total recolectado (amount) */
-    totalCollected: number;
-
-    /** Comisión calculada para esta apuesta */
-    commission: number;
-
-    /** Monto neto después de comisión */
-    netAmount: number;
-}
 
 /**
  * Contexto de sincronización para trazabilidad de errores y reintentos.
@@ -72,6 +102,8 @@ export type BetRepositoryResult = BetType | BetType[];
  */
 export interface RawBetTotals {
     totalCollected: number;
+    commissions: number;
+    netResult: number;
     betCount: number;
 }
 
@@ -80,9 +112,9 @@ export interface RawBetTotals {
  * Defines the public API for all bet-related operations.
  */
 export interface IBetRepository {
-    placeBet(betData: BetPlacementInput): Promise<Result<BetRepositoryResult, Error>>;
-    placeBatch(bets: BetPlacementInput[]): Promise<Result<BetType[], Error>>;
-    getBets(filters?: ListBetsFilters): Promise<Result<BetType[], Error>>;
+    placeBet(betData: BetPlacementInput): Promise<Result<Error, BetRepositoryResult>>;
+    placeBatch(bets: BetPlacementInput[]): Promise<Result<Error, BetType[]>>;
+    getBets(filters?: ListBetsFilters): Promise<Result<Error, BetType[]>>;
     getPendingBets(): Promise<BetDomainModel[]>;
     addPendingBet(bet: BetDomainModel): Promise<void>;
     syncPending(): Promise<{ success: number; failed: number }>;
@@ -106,4 +138,42 @@ export interface IBetRepository {
 
     // Delete bet by ID (for test cleanup)
     delete(betId: number): Promise<void>;
+}
+
+// ============================================================================
+// PORTS (Hexagonal Architecture)
+// ============================================================================
+
+/**
+ * Port for Bet Storage (Persistence)
+ */
+export interface IBetStorage {
+    save(bet: BetDomainModel): Promise<void>;
+    saveBatch(bets: BetDomainModel[]): Promise<void>;
+    getAll(): Promise<BetDomainModel[]>;
+    getFiltered(filters: { 
+        todayStart?: number; 
+        structureId?: string; 
+        drawId?: string | number;
+        receiptCode?: string;
+        date?: number | string;
+    }): Promise<BetDomainModel[]>;
+    getPending(): Promise<BetDomainModel[]>;
+    getByStatus(status: BetDomainModel['status']): Promise<BetDomainModel[]>;
+    getRecentByDraw(drawId: string | number, maxAgeMs?: number): Promise<BetDomainModel[]>;
+    updateStatus(offlineId: string, status: BetDomainModel['status'], extra?: Partial<BetDomainModel>): Promise<void>;
+    delete(offlineId: string): Promise<void>;
+}
+
+/**
+ * Port for Bet API (Network)
+ */
+export interface IBetApi {
+    create(bet: BetDomainModel, idempotencyKey: string): Promise<BackendBet | BackendBet[]>;
+    checkStatus(idempotencyKey: string): Promise<{ synced: boolean; bets?: BackendBet[] }>;
+    list(filters?: ListBetsFilters): Promise<BackendBet[]>;
+    delete(betId: number): Promise<void>;
+    getChildren(id: number, level?: number): Promise<BackendChildStructure[]>;
+    getListeroDetails(id: number, date?: string): Promise<BackendListeroDetails>;
+    reportToDlq(bet: BetDomainModel, error: string): Promise<void>;
 }

@@ -1,10 +1,14 @@
-import { IBetStorage } from '../bet.ports';
-import { BetDomainModel } from '../bet.types';
+import { IBetStorage, BetDomainModel } from '../bet.types';
 import { offlineStorage } from '@core/offline-storage/instance';
-import { BetOfflineKeys } from '../bet.offline.keys';
+import { OfflineStorageKeyManager } from '@core/offline-storage/utils';
 import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('BetOfflineAdapter');
+
+const BetOfflineKeys = {
+    bet: (id: string) => OfflineStorageKeyManager.generateKey('bet', 'pending', id, 'data'),
+    getPattern: (entity: string = 'pending', id: string = '*') => OfflineStorageKeyManager.getPattern('bet', entity, id, 'data'),
+};
 
 /**
  * Adaptador de almacenamiento offline para apuestas que utiliza el motor agnóstico
@@ -24,10 +28,16 @@ export class BetOfflineAdapter implements IBetStorage {
     }
 
     /**
-     * Guarda un lote de apuestas en una sola operación
+     * Guarda un lote de apuestas en una sola operación con lógica de Upsert inteligente.
+     * Identifica y elimina entradas temporales (UUID) que ya tienen un receiptCode canónico.
      */
     async saveBatch(bets: BetDomainModel[]): Promise<void> {
-        log.info(`[BET-OFFLINE] Guardando lote de ${bets.length} apuestas.`);
+        log.info(`[BET-OFFLINE] Guardando lote de ${bets.length} apuestas (Upsert Mode).`);
+
+        // 1. Limpiar entradas que van a ser reemplazadas por este lote (Upsert)
+        await this.cleanupOrphanedEntries(bets);
+
+        // 2. Preparar las nuevas entradas con su identidad canónica
         const entries = bets.map(bet => {
             const id = bet.externalId || (bet as any).offlineId;
             return {
@@ -39,33 +49,134 @@ export class BetOfflineAdapter implements IBetStorage {
     }
 
     /**
-     * Obtiene todas las apuestas registradas.
-     * NORMALIZA los datos para asegurar que cumplen con BetDomainModel (SSOT)
-     * incluso si vienen de estructuras legacy o anidadas.
+     * Define la identidad semántica de una apuesta para deduplicación.
+     * Prioridad: receiptCode > externalId > id
+     */
+    private buildDedupKey(bet: BetDomainModel): string {
+        const receiptCode = String(bet.receiptCode || '').trim();
+        const externalId = String(bet.externalId || '').trim();
+
+        if (receiptCode) return `rc:${receiptCode}`;
+        if (externalId) return `ext:${externalId}`;
+        return `id:${String(bet.id || '').trim()}`;
+    }
+
+    /**
+     * Deduplica una colección de apuestas basada en su identidad semántica.
+     */
+    private dedup(bets: BetDomainModel[]): BetDomainModel[] {
+        const map = new Map<string, BetDomainModel>();
+        for (const bet of bets) {
+            const key = this.buildDedupKey(bet);
+            // La primera versión encontrada se mantiene (usualmente la del storage)
+            if (!map.has(key)) {
+                map.set(key, bet);
+            }
+        }
+        return Array.from(map.values());
+    }
+
+    /**
+     * Busca y elimina entradas obsoletas (UUID) que ya tienen una entrada canónica (ReceiptCode).
+     */
+    private async cleanupOrphanedEntries(newBets: BetDomainModel[]): Promise<void> {
+        const receiptCodes = new Set(
+            newBets.filter(b => b.receiptCode).map(b => b.receiptCode!)
+        );
+
+        if (receiptCodes.size === 0) return;
+
+        const pattern = BetOfflineKeys.getPattern('pending', '*');
+        const allEntries = await offlineStorage.query<BetDomainModel>(pattern).all();
+
+        const toDelete: string[] = [];
+        for (const bet of allEntries) {
+            if (!bet) continue;
+
+            // Si la apuesta en storage tiene un receiptCode que estamos guardando ahora
+            const hasMatchingReceipt = bet.receiptCode && receiptCodes.has(bet.receiptCode);
+            // Pero su externalId NO es el receiptCode (significa que es una entrada UUID vieja)
+            const isUUIDKey = bet.externalId && !receiptCodes.has(bet.externalId);
+
+            if (hasMatchingReceipt && isUUIDKey) {
+                toDelete.push(bet.externalId!);
+            }
+        }
+
+        if (toDelete.length > 0) {
+            log.info(`[BET-OFFLINE] Upsert: Eliminando ${toDelete.length} entradas temporales obsoletas`);
+            for (const id of toDelete) {
+                await offlineStorage.remove(BetOfflineKeys.bet(id));
+            }
+        }
+    }
+
+    /**
+     * Obtiene todas las apuestas registradas aplicando deduplicación semántica (SSOT).
      */
     async getAll(): Promise<BetDomainModel[]> {
         log.info('[BET-OFFLINE] Recuperando todas las apuestas del almacenamiento...');
         const pattern = BetOfflineKeys.getPattern('pending', '*');
-        log.info(`[BET-OFFLINE] Pattern usado para búsqueda: ${pattern}`);
         const results = await offlineStorage.query<BetDomainModel>(pattern).all();
-        log.info(`[BET-OFFLINE] Resultados brutos de query: ${results.length}`);
+
         const validBets = results.filter((b): b is BetDomainModel => b !== null);
-        log.info(`[BET-OFFLINE] Recuperadas ${validBets.length} apuestas válidas.`);
-        return validBets;
+        const uniqueBets = this.dedup(validBets);
+
+        log.info(`[BET-OFFLINE] Deduplicación: ${validBets.length} → ${uniqueBets.length}`);
+        return uniqueBets;
     }
 
     /**
-     * Obtiene apuestas filtradas por fecha y estructura (SSOT)
+     * Obtiene apuestas filtradas por diversos criterios (SSOT)
      */
-    async getFiltered(filters: { todayStart: number; structureId?: string }): Promise<BetDomainModel[]> {
+    async getFiltered(filters: { 
+        todayStart?: number; 
+        structureId?: string; 
+        drawId?: string | number;
+        receiptCode?: string;
+        date?: number | string;
+    }): Promise<BetDomainModel[]> {
         const all = await this.getAll();
-        const todayEnd = filters.todayStart + (24 * 60 * 60 * 1000);
+        
+        // 1. Determinar rango de fecha SOLO si se proporcionan filtros de tiempo
+        let rangeStart: number | undefined;
+        let rangeEnd: number | undefined;
+
+        if (filters.todayStart) {
+            rangeStart = filters.todayStart;
+            rangeEnd = rangeStart + (24 * 60 * 60 * 1000);
+        } else if (filters.date) {
+            rangeStart = typeof filters.date === 'number' ? filters.date : new Date(filters.date).getTime();
+            if (!isNaN(rangeStart)) {
+                rangeEnd = rangeStart + (24 * 60 * 60 * 1000);
+            } else {
+                rangeStart = undefined; // Fecha inválida
+            }
+        }
 
         return all.filter((bet) => {
-            const timestamp = Number(bet.timestamp) || 0;
-            const isToday = timestamp >= filters.todayStart && timestamp < todayEnd;
-            const matchesStructure = !filters.structureId || String(bet.ownerStructure) === String(filters.structureId);
-            return isToday && matchesStructure;
+            // 1. Filtro de fecha (opcional)
+            if (rangeStart !== undefined && rangeEnd !== undefined) {
+                const timestamp = Number(bet.timestamp) || 0;
+                if (timestamp < rangeStart || timestamp >= rangeEnd) return false;
+            }
+
+            // 2. Filtro de estructura (opcional)
+            if (filters.structureId && bet.ownerStructure && String(bet.ownerStructure) !== String(filters.structureId)) {
+                return false;
+            }
+
+            // 3. Filtro de Sorteo (opcional)
+            if (filters.drawId && String(bet.drawId) !== String(filters.drawId)) {
+                return false;
+            }
+
+            // 4. Filtro de Código de Recibo (opcional)
+            if (filters.receiptCode && bet.receiptCode !== filters.receiptCode) {
+                return false;
+            }
+
+            return true;
         });
     }
 

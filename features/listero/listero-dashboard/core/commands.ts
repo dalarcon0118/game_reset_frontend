@@ -18,6 +18,15 @@ import { DashboardUser, adaptAuthUser } from './user.dto';
 
 const log = logger.withTag('DASHBOARD_COMMANDS');
 
+const withTimeout = <T>(promise: Promise<T>, ms: number, label: string): Promise<T> => {
+    return Promise.race([
+        promise,
+        new Promise<T>((_, reject) =>
+            setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+        )
+    ]);
+};
+
 export const fetchUserDataCmd = (): Cmd => {
     return Cmd.task({
         task: async (): Promise<DashboardUser | null> => {
@@ -44,7 +53,8 @@ export const fetchDrawsCmd = (structureId: string | null): Cmd => {
     return Cmd.task({
         task: async () => {
             try {
-                const result = await drawRepository.getDraws({ owner_structure: structureId, today: true });
+                const fetchPromise = drawRepository.getDraws({ owner_structure: structureId, today: true });
+                const result = await withTimeout(fetchPromise, 15000, 'fetchDraws');
 
                 if (result.isOk()) {
                     return result.value;
@@ -75,7 +85,11 @@ export const fetchDrawsCmd = (structureId: string | null): Cmd => {
 export const loadPendingBetsCmd = (): Cmd => {
     return Cmd.task({
         task: async () => {
-            const result = await betRepository.getBets();
+            // SSoT: Solo pedimos las apuestas de hoy para el dashboard.
+            // Las pendientes offline siempre se incluyen localmente por el repositorio.
+            const today = new Date().toISOString().split('T')[0];
+            const betsPromise = betRepository.getBets({ date: today });
+            const result = await withTimeout(betsPromise, 10000, 'loadPendingBets');
             if (result.isErr()) throw result.error;
 
             const allBets = result.value;
@@ -84,8 +98,12 @@ export const loadPendingBetsCmd = (): Cmd => {
 
             return { pending, synced };
         },
-        onSuccess: (data) => PENDING_BETS_LOADED(data),
-        onFailure: () => NONE() // Silent failure for offline bets
+        onSuccess: (data) => PENDING_BETS_LOADED(data.pending, data.synced),
+        onFailure: (error) => {
+            log.error('Failed to load pending bets', error);
+            // Return empty data so dashboard can still function
+            return PENDING_BETS_LOADED([], []);
+        }
     });
 };
 

@@ -411,9 +411,18 @@ export class RequestExecutor {
         }
       }
     } else if (isOfflineSession) {
-      // For offline sessions, don't trigger global handler which would clear the session
-      // Just let the request fail so it can fall back to cached data
-      this.log.info(`[AUTH] Offline session - skipping refresh and global handler for ${status} error`);
+      if (status === 401) {
+        // Para sesiones offline, si el backend devuelve 401, significa que hay red 
+        // pero las credenciales no existen o son inválidas. Debemos forzar login online.
+        this.log.info(`[AUTH] Offline session hit 401. Forcing global handler to require online login.`);
+        const globalHandler = this.getErrorHandler();
+        if (globalHandler) {
+          await globalHandler(error, context.endpoint, context.options);
+        }
+      } else {
+        // Para otros errores (ej. 403, 500, etc), seguimos protegiendo la sesión
+        this.log.info(`[AUTH] Offline session - skipping global handler for ${status} error`);
+      }
       return null;
     }
 

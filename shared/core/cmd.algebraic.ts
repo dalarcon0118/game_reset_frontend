@@ -9,7 +9,14 @@
 import { Cmd as CoreCmd, CommandDescriptor } from './tea-utils/cmd';
 import { Maybe, Either, Result } from './algebraic-types';
 import { logger } from '../utils/logger';
-import { ListParams } from './architecture/interfaces';
+
+interface ListParams {
+  page?: number;
+  perPage?: number;
+  sort?: string;
+  order?: 'asc' | 'desc';
+  filter?: Record<string, any>;
+}
 
 const log = logger.withTag('CMD_ALGEBRAIC');
 
@@ -111,8 +118,8 @@ export const AlgebraicCmd = {
       payload: {
         resource,
         params,
-        onSuccess: (data: { data: T[], total: number }) => msgConstructor({ _tag: 'Right', right: data.data }), // We unwrap data structure here for simplicity or keep it? Let's keep data only for now or adapt
-        onFailure: (error: any) => msgConstructor({ _tag: 'Left', left: error })
+        onSuccess: (data: { data: T[], total: number }) => msgConstructor(Result.ok(data.data)),
+        onFailure: (error: any) => msgConstructor(Result.error(error))
       }
     }),
 
@@ -128,8 +135,8 @@ export const AlgebraicCmd = {
       payload: {
         resource,
         id,
-        onSuccess: (data: T) => msgConstructor({ _tag: 'Right', right: data }),
-        onFailure: (error: any) => msgConstructor({ _tag: 'Left', left: error })
+        onSuccess: (data: T) => msgConstructor(Result.ok(data)),
+        onFailure: (error: any) => msgConstructor(Result.error(error))
       }
     }),
 
@@ -145,8 +152,8 @@ export const AlgebraicCmd = {
       payload: {
         resource,
         variables,
-        onSuccess: (data: T) => msgConstructor({ _tag: 'Right', right: data }),
-        onFailure: (error: any) => msgConstructor({ _tag: 'Left', left: error })
+        onSuccess: (data: T) => msgConstructor(Result.ok(data)),
+        onFailure: (error: any) => msgConstructor(Result.error(error))
       }
     }),
 
@@ -164,8 +171,8 @@ export const AlgebraicCmd = {
         resource,
         id,
         variables,
-        onSuccess: (data: T) => msgConstructor({ _tag: 'Right', right: data }),
-        onFailure: (error: any) => msgConstructor({ _tag: 'Left', left: error })
+        onSuccess: (data: T) => msgConstructor(Result.ok(data)),
+        onFailure: (error: any) => msgConstructor(Result.error(error))
       }
     }),
 
@@ -181,8 +188,8 @@ export const AlgebraicCmd = {
       payload: {
         resource,
         id,
-        onSuccess: (data: T) => msgConstructor({ _tag: 'Right', right: data }),
-        onFailure: (error: any) => msgConstructor({ _tag: 'Left', left: error })
+        onSuccess: (data: T) => msgConstructor(Result.ok(data)),
+        onFailure: (error: any) => msgConstructor(Result.error(error))
       }
     })
   }

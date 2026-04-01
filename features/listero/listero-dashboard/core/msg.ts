@@ -66,15 +66,16 @@ export const NOTIFICATIONS_CLICKED = (): Msg => ({ type: 'NOTIFICATIONS_CLICKED'
 export const SETTINGS_CLICKED = (): Msg => ({ type: 'SETTINGS_CLICKED' });
 export const TOGGLE_BALANCE = (): Msg => ({ type: 'TOGGLE_BALANCE' });
 export const NONE = (): Msg => ({ type: 'NONE' });
-export const SYSTEM_READY = (payload: { date: string; structureId?: string; user?: any }): Msg => ({ 
-    type: 'SYSTEM_READY', 
-    ...payload 
+export const SYSTEM_READY = (payload: { date: string; structureId?: string; user?: any }): Msg => ({
+    type: 'SYSTEM_READY',
+    ...payload
 });
 
 export const PROMOTION_MSG = (msg: PromotionMsg): Msg => ({ type: 'PROMOTION_MSG', msg });
 
 export const DRAWS_RECEIVED = (webData: WebData<DrawType[]>): Msg => ({ type: 'DRAWS_RECEIVED', webData });
 export const PENDING_BETS_LOADED = (bets: BetType[], syncedBets?: BetType[]): Msg => ({ type: 'PENDING_BETS_LOADED', bets, syncedBets });
-export const FINANCIAL_UPDATE_RECEIVED = (update: FinancialUpdate): Msg => ({ type: 'FINANCIAL_UPDATE_RECEIVED', update });
+//export const FINANCIAL_UPDATE_RECEIVED = (update: FinancialUpdate): Msg => ({ type: 'FINANCIAL_UPDATE_RECEIVED', update });
 export const SSE_CONNECTED = (): Msg => ({ type: 'SSE_CONNECTED' });
 export const SSE_ERROR = (error: string): Msg => ({ type: 'SSE_ERROR', error });
+export const ERROR = (error: any): Msg => ({ type: 'ERROR', error });

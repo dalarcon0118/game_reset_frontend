@@ -95,10 +95,12 @@ export function createElmStore<TModel, TMsg>(
         name,
         initial,
         update,
-        effectHandlers = globalEffectHandlers,
         subscriptions,
         middlewares = globalMiddlewares
     } = config;
+
+    // Merge global and local effect handlers, local overrides global if keys collide
+    const effectHandlers = { ...globalEffectHandlers, ...(config.effectHandlers || {}) };
 
     // Combine middlewares
     const combinedMiddlewares = [...globalMiddlewares, ...(middlewares || [])];
@@ -161,7 +163,13 @@ export function createElmStore<TModel, TMsg>(
                         try {
                             const currentMeta = parentMeta || {};
                             allMiddlewares.forEach(m => m.beforeCmd?.(singleCmd, currentMeta));
-                            const result = await effectHandlers[singleCmd.type](singleCmd.payload, dispatchWithMeta);
+                            const handlerResult = effectHandlers[singleCmd.type](singleCmd.payload, dispatchWithMeta);
+
+                            // Duck typing for Task support
+                            const result = (handlerResult && typeof (handlerResult as any).fork === 'function')
+                                ? await (handlerResult as any).fork()
+                                : await handlerResult;
+
                             if (singleCmd.payload && singleCmd.payload.msgCreator) {
                                 dispatchWithMeta(singleCmd.payload.msgCreator(result));
                             }
@@ -344,9 +352,9 @@ export function createElmStore<TModel, TMsg>(
     }
 
     // Auto-init
-    if (typeof initial === 'function') {
+    /*if (typeof initial === 'function') {
         store.getState().init();
-    }
+    }*/
 
     return store;
 }

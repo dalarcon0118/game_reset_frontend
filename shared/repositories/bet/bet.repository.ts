@@ -1,479 +1,222 @@
-import { Result, ok, err, ResultAsync } from 'neverthrow';
-import { IBetRepository, BetRepositoryResult, BetDomainModel, ChildStructure, ListeroDetails, BetPlacementInput, RawBetTotals } from './bet.types';
-import { IBetStorage, IBetApi } from './bet.ports';
-import { logger } from '@/shared/utils/logger';
-import { ListBetsFilters } from '@/shared/services/bet/types';
+import { Result } from '@/shared/core';
+import {
+    IBetRepository, BetRepositoryResult, BetDomainModel, ChildStructure,
+    ListeroDetails, BetPlacementInput, RawBetTotals, IBetStorage, IBetApi, ListBetsFilters
+} from './bet.types';
 import { BetType } from '@/types';
-import { isServerReachable } from '@/shared/utils/network';
-import { offlineEventBus } from '@/shared/core/offline-storage/instance';
-import { notificationRepository } from '../notification';
-import { dlqRepository } from '../dlq';
+import { offlineEventBus } from '@core/offline-storage/instance';
+import { createElmStore } from '@/shared/core/tea';
+import { logger } from '@/shared/utils/logger';
 
-// Flows
-import { placeBetFlow, placeBatchFlow } from './flows/place-bet.flow';
-import { getBetsFlow } from './flows/get-bets.flow';
-import { syncPendingFlow } from './flows/sync-bets.flow';
-import { getFinancialSummaryFlow, getTotalsByDrawIdFlow } from './flows/financial.flow';
+// TEA
+import { BetState, initialModel, Msg, Fx } from './tea/types';
+import { update } from './tea/update';
+import { createBetEffectHandlers } from './tea/handlers';
 
-// Instantiate and export singleton with default adapters
-import { BetStorageAdapter } from './adapters/bet.storage.adapter';
+// Sync
+import { BetOfflineAdapter } from './adapters/bet.offline.adapter';
 import { BetApiAdapter } from './adapters/bet.api.adapter';
 import { BetSyncListener } from './sync/bet.sync.listener';
+import { EffectRegistry } from '@/shared/core/tea-utils/effect_registry';
+import { wrapLocalEffectHandlers } from './tea/local-effect-wrapper';
 
+// Notifications
+import { notificationRepository } from '@/shared/repositories/notification';
+
+/**
+ * BetRepository — Fachada TEA.
+ *
+ * Patrón: Flujo unidireccional y determinista.
+ * El Repository emite mensajes inyectando un callback `resolve`.
+ * El motor TEA (Update -> Handlers) procesa la acción y llama al `resolve`
+ * de forma aislada, evitando por completo las condiciones de carrera.
+ */
 const log = logger.withTag('BetRepository');
 
-export class BetRepository implements IBetRepository {
-    private readonly log = log;
-    private readonly syncListener: BetSyncListener;
-    private readonly subscribers: Set<() => void> = new Set();
-    private syncPendingInFlight: Promise<{ success: number; failed: number }> | null = null;
-    private busUnsubscribe: (() => void) | null = null;
+export const createBetRepository = (
+    storage: IBetStorage,
+    api: IBetApi
+): IBetRepository => {
+    const subscribers: Set<() => void> = new Set();
 
-    constructor(
-        private readonly storage: IBetStorage,
-        private readonly api: IBetApi
-    ) {
-        this.log.info(`[INIT] BetRepository constructor initialized. Instancia: ${Math.random().toString(36).substring(7)}`);
-        // Iniciar el listener de eventos de sincronización
-        this.syncListener = new BetSyncListener(this.storage);
-        this.syncListener.start();
+    const notifySubscribers = () => subscribers.forEach(cb => { try { cb(); } catch (e) { } });
 
-        this.setupEventBus();
-    }
+    const baseHandlers = createBetEffectHandlers(storage, api, notifySubscribers);
+    const effectHandlers = wrapLocalEffectHandlers(baseHandlers);
 
-    /**
-     * Configura las suscripciones al bus de eventos.
-     * Puede ser llamado múltiples veces para re-suscribirse si es necesario (ej. en tests).
-     */
-    public setupEventBus(): void {
-        if (this.busUnsubscribe) {
-            this.busUnsubscribe();
-        }
+    // Register bet handlers globally so the engine's EFFECT wrapper can find them
+    EffectRegistry.register({
+        namespace: '', // No namespace to match existing direct Fx types
+        handlers: baseHandlers
+    });
 
-        this.log.info('[INIT] Suscribiéndose al offlineEventBus...');
-        this.busUnsubscribe = offlineEventBus.subscribe((event) => {
-            this.log.info(`[EVENT-BUS] Received event: ${event.type} for entity: ${event.entity} (Payload: ${JSON.stringify(event.payload)})`);
-            const isBetSync = (event.type === 'SYNC_ITEM_SUCCESS' || event.type === 'SYNC_ITEM_ERROR') && event.entity === 'bet';
-            const isBetChange = event.type === 'ENTITY_CHANGED' && event.entity?.includes('bet');
+    const store = createElmStore({
+        name: 'BetSystemStore',
+        initial: initialModel,
+        update,
+        effectHandlers, // Usa el wrapper local para esquivar la condición de carrera
+    });
 
-            if (isBetSync || isBetChange) {
-                this.notifySubscribers();
-            }
+    const dispatch = store.getState().dispatch;
 
-            // ESTRATEGIA: Reconciliar cuando el sistema está listo (Online + Auth)
-            if (event.type === 'MAINTENANCE_COMPLETED' && (event.payload as any)?.status === 'ready') {
-                this.log.info(`[RECONCILE-FLOW] Evento MAINTENANCE_COMPLETED recibido en instancia ${this.constructor.name}. Iniciando reconciliación...`);
-                this.reconcileOrphanBets().catch(err => {
-                    this.log.error(`[RECONCILE-FLOW] Error crítico en reconcileOrphanBets (Instancia ${this.constructor.name})`, err);
-                });
-            }
-        });
-    }
+    // Event Bus
+    offlineEventBus.subscribe((event) => {
+        const isBetSync = (event.type === 'SYNC_ITEM_SUCCESS' || event.type === 'SYNC_ITEM_ERROR') && event.entity === 'bet';
+        const isBetChange = event.type === 'ENTITY_CHANGED' && event.entity?.includes('bet');
+        if (isBetSync || isBetChange) dispatch(Msg.externalStorageChanged());
+        if (event.type === 'MAINTENANCE_COMPLETED') dispatch(Msg.maintenanceCompleted());
+    });
 
-    /**
-     * Busca apuestas bloqueadas o con errores persistentes y las mueve a la DLQ.
-     */
-    private async reconcileOrphanBets(): Promise<void> {
-        this.log.info(`[RECONCILE-FLOW] 1. Buscando apuestas huérfanas (blocked o >3 intentos)... Instancia: ${this.constructor.name}`);
+    const syncListener = new BetSyncListener(storage, notificationRepository);
+    syncListener.start();
 
-        const pendingBets = await this.storage.getPending();
-        this.log.info(`[RECONCILE-FLOW] 2. Total pendientes recuperadas: ${pendingBets.length}. IDs: ${pendingBets.map(b => b.externalId).join(', ')}`);
+    return {
+        onBetChanged: (callback: () => void) => {
+            subscribers.add(callback);
+            return () => subscribers.delete(callback);
+        },
 
-        const orphanBets = pendingBets.filter(bet => {
-            const attempts = bet.syncContext?.attemptsCount || 0;
-            const isOrphan = bet.status === 'blocked' || attempts >= 3;
-            if (isOrphan) {
-                this.log.info(`[RECONCILE-FLOW] Bet ${bet.externalId} identificada como huérfana (Status: ${bet.status}, Attempts: ${attempts}, syncContext: ${JSON.stringify(bet.syncContext)})`);
-            }
-            return isOrphan;
-        });
+        placeBet: async (betData: BetPlacementInput) => {
+            return new Promise<Result<Error, BetRepositoryResult>>(resolve => {
+                dispatch(Msg.placeBetRequested({ data: betData, resolve }));
+            });
+        },
 
-        if (orphanBets.length === 0) {
-            this.log.info('[RECONCILE-FLOW] No se encontraron apuestas huérfanas para reconciliación');
-            return;
-        }
+        placeBatch: async (bets: BetPlacementInput[]) => {
+            return new Promise<Result<Error, BetType[]>>(resolve => {
+                dispatch(Msg.placeBatchRequested({ data: bets, resolve }));
+            });
+        },
 
-        this.log.info(`[RECONCILE-FLOW] 3. Encontradas ${orphanBets.length} apuestas huérfanas. Iniciando traspaso a DLQ.`);
+        getBets: async (filters?: ListBetsFilters) => {
+            const timeoutMs = 8000;
+            const mainPromise = new Promise<Result<Error, BetType[]>>(resolve => {
+                dispatch(Msg.getBetsRequested({ filters, resolve }));
+            });
+            const timeoutPromise = new Promise<Result<Error, BetType[]>>(resolve =>
+                setTimeout(() => {
+                    log.warn(`getBets timed out after ${timeoutMs}ms, returning error`);
+                    resolve(Result.error(new Error('TIMEOUT')));
+                }, timeoutMs)
+            );
+            return Promise.race([mainPromise, timeoutPromise]);
+        },
 
-        for (const bet of orphanBets) {
-            try {
-                this.log.info(`[RECONCILE-FLOW] 4. Procesando traspaso a DLQ para bet: ${bet.externalId}`);
-                // 1. Mover a DLQ
-                await dlqRepository.add('bet', bet.externalId, bet, {
-                    message: bet.syncContext?.lastError || 'Reconciliación automática: Error persistente',
-                    code: 'ORPHAN_RECONCILED',
-                    status: 400,
-                    timestamp: Date.now()
-                });
+        syncPending: async () => {
+            return new Promise<{ success: number; failed: number }>((resolve, reject) => {
+                dispatch(Msg.syncRequested({
+                    resolve: (result) => result.isOk() ? resolve(result.value) : reject(result.error)
+                }));
+            });
+        },
 
-                this.log.info(`[RECONCILE-FLOW] 5. Marcando localmente como synced: ${bet.externalId}`);
-                // 2. Marcar localmente como sincronizada/resuelta
-                await this.storage.updateStatus(bet.externalId, 'synced', {
-                    syncContext: {
-                        ...bet.syncContext,
-                        attemptsCount: bet.syncContext?.attemptsCount || 1,
-                        lastError: 'Movido a DLQ para auditoría',
-                        lastAttempt: Date.now()
+        addPendingBet: async (bet: BetDomainModel) => {
+            return new Promise<void>((resolve, reject) => {
+                dispatch(Msg.addPendingBetRequested({
+                    bet,
+                    resolve: (result) => result.isOk() ? resolve() : reject(result.error)
+                }));
+            });
+        },
+
+        cleanup: async (today: string) => {
+            return new Promise<number>((resolve, reject) => {
+                dispatch(Msg.cleanupRequested({
+                    today,
+                    resolve: (result) => result.isOk() ? resolve(result.value) : reject(result.error)
+                }));
+            });
+        },
+
+        recoverStuckBets: async () => {
+            return new Promise<number>((resolve, reject) => {
+                dispatch(Msg.recoverStuckRequested({
+                    resolve: (result) => result.isOk() ? resolve(result.value) : reject(result.error)
+                }));
+            });
+        },
+
+        resetSyncStatus: async (offlineId: string) => {
+            return new Promise<void>((resolve, reject) => {
+                dispatch(Msg.resetSyncStatusRequested({
+                    offlineId,
+                    resolve: (result) => result.isOk() ? resolve() : reject(result.error)
+                }));
+            });
+        },
+
+        applyMaintenance: async () => {
+            dispatch(Msg.maintenanceCompleted());
+            await Promise.all([
+                new Promise<number>((resolve, reject) => dispatch(Msg.cleanupFailedRequested({ days: 7, resolve: (result) => result.isOk() ? resolve(result.value) : reject(result.error) }))),
+                new Promise<number>((resolve, reject) => dispatch(Msg.recoverStuckRequested({ resolve: (result) => result.isOk() ? resolve(result.value) : reject(result.error) })))
+            ]);
+        },
+
+        getFinancialSummary: async (todayStart: number, structureId?: string, defaultCommissionRate?: number) => {
+            log.info('getFinancialSummary called', { todayStart, structureId, defaultCommissionRate });
+            const timeoutMs = 8000;
+            const mainPromise = new Promise<RawBetTotals>((resolve, reject) => {
+                dispatch(Msg.financialSummaryRequested({
+                    todayStart,
+                    structureId,
+                    defaultRate: defaultCommissionRate,
+                    resolve: (result) => {
+                        log.info('getFinancialSummary resolved', { isOk: result.isOk(), value: result.isOk() ? result.value : null });
+                        result.isOk() ? resolve(result.value) : reject(result.error)
                     }
-                });
-
-                this.log.info(`[RECONCILE-FLOW] 6. Bet ${bet.externalId} completada exitosamente.`);
-            } catch (err) {
-                this.log.error(`[RECONCILE-FLOW] ERROR en traspaso de bet ${bet.externalId}`, err);
-            }
-        }
-    }
-
-    /**
-     * Suscripción pasiva a cambios en las apuestas
-     */
-    onBetChanged(callback: () => void): () => void {
-        this.subscribers.add(callback);
-        return () => this.subscribers.delete(callback);
-    }
-
-    private notifySubscribers(): void {
-        this.subscribers.forEach(cb => {
-            try {
-                cb();
-            } catch (error) {
-                this.log.error('Error in subscriber callback', error);
-            }
-        });
-    }
-
-    // ============================================================================
-    // REPOSITORIO DE APUESTAS (SENIOR SYMMETRIC IMPLEMENTATION)
-    // ============================================================================
-
-    /**
-     * Obtiene apuestas (Caché local + Refresco remoto asíncrono)
-     */
-    async getBets(filters?: ListBetsFilters): Promise<Result<BetType[], Error>> {
-        // 1. CACHE-FIRST: Retorno inmediato de datos locales (incluye pendientes)
-        const local = await getBetsFlow(this.storage, this.api, filters);
-        
-        // 2. REMOTE-FALLBACK: Disparo de refresco en fondo si hay red
-        if (local.isOk()) {
-            this.fetchAndCacheRemote(filters).catch(() => {}); 
-        }
-
-        return local;
-    }
-
-    /**
-     * Crea una apuesta (Local-First / Confirmación Instantánea)
-     */
-    async placeBet(betData: BetPlacementInput): Promise<Result<BetRepositoryResult, Error>> {
-        return ResultAsync.fromPromise(placeBetFlow(betData as any, this.storage, this.api), e => e as Error)
-            .andThen(result => {
-                this.triggerGlobalPendingSyncIfOnline();
-                return ok(result);
+                }));
             });
-    }
+            const timeoutPromise = new Promise<RawBetTotals>((_, reject) =>
+                setTimeout(() => {
+                    log.warn(`getFinancialSummary timed out after ${timeoutMs}ms`);
+                    reject(new Error('TIMEOUT_FINANCIAL_SUMMARY'));
+                }, timeoutMs)
+            );
+            return Promise.race([mainPromise, timeoutPromise]);
+        },
 
-    /**
-     * Crea un lote de apuestas (Batch Local-First)
-     */
-    async placeBatch(bets: BetPlacementInput[]): Promise<Result<BetType[], Error>> {
-        return ResultAsync.fromPromise(placeBatchFlow(bets as any, this.storage, this.api), e => e as Error)
-            .andThen(result => {
-                this.triggerGlobalPendingSyncIfOnline();
-                return ok(result as BetType[]);
+        getTotalsByDrawId: async (todayStart: number, structureId?: string, defaultCommissionRate?: number) => {
+            return new Promise<Record<string, RawBetTotals>>((resolve, reject) => {
+                dispatch(Msg.totalsByDrawRequested({
+                    todayStart,
+                    structureId,
+                    defaultRate: defaultCommissionRate,
+                    resolve: (result) => result.isOk() ? resolve(result.value) : reject(result.error)
+                }));
             });
-    }
+        },
 
-    // ============================================================================
-    // MÉTODOS PRIVADOS DE APOYO (ORQUESTACIÓN)
-    // ============================================================================
-
-    private async fetchAndCacheRemote(filters?: ListBetsFilters): Promise<void> {
-        const isOnline = await isServerReachable();
-        if (!isOnline) return;
-
-        try {
-            // El flow de obtención ya orquesta la mezcla, aquí solo forzamos el refresco de la API
-            await this.api.list(filters);
-            this.notifySubscribers();
-        } catch (error) {
-            this.log.debug('Background refresh skipped or failed', error);
-        }
-    }
-
-    /**
-     * Sincroniza todas las apuestas pendientes.
-     */
-    async syncPending(): Promise<{ success: number; failed: number }> {
-        if (this.syncPendingInFlight) {
-            return this.syncPendingInFlight;
-        }
-
-        this.syncPendingInFlight = (async () => {
-            const result = await syncPendingFlow(this.storage, this.api);
-
-            if (result.success > 0) {
-                await notificationRepository.addNotification({
-                    title: 'Sincronización completada',
-                    message: `Se han sincronizado ${result.success} apuestas exitosamente.`,
-                    type: 'success',
-                    metadata: { count: result.success, type: 'SYNC_SUCCESS' }
-                });
-            }
-
-            if (result.failed > 0) {
-                await notificationRepository.addNotification({
-                    title: 'Error de sincronización',
-                    message: `${result.failed} apuestas no pudieron sincronizarse. Se reintentará más tarde.`,
-                    type: 'error',
-                    metadata: { count: result.failed, type: 'SYNC_ERROR' }
-                });
-            }
-
-            return result;
-        })();
-
-        try {
-            return await this.syncPendingInFlight;
-        } finally {
-            this.syncPendingInFlight = null;
-        }
-    }
-
-    private triggerGlobalPendingSyncIfOnline(): void {
-        void (async () => {
-            try {
-                const online = await isServerReachable();
-                if (!online) return;
-                await this.syncPending();
-            } catch (error) {
-                this.log.warn('Background global pending sync skipped after place flow', error);
-            }
-        })();
-    }
-
-    /**
-     * Resets the sync status of a bet (DLQ Reprocessing).
-     * Clears error context and sets status back to pending.
-     */
-    async resetSyncStatus(offlineId: string): Promise<void> {
-        try {
-            this.log.info(`Resetting sync status for bet ${offlineId}`);
-
-            // 1. Actualizar en el almacenamiento local
-            await this.storage.updateStatus(offlineId, 'pending', {
-                syncContext: undefined, // Limpiar el contexto de error (DLQ)
-                lastError: undefined
-            });
-
-            // 2. Opcionalmente podríamos disparar un trigger de sync aquí, 
-            // pero el worker lo recogerá en su ciclo habitual.
-        } catch (error) {
-            this.log.error(`Failed to reset sync status for bet ${offlineId}`, error);
-            throw error;
-        }
-    }
-
-    /**
-     * Get financial summary for a period and structure.
-     */
-    async getFinancialSummary(todayStart: number, structureId?: string): Promise<RawBetTotals> {
-        return await getFinancialSummaryFlow(this.storage, todayStart, structureId);
-    }
-
-    /**
-     * Get totals grouped by Draw ID for a period and structure.
-     */
-    async getTotalsByDrawId(todayStart: number, structureId?: string): Promise<Record<string, RawBetTotals>> {
-        return await getTotalsByDrawIdFlow(this.storage, todayStart, structureId);
-    }
-
-    /**
-     * Checks if there are critical pending or failed bets before a specific timestamp.
-     */
-    async hasCriticalPendingBets(beforeTimestamp: number): Promise<boolean> {
-        try {
-            const allBets = await this.storage.getAll();
+        hasCriticalPendingBets: async (beforeTimestamp: number) => {
+            const allBets = await storage.getAll();
             return allBets.some(bet =>
                 (bet.status === 'pending' || bet.status === 'error' || bet.status === 'blocked') &&
                 bet.timestamp < beforeTimestamp
             );
-        } catch (error) {
-            this.log.error('Error checking critical pending bets', error);
-            return false;
-        }
-    }
+        },
 
-    /**
-     * Get all raw bets from local storage.
-     */
-    async getAllRawBets(): Promise<BetDomainModel[]> {
-        return await this.storage.getAll();
-    }
+        getAllRawBets: async () => storage.getAll(),
 
-    /**
-     * Obtiene solo las apuestas pendientes (offline)
-     */
-    async getPendingBets(): Promise<BetDomainModel[]> {
-        return await this.storage.getPending();
-    }
+        getPendingBets: async () => storage.getPending(),
 
-    /**
-     * Agrega una apuesta pendiente directamente al almacenamiento offline.
-     * Útil para tests o para inyectar apuestas que deben ser sincronizadas.
-     */
-    async addPendingBet(bet: BetDomainModel): Promise<void> {
-        this.log.debug('Adding manual pending bet', bet);
-        await this.storage.save(bet);
+        isAppBlocked: async () => {
+            const blockedBets = await storage.getByStatus('blocked');
+            return { blocked: blockedBets.length > 0, blockedBetsCount: blockedBets.length };
+        },
 
-        // Notificar a la UI sobre la apuesta pendiente guardada offline
-        await notificationRepository.addNotification({
-            title: 'Apuesta guardada offline',
-            message: `La apuesta por ${bet.amount} se guardará localmente hasta que recuperes la conexión.`,
-            type: 'warning',
-            metadata: { betId: (bet as any).id, type: 'OFFLINE_BET' }
-        });
+        getChildren: async (id: number, level: number = 1) => api.getChildren(id, level),
 
-        this.notifySubscribers();
-    }
+        getListeroDetails: async (id: number, date?: string) => api.getListeroDetails(id, date),
 
-    /**
-     * Checks if the application should be blocked due to old unsynced bets.
-     */
-    async isAppBlocked(): Promise<{ blocked: boolean; blockedBetsCount: number }> {
-        try {
-            const blockedBets = await this.storage.getByStatus('blocked');
-            return {
-                blocked: blockedBets.length > 0,
-                blockedBetsCount: blockedBets.length
-            };
-        } catch (error) {
-            this.log.error('Error checking if app is blocked', error);
-            return { blocked: false, blockedBetsCount: 0 };
-        }
-    }
+        delete: async (betId: number) => api.delete(betId),
 
-    /**
-     * Cleans up old failed bets.
-     */
-    async cleanupFailedBets(days: number = 7): Promise<number> {
-        try {
-            const allBets = await this.storage.getAll();
-            const now = Date.now();
-            const threshold = days * 24 * 60 * 60 * 1000;
-            const toDelete = allBets.filter(b =>
-                (b.status === 'error' || b.status === 'blocked') &&
-                (now - b.timestamp) > threshold
-            );
-
-            for (const bet of toDelete) {
-                await this.storage.delete(bet.externalId);
-            }
-
-            return toDelete.length;
-        } catch (error) {
-            this.log.error('Error cleaning up failed bets', error);
-            return 0;
-        }
-    }
-
-    /**
-     * Recovers stuck bets with recoverable errors.
-     */
-    async recoverStuckBets(): Promise<number> {
-        try {
-            const pending = await this.storage.getPending();
-            const recoverableErrors = [
-                'No ID received',
-                'Network request failed',
-                'timeout',
-                '500', '502', '503', '504', '408'
-            ];
-
-            const stuck = pending.filter(bet => {
-                if (bet.status !== 'error') return false;
-                const error = (bet as any).lastError || '';
-                return recoverableErrors.some(err => error.includes(err));
-            });
-
-            this.log.info(`Found ${stuck.length} stuck bets to recover`);
-
-            for (const bet of stuck) {
-                await this.storage.updateStatus(bet.externalId, 'pending');
-            }
-
-            return stuck.length;
-        } catch (error) {
-            this.log.error('Error recovering stuck bets', error);
-            return 0;
-        }
-    }
-
-    async applyMaintenance(): Promise<void> {
-        this.log.info('Applying maintenance to BetRepository');
-        await this.cleanupFailedBets();
-        await this.recoverStuckBets();
-    }
-
-    /**
-     * Limpia apuestas sincronizadas antiguas para liberar almacenamiento local.
-     * Solo elimina apuestas con estado 'synced' anteriores al inicio del día especificado.
-     * 
-     * @param today Fecha en formato YYYY-MM-DD (proporcionada por el servidor/TimerRepository)
-     * @returns Número de apuestas eliminadas
-     */
-    async cleanup(today: string): Promise<number> {
-        try {
-            this.log.info('Starting bet cleanup', { today });
-            const allBets = await this.storage.getAll();
-
-            // Interpretación explícita en UTC para evitar desfases de zona horaria
-            const [year, month, day] = today.split('-').map(Number);
-            const todayStartTimestamp = Date.UTC(year, month - 1, day, 0, 0, 0, 0);
-
-            const toDelete = allBets.filter(b =>
-                b.status === 'synced' &&
-                b.timestamp < todayStartTimestamp
-            );
-
-            this.log.debug(`Found ${toDelete.length} synced bets to cleanup`, {
-                total: allBets.length,
-                todayStartTimestamp
-            });
-
-            for (const bet of toDelete) {
-                await this.storage.delete(bet.externalId);
-            }
-
-            return toDelete.length;
-        } catch (error) {
-            this.log.error('Error in bet cleanup', error);
-            throw error; // Propagamos el error para que el Janitor lo detecte
-        }
-    }
-
-    async getChildren(id: number, level: number = 1): Promise<ChildStructure[]> {
-        return this.api.getChildren(id, level);
-    }
-
-    async getListeroDetails(id: number, date?: string): Promise<ListeroDetails> {
-        return this.api.getListeroDetails(id, date);
-    }
-
-    /**
-     * Delete a bet by backend ID (for test cleanup)
-     */
-    async delete(betId: number): Promise<void> {
-        await this.api.delete(betId);
-    }
-
-    async isReady(): Promise<boolean> {
-        // El repositorio está listo si su almacenamiento lo está
-        return true; // En este punto el storage ya debería estar inicializado vía constructor/singleton
-    }
-}
+        isReady: async () => true,
+    };
+};
 
 // Export singleton
-export const betRepository = new BetRepository(
-    new BetStorageAdapter(),
+export const betRepository = createBetRepository(
+    new BetOfflineAdapter(),
     new BetApiAdapter()
 );
+

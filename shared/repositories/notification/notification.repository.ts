@@ -138,7 +138,8 @@ export class NotificationRepository implements INotificationRepository {
         // Guardado Atómico: SSOT + Queue
         await this.offlineAdapter.save(userId, notification);
         await this.offlineAdapter.enqueueAction(userId, { type: 'ADD', payload: notification });
-        syncWorker.triggerSync(); // Despertar worker
+        // NOTA: No llamamos syncWorker.triggerSync() aquí para evitar timeouts.
+        // La sincronización será manejada por place-bet.flow.ts que ya llama a syncWorker.triggerSync()
 
         return notification;
     }
