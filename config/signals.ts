@@ -18,6 +18,8 @@ export const DASHBOARD_READY = createMsg<'DASHBOARD_READY', { draws: WebData<Dra
 // Nuevo: Señal para sincronizar el contador de notificaciones
 export const NOTIFICATIONS_UPDATED = createMsg<'NOTIFICATIONS_UPDATED', { unreadCount: number }>('NOTIFICATIONS_UPDATED');
 
+export const NETWORK_STATUS_CHANGED = createMsg<'NETWORK_STATUS_CHANGED', { isOnline: boolean; wasOffline: boolean }>('NETWORK_STATUS_CHANGED');
+
 export const GLOBAL = createMsg<'GLOBAL', typeof GLOBAL_LOGOUT._type>('GLOBAL');
 
 export const GlobalSignals = {
@@ -30,4 +32,5 @@ export const GlobalSignals = {
     SYSTEM_READY,
     DASHBOARD_READY,
     NOTIFICATIONS_UPDATED,
+    NETWORK_STATUS_CHANGED,
 } as const;

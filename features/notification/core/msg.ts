@@ -23,7 +23,8 @@ export type Msg =
     | { type: 'ALL_MARKED_READ'; webData: WebData<void> }
     | { type: 'NOTIFICATION_DELETED'; webData: WebData<void>; notificationId: string }
     | { type: 'FETCH_PENDING_REWARDS_COUNT_REQUESTED' }
-    | { type: 'FETCH_PENDING_REWARDS_COUNT_SUCCESS'; count: number };
+    | { type: 'FETCH_PENDING_REWARDS_COUNT_SUCCESS'; count: number }
+    | { type: 'ADD_SYSTEM_NOTIFICATION'; payload: { title: string; message: string; type: 'warning' | 'success' | 'info' } };
 
 // Action creators
 export const FETCH_NOTIFICATIONS_REQUESTED = (): Msg => ({ type: 'FETCH_NOTIFICATIONS_REQUESTED' });

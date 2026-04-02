@@ -11,6 +11,27 @@ const BetOfflineKeys = {
 };
 
 /**
+ * SSOT: Genera la clave de identidad semántica de una apuesta para deduplicación.
+ *
+ * Prioridad: externalId > receiptCode > id
+ * - externalId: UUID único por apuesta (fuente canónica)
+ * - receiptCode: compartido por todo el lote — NO usar como clave primaria
+ * - id: fallback al ID del backend o UI
+ */
+export function buildBetDedupKey(bet: {
+    externalId?: string;
+    receiptCode?: string;
+    id?: string | number;
+}): string {
+    const externalId = String(bet.externalId || '').trim();
+    const receiptCode = String(bet.receiptCode || '').trim();
+
+    if (externalId) return `ext:${externalId}`;
+    if (receiptCode) return `rc:${receiptCode}`;
+    return `id:${String(bet.id || '').trim()}`;
+}
+
+/**
  * Adaptador de almacenamiento offline para apuestas que utiliza el motor agnóstico
  * Cumple con el puerto IBetStorage definido en el dominio de apuestas.
  */
@@ -49,25 +70,12 @@ export class BetOfflineAdapter implements IBetStorage {
     }
 
     /**
-     * Define la identidad semántica de una apuesta para deduplicación.
-     * Prioridad: receiptCode > externalId > id
-     */
-    private buildDedupKey(bet: BetDomainModel): string {
-        const receiptCode = String(bet.receiptCode || '').trim();
-        const externalId = String(bet.externalId || '').trim();
-
-        if (receiptCode) return `rc:${receiptCode}`;
-        if (externalId) return `ext:${externalId}`;
-        return `id:${String(bet.id || '').trim()}`;
-    }
-
-    /**
      * Deduplica una colección de apuestas basada en su identidad semántica.
      */
     private dedup(bets: BetDomainModel[]): BetDomainModel[] {
         const map = new Map<string, BetDomainModel>();
         for (const bet of bets) {
-            const key = this.buildDedupKey(bet);
+            const key = buildBetDedupKey(bet);
             // La primera versión encontrada se mantiene (usualmente la del storage)
             if (!map.has(key)) {
                 map.set(key, bet);

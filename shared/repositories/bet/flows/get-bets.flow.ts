@@ -5,6 +5,7 @@ import { drawRepository } from '../../draw';
 import { mapBackendBetToFrontend, mapPendingBetsToFrontend } from '../bet.mapper.backend';
 import { logger } from '@/shared/utils/logger';
 import { toUtcISODate } from '@/shared/utils/formatters';
+import { buildBetDedupKey } from '../adapters/bet.offline.adapter';
 
 const log = logger.withTag('GetBetsFlow');
 
@@ -61,39 +62,24 @@ const shouldKeepOfflineBet = (
     return true;
 };
 
-const normalizeNumbersKey = (numbers: BetType['numbers']): string => {
-    if (numbers === null || numbers === undefined) return '';
-    if (typeof numbers === 'string') return numbers.trim();
-    if (typeof numbers === 'number' || typeof numbers === 'boolean') return String(numbers);
-    try {
-        return JSON.stringify(numbers);
-    } catch {
-        return String(numbers);
-    }
-};
-
-const buildDedupKey = (bet: BetType): string => {
-    const receiptCode = String(bet.receiptCode || '').trim();
-    const externalId = String(bet.externalId || '').trim();
-    if (receiptCode) return `rc:${receiptCode}`;
-    if (externalId) return `ext:${externalId}`;
-    return `id:${String(bet.id || '').trim()}`;
-};
-
 /**
- * Merges offline and online bets, deduplicating by semantic identity,
- * and applying a final safety filter for date in frontend.
+ * Merges offline and online bets.
+ * Offline bets ya vienen deduplicadas del repositorio (BetOfflineAdapter).
+ * La fusión usa buildBetDedupKey (SSOT del repositorio) para evitar duplicados
+ * cuando la misma apuesta existe en ambos lados.
  */
 const mergeBets = (ctx: GetBetsContext): Result<Error, BetType[]> => {
     const betsMap = new Map<string, BetType>();
 
+    // Offline primero (ya viene deduplicado del repositorio)
     ctx.offlineBets.forEach((bet: BetType) => {
-        const key = buildDedupKey(bet);
+        const key = buildBetDedupKey(bet);
         betsMap.set(key, bet);
     });
 
+    // Online sobrescribe (backend es fuente de verdad para apuestas synced)
     ctx.onlineBets.forEach((bet: BetType) => {
-        const key = buildDedupKey(bet);
+        const key = buildBetDedupKey(bet);
         betsMap.set(key, bet);
     });
 

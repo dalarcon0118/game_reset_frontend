@@ -11,10 +11,11 @@ import {
 import { logger } from '@/shared/utils/logger';
 
 import { NotificationService } from './service';
-import { NOTIFICATIONS_UPDATED } from '@/config/signals';
+import { NOTIFICATIONS_UPDATED, NETWORK_STATUS_CHANGED } from '@/config/signals';
 import { offlineEventBus } from '@core/offline-storage/instance';
 import { AuthRepository } from '@/shared/repositories/auth';
 import { NotificationOfflineKeys } from '@/shared/repositories/notification/NotificationOfflineKeys';
+import { NotificationRepository } from '@/shared/repositories/notification/notification.repository';
 
 
 // 🛠️ INJECT SERVICE
@@ -68,7 +69,28 @@ export const subscriptions = (model: Model) => {
             });
 
             return unsubscribe;
-        }, 'notification_session_subscription')
+        }, 'notification_session_subscription'),
+
+        // 3. Escuchar cambios de conectividad para notificar al usuario.
+        Sub.receiveMsg(NETWORK_STATUS_CHANGED, ({ isOnline, wasOffline }) => {
+            if (!isOnline && !wasOffline) {
+                // Entramos en modo offline
+                return { type: 'ADD_SYSTEM_NOTIFICATION', payload: {
+                    title: 'Modo offline activado',
+                    message: 'Tus datos se guardarán localmente y se sincronizarán cuando recuperes conexión.',
+                    type: 'warning' as const
+                }};
+            }
+            if (isOnline && wasOffline) {
+                // Recuperamos conexión
+                return { type: 'ADD_SYSTEM_NOTIFICATION', payload: {
+                    title: 'Conexión recuperada',
+                    message: 'Sincronizando datos pendientes...',
+                    type: 'success' as const
+                }};
+            }
+            return { type: 'NONE' };
+        })
     ]);
 };
 
@@ -363,6 +385,24 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
 
         .with({ type: 'FETCH_PENDING_REWARDS_COUNT_SUCCESS' }, ({ count }) => {
             return singleton({ ...model, pendingRewardsCount: count });
+        })
+
+        .with({ type: 'ADD_SYSTEM_NOTIFICATION' }, ({ payload }) => {
+            log.info('Adding system notification', payload);
+            
+            // Crear notificación usando NotificationRepository
+            const notificationRepo = new NotificationRepository();
+            notificationRepo.addNotification({
+                title: payload.title,
+                message: payload.message,
+                type: payload.type,
+                metadata: { source: 'system' }
+            }).catch(err => {
+                log.error('Failed to add system notification', err);
+            });
+
+            // Retornar modelo sin cambios, la notificación se agregará vía SUB cuando se guarde en SSOT
+            return singleton(model);
         })
 
         .with({ type: 'NONE' }, () => singleton(model))
