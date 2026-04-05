@@ -3,6 +3,8 @@ import { BetType } from '@/types';
 import { SyncStatus } from '@core/offline-storage/types';
 import { BackendChildStructure, BackendListeroDetails } from '@/shared/services/structure/types';
 
+import { FingerprintPayload } from '../crypto/fingerprint.repository';
+
 // ============================================================================
 // API CONTRACT TYPES (absorbed from services/bet/types.ts)
 // ============================================================================
@@ -14,6 +16,7 @@ export interface GenericBetItemDTO {
     numbers: string | number | number[] | Record<string, any>;
     external_id?: string;
     owner_structure?: number | string;
+    fingerprint?: any; // Añadido para enviar al backend
 }
 
 export interface CreateBetDTO {
@@ -38,6 +41,18 @@ export interface BackendBet {
     draw_details?: { id: number | string; name: string; description?: string };
     game_type_details?: { id: number | string; name: string };
     bet_type_details?: { id: number | string; name: string; code?: string };
+    fingerprint_data?: {
+        hash?: string;
+        version?: number;
+        chainHash?: string;
+        nonce?: string;
+        timeAnchorSignature?: string;
+    };
+}
+
+export interface SortParam {
+    field: 'createdAt' | 'amount' | 'id';
+    order: 'asc' | 'desc';
 }
 
 export interface ListBetsFilters {
@@ -46,6 +61,7 @@ export interface ListBetsFilters {
     date?: string;
     limit?: number;
     offset?: number;
+    sort?: SortParam;
 }
 
 export type ChildStructure = BackendChildStructure;
@@ -70,6 +86,9 @@ export interface BetSyncContext {
 
     /** Timestamp programado para el próximo reintento (backoff) */
     nextRetryAt?: number;
+
+    /** Timestamp de cuando se completó la sincronización exitosamente */
+    syncedAt?: number;
 }
 
 /**
@@ -91,6 +110,9 @@ export interface BetDomainModel extends BetType {
 
     /** Contexto de sincronización para observabilidad (Estilo DLQ) */
     syncContext?: BetSyncContext;
+
+    /** Firma criptográfica inmutable para verificación offline */
+    fingerprint?: FingerprintPayload;
 }
 
 export type BetPlacementInput = Omit<BetDomainModel, 'id' | 'externalId' | 'status' | 'timestamp' | 'createdAt'>;
@@ -120,11 +142,13 @@ export interface IBetRepository {
     syncPending(): Promise<{ success: number; failed: number }>;
     applyMaintenance(): Promise<void>;
     cleanup(today: string): Promise<number>;
+    recoverStuckBets(): Promise<number>;
 
     // Domain helper methods
     hasCriticalPendingBets(beforeTimestamp: number): Promise<boolean>;
     getAllRawBets(): Promise<BetDomainModel[]>;
     resetSyncStatus(offlineId: string): Promise<void>;
+    isAppBlocked(): Promise<{ blocked: boolean; blockedBetsCount: number }>;
     onBetChanged(callback: () => void): () => void;
     isReady(): Promise<boolean>;
 
@@ -151,9 +175,9 @@ export interface IBetStorage {
     save(bet: BetDomainModel): Promise<void>;
     saveBatch(bets: BetDomainModel[]): Promise<void>;
     getAll(): Promise<BetDomainModel[]>;
-    getFiltered(filters: { 
-        todayStart?: number; 
-        structureId?: string; 
+    getFiltered(filters: {
+        todayStart?: number;
+        structureId?: string;
         drawId?: string | number;
         receiptCode?: string;
         date?: number | string;
@@ -163,6 +187,10 @@ export interface IBetStorage {
     getRecentByDraw(drawId: string | number, maxAgeMs?: number): Promise<BetDomainModel[]>;
     updateStatus(offlineId: string, status: BetDomainModel['status'], extra?: Partial<BetDomainModel>): Promise<void>;
     delete(offlineId: string): Promise<void>;
+
+    // Zero Trust Running Balance
+    getTotalSales(drawId: string | number): Promise<number>;
+    incrementTotalSales(drawId: string | number, amount: number): Promise<number>;
 }
 
 /**

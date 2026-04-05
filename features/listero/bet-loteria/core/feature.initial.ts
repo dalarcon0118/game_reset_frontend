@@ -14,6 +14,7 @@ export const initialModel: LoteriaFeatureModel = {
     drawTypeCode: RemoteData.notAsked(),
     isEditing: false,
     structureId: null, // Se establecerá desde el contexto de autenticación
+    userId: null,      // Se establecerá desde el contexto de autenticación
     summary: {
         loteriaTotal: 0,
         hasBets: false,

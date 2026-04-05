@@ -10,8 +10,9 @@ import { initialLoteriaState } from '../../bet-loteria/loteria/loteria.types';
 import { initialVoucherModel } from '../success/core/domain/success.types';
 import { initialParletState, initialCentenaState } from '../../bet-bolita/domain/models/bolita.initial';
 import { initialRewardsModel } from '../rewards/core/model';
-import { RemoteData, singleton, ret, Cmd } from '@core/tea-utils';
+import { RemoteData, singleton, ret, Cmd, Sub } from '@core/tea-utils';
 import { FETCH_RULES_REQUESTED } from '../rules/core/types';
+import { AuthModuleV1 } from '@/features/auth';
 
 /**
  * 📝 BET WORKSPACE MODULE PARAMS
@@ -50,6 +51,12 @@ const initialState: Model = {
     isEditing: false,
     summary: initialSummary,
     navigation: null,
+
+    // Host Identity
+    host: {
+        user: null,
+        isAuthenticated: false,
+    },
 
     // Sessions
     createSession: initialCreateState,
@@ -107,7 +114,18 @@ const workspaceDefinition = defineTeaModule<Model, Msg>({
 
         return ret(model, Cmd.batch(commands));
     },
-    update: (model, msg) => update(msg, model)
+    update: (model, msg) => update(msg, model),
+    subscriptions: (model: Model) => {
+        return Sub.batch([
+            // Sync with AuthModuleV1
+            Sub.watchStore(
+                AuthModuleV1.name,
+                (state: any) => state?.model?.user ?? state?.user,
+                (user) => ({ type: 'HOST_SYNCED', user } as Msg),
+                'bet-workspace-auth-sync'
+            )
+        ]);
+    }
 });
 
 /**

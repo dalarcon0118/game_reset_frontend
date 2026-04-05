@@ -1,5 +1,6 @@
 import React, { memo, useCallback } from 'react';
 import { View, StyleSheet, Text, TouchableOpacity, useColorScheme } from 'react-native';
+import { Eye } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import Layout from '@/constants/layout';
 import { LoteriaBetRow } from './loteria_bet_row';
@@ -78,6 +79,15 @@ const RenderGroup: React.FC<RenderGroupProps> = memo(({
             {!isEditing && group.receiptCode !== '-----' && (
                 <View style={styles.groupHeader}>
                     <Text style={styles.groupHeaderText}>Recibo: {group.receiptCode}</Text>
+                    {onViewReceipt && (
+                        <TouchableOpacity
+                            onPress={handleViewReceipt}
+                            style={styles.eyeButton}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                            <Eye size={20} color={Colors[colorScheme].primary} />
+                        </TouchableOpacity>
+                    )}
                 </View>
             )}
 
@@ -91,16 +101,6 @@ const RenderGroup: React.FC<RenderGroupProps> = memo(({
                     onOpenAmountKeyboard={onOpenAmountKeyboard}
                 />
             ))}
-
-            {/* Botón para ver comprobante */}
-            {!isEditing && group.receiptCode !== '-----' && onViewReceipt && (
-                <TouchableOpacity
-                    style={[styles.receiptButton, { backgroundColor: Colors[colorScheme].primary }]}
-                    onPress={handleViewReceipt}
-                >
-                    <Text style={styles.receiptButtonText}>Ver comprobante</Text>
-                </TouchableOpacity>
-            )}
 
             {!isEditing && !isLast && (
                 <View style={styles.groupSeparator} />
@@ -125,26 +125,21 @@ const styles = StyleSheet.create({
         borderRadius: 4,
         borderLeftWidth: 4,
         borderLeftColor: '#3366FF',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
     },
     groupHeaderText: {
         fontSize: 14,
         fontWeight: 'bold',
         color: '#666',
     },
+    eyeButton: {
+        padding: 4,
+    },
     groupSeparator: {
         height: 1,
         backgroundColor: '#E8E8E8',
         marginVertical: 16,
-    },
-    receiptButton: {
-        marginTop: 8,
-        padding: 12,
-        borderRadius: 8,
-        alignItems: 'center',
-    },
-    receiptButtonText: {
-        color: 'white',
-        fontWeight: 'bold',
-        fontSize: 16,
     },
 });

@@ -18,8 +18,13 @@ let lastNavigation = {
   params: JSON.stringify({}),
   timestamp: 0,
 };
+let previousNavigation = {
+  pathname: '',
+  timestamp: 0,
+};
 
 const NAVIGATION_THRESHOLD_MS = 500;
+const NAVIGATION_OSCILLATION_THRESHOLD_MS = 1200;
 
 /**
  * Extracts the view name from a pathname
@@ -89,11 +94,29 @@ export async function handleNavigation(
     return;
   }
 
+  const isOscillation =
+    previousNavigation.pathname === targetPath &&
+    lastNavigation.pathname !== targetPath &&
+    now - previousNavigation.timestamp < NAVIGATION_OSCILLATION_THRESHOLD_MS;
+
+  if (isOscillation) {
+    log.warn('Navigation oscillation prevented', {
+      from: lastNavigation.pathname,
+      to: targetPath,
+      previous: previousNavigation.pathname
+    });
+    return;
+  }
+
   // Log view transition BEFORE updating state
   const newView = extractViewName(targetPath);
   logViewTransition(newView);
 
   // Update last navigation state
+  previousNavigation = {
+    pathname: lastNavigation.pathname,
+    timestamp: lastNavigation.timestamp,
+  };
   lastNavigation = {
     pathname: targetPath,
     params: JSON.stringify(params || {}),

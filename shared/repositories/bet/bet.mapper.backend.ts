@@ -47,7 +47,13 @@ export const mapBackendBetToFrontend = (backendBet: BackendBet, betTypes: GameTy
         betTypeId: backendBet.bet_type_details?.code || (backendBet.bet_type ?? ''),
         betTypeCode: backendBet.bet_type_details?.code || '',
         ownerStructure: backendBet.owner_structure,
-        status: 'synced'
+        status: 'synced',
+        fingerprint: backendBet.fingerprint_data ? {
+            hash: backendBet.fingerprint_data.hash || '',
+            version: backendBet.fingerprint_data.version || 1,
+            chainHash: backendBet.fingerprint_data.chainHash || '',
+            raw_payload: '' // El backend no suele devolver el raw_payload por tamaño
+        } : undefined
     };
 };
 
@@ -94,8 +100,9 @@ export const mapSinglePendingBetToFrontend = (pb: BetDomainModel, betTypes: Game
             betTypeId: pb.betTypeCode || pb.betTypeId,
             betTypeCode: pb.betTypeCode,
             ownerStructure: pb.ownerStructure,
-            status: pb.status || 'pending'
-        };
+            status: pb.status || 'pending',
+            fingerprint: pb.fingerprint // FIX: Preservar fingerprint del dominio
+        } as BetType & { fingerprint?: typeof pb.fingerprint };
     }
 
     const betTypeRef = String(pb.betTypeCode || pb.betTypeId || '');
@@ -120,6 +127,7 @@ export const mapSinglePendingBetToFrontend = (pb: BetDomainModel, betTypes: Game
         betTypeId: pb.betTypeCode || pb.betTypeId,
         betTypeCode: pb.betTypeCode,
         ownerStructure: pb.ownerStructure,
-        status: pb.status || 'pending'
-    };
+        status: pb.status || 'pending',
+        fingerprint: pb.fingerprint // FIX: Preservar fingerprint del dominio
+    } as BetType & { fingerprint?: typeof pb.fingerprint };
 };

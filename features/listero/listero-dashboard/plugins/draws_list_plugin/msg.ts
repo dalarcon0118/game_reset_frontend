@@ -18,6 +18,7 @@ export const RULES_CLICKED = createMsg<'RULES_CLICKED', string | number>('RULES_
 export const REWARDS_CLICKED = createMsg<'REWARDS_CLICKED', { id: string | number; title: string; draw?: Draw }>('REWARDS_CLICKED');
 export const BETS_LIST_CLICKED = createMsg<'BETS_LIST_CLICKED', { id: string | number; title: string; draw?: Draw }>('BETS_LIST_CLICKED');
 export const CREATE_BET_CLICKED = createMsg<'CREATE_BET_CLICKED', { id: string | number; title: string; draw?: Draw }>('CREATE_BET_CLICKED');
+export const TICK = createMsg<'TICK', number>('TICK');
 export const NOOP = createMsg<'NOOP', void>('NOOP');
 
 // ============================================================================
@@ -46,6 +47,7 @@ export type Msg =
   | typeof REWARDS_CLICKED._type
   | typeof BETS_LIST_CLICKED._type
   | typeof CREATE_BET_CLICKED._type
+  | typeof TICK._type
   | typeof NOOP._type
   // SSOT: Financial totals from BetRepository
   | typeof BATCH_OFFLINE_UPDATE._type;

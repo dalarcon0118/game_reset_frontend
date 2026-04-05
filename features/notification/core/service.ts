@@ -73,6 +73,18 @@ export class NotificationService {
     }
 
     /**
+     * Delete all notifications
+     */
+    clearAllNotifications(): Cmd {
+        return RemoteDataHttp.fetch<void, Msg>(
+            async () => {
+                await this.notificationRepo.clearAllNotifications();
+            },
+            (webData) => ({ type: 'NOTIFICATIONS_CLEARED', webData })
+        );
+    }
+
+    /**
      * Fetch the count of pending rewards
      */
     fetchPendingRewardsCount(): Cmd {

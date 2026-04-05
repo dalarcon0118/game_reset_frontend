@@ -4,13 +4,14 @@ import { BackendLoginResponseCodec, decodeOrFallback } from '../codecs/codecs';
 import { IAuthApi } from '../auth.ports';
 import { AuthResult, User, AuthErrorType } from '../types/types';
 import { logger } from '../../../utils/logger';
+import { AUTH_LOG_TAGS, AUTH_LOGS } from '../auth.constants';
 
-const log = logger.withTag('AUTH_API_ADAPTER');
+const log = logger.withTag(AUTH_LOG_TAGS.API_ADAPTER);
 
 export const authApiAdapter: IAuthApi = {
     async login(username: string, pin: string): Promise<AuthResult> {
         try {
-            log.info('Attempting online login', { username });
+            log.info(AUTH_LOGS.LOGIN_ATTEMPT, { username });
 
             const response = await apiClient.post<any>(
                 settings.api.endpoints.login(),
@@ -24,7 +25,7 @@ export const authApiAdapter: IAuthApi = {
                     success: false,
                     error: {
                         type: AuthErrorType.SERVER_ERROR,
-                        message: 'Respuesta de login inválida: falta token o usuario'
+                        message: AUTH_LOGS.LOGIN_INVALID_RESPONSE
                     }
                 };
             }
@@ -35,13 +36,15 @@ export const authApiAdapter: IAuthApi = {
                     user: validated.user as User,
                     accessToken: validated.access,
                     refreshToken: validated.refresh,
-                    confirmationToken: validated.confirmation_token, // Persistiendo el token de confirmación
+                    confirmationToken: validated.confirmation_token, 
+                    dailySecret: validated.daily_secret, // Secreto para Zero Trust
+                    timeAnchor: validated.time_anchor, // Anchor para Zero Trust
                     isOffline: false
                 }
             };
 
         } catch (error: any) {
-            log.warn('Online login request failed', { username, error: error.message, status: error.status });
+            log.warn(AUTH_LOGS.LOGIN_FAILED, { username, error: error.message, status: error.status });
 
             const isNetworkError =
                 error.status === 0 ||
@@ -64,7 +67,7 @@ export const authApiAdapter: IAuthApi = {
                 success: false,
                 error: {
                     type: errorType,
-                    message: error.message || 'Error de autenticación'
+                    message: error.message || AUTH_LOGS.LOGIN_AUTH_ERROR
                 }
             };
         }
@@ -80,6 +83,7 @@ export const authApiAdapter: IAuthApi = {
 
     async refresh(refreshToken: string): Promise<AuthResult> {
         try {
+            log.info(AUTH_LOGS.REFRESH_ATTEMPT);
             const response = await apiClient.post<any>(
                 settings.api.endpoints.refresh(),
                 { refresh: refreshToken },
@@ -93,7 +97,7 @@ export const authApiAdapter: IAuthApi = {
                     success: false,
                     error: {
                         type: AuthErrorType.SERVER_ERROR,
-                        message: 'Respuesta de refresh inválida: falta token'
+                        message: AUTH_LOGS.REFRESH_INVALID_RESPONSE
                     }
                 };
             }
@@ -105,11 +109,12 @@ export const authApiAdapter: IAuthApi = {
                     accessToken: validated.access,
                     refreshToken: validated.refresh || refreshToken,
                     confirmationToken: validated.confirmation_token,
+                    dailySecret: validated.daily_secret,
                     isOffline: false
                 }
             };
         } catch (error: any) {
-            log.warn('Token refresh failed', { error: error.message, status: error.status });
+            log.warn(AUTH_LOGS.REFRESH_FAILED, { error: error.message, status: error.status });
 
             const isInvalidToken = error.status === 401 || error.status === 403;
 
@@ -117,7 +122,7 @@ export const authApiAdapter: IAuthApi = {
                 success: false,
                 error: {
                     type: isInvalidToken ? AuthErrorType.SESSION_EXPIRED : AuthErrorType.SERVER_ERROR,
-                    message: error.message || 'Error al refrescar token'
+                    message: error.message || AUTH_LOGS.REFRESH_ERROR
                 }
             };
         }

@@ -9,6 +9,7 @@ export interface AppNotification {
     createdAt: string;
     readAt?: string;
     userId?: string;
+    isActive?: boolean;
     metadata?: Record<string, any>;
 }
 

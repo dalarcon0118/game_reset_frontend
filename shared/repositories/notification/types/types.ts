@@ -7,6 +7,7 @@ export interface BackendNotification {
     createdAt: string;
     readAt?: string | null;
     userId?: string | null;
+    is_active?: boolean;
     metadata?: Record<string, any>;
 }
 

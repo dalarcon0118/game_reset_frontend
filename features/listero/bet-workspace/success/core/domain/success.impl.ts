@@ -1,6 +1,10 @@
-import { VoucherData, FormattedBet, GroupedBets, VoucherMetadata } from './success.types';
+import { VoucherData, FormattedBet, GroupedBets, VoucherMetadata, PrizeRule } from './success.types';
 import { VoucherSourceData } from './success.ports';
 import { getBetVisualSchema, isLoteriaType, BET_TYPE_KEYS, UI_CONSTANTS, normalizeBetType } from '@/shared/types/bet_types';
+import { settings } from '@/config/settings';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('SUCCESS_IMPL');
 
 /**
  * Pure Logic for Success Feature
@@ -30,7 +34,57 @@ export const SuccessImpl = {
         const finalReceiptCode = receiptCode || formattedBets[0]?.receiptCode || UI_CONSTANTS.EMPTY_RECEIPT_CODE;
 
         // 5. Calculate metadata
-        const metadata = SuccessImpl.calculateMetadata(draw);
+        const firstBet = rawBets[0] as any;
+
+        log.info('🔍 [FINGERPRINT_DEBUG] firstBet raw structure:', {
+            id: firstBet?.id,
+            receiptCode: firstBet?.receiptCode,
+            hasFingerprint: !!firstBet?.fingerprint,
+            hasFingerprintData: !!firstBet?.fingerprint_data,
+            fingerprintKeys: firstBet?.fingerprint ? Object.keys(firstBet.fingerprint) : [],
+            fingerprintDataKeys: firstBet?.fingerprint_data ? Object.keys(firstBet.fingerprint_data) : [],
+            fingerprint: firstBet?.fingerprint,
+            fingerprint_data: firstBet?.fingerprint_data
+        });
+
+        const firstFingerprint =
+            firstBet?.fingerprint?.hash ||
+            firstBet?.fingerprint_data?.hash ||
+            firstBet?.fingerprint_hash ||
+            firstBet?.metadata?.fingerprint_hash;
+
+        log.info('🔍 [FINGERPRINT] Lookup result:', {
+            firstFingerprint: firstFingerprint ? 'PRESENT' : 'MISSING',
+            fingerprintValue: firstFingerprint,
+            checkedPaths: [
+                'firstBet?.fingerprint?.hash',
+                'firstBet?.fingerprint_data?.hash',
+                'firstBet?.fingerprint_hash',
+                'firstBet?.metadata?.fingerprint_hash'
+            ]
+        });
+
+        // FASE 5: Construir URL de auditoría pública usando la URL base de settings
+        const serverHost = settings.api.baseUrl.replace(/\/api$/, '');
+
+        // Zero Trust V2: Construir URL con parámetros para validación offline
+        let auditUrl: string | undefined = undefined;
+        if (firstFingerprint) {
+            const uid = firstBet?.ownerUser || firstBet?.owner_user_id;
+            const amt = Number(firstBet?.amount || 0).toFixed(2);
+            const balRaw = firstBet?.fingerprint?.total_sales || firstBet?.total_sales || firstBet?.fingerprint_data?.total_sales;
+            const bal = Number(balRaw || 0).toFixed(2);
+
+            // Si tenemos los datos mínimos, creamos la URL extendida para auditoría offline
+            if (uid && firstBet?.amount && balRaw) {
+                auditUrl = `${serverHost}/audit/?uid=${uid}&hash=${firstFingerprint}&amt=${amt}&bal=${bal}`;
+            } else {
+                // Fallback a la URL simple por hash
+                auditUrl = `${serverHost}/audit/?hash=${firstFingerprint}`;
+            }
+        }
+
+        const metadata = SuccessImpl.calculateMetadata(draw, firstFingerprint, auditUrl);
 
         return {
             drawId: draw?.id || null,
@@ -92,18 +146,11 @@ export const SuccessImpl = {
 
                 groupedFijosCorridos.set(numStr, existing);
             } else {
-                const isCentena = displayType === BET_TYPE_KEYS.CENTENA ||
-                    (typeof displayType === 'string' && displayType.toLowerCase().includes(BET_TYPE_KEYS.CENTENA.toLowerCase()));
-
-                const isLoteriaVoucher = isLoteriaType(displayType, betTypeId);
-
                 otherBets.push({
-                    id: b.id || `${displayType}-${index}`,
+                    id: b.id || `${UI_CONSTANTS.OFFLINE_ID_PREFIX}-${index}`,
                     type: displayType,
-                    numbers: (isCentena || isLoteriaVoucher) ? [numbers.join('')] : numbers,
+                    numbers,
                     amount: Number(b.amount || 0),
-                    fijoAmount: 0,
-                    corridoAmount: 0,
                     receiptCode,
                     betTypeId
                 });
@@ -114,43 +161,54 @@ export const SuccessImpl = {
     },
 
     /**
-     * Formats numbers based on bet type for visual representation (circles).
-     * Uses centralized bet types from @/shared/types/bet_types
+     * Groups formatted bets into a Bolita layout if applicable.
      */
-    formatBetVisuals: (type: string, numbers: any): string[] => {
-        // Use centralized schema getter (handles normalization automatically)
-        const pattern = getBetVisualSchema(type);
+    groupBetsForBolita: (bets: FormattedBet[]): GroupedBets => {
+        const loteria: FormattedBet[] = [];
+        const fijosCorridos: FormattedBet[] = [];
+        const parlets: FormattedBet[] = [];
+        const centenas: FormattedBet[] = [];
 
-        // Extract raw input
-        let rawInput = numbers;
+        bets.forEach(b => {
+            if (isLoteriaType(b.type)) {
+                loteria.push(b);
+            } else if (b.type === BET_TYPE_KEYS.FIJO_CORRIDO || b.type === BET_TYPE_KEYS.FIJO || b.type === BET_TYPE_KEYS.CORRIDO) {
+                fijosCorridos.push(b);
+            } else if (b.type === BET_TYPE_KEYS.PARLET) {
+                parlets.push(b);
+            } else if (b.type === BET_TYPE_KEYS.CENTENA) {
+                centenas.push(b);
+            }
+        });
 
-        if (typeof numbers === 'object' && numbers !== null) {
-            rawInput = numbers.number || numbers.numbers || Object.values(numbers)[0];
-        }
-
-        const digits = String(rawInput || '').replace(/\D/g, '');
-        if (!digits) return [];
-
-        if (pattern === 'pairs-from-right') {
-            const matches = digits.match(/.{1,2}(?=(.{2})*$)/g);
-            return matches || [digits];
-        }
-
-        let result: string[] = [];
-        let current = digits;
-        const reversedPattern = [...pattern].reverse();
-
-        for (const len of reversedPattern) {
-            if (current.length === 0) break;
-            result.unshift(current.slice(-len));
-            current = current.slice(0, -len);
-        }
-
-        if (current.length > 0) result.unshift(current);
-        return result.filter(Boolean);
+        return { loteria, fijosCorridos, parlets, centenas };
     },
 
-    calculateMetadata: (draw: any | null): VoucherMetadata => {
+    /**
+     * Determines if the bets should be displayed in a Bolita layout.
+     */
+    isBolitaLayout: (bets: FormattedBet[]): boolean => {
+        return bets.some(b =>
+            isLoteriaType(b.type) ||
+            b.type === BET_TYPE_KEYS.FIJO_CORRIDO ||
+            b.type === BET_TYPE_KEYS.FIJO ||
+            b.type === BET_TYPE_KEYS.CORRIDO ||
+            b.type === BET_TYPE_KEYS.PARLET ||
+            b.type === BET_TYPE_KEYS.CENTENA
+        );
+    },
+
+    /**
+     * Calculates the total amount from formatted bets.
+     */
+    calculateTotalAmount: (bets: FormattedBet[]): number => {
+        return bets.reduce((sum, b) => sum + b.amount, 0);
+    },
+
+    /**
+     * Calculates voucher metadata based on draw info.
+     */
+    calculateMetadata: (draw: any | null, fingerprintHash?: string, auditUrl?: string): VoucherMetadata => {
         const now = new Date();
         const issueDate = now.toLocaleDateString(UI_CONSTANTS.DEFAULT_LOCALE, {
             day: '2-digit', month: '2-digit', year: 'numeric',
@@ -164,78 +222,98 @@ export const SuccessImpl = {
             })
             : 'Pendiente';
 
+        const prizeConfig = draw?.prize_config;
+
+        console.log('[SUCCESS_DEBUG] calculateMetadata called with:', {
+            drawId: draw?.id,
+            drawName: draw?.name,
+            hasPrizeConfig: !!prizeConfig,
+            prizeConfigValue: prizeConfig,
+            drawAllKeys: draw ? Object.keys(draw) : [],
+            extraData: draw?.extra_data
+        });
+
         let totalPrize = 'Según Reglas';
+        const prizeRules: PrizeRule[] = [];
 
-        const getExtraDataValue = (obj: any, key: string) => {
-            if (!obj) return undefined;
-            let data = obj;
-            if (typeof obj === 'string') {
-                try { data = JSON.parse(obj); } catch (e) { return undefined; }
-            }
-            return data[key];
-        };
+        if (prizeConfig) {
+            const { main_prize, currency = 'DOP', secondary_rules = [] } = prizeConfig;
 
-        const jackpot = getExtraDataValue(draw?.extra_data, 'jackpot_amount') ||
-            getExtraDataValue(draw?.draw_type_details?.extra_data, 'jackpot_amount');
-
-        const currency = getExtraDataValue(draw?.extra_data, 'currency') || 'DOP';
-
-        if (jackpot) {
-            try {
-                const amount = Number(jackpot);
-                if (!isNaN(amount)) {
-                    totalPrize = new Intl.NumberFormat('es-DO', {
-                        style: 'currency', currency, minimumFractionDigits: 2
-                    }).format(amount);
+            if (main_prize) {
+                try {
+                    const amount = Number(main_prize);
+                    if (!isNaN(amount)) {
+                        totalPrize = new Intl.NumberFormat('es-DO', {
+                            style: 'currency', currency, minimumFractionDigits: 2
+                        }).format(amount);
+                    } else {
+                        totalPrize = `${currency} ${main_prize}`;
+                    }
+                } catch (e) {
+                    totalPrize = `${currency} ${main_prize}`;
                 }
-            } catch (e) {
-                totalPrize = `${currency} ${jackpot}`;
+            }
+
+            if (Array.isArray(secondary_rules)) {
+                secondary_rules.forEach((rule: any) => {
+                    if (rule.label && rule.description) {
+                        prizeRules.push({
+                            label: String(rule.label),
+                            description: String(rule.description)
+                        });
+                    }
+                });
             }
         }
+
+        console.log('[SUCCESS_DEBUG] calculateMetadata result:', { totalPrize, prizeRules });
 
         return {
             issueDate,
             awardDate,
             totalPrize,
-            disclaimer: 'Este comprobante contiene los números de premiación, es personal e intransferible...'
+            prizeRules,
+            disclaimer: 'Este comprobante contiene los números de premiación, es personal e intransferible...',
+            fingerprintHash,
+            auditUrl
         };
     },
 
-    calculateTotalAmount: (bets: FormattedBet[]): number =>
-        bets.reduce((acc, curr) => acc + (curr.amount || 0), 0),
+    /**
+     * Formats bet numbers for visual display based on type.
+     */
+    formatBetVisuals: (type: string, numbers: any): string[] => {
+        const schema = getBetVisualSchema(type);
+        if (!schema) return Array.isArray(numbers) ? numbers.map(String) : [String(numbers)];
 
-    isBolitaLayout: (bets: FormattedBet[]): boolean =>
-        bets.some(b => b.type === BET_TYPE_KEYS.FIJO || b.type === BET_TYPE_KEYS.FIJO_CORRIDO || b.type === BET_TYPE_KEYS.PARLET || b.type === BET_TYPE_KEYS.CENTENA),
+        const nums = Array.isArray(numbers) ? numbers : [numbers];
 
-    groupBetsForBolita: (bets: FormattedBet[]): GroupedBets => ({
-        fijosCorridos: bets.filter(b => b.type === BET_TYPE_KEYS.FIJO_CORRIDO),
-        parlets: bets.filter(b => b.type === BET_TYPE_KEYS.PARLET),
-        centenas: bets.filter(b => b.type === BET_TYPE_KEYS.CENTENA),
-    }),
+        // Zero Trust: Asegurar padding consistente según el schema
+        const totalDigits = Array.isArray(schema)
+            ? schema.reduce((a, b) => a + b, 0)
+            : 2;
 
-    normalizeBets: (sourceData: any): any[] => {
-        if (!sourceData) return [];
-        if (Array.isArray(sourceData)) return sourceData;
-
-        const normalized: any[] = [];
-        const categories = [UI_CONSTANTS.FIJO_LABEL + 'sCorridos', UI_CONSTANTS.PARLET_LABEL + 's', UI_CONSTANTS.CENTENA_LABEL + 'as', UI_CONSTANTS.LOTERIA_LABEL];
-
-        categories.forEach(cat => {
-            if (sourceData[cat] && Array.isArray(sourceData[cat])) {
-                sourceData[cat].forEach((b: any) => normalized.push({
-                    ...b,
-                    type: cat === UI_CONSTANTS.LOTERIA_LABEL ? BET_TYPE_KEYS.LOTERIA :
-                        cat === (UI_CONSTANTS.FIJO_LABEL + 'sCorridos') ? BET_TYPE_KEYS.FIJO_CORRIDO :
-                            cat === (UI_CONSTANTS.PARLET_LABEL + 's') ? BET_TYPE_KEYS.PARLET : BET_TYPE_KEYS.CENTENA
-                }));
-            }
-        });
-
-        return normalized.length > 0 ? normalized : [sourceData];
+        return nums.map(n => String(n).padStart(totalDigits, '0'));
     },
 
-    filterByReceiptCode: (bets: any[], receiptCode: string): any[] => {
-        if (!receiptCode || receiptCode === UI_CONSTANTS.EMPTY_RECEIPT_CODE) return bets;
-        return bets.filter(b => (b.receiptCode || b.receipt_code) === receiptCode);
+    /**
+     * Filters normalized bets by receipt code.
+     */
+    filterByReceiptCode: (bets: any[], code: string): any[] => {
+        return bets.filter(b => (b.receiptCode || b.receipt_code) === code);
+    },
+
+    /**
+     * Normalizes raw bets from various sources.
+     */
+    normalizeBets: (bets: any): any[] => {
+        if (!bets) return [];
+        if (Array.isArray(bets)) return bets;
+        // Si es un objeto con arrays de tipos (formato antiguo/específico)
+        const all: any[] = [];
+        Object.values(bets).forEach(val => {
+            if (Array.isArray(val)) all.push(...val);
+        });
+        return all;
     }
 };

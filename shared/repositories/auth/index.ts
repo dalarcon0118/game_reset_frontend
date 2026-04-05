@@ -8,6 +8,7 @@ import { setAuthRepository } from '../../services/api_client';
 import { SessionPolicy } from '@/shared/auth/session/session.policy';
 import { TokenState } from '@/shared/auth/session/session.types';
 
+import { IDeviceSecretRepository, ITimeAnchorRepository } from '../crypto/crypto.ports';
 import { TimerRepository, ITimeRepository } from '../system/time';
 
 const log = logger.withTag('AUTH_REPOSITORY');
@@ -27,17 +28,22 @@ class AuthRepositoryImpl implements IAuthRepository {
     private sessionListeners: ((user: User | null) => void)[] = [];
     private expiredListeners: ((reason: string) => void)[] = [];
     private refreshedListeners: ((token: string) => void)[] = [];
+    private refreshFailedListeners: ((error: string) => void)[] = [];
     private isLoggingIn = false; // Flag para evitar refresh durante login
     private isLoggingOut = false; // Flag para evitar race conditions durante logout
     private isExiting = false; // Flag para prevenir múltiples señales de expiración
     private isNetworkOnline = true; // SSoT: Estado de red global inyectado por CoreModule
     private offlineConditionChecker: IOfflineConditionChecker | null = null; // Inyectado por CoreModule
+    private deviceSecretRepo: IDeviceSecretRepository | null = null;
+    private timeAnchorRepo: ITimeAnchorRepository | null = null;
+    private timeRepo: ITimeRepository;
 
     constructor(
         private api: IAuthApi = authApiAdapter,
         private storage: IAuthStorage = authStorageAdapter,
-        private timeRepo: ITimeRepository = TimerRepository
+        timeRepo: ITimeRepository = TimerRepository
     ) {
+        this.timeRepo = timeRepo;
         // SRP: Connectivity monitor removed from constructor.
     }
 
@@ -134,6 +140,7 @@ class AuthRepositoryImpl implements IAuthRepository {
                     user,
                     accessToken: session.access!,
                     refreshToken: session.refresh!,
+                    dailySecret: session.dailySecret || undefined,
                     isOffline: false
                 });
 
@@ -165,6 +172,18 @@ class AuthRepositoryImpl implements IAuthRepository {
         };
     }
 
+    onRefreshTerminalFailed(callback: (error: string) => void): () => void {
+        log.debug('Registering refresh terminal failed listener');
+        this.refreshFailedListeners.push(callback);
+        return () => {
+            this.refreshFailedListeners = this.refreshFailedListeners.filter(cb => cb !== callback);
+        };
+    }
+
+    onRefreshFailed(callback: (error: string) => void): () => void {
+        return this.onRefreshTerminalFailed(callback);
+    }
+
     /**
      * Notificación imperativa de expiración (puente para ApiClient).
      */
@@ -185,15 +204,21 @@ class AuthRepositoryImpl implements IAuthRepository {
         this.refreshedListeners.forEach(cb => cb(token));
     }
 
-    async saveToken(access: string, refresh?: string, confirmationToken?: string): Promise<void> {
+    private notifyRefreshFailedListeners(error: string) {
+        this.refreshFailedListeners.forEach(cb => cb(error));
+    }
+
+    async saveToken(access: string, refresh?: string, confirmationToken?: string, dailySecret?: string, timeAnchor?: any): Promise<void> {
         const user = (await this.storage.getUserProfile()) || ({} as User);
-        const { confirmationToken: currentConfirmation } = await this.storage.getSession();
+        const { confirmationToken: currentConfirmation, dailySecret: currentSecret, timeAnchor: currentAnchor } = await this.storage.getSession();
         await this.storage.saveSession({
             accessToken: access,
             refreshToken: refresh,
             user,
             isOffline: false,
-            confirmationToken: confirmationToken || currentConfirmation || undefined
+            confirmationToken: confirmationToken || currentConfirmation || undefined,
+            dailySecret: dailySecret || currentSecret || undefined,
+            timeAnchor: timeAnchor || currentAnchor || undefined
         });
     }
 
@@ -217,16 +242,17 @@ class AuthRepositoryImpl implements IAuthRepository {
         try {
             const response = await this.api.refresh(refresh);
             if (response.success && response.data) {
-                const { accessToken, refreshToken: newRefresh, user, confirmationToken } = response.data;
+                const { accessToken, refreshToken: newRefresh, user, confirmationToken, dailySecret } = response.data;
                 const currentUser = (await this.storage.getUserProfile()) || ({} as User);
-                const { confirmationToken: currentConfirmation } = await this.storage.getSession();
+                const { confirmationToken: currentConfirmation, dailySecret: currentSecret } = await this.storage.getSession();
 
                 await this.storage.saveSession({
                     accessToken,
                     refreshToken: newRefresh || refresh,
                     user: user || currentUser,
                     isOffline: false,
-                    confirmationToken: confirmationToken || currentConfirmation || undefined
+                    confirmationToken: confirmationToken || currentConfirmation || undefined,
+                    dailySecret: dailySecret || currentSecret || undefined
                 });
 
                 this.notifyRefreshedListeners(accessToken);
@@ -240,6 +266,7 @@ class AuthRepositoryImpl implements IAuthRepository {
 
             // Si el refresh falla con 401/403, la sesión ha expirado
             if (!response.success && response.error && (response.error.type === AuthErrorType.SESSION_EXPIRED || response.error.type === AuthErrorType.INVALID_CREDENTIALS)) {
+                this.notifyRefreshFailedListeners(response.error.message || 'TERMINAL_REFRESH_FAILURE');
                 this.notifyExpiredListeners(response.error.message || 'SESSION_EXPIRED');
             }
 
@@ -256,12 +283,13 @@ class AuthRepositoryImpl implements IAuthRepository {
         }
     }
 
-    async getToken(): Promise<{ access: string | null; refresh: string | null; confirmationToken?: string | null; isOffline?: boolean }> {
+    async getToken(): Promise<{ access: string | null; refresh: string | null; confirmationToken?: string | null; dailySecret?: string | null; isOffline?: boolean }> {
         const session = await this.storage.getSession();
         return {
             access: session.access || null,
             refresh: session.refresh || null,
             confirmationToken: session.confirmationToken || null,
+            dailySecret: session.dailySecret || null,
             isOffline: session.isOffline
         };
     }
@@ -283,6 +311,24 @@ class AuthRepositoryImpl implements IAuthRepository {
                     log.info('Online login successful, persisting session', { username });
                     await this.storage.saveSession(onlineResult.data);
                     await this.storage.saveOfflineCredentials(username, pin, onlineResult.data.user);
+
+                    // FASE 1 Zero Trust: Propagar el secreto y el anchor al módulo criptográfico
+                    if (onlineResult.data.dailySecret && this.deviceSecretRepo) {
+                        this.deviceSecretRepo.saveDailySecret(onlineResult.data.dailySecret).fork().then(
+                            res => { if (res.isErr()) log.error('Failed to save daily secret', res.error); }
+                        );
+                    } else if (onlineResult.data.dailySecret) {
+                        log.error('Cannot save daily secret: DeviceSecretRepository not injected');
+                    }
+
+                    if (onlineResult.data.timeAnchor && this.timeAnchorRepo) {
+                        this.timeAnchorRepo.saveAnchor(onlineResult.data.timeAnchor).fork().then(
+                            res => { if (res.isErr()) log.error('Failed to save time anchor', res.error); }
+                        );
+                    } else if (onlineResult.data.timeAnchor) {
+                        log.error('Cannot save time anchor: TimeAnchorRepository not injected');
+                    }
+
                     this.notifySessionListeners(onlineResult.data.user);
                     return onlineResult;
                 }
@@ -432,6 +478,24 @@ class AuthRepositoryImpl implements IAuthRepository {
     setOfflineConditionChecker(checker: IOfflineConditionChecker): void {
         this.offlineConditionChecker = checker;
         log.info('[SSOT-SYNC] Offline condition checker injected into AuthRepository');
+    }
+
+    /** Inyecta el repositorio de secretos de dispositivo */
+    setDeviceSecretRepository(repo: IDeviceSecretRepository): void {
+        this.deviceSecretRepo = repo;
+        log.info('[SSOT-SYNC] DeviceSecretRepository injected into AuthRepository');
+    }
+
+    /** Inyecta el repositorio de anclas de tiempo */
+    setTimeAnchorRepository(repo: ITimeAnchorRepository): void {
+        this.timeAnchorRepo = repo;
+        log.info('[SSOT-SYNC] TimeAnchorRepository injected into AuthRepository');
+    }
+
+    /** Inyecta el repositorio de tiempo (SSoT) */
+    setTimeRepository(repo: ITimeRepository): void {
+        this.timeRepo = repo;
+        log.info('[SSOT-SYNC] TimeRepository (SSoT) injected into AuthRepository');
     }
 
     async checkAuth(): Promise<void> {

@@ -18,6 +18,7 @@ const createBetPayload = (
     drawId: string,
     loteriaBetTypeId: string,
     normalizedOwnerStructure: string,
+    normalizedOwnerUser: string,
     bet: { bet: string; amount?: number | null }
 ): BetPlacementInput => ({
     drawId,
@@ -25,7 +26,8 @@ const createBetPayload = (
     type: normalizeBetType(BET_TYPE_KEYS.LOTERIA),
     numbers: normalizeNumbers(bet.bet),
     amount: bet.amount ?? 0,
-    ownerStructure: normalizedOwnerStructure
+    ownerStructure: normalizedOwnerStructure,
+    ownerUser: normalizedOwnerUser
 });
 
 /**
@@ -100,10 +102,11 @@ export const PersistenceLogic = {
         }
 
         const normalizedOwnerStructure = normalizeOwnerStructure(resolveOwnerStructure(model));
+        const normalizedOwnerUser = String(model.userId || '');
 
         try {
             const payload = model.entrySession.loteria.map((bet) =>
-                createBetPayload(drawId, loteriaBetTypeId, normalizedOwnerStructure, bet)
+                createBetPayload(drawId, loteriaBetTypeId, normalizedOwnerStructure, normalizedOwnerUser, bet)
             );
             return ok(payload);
         } catch (e) {

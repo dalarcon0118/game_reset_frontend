@@ -6,6 +6,7 @@ export type Msg =
     | { type: 'NOTIFICATIONS_RECEIVED'; webData: WebData<AppNotification[]> }
     | { type: 'MARK_AS_READ_REQUESTED'; notificationId: string }
     | { type: 'MARK_ALL_AS_READ_REQUESTED' }
+    | { type: 'CLEAR_ALL_NOTIFICATIONS_REQUESTED' }
     | { type: 'NOTIFICATION_SELECTED'; notification: AppNotification }
     | { type: 'NOTIFICATION_DESELECTED' }
     | { type: 'FILTER_CHANGED'; filter: 'all' | 'pending' | 'read' }
@@ -21,6 +22,7 @@ export type Msg =
     | { type: 'NOTIFICATION_ERROR'; error: string }
     | { type: 'NOTIFICATION_MARKED_READ'; webData: WebData<AppNotification>; notificationId: string }
     | { type: 'ALL_MARKED_READ'; webData: WebData<void> }
+    | { type: 'NOTIFICATIONS_CLEARED'; webData: WebData<void> }
     | { type: 'NOTIFICATION_DELETED'; webData: WebData<void>; notificationId: string }
     | { type: 'FETCH_PENDING_REWARDS_COUNT_REQUESTED' }
     | { type: 'FETCH_PENDING_REWARDS_COUNT_SUCCESS'; count: number }
@@ -52,6 +54,7 @@ export const MARK_AS_READ_REQUESTED = (notificationId: string): Msg => ({
     notificationId
 });
 export const MARK_ALL_AS_READ_REQUESTED = (): Msg => ({ type: 'MARK_ALL_AS_READ_REQUESTED' });
+export const CLEAR_ALL_NOTIFICATIONS_REQUESTED = (): Msg => ({ type: 'CLEAR_ALL_NOTIFICATIONS_REQUESTED' });
 export const NOTIFICATION_SELECTED = (notification: AppNotification): Msg => ({
     type: 'NOTIFICATION_SELECTED',
     notification

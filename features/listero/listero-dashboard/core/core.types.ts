@@ -27,19 +27,25 @@ export const isClosingSoon = (bettingEndTime: string | null | undefined, now: nu
 };
 
 export const isExpired = (draw: DrawType, now: number) => {
-    // 1. Prioritize official server status
+    // OFFLINE-FIRST: El tiempo es la fuente de verdad, no el status del backend
+    // 1. Verificar tiempo primero
+    if (draw.betting_end_time) {
+        const endTime = new Date(draw.betting_end_time).getTime();
+        if (now >= endTime) {
+            return true;
+        }
+    }
+
+    // 2. Estados definitively cerrados por el servidor
     if (
         draw.status === DRAW_STATUS.CLOSED ||
         draw.status === DRAW_STATUS.COMPLETED ||
         draw.status === DRAW_STATUS.REWARDED
     ) return true;
-    if (draw.status === DRAW_STATUS.OPEN) return false;
 
-    // 2. Fallback to is_betting_open flag
+    // 3. Si is_betting_open es explicitamente true, no ha expirado
     if (draw.is_betting_open === true) return false;
 
-    // 3. Time-based check (The "Observado" logic)
-    if (!draw.betting_end_time) return false;
-    const endTime = new Date(draw.betting_end_time).getTime();
-    return now >= endTime;
+    // 4. Por tiempo ya se verificó arriba
+    return false;
 };

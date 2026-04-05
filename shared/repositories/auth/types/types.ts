@@ -23,6 +23,12 @@ export interface AuthSession {
     accessToken: string;
     refreshToken?: string;
     confirmationToken?: string; // Token de confirmación (estrategia de seguridad)
+    dailySecret?: string; // Secreto diario para Zero Trust Fingerprint
+    timeAnchor?: {
+        serverTime: number;
+        signature: string;
+        validUntil: number;
+    };
     isOffline: boolean;
 }
 
@@ -56,5 +62,11 @@ export interface BackendLoginResponse {
     access: string;
     refresh?: string;
     confirmation_token?: string; // Nuevo campo para la estrategia
+    daily_secret?: string; // Secreto diario para Zero Trust Fingerprint
+    time_anchor?: {
+        serverTime: number;
+        signature: string;
+        validUntil: number;
+    };
     user: User;
 }

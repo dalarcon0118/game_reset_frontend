@@ -1,18 +1,52 @@
 import { DRAW_STATUS } from '@/types';
 import { match } from 'ts-pattern';
-import { StatusFilter, isExpired, isClosingSoon, DRAW_FILTER, Draw } from '../../core/types';
+import { StatusFilter, isClosingSoon, DRAW_FILTER, Draw } from '../../core/types';
+import { TimerRepository } from '@/shared/repositories/system/time';
 
 export interface FilterDrawsInput {
   draws: Draw[];
   filter: StatusFilter;
+  currentTime?: number;
 }
+
+const isExpiredWithTime = (draw: Draw, now: number): boolean => {
+  if (draw.betting_end_time != null) {
+    const endTime = new Date(draw.betting_end_time).getTime();
+    if (now >= endTime) {
+      return true;
+    }
+  }
+
+  if (draw.status === DRAW_STATUS.CLOSED ||
+    draw.status === DRAW_STATUS.COMPLETED ||
+    draw.status === DRAW_STATUS.REWARDED) {
+    return true;
+  }
+
+  return false;
+};
+
+const isTimeOpen = (draw: Draw, now: number): boolean => {
+  if (draw.is_betting_open === true) return true;
+
+  if (draw.betting_end_time != null) {
+    const endTime = new Date(draw.betting_end_time).getTime();
+    if (now < endTime) {
+      return true;
+    }
+  }
+
+  return false;
+};
 
 export class FilterDrawsUseCase {
   execute(input: FilterDrawsInput): Draw[] {
-    const { draws, filter } = input;
+    const { draws, filter, currentTime } = input;
+    const now = currentTime ?? TimerRepository.getTrustedNow(Date.now());
 
     const filtered = draws.filter((draw) => {
-      const expired = isExpired(draw);
+      const expired = isExpiredWithTime(draw, now);
+      const timeOpen = isTimeOpen(draw, now);
 
       return match(filter)
         .with(DRAW_FILTER.ALL, () => true)
@@ -20,16 +54,16 @@ export class FilterDrawsUseCase {
           (draw.status === DRAW_STATUS.SCHEDULED || draw.status === DRAW_STATUS.PENDING) && !expired
         )
         .with(DRAW_FILTER.OPEN, () =>
-          draw.status === DRAW_STATUS.OPEN && !expired
+          timeOpen && !expired
         )
         .with(DRAW_FILTER.CLOSED, () =>
-          (draw.status === DRAW_STATUS.CLOSED || draw.status === DRAW_STATUS.REWARDED || expired)
+          expired || draw.status === DRAW_STATUS.CLOSED || draw.status === DRAW_STATUS.REWARDED
         )
         .with(DRAW_FILTER.CLOSING_SOON, () =>
-          (draw.status === DRAW_STATUS.OPEN || draw.is_betting_open === true) && isClosingSoon(draw.betting_end_time)
+          timeOpen && isClosingSoon(draw.betting_end_time, now)
         )
         .with(DRAW_FILTER.REWARDED, () =>
-          (draw.status as string) === DRAW_STATUS.REWARDED || (draw as any).is_rewarded === true || !!draw.winning_numbers
+          draw.status === DRAW_STATUS.REWARDED || (draw as any).is_rewarded === true || !!draw.winning_numbers
         )
         .exhaustive();
     });

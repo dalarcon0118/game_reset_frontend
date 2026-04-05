@@ -7,8 +7,10 @@ import * as t from 'io-ts';
 import { isRight } from 'fp-ts/Either';
 import { PathReporter } from 'io-ts/PathReporter';
 import { logger } from '@/shared/utils/logger';
+import { BET_LOG_TAGS, BET_LOGS } from '../bet.constants';
 
-const log = logger.withTag('BetApiAdapter');
+const log = logger.withTag(BET_LOG_TAGS.API_ADAPTER);
+const logs_text = BET_LOGS;
 
 // ============================================================================
 // CODECS (absorbed from services/bet/codecs.ts)
@@ -33,8 +35,16 @@ const BackendBetCodec = t.intersection([
         receipt_code: t.string,
         external_id: t.string,
         draw_details: t.intersection([t.type({ id: StringOrNumber, name: t.string }), t.partial({ description: t.string })]),
-        game_type_details: t.type({ id: StringOrNumber, name: t.string }),
-        bet_type_details: t.intersection([t.type({ id: StringOrNumber, name: t.string }), t.partial({ code: t.string })])
+        game_type_details: t.intersection([t.type({ id: StringOrNumber, name: t.string }), t.partial({ code: t.string })]),
+        bet_type_details: t.intersection([t.type({ id: StringOrNumber, name: t.string }), t.partial({ code: t.string })]),
+        owner_structure_details: t.intersection([t.type({ id: StringOrNumber, name: t.string }), t.partial({ node_type: t.string })]),
+        fingerprint_data: t.partial({
+            hash: t.string,
+            version: t.number,
+            chainHash: t.string,
+            nonce: t.string,
+            timeAnchorSignature: t.string
+        })
     })
 ]);
 
@@ -44,7 +54,7 @@ const BackendBetOrArrayCodec = t.union([BackendBetCodec, BackendBetArrayCodec]);
 const decodeOrFallback = <T>(codec: t.Type<T>, value: unknown, label: string): T => {
     const result = codec.decode(value);
     if (isRight(result)) return result.right;
-    log.warn(`${label} decode failed`, { errors: PathReporter.report(result).join('; ') });
+    log.warn(`${label} ${logs_text.API_DECODE_FAILED}`, { errors: PathReporter.report(result).join('; ') });
     return value as T;
 };
 
@@ -54,10 +64,10 @@ const decodeOrFallback = <T>(codec: t.Type<T>, value: unknown, label: string): T
 
 export class BetApiAdapter implements IBetApi {
     async create(bet: BetDomainModel, idempotencyKey: string): Promise<BackendBet | BackendBet[]> {
-        log.info(`[BET-API] Sending bet: ${idempotencyKey}`);
+        log.info(`${logs_text.API_SENDING_BET}: ${idempotencyKey}`);
         const betTypeId = bet.betTypeCode || bet.betTypeId;
 
-        const dto: CreateBetDTO = {
+        const dto: any = {
             drawId: bet.drawId,
             bets: [{
                 betTypeId,
@@ -65,17 +75,20 @@ export class BetApiAdapter implements IBetApi {
                 amount: bet.amount,
                 numbers: bet.numbers,
                 external_id: idempotencyKey,
-                owner_structure: bet.ownerStructure
+                owner_structure: bet.ownerStructure,
+                fingerprint: bet.fingerprint, // CRITICAL: Include fingerprint for backend validation
+                total_sales: bet.fingerprint?.total_sales // Zero Trust V2: Send balance explicitly
             }],
-            receiptCode: bet.receiptCode
+            receiptCode: bet.receiptCode,
+            fingerprint: bet.fingerprint // Also at root for single-bet legacy views
         };
 
-        const response = await apiClient.post<BackendBet | BackendBet[]>(
+        const response = await apiClient.post<any>(
             settings.api.endpoints.bets(),
             dto,
             { headers: { 'X-Idempotency-Key': idempotencyKey } }
         );
-        return decodeOrFallback(BackendBetOrArrayCodec, response, 'create') as BackendBet | BackendBet[];
+        return decodeOrFallback(BackendBetOrArrayCodec, response, 'create') as any;
     }
 
     async checkStatus(idempotencyKey: string): Promise<{ synced: boolean; bets?: BackendBet[] }> {
@@ -85,7 +98,7 @@ export class BetApiAdapter implements IBetApi {
     }
 
     async list(filters?: ListBetsFilters): Promise<BackendBet[]> {
-        log.debug('List bets with filters', { filters });
+        log.debug(logs_text.API_LIST_BETS_DEBUG, { filters });
         let endpoint = settings.api.endpoints.bets();
         const params = new URLSearchParams();
         if (filters?.drawId) params.append('draw', filters.drawId);
@@ -98,10 +111,42 @@ export class BetApiAdapter implements IBetApi {
         const finalEndpoint = `${endpoint}${queryString ? `?${queryString}` : ''}`;
 
         try {
-            const response = await apiClient.get<BackendBet[]>(finalEndpoint);
-            return decodeOrFallback(BackendBetArrayCodec, response, 'list') as BackendBet[];
+            const response = await apiClient.get<any>(finalEndpoint);
+
+            // FASE 2 DIAGNOSTIC: Verificar estructura de la respuesta antes de decodificar
+            if (!Array.isArray(response)) {
+                log.error('list decode failed: Response is not an array', {
+                    type: typeof response,
+                    value: response
+                });
+                return [];
+            }
+
+            const result = BackendBetArrayCodec.decode(response);
+            if (isRight(result)) {
+                const decoded = result.right;
+                // DEBUG: Log detallado de la respuesta exitosa
+                log.info('🔍 API Response for bets list:', {
+                    endpoint: finalEndpoint,
+                    responseLength: decoded.length,
+                    firstBet: decoded[0] ? {
+                        id: decoded[0].id,
+                        receipt_code: decoded[0].receipt_code,
+                        hasFingerprintData: !!decoded[0].fingerprint_data,
+                        allKeys: Object.keys(decoded[0])
+                    } : 'no bets in response'
+                });
+                return decoded as any;
+            } else {
+                const errorReport = PathReporter.report(result).join('; ');
+                log.error(`${logs_text.API_DECODE_FAILED}: list`, {
+                    errors: errorReport,
+                    rawResponseSample: response.slice(0, 1) // Ver el primer elemento que falló
+                });
+                return response as any; // Fallback a los datos crudos para no romper la app
+            }
         } catch (error) {
-            log.error('Error fetching bets', error);
+            log.error(logs_text.API_FETCH_ERROR, error);
             throw error;
         }
     }

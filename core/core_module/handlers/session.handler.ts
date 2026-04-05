@@ -21,7 +21,8 @@ export const SessionHandler = {
         ? Cmd.batch([
           CoreService.maintenanceTask('REACTIVE_MAINTENANCE'),
           CoreService.verifySessionContextTask(),
-          CoreService.syncPendingBetsOnStartupTask()
+          CoreService.syncPendingBetsOnStartupTask(),
+          CoreService.syncTimeAnchorTask()
         ])
         : Cmd.none
     );
@@ -38,6 +39,9 @@ export const SessionHandler = {
     return ret(
       nextModel,
       Cmd.batch([
+        // CRÍTICO: Obtener Time Anchor inmediatamente después del login
+        // Esto permite generar fingerprints offline desde el primer momento
+        CoreService.syncTimeAnchorTask(),
         CoreService.syncPendingBetsOnStartupTask(),
         CoreService.syncPendingBetsTask(),
         nextModel.isSystemReady

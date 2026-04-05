@@ -56,6 +56,16 @@ export class NotificationOfflineAdapter {
     }
 
     /**
+     * Obtiene una notificación por su clave de idempotencia externa.
+     * Retorna null si no existe.
+     */
+    async getByExternalKey(userId: string, externalKey: string): Promise<Notification | null> {
+        const pattern = NotificationOfflineKeys.getPattern(userId);
+        const results = await offlineStorage.query<Notification>(pattern).all();
+        return results.find(n => n.externalKey === externalKey) || null;
+    }
+
+    /**
      * Borra una notificación del storage de un usuario.
      */
     async delete(userId: string, id: string): Promise<void> {
@@ -118,19 +128,23 @@ export class NotificationOfflineAdapter {
 
     /**
      * 📥 SYNC QUEUE: Encola una acción de sincronización en la cola global.
+     * Las acciones de CLEAR_ALL reciben prioridad 0 (urgente) para saltarse la fila.
      */
     async enqueueAction(userId: string, action: { type: string, payload: any }): Promise<string> {
         log.debug(`Enqueuing notification action to global sync queue: ${action.type}`, { userId });
 
+        // CLEAR_ALL es prioritaria: debe ejecutarse antes que cualquier apuesta
+        const isUrgent = action.type === 'CLEAR_ALL' || action.type === 'DELETE';
+
         return await SyncAdapter.addToQueue({
             type: 'notification',
-            entityId: action.payload || 'global', // Usar el payload ID o marcador global
-            priority: 2, // Prioridad media-alta para notificaciones
+            entityId: action.payload || 'global',
+            priority: isUrgent ? 0 : 2, // 0 = urgente, se procesa primero
             status: 'pending',
             attempts: 0,
             data: {
                 ...action,
-                userId // Importante para multi-tenancy durante la sincronización
+                userId
             }
         });
     }

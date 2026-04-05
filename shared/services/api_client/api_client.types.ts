@@ -82,5 +82,6 @@ export interface IAuthRepository extends TokenStoragePort {
   onSessionChange(callback: (user: any | null) => void): () => void;
   onSessionExpired(callback: (reason: string) => void): () => void;
   onTokenRefreshed(callback: (token: string) => void): () => void;
+  onRefreshTerminalFailed(callback: (error: string) => void): () => void;
   getLastUsername(): Promise<string | null>;
 }

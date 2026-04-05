@@ -58,7 +58,7 @@ export function update(model: LoginModel, msg: LoginMsg): Return<LoginModel, Log
             // ✨ LÓGICA DE ELM: Trigger automático de login en el update
             // Cuando el PIN tiene 6 dígitos y el username existe, disparamos login
             if (newPin.length === 6 && model.username && model.username.length > 0) {
-                log.info('Login disparado automáticamente por PIN completo', { username: model.username });
+                log.info(`[LOGIN_FLOW] 🎯 PIN completo (6 dígitos). Disparando señal de login global para ${model.username}...`);
                 return ret(
                     newModel,
                     Cmd.sendMsg(GlobalSignals.LOGIN({
@@ -87,7 +87,7 @@ export function update(model: LoginModel, msg: LoginMsg): Return<LoginModel, Log
         })
 
         .with(LOGIN_TRIGGERED.type(), ({ payload }) => {
-            log.info('Login disparado vía señal global', { username: payload.username });
+            log.info(`[LOGIN_FLOW] 🚀 Login disparado manualmente vía señal global para ${payload.username}`);
             return ret(
                 model,
                 Cmd.sendMsg(GlobalSignals.LOGIN({

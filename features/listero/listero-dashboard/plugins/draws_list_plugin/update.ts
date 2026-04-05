@@ -1,4 +1,4 @@
-import { Model, DrawsListPluginConfig, DrawFinancialTotals, financialSelectors } from './model';
+import { Model, DrawsListPluginConfig, DrawFinancialTotals } from './model';
 import * as Msg from './msg';
 import { DrawTotalsUpdate } from './msg';
 import { Return, ret, Cmd, RemoteData } from '@core/tea-utils';
@@ -8,6 +8,7 @@ import { FilterDrawsUseCase } from './application/useCases/filter-draws.use-case
 import { StatusFilter, Draw } from './core/types';
 import { logger } from '@/shared/utils/logger';
 import { GameRegistry, GameIntent } from '@/shared/core/registry/game_registry';
+import { TimerRepository } from '@/shared/repositories/system/time';
 
 const log = logger.withTag('DRAWS_LIST_PLUGIN');
 
@@ -64,6 +65,8 @@ export const update = (model: Model, msg: Msg.Msg): Return<Model, Msg.Msg> => {
       handleNavigateToBetsList(model, m.payload))
     .with(Msg.CREATE_BET_CLICKED.type(), (m) =>
       handleNavigateToCreateBet(model, m.payload))
+    .with(Msg.TICK.type(), (m) =>
+      handleTick(model, m.payload))
     // SSOT: Totales financieros desde BetRepository
     .with(Msg.BATCH_OFFLINE_UPDATE.type(), (m) =>
       handleBatchFinancialUpdate(model, m.payload))
@@ -141,10 +144,12 @@ function handleFilterDraws(model: Model): Return<Model, Msg.Msg> {
     return ret({ ...model, filteredDraws: [] }, Cmd.none);
   }
 
-  // 1. Aplicar filtro base
+  const trustedNow = TimerRepository.getTrustedNow(model.currentTime);
+
   const filteredDraws = filterDrawsUseCase.execute({
     draws: model.draws.data,
-    filter: model.currentFilter as StatusFilter
+    filter: model.currentFilter as StatusFilter,
+    currentTime: trustedNow
   });
 
   // SSOT: No mezclamos datos - Draw y Totals son fuentes separadas
@@ -213,6 +218,31 @@ function handleBatchFinancialUpdate(
 
   // Refiltrar para actualizar la vista con los nuevos totales
   if (model.draws.type === 'Success') {
+    return ret(nextModel, Cmd.ofMsg(Msg.FILTER_DRAWS()));
+  }
+
+  return ret(nextModel, Cmd.none);
+}
+
+function handleTick(model: Model, time: number): Return<Model, Msg.Msg> {
+  const nextModel = { ...model, currentTime: time };
+
+  if (model.draws.type !== 'Success') {
+    return ret(nextModel, Cmd.none);
+  }
+
+  const trustedNow = TimerRepository.getTrustedNow(time);
+
+  const hasExpiredDraw = model.draws.data.some(draw => {
+    if (!draw.betting_end_time) return false;
+    const endTime = new Date(draw.betting_end_time).getTime();
+    if (trustedNow >= endTime) {
+      return true;
+    }
+    return false;
+  });
+
+  if (hasExpiredDraw) {
     return ret(nextModel, Cmd.ofMsg(Msg.FILTER_DRAWS()));
   }
 

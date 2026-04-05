@@ -54,7 +54,7 @@ export const fetchDrawsCmd = (structureId: string | null): Cmd => {
         task: async () => {
             try {
                 const fetchPromise = drawRepository.getDraws({ owner_structure: structureId, today: true });
-                const result = await withTimeout(fetchPromise, 15000, 'fetchDraws');
+                const result = await withTimeout(fetchPromise, 30000, 'fetchDraws');
 
                 if (result.isOk()) {
                     return result.value;

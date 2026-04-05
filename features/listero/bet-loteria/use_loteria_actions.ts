@@ -19,8 +19,8 @@ import {
 export const useLoteriaActions = () => {
     const dispatch = useLoteriaDispatch();
 
-    const init = useCallback((drawId: string, isEditing: boolean = true, structureId?: string) => {
-        dispatch(LoteriaFeatMsg(INIT({ drawId, isEditing, structureId })));
+    const init = useCallback((drawId: string, isEditing: boolean = true, structureId?: string, userId?: string) => {
+        dispatch(LoteriaFeatMsg(INIT({ drawId, isEditing, structureId, userId })));
     }, [dispatch]);
 
     const openBetKeyboard = useCallback(() =>

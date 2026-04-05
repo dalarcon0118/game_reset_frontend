@@ -41,7 +41,7 @@ export class OfflineStorageCore {
     events: EventBusPort;
   }>): void {
     this.ports = { ...this.ports, ...ports };
-    log.info('OfflineStorageCore configured with new ports', { 
+    log.info('OfflineStorageCore configured with new ports', {
       hasClock: !!ports.clock,
       hasStorage: !!ports.storage,
       hasEvents: !!ports.events
@@ -127,6 +127,39 @@ export class OfflineStorageCore {
   }
 
   /**
+   * Obtiene múltiples items validando su existencia y expiración (SSOT)
+   */
+  async getMulti<T>(keys: StorageKey[]): Promise<(T | null)[]> {
+    if (keys.length === 0) return [];
+
+    // Intentar usar el puerto nativo optimizado si existe
+    if (this.ports.storage.getMulti) {
+      const envelopes = await this.ports.storage.getMulti<StorageEnvelope<T>>(keys);
+      const now = this.ports.clock.now();
+
+      return envelopes.map((envelope, index) => {
+        if (!envelope) return null;
+
+        // Si no tiene metadatos, asumimos que es un formato antiguo o inválido
+        if (!envelope.metadata) {
+          return (envelope as any).data || (envelope as unknown as T);
+        }
+
+        // Validar expiración (Soft-delete reactivo)
+        if (envelope.metadata.expiresAt && envelope.metadata.expiresAt < now) {
+          this.remove(keys[index]).catch(() => { }); // Cleanup asíncrono
+          return null;
+        }
+
+        return envelope.data;
+      });
+    }
+
+    // Fallback a Promise.all (menos eficiente pero compatible)
+    return Promise.all(keys.map(key => this.get<T>(key)));
+  }
+
+  /**
    * Elimina un item y emite evento
    */
   async remove(key: StorageKey): Promise<void> {
@@ -177,12 +210,11 @@ export class OfflineStorageCore {
 
       all: async (): Promise<T[]> => {
         const keys = await getMatchedKeys();
-        const results: T[] = [];
-        for (const key of keys) {
-          const data = await this.get<T>(key);
-          if (data !== null) results.push(data);
-        }
-        return results;
+        if (keys.length === 0) return [];
+
+        // Optimizamos usando getMulti (SSOT) para evitar cuellos de botella
+        const results = await this.getMulti<T>(keys);
+        return results.filter((data): data is T => data !== null);
       },
 
       count: async () => {

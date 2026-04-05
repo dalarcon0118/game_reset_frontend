@@ -48,6 +48,7 @@ export enum CreateMsgType {
     REQUEST_CLEAR_BETS = 'REQUEST_CLEAR_BETS',
     CONFIRM_CLEAR_BETS = 'CONFIRM_CLEAR_BETS',
     SUBMISSION_RESULT = 'SUBMISSION_RESULT',
+    HANDLE_ERROR = 'HANDLE_ERROR',
 }
 
 export type CreateMsg =
@@ -68,6 +69,7 @@ export type CreateMsg =
     | { type: CreateMsgType.SUBMIT_CREATE_SESSION }
     | { type: CreateMsgType.REQUEST_CLEAR_BETS }
     | { type: CreateMsgType.CONFIRM_CLEAR_BETS }
+    | { type: CreateMsgType.HANDLE_ERROR; error: string }
     | { type: CreateMsgType.SUBMISSION_RESULT; result: WebData<any> };
 
 export type CreateFeatMsg = { type: 'CREATE'; payload: CreateMsg };

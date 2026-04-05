@@ -1,5 +1,7 @@
 import { Result } from 'neverthrow';
 import { AuthResult, AuthSession, User } from './types/types';
+import { IDeviceSecretRepository, ITimeAnchorRepository } from '../crypto/crypto.ports';
+import { ITimeRepository } from '../system/time';
 
 /**
  * Interfaz para verificar condiciones antes de permitir login offline.
@@ -23,13 +25,14 @@ export interface IAuthRepository {
     checkAuth(): Promise<void>;
 
     // Token management
-    saveToken(access: string, refresh?: string, confirmationToken?: string): Promise<void>;
-    getToken(): Promise<{ access: string | null; refresh: string | null; confirmationToken?: string | null; isOffline?: boolean }>;
+    saveToken(access: string, refresh?: string, confirmationToken?: string, dailySecret?: string): Promise<void>;
+    getToken(): Promise<{ access: string | null; refresh: string | null; confirmationToken?: string | null; dailySecret?: string | null; isOffline?: boolean }>;
     clearToken(): Promise<void>;
 
     onSessionChange(callback: (user: User | null) => void): () => void;
     onSessionExpired(callback: (reason: string) => void): () => void;
     onTokenRefreshed(callback: (token: string) => void): () => void;
+    onRefreshTerminalFailed(callback: (error: string) => void): () => void;
 
     /** Notificación imperativa de expiración (puente para ApiClient) */
     notifySessionExpired(reason: string): void;
@@ -49,12 +52,21 @@ export interface IAuthRepository {
 
     /** Inyecta el checker de condiciones offline del CoreModule */
     setOfflineConditionChecker(checker: IOfflineConditionChecker): void;
+
+    /** Inyecta el repositorio de secretos de dispositivo */
+    setDeviceSecretRepository(repo: IDeviceSecretRepository): void;
+
+    /** Inyecta el repositorio de anclas de tiempo */
+    setTimeAnchorRepository(repo: ITimeAnchorRepository): void;
+
+    /** Inyecta el repositorio de tiempo (SSoT) */
+    setTimeRepository(repo: ITimeRepository): void;
 }
 
 export interface IAuthStorage {
     // Session management
     saveSession(session: AuthSession): Promise<void>;
-    getSession(): Promise<{ access: string | null; refresh: string | null; confirmationToken?: string | null; isOffline?: boolean }>;
+    getSession(): Promise<{ access: string | null; refresh: string | null; confirmationToken?: string | null; dailySecret?: string | null; timeAnchor?: any | null; isOffline?: boolean }>;
     clearSession(): Promise<void>;
 
     // Offline fallback management

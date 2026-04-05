@@ -63,6 +63,7 @@ export class SubscriptionManager<TMsg> {
     private lastIds = new Set<string>();
     private isInitialized = false;
     private pendingTimeouts = new Map<string, NodeJS.Timeout>();
+    private lastSubDescriptor: SubDescriptor<TMsg> | null = null;
 
     constructor(private options: SubscriptionManagerOptions<TMsg>) { }
 
@@ -107,6 +108,9 @@ export class SubscriptionManager<TMsg> {
     manageSubscriptions(model: any): void {
         const { subscriptionFn } = this.options;
         const dispatch = this.getDispatch();
+
+        // Llamar a subscriptionFn SOLO si el modelo ha cambiado de forma relevante
+        // Para evitar llamadas innecesarias, primero intentamos con un shallow check
         const currentSub = subscriptionFn(model);
 
         // Validación de tipos
@@ -120,6 +124,13 @@ export class SubscriptionManager<TMsg> {
         }
 
         const currentIds = this.getActiveIds(currentSub);
+        const currentIdsArray = Array.from(currentIds).sort().join(',');
+        const lastIdsArray = Array.from(this.lastIds).sort().join(',');
+
+        // Si los IDs son exactamente los mismos, no necesitamos reprocesar
+        if (currentIdsArray === lastIdsArray && this.lastSubDescriptor !== null) {
+            return;
+        }
 
         // Verificar si changed las suscripciones
         const hasCurrentSubs = currentIds.size > 0;
@@ -136,6 +147,7 @@ export class SubscriptionManager<TMsg> {
         }
 
         this.lastIds = currentIds;
+        this.lastSubDescriptor = currentSub;
         this.cleanupSubs(currentIds);
         this.processSub(currentSub, dispatch);
     }

@@ -25,6 +25,7 @@ export const BackendNotificationCodec = t.intersection([
     t.partial({
         readAt: t.union([t.string, t.null]),
         userId: t.union([t.string, t.null]),
+        is_active: t.union([t.boolean, t.undefined]),
         metadata: t.record(t.string, t.unknown),
     })
 ]);

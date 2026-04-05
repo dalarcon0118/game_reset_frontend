@@ -36,6 +36,12 @@ export const BackendLoginResponseCodec = t.intersection([
   t.partial({
     refresh: t.string,
     confirmation_token: t.string, // Incluido para la estrategia
+    daily_secret: t.string, // Secreto diario para Zero Trust Fingerprint
+    time_anchor: t.type({
+      serverTime: t.number,
+      signature: t.string,
+      validUntil: t.number
+    })
   })
 ]);
 

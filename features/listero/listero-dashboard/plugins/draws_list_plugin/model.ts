@@ -3,7 +3,6 @@ import { WebData, RemoteData, Cmd } from '@core/tea-utils';
 import { DRAW_FILTER, Draw } from './core/types';
 import { FinancialSummary } from '@/types';
 import { BetDomainModel as PendingBet } from '@/shared/repositories/bet/bet.types';
-import { Msg } from './msg';
 
 export interface DrawsListPluginConfig {
   drawsStateKey: string;
@@ -64,6 +63,8 @@ export interface Model {
   commissionRate: number;
   // SSOT: Totales financieros por drawId (desde BetRepository)
   totalsByDrawId: TotalsByDrawIdMap;
+  // Tiempo actual para el countdown (se actualiza cada segundo via TICK)
+  currentTime: number;
 }
 
 export const initialModel = (params?: { context: PluginContext; config: DrawsListPluginConfig }): [Model, Cmd] => {
@@ -82,6 +83,7 @@ export const initialModel = (params?: { context: PluginContext; config: DrawsLis
       currentFilter: DRAW_FILTER.ALL,
       commissionRate: 0,
       totalsByDrawId: new Map(),
+      currentTime: Date.now(),
     },
     Cmd.none
   ];

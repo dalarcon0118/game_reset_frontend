@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, memo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { match } from 'ts-pattern';
 import { Badge, ButtonKit, Card, Flex, Label } from '@/shared/components';
@@ -18,17 +18,19 @@ interface DrawItemProps {
   onBetsListPress: (id: string, title: string, draw: Draw) => void;
   onCreateBetPress: (id: string, title: string, draw: Draw) => void;
   showBalance: boolean;
+  currentTime: number;
 }
 
-export default function DrawItem({
+const DrawItemComponent: React.FC<DrawItemProps> = ({
    draw,
    totalsByDrawId,
    onRulePress,
    onRewardsPress,
    onBetsListPress,
    onCreateBetPress,
-   showBalance
-}: DrawItemProps) {
+   showBalance,
+   currentTime
+}: DrawItemProps) => {
   
   // SSOT: Obtener totales financieros desde BetRepository (totalsByDrawId)
   const drawId = draw.id.toString();
@@ -54,13 +56,12 @@ export default function DrawItem({
 
   const getDrawStatus = () => {
     if (draw.is_betting_open === true) return DRAW_STATUS.OPEN;
-    
+
     if (!draw.betting_end_time) return draw.status;
-    
-    // Usar tiempo sincronizado (Server Time Offset) en lugar de hora local pura
-    const now = new Date(TimerRepository.getTrustedNow(Date.now()));
+
+    const now = new Date(TimerRepository.getTrustedNow(currentTime));
     const endTime = new Date(draw.betting_end_time);
-    
+
     if (now >= endTime) return DRAW_STATUS.CLOSED;
     return draw.status;
   };
@@ -69,8 +70,8 @@ export default function DrawItem({
 
   const getClosingTimeInfo = () => {
     if (!draw.betting_end_time || effectiveStatus !== DRAW_STATUS.OPEN) return null;
-    
-    const now = TimerRepository.getTrustedNow(Date.now());
+
+    const now = TimerRepository.getTrustedNow(currentTime);
     const endTime = new Date(draw.betting_end_time).getTime();
     const diffMs = endTime - now;
     const diffMins = Math.floor(diffMs / (1000 * 60));
@@ -328,3 +329,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 });
+
+// Memoizar DrawItem - la comparación por defecto de React.memo es suficiente
+// El componente se re-renderizará cuando currentTime cambie (cada segundo) para actualizar el countdown
+// Las其他props (draw, totalsByDrawId) solo cambian cuando hay datos reales del servidor
+const DrawItemMemoized = memo(DrawItemComponent);
+
+export default DrawItemMemoized;

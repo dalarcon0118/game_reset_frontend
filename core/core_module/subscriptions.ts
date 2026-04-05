@@ -18,8 +18,8 @@ export function subscriptions(model: CoreModel): SubDescriptor<CoreMsg> {
       return CoreService.subscribeToConnectivity(dispatch);
     }, 'CORE_CONNECTIVITY_SENSOR') : Sub.none(),
 
-    // 2. Verificar expiración de sesión cada 5 minutos si está autenticado
-    isAuthenticated ? Sub.every(5 * 60 * 1000, { type: 'CHECK_SESSION_EXPIRATION' }, 'SESSION_EXPIRATION_CHECKER') : Sub.none(),
+    // 2. Latido Temporal: Cada 15 minutos si está autenticado para refrescar el Time Anchor (Fase 3: Riesgo 2)
+    isAuthenticated ? Sub.every(15 * 60 * 1000, { type: 'TIME_ANCHOR_TICK' }, 'TIME_ANCHOR_TICKER') : Sub.none(),
 
     // 2. Suscripción al cambio de sesión en AuthRepository
     Sub.custom((dispatch) => {

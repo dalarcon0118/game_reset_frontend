@@ -38,6 +38,9 @@ export type CoreMsg =
   /** Acción sin efecto (usada para Cmd.task que no necesitan respuesta) */
   | { type: 'NO_OP' }
 
+  /** Latido Temporal: Dispara la actualización del Time Anchor (Fase 3) */
+  | { type: 'TIME_ANCHOR_TICK' }
+
   /** Dispara la verificación de expiración de sesión */
   | { type: 'CHECK_SESSION_EXPIRATION' }
 

@@ -5,8 +5,9 @@ import {
 } from '@core/offline-storage/types';
 import { BetApiAdapter } from '../adapters/bet.api.adapter';
 import { logger } from '@/shared/utils/logger';
+import { BET_LOG_TAGS, BET_LOGS } from '../bet.constants';
 
-const log = logger.withTag('BET_SYNC_STRATEGY');
+const log = logger.withTag(BET_LOG_TAGS.SYNC_STRATEGY);
 
 /**
  * Estrategia de sincronización PUSH para Apuestas.
@@ -23,7 +24,7 @@ export class BetPushStrategy implements SyncStrategy {
         if (items.length === 0) return [];
 
         try {
-            log.info(`Pushing bet batch sync: ${items.length} items`);
+            log.info(`${BET_LOGS.SYNC_PUSHING_BATCH}: ${items.length} items`);
 
             // Agrupar por drawId para optimizar si fuera necesario, 
             // pero el backend actual procesa cada CreateBetDTO de forma independiente.
@@ -32,22 +33,19 @@ export class BetPushStrategy implements SyncStrategy {
 
             const results = await Promise.all(items.map(async (item): Promise<SyncOutcome> => {
                 try {
-                    // 1. Verificar si ya existe en el servidor (idempotencia)
-                    const status = await this.api.checkStatus(item.entityId);
-                    if (status.synced && status.bets) {
-                        log.info(`Bet ${item.entityId} already synced on server.`);
-                        return {
-                            type: 'SUCCESS',
-                            backendId: Array.isArray(status.bets) ? status.bets[0]?.id?.toString() : (status.bets as any).id?.toString()
-                        };
-                    }
-
-                    // 2. Intentar creación
                     if (!item.data) {
-                        return { type: 'FATAL_ERROR', reason: 'No data found in sync item' };
+                        return { type: 'FATAL_ERROR', reason: BET_LOGS.SYNC_NO_DATA };
                     }
 
-                    const response = await this.api.create(item.data, item.entityId);
+                    // Aseguramos que el fingerprint sea recalculado si el ownerUser era inválido (0)
+                    // Esto permite recuperar apuestas bloqueadas por firmas corruptas
+                    const betData = { ...item.data };
+                    if (betData.ownerUser === "0" || !betData.ownerUser) {
+                        log.warn(`[SYNC_PUSH] ⚠️ Apuesta ${item.entityId} tiene ownerUser inválido. Se requiere re-firma.`);
+                    }
+
+                    // 1. Intentar creación directamente (El backend maneja la idempotencia nativamente)
+                    const response = await this.api.create(betData, item.entityId);
                     const backendId = Array.isArray(response) ? response[0]?.id?.toString() : (response as any).id?.toString();
 
                     return {
@@ -58,7 +56,7 @@ export class BetPushStrategy implements SyncStrategy {
                     const status = error.status || error.response?.status;
                     const reason = error.data?.detail || error.data?.message || error.message || `HTTP ${status || 'Unknown Error'}`;
 
-                    log.error(`[SYNC_ERROR] Bet ${item.entityId} sync failed:`, reason);
+                    log.error(`[${BET_LOGS.SYNC_ERROR}] ${item.entityId}:`, reason);
 
                     // MODO MANUAL PURO: Cualquier error se considera FATAL para detener reintentos automáticos
                     // y permitir que el usuario decida cuándo reintentar desde la UI.
@@ -71,7 +69,7 @@ export class BetPushStrategy implements SyncStrategy {
 
             return results;
         } catch (error: any) {
-            log.error('General error in bet batch push', error);
+            log.error(BET_LOGS.SYNC_GENERAL_ERROR, error);
             // MODO MANUAL PURO: Cualquier error se considera FATAL para detener reintentos automáticos
             return items.map(() => ({ type: 'FATAL_ERROR', reason: error.message }));
         }

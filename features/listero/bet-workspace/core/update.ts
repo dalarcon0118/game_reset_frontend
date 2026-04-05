@@ -12,6 +12,7 @@ import { ListMsg } from '../list/core/types';
 import { ManagementMsg } from '../management/core/types';
 import { RulesMsg } from '../rules/core/types';
 import { UiMsg, UiMsgType } from '../ui/ui.types';
+import { User } from '@/shared/repositories/auth/types/types';
 
 export type Msg =
     | { type: 'CREATE'; payload: CreateMsg }
@@ -21,12 +22,25 @@ export type Msg =
     | { type: 'RULES'; payload: RulesMsg }
     | { type: 'UI'; payload: UiMsg }
     | { type: 'SET_CURRENT_DRAW'; drawId: string | null }
-    | { type: 'SET_EDITING'; isEditing: boolean };
+    | { type: 'SET_EDITING'; isEditing: boolean }
+    | { type: 'HOST_SYNCED'; user: User | null };
 
 const makeModel = (model: Model) => model;
 
 export const update = (msg: Msg, model: Model): Return<Model, Msg> => {
     return match(msg as any)
+        .with({ type: 'HOST_SYNCED' }, ({ user }) => {
+            // ✅ Corregido: Acepta userId=0 como usuario autenticado valido
+            const isAuthenticated = user !== null && user !== undefined;
+
+            return singleton({
+                ...model,
+                host: {
+                    user,
+                    isAuthenticated
+                }
+            });
+        })
         .with({ type: 'CREATE' }, ({ payload }) => {
             return singleton(makeModel)
                 .andMapCmd(

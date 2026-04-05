@@ -35,7 +35,10 @@ export const getFinancialSummaryFlow = async (
 
         const totals = filteredBets.reduce<RawBetTotals>((acc, bet) => {
             const amount = Number(bet.amount) || 0;
-            const rate = bet.commissionRate !== undefined ? bet.commissionRate : (defaultCommissionRate || 0);
+            const validCommissionRate = (bet.commissionRate !== undefined && bet.commissionRate !== null)
+                ? Number(bet.commissionRate)
+                : (defaultCommissionRate || 0);
+            const rate = isNaN(validCommissionRate) ? (defaultCommissionRate || 0) : validCommissionRate;
             // Asegurar que la tasa sea decimal (ej: 20 -> 0.2)
             const safeRate = rate > 1 ? rate / 100 : rate;
             const commission = amount * safeRate;
@@ -85,7 +88,10 @@ export const getTotalsByDrawIdFlow = async (
         const totalsByDraw = filteredBets.reduce<Record<string, RawBetTotals>>((acc, bet) => {
             const drawId = String(bet.drawId || 'unknown');
             const amount = Number(bet.amount) || 0;
-            const rate = bet.commissionRate !== undefined ? bet.commissionRate : (defaultCommissionRate || 0);
+            const validCommissionRate = (bet.commissionRate !== undefined && bet.commissionRate !== null)
+                ? Number(bet.commissionRate)
+                : (defaultCommissionRate || 0);
+            const rate = isNaN(validCommissionRate) ? (defaultCommissionRate || 0) : validCommissionRate;
             // Asegurar que la tasa sea decimal (ej: 20 -> 0.2)
             const safeRate = rate > 1 ? rate / 100 : rate;
             const commission = amount * safeRate;

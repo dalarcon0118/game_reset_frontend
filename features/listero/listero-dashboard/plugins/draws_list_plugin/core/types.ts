@@ -1,6 +1,7 @@
 import * as t from 'io-ts';
 import { DrawType, DRAW_STATUS } from '@/types';
 import { match } from 'ts-pattern';
+import { RepositoriesModule, ITimeRepository } from '@/shared/repositories';
 
 export const DrawCodec = t.intersection([
   t.type({
@@ -42,44 +43,38 @@ export const DRAW_FILTER = {
 
 export type StatusFilter = typeof DRAW_FILTER[keyof typeof DRAW_FILTER];
 
-export const isClosingSoon = (bettingEndTime?: string | null) => {
+export const isClosingSoon = (bettingEndTime?: string | null, now?: number) => {
   if (!bettingEndTime) return false;
-  const now = new Date();
-  const endTime = new Date(bettingEndTime);
-  const diff = endTime.getTime() - now.getTime();
+  const timerRepo = RepositoriesModule.getSync<ITimeRepository>('TimerRepository');
+  const currentTime = now ?? timerRepo.getTrustedNow(Date.now());
+  const endTime = new Date(bettingEndTime).getTime();
+  const diff = endTime - currentTime;
   return diff > 0 && diff < 5 * 60 * 1000; // 5 minutes according to feature spec
 };
 
-export const isExpired = (draw: Draw) => {
-  return match(draw)
-    // Estados que definitivamente están expirados
-    .with(
-      { status: DRAW_STATUS.CLOSED },
-      { status: DRAW_STATUS.COMPLETED },
-      { status: DRAW_STATUS.REWARDED },
-      () => true
-    )
-    // Estados que definitivamente no están expirados
-    .with(
-      { status: DRAW_STATUS.OPEN },
-      { status: DRAW_STATUS.SCHEDULED },
-      { status: DRAW_STATUS.PENDING },
-      () => false
-    )
-    // Fallback: si is_betting_open es true, no está expirado
-    .when(
-      (d) => d.is_betting_open === true,
-      () => false
-    )
-    // Último recurso: verificación basada en tiempo
-    .when(
-      (d) => d.betting_end_time != null,
-      (d) => {
-        const now = new Date();
-        const endTime = new Date(d.betting_end_time!);
-        return now.getTime() >= endTime.getTime();
-      }
-    )
-    // Valor por defecto
-    .otherwise(() => false);
+export const isExpired = (draw: Draw, currentTime?: number) => {
+  const timerRepo = RepositoriesModule.getSync<ITimeRepository>('TimerRepository');
+  const now = currentTime ?? timerRepo.getTrustedNow(Date.now());
+
+  // Si is_betting_open es true explícitamente, no está expirado
+  if (draw.is_betting_open === true) return false;
+
+  // Verificación basada en tiempo: abierto entre start_time y end_time
+  const hasStartTime = draw.betting_start_time != null;
+  const hasEndTime = draw.betting_end_time != null;
+
+  // No expirado si está antes de abrir
+  if (hasStartTime) {
+    const startTime = new Date(draw.betting_start_time!).getTime();
+    if (now < startTime) return false;
+  }
+
+  // Expirado si pasó la hora de cierre
+  if (hasEndTime) {
+    const endTime = new Date(draw.betting_end_time!).getTime();
+    return now >= endTime;
+  }
+
+  // Si no hay tiempos definidos, no está expirado
+  return false;
 };

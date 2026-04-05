@@ -1,6 +1,6 @@
 import { Model } from './model';
 import { Sub } from '@core/tea-utils';
-import { SYNC_STATE, BATCH_OFFLINE_UPDATE, DrawTotalsUpdate } from './msg';
+import { SYNC_STATE, BATCH_OFFLINE_UPDATE, DrawTotalsUpdate, TICK } from './msg';
 import { logger } from '@/shared/utils/logger';
 import { extractHostState, createDrawsHash, HostStatePayload } from './host.adapter';
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
@@ -84,8 +84,8 @@ async function recomputeAndDispatchFinancialTotals(
 }
 
 export const subscriptions = (model: Model) => {
-  // DEBUG: Always log when subscriptions are being set up
-  log.info('Setting up draws_list_plugin subscriptions', { hasContext: !!model.context, hasHostStore: !!model.context?.hostStore });
+  // DEBUG: Only log when subscriptions are actually being set up (first time or when IDs change)
+  log.debug('Setting up draws_list_plugin subscriptions', { hasContext: !!model.context, hasHostStore: !!model.context?.hostStore });
 
   // Validación de entradas: Asegurar que el contexto y hostStore existen antes de suscribirse
   if (!model.context) {
@@ -148,11 +148,11 @@ export const subscriptions = (model: Model) => {
         const shouldSync = statusChangedToReady || dataChanged || isFirstSync || (hostHasData && pluginHasNoData);
 
         if (!shouldSync) {
-          log.debug('Skipping sync - no relevant changes detected', { 
-            hostStatus, 
+          log.debug('Skipping sync - no relevant changes detected', {
+            hostStatus,
             lastHostStatus,
             dataChanged,
-            isFirstSync 
+            isFirstSync
           });
           lastHostStatus = hostStatus; // Actualizamos el status para la próxima comparación
           return lastPayload;
@@ -219,6 +219,20 @@ export const subscriptions = (model: Model) => {
         unsubscribe();
         log.debug('Bet totals subscription cleanup');
       };
-    }, 'draws-list-dashboard-watch')
+    }, 'draws-list-dashboard-watch'),
+
+    // Countdown: Sub.custom permite acceder a Date.now() directamente en cada tick
+    Sub.custom((dispatch) => {
+      log.info('Starting draws countdown timer (1s interval)');
+
+      const intervalId = setInterval(() => {
+        dispatch(TICK(Date.now()));
+      }, 1000);
+
+      return () => {
+        log.info('Stopping draws countdown timer');
+        clearInterval(intervalId);
+      };
+    }, 'draws-list-countdown')
   ]);
 };

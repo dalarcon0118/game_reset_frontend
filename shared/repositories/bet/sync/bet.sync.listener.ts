@@ -4,6 +4,7 @@ import { logger } from '@/shared/utils/logger';
 import { DomainEvent } from '@core/offline-storage/types';
 import { Task } from '@/shared/core';
 import { INotificationRepository } from '@/shared/repositories/notification/notification.ports';
+import { BET_LOGS } from '../bet.constants';
 
 const log = logger.withTag('BetSyncListener');
 
@@ -13,6 +14,8 @@ const log = logger.withTag('BetSyncListener');
  */
 export class BetSyncListener {
     private unsubscribe?: () => void;
+    private static notifiedSuccessKeys = new Map<string, number>();
+    private static readonly SUCCESS_NOTIFICATION_TTL_MS = 10 * 60 * 1000;
 
     constructor(
         private readonly storage: IBetStorage,
@@ -67,8 +70,8 @@ export class BetSyncListener {
                 errorType: isFatal ? 'FATAL' : 'RETRYABLE'
             }
         }))
-        .tap(() => log.info(`[BET-SYNC-FLOW] Estado de apuesta ${entityId} actualizado a: ${status}`))
-        .tapError(e => log.error(`[BET-SYNC-FLOW] ERROR al actualizar syncContext para apuesta ${entityId}`, e));
+            .tap(() => log.info(`[BET-SYNC-FLOW] Estado de apuesta ${entityId} actualizado a: ${status}`))
+            .tapError(e => log.error(`[BET-SYNC-FLOW] ERROR al actualizar syncContext para apuesta ${entityId}`, e));
     }
 
     /**
@@ -78,11 +81,27 @@ export class BetSyncListener {
     private isFromPreviousDay(timestamp: number, now: number = Date.now()): boolean {
         const betDate = new Date(timestamp);
         const today = new Date(now);
-        
+
         betDate.setHours(0, 0, 0, 0);
         today.setHours(0, 0, 0, 0);
-        
+
         return betDate.getTime() < today.getTime();
+    }
+
+    private shouldNotifySuccess(receiptCode?: string, backendId?: string): boolean {
+        const identity = receiptCode || backendId;
+        if (!identity) return true;
+
+        const key = `bet-sync-success:${identity}`;
+        const now = Date.now();
+        const previous = BetSyncListener.notifiedSuccessKeys.get(key);
+
+        if (previous && now - previous < BetSyncListener.SUCCESS_NOTIFICATION_TTL_MS) {
+            return false;
+        }
+
+        BetSyncListener.notifiedSuccessKeys.set(key, now);
+        return true;
     }
 
     /**
@@ -103,28 +122,33 @@ export class BetSyncListener {
                 // Ruta 2: Actualizar si es del día actual
                 return Task.fromPromise(() => this.storage.updateStatus(entityId, 'synced', {
                     backendId,
-                    syncContext: { lastAttempt: Date.now(), syncedAt: Date.now() }
+                    syncContext: { lastAttempt: Date.now(), syncedAt: Date.now(), attemptsCount: 0 }
                 }))
-                .tap(() => log.info(`[BET-SYNC-FLOW] Estado de apuesta ${entityId} actualizado a: synced`))
-                .tap(() => {
-                    // Notificar éxito de sincronización
-                    if (bet.receiptCode) {
-                        log.info(`[BET-NOTIFICATION] Creando notificación de éxito para apuesta ${bet.receiptCode}`);
-                        this.notificationRepository.addNotification({
-                            title: 'Apuesta Sincronizada',
-                            message: `Apuesta ${bet.receiptCode} sincronizada con el servidor`,
-                            type: 'success',
-                            updatedAt: new Date().toISOString(),
-                            metadata: {
-                                receiptCode: bet.receiptCode,
-                                drawId: bet.drawId,
-                                backendId: backendId
-                            }
-                        })
-                        .then(() => log.info(`[BET-NOTIFICATION] ✅ Notificación de éxito creada para ${bet.receiptCode}`))
-                        .catch(e => log.warn(`[BET-NOTIFICATION] ❌ Failed to create success notification for ${bet.receiptCode}`, e));
-                    }
-                });
+                    .tap(() => log.info(`[BET-SYNC-FLOW] Estado de apuesta ${entityId} actualizado a: synced`))
+                    .tap(() => {
+                        // Notificar éxito de sincronización
+                        if (!bet || !bet.receiptCode) {
+                            return;
+                        }
+                        if (this.shouldNotifySuccess(bet.receiptCode, backendId)) {
+                            log.info(`[BET-NOTIFICATION] Creando notificación de éxito para apuesta ${bet.receiptCode}`);
+                            const externalKey = `bet-synced:${bet.receiptCode}`;
+                            this.notificationRepository.addNotification({
+                                title: BET_LOGS.NOTIF_SYNC_SUCCESS_TITLE,
+                                message: BET_LOGS.NOTIF_SYNC_SINGLE_SUCCESS_MSG(bet.receiptCode),
+                                type: 'success',
+                                metadata: {
+                                    receiptCode: bet.receiptCode,
+                                    drawId: bet.drawId,
+                                    backendId: backendId
+                                }
+                            }, externalKey)
+                                .then(() => log.info(`[BET-NOTIFICATION] ✅ Notificación de éxito creada para ${bet.receiptCode}`))
+                                .catch(e => log.warn(`[BET-NOTIFICATION] ❌ Failed to create success notification for ${bet.receiptCode}`, e));
+                            return;
+                        }
+                        log.debug(`[BET-NOTIFICATION] Notificación duplicada omitida para ${bet.receiptCode}`);
+                    });
             })
             .tapError(e => log.error(`[BET-SYNC-FLOW] Error en handleSyncSuccess para apuesta ${entityId}`, e));
     }

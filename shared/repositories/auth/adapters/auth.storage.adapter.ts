@@ -8,14 +8,17 @@ import { logger } from '../../../utils/logger';
 import { offlineStorage } from '../../../core/offline-storage/instance';
 import { STORAGE_TTL } from '@core/offline-storage/types';
 import storageClient from '@core/offline-storage/storage_client';
+import { AUTH_KEYS, AUTH_LOG_TAGS, AUTH_LOGS } from '../auth.constants';
 
-const log = logger.withTag('AUTH_STORAGE_ADAPTER');
+const log = logger.withTag(AUTH_LOG_TAGS.STORAGE_ADAPTER);
 const isWeb = Platform.OS === 'web';
 
 const SECURE_KEYS = {
-    ACCESS_TOKEN: 'auth_access_token',
-    REFRESH_TOKEN: 'auth_refresh_token',
-    CONFIRMATION_TOKEN: 'auth_confirmation_token',
+    ACCESS_TOKEN: AUTH_KEYS.SECURE_ACCESS_TOKEN,
+    REFRESH_TOKEN: AUTH_KEYS.SECURE_REFRESH_TOKEN,
+    CONFIRMATION_TOKEN: AUTH_KEYS.SECURE_CONFIRMATION_TOKEN,
+    DAILY_SECRET: AUTH_KEYS.SECURE_DAILY_SECRET,
+    TIME_ANCHOR: 'auth_time_anchor',
 };
 
 async function setSecureItem(key: string, value: string) {
@@ -55,28 +58,37 @@ export const authStorageAdapter: IAuthStorage = {
             if (session.confirmationToken) {
                 await setSecureItem(SECURE_KEYS.CONFIRMATION_TOKEN, session.confirmationToken);
             }
+            if (session.dailySecret) {
+                await setSecureItem(SECURE_KEYS.DAILY_SECRET, session.dailySecret);
+            }
+            if (session.timeAnchor) {
+                await setSecureItem(SECURE_KEYS.TIME_ANCHOR, JSON.stringify(session.timeAnchor));
+            }
             // Guardar perfil con TTL - se renovará en cada login
             await offlineStorage.set(AuthOfflineKeys.userProfile(), session.user, { ttl: STORAGE_TTL.USER_PROFILE });
-            log.info('Session persisted successfully');
+            log.info(AUTH_LOGS.SESSION_PERSISTED);
         } catch (error) {
-            log.error('Error persisting session', error);
+            log.error(AUTH_LOGS.SESSION_PERSIST_ERROR, error);
             throw error;
         }
     },
 
-    async getSession(): Promise<{ access: string | null; refresh: string | null; confirmationToken?: string | null; isOffline?: boolean }> {
+    async getSession(): Promise<{ access: string | null; refresh: string | null; confirmationToken?: string | null; dailySecret?: string | null; timeAnchor?: any | null; isOffline?: boolean }> {
         try {
             const access = await getSecureItem(SECURE_KEYS.ACCESS_TOKEN);
             const refresh = await getSecureItem(SECURE_KEYS.REFRESH_TOKEN);
             const confirmationToken = await getSecureItem(SECURE_KEYS.CONFIRMATION_TOKEN);
+            const dailySecret = await getSecureItem(SECURE_KEYS.DAILY_SECRET);
+            const timeAnchorStr = await getSecureItem(SECURE_KEYS.TIME_ANCHOR);
+            const timeAnchor = timeAnchorStr ? JSON.parse(timeAnchorStr) : null;
 
             // Verificar si es una sesión offline
-            const isOffline = access === 'offline-token';
+            const isOffline = access === AUTH_KEYS.SECURE_OFFLINE_TOKEN;
 
-            return { access, refresh, confirmationToken, isOffline };
+            return { access, refresh, confirmationToken, dailySecret, timeAnchor, isOffline };
         } catch (error) {
-            log.error('Error reading session', error);
-            return { access: null, refresh: null, confirmationToken: null, isOffline: false };
+            log.error(AUTH_LOGS.SESSION_READ_ERROR, error);
+            return { access: null, refresh: null, confirmationToken: null, dailySecret: null, timeAnchor: null, isOffline: false };
         }
     },
 
@@ -85,10 +97,12 @@ export const authStorageAdapter: IAuthStorage = {
             await deleteSecureItem(SECURE_KEYS.ACCESS_TOKEN);
             await deleteSecureItem(SECURE_KEYS.REFRESH_TOKEN);
             await deleteSecureItem(SECURE_KEYS.CONFIRMATION_TOKEN);
+            await deleteSecureItem(SECURE_KEYS.DAILY_SECRET);
+            await deleteSecureItem(SECURE_KEYS.TIME_ANCHOR);
             await offlineStorage.remove(AuthOfflineKeys.userProfile());
-            log.info('Session cleared');
+            log.info(AUTH_LOGS.SESSION_CLEARED);
         } catch (error) {
-            log.error('Error clearing session', error);
+            log.error(AUTH_LOGS.SESSION_CLEAR_ERROR, error);
             throw error;
         }
     },
@@ -99,9 +113,9 @@ export const authStorageAdapter: IAuthStorage = {
             await offlineStorage.set(AuthOfflineKeys.pinHash(), pinHash);
             await offlineStorage.set(AuthOfflineKeys.lastUsername(), username);
             await offlineStorage.set(AuthOfflineKeys.offlineProfile(), profile);
-            log.info('Offline credentials updated', { username });
+            log.info(AUTH_LOGS.OFFLINE_CREDENTIALS_UPDATED, { username });
         } catch (error) {
-            log.error('Failed to save offline credentials', error);
+            log.error(AUTH_LOGS.OFFLINE_CREDENTIALS_ERROR, error);
         }
     },
 
@@ -119,18 +133,18 @@ export const authStorageAdapter: IAuthStorage = {
             const normalizedStored = lastUser?.trim().toLowerCase();
 
             if (normalizedInput === normalizedStored && currentHash === savedHash && profile) {
-                log.info('Offline validation successful', { username });
+                log.info(AUTH_LOGS.OFFLINE_VAL_SUCCESS, { username });
                 return {
                     success: true,
                     data: {
                         user: profile,
-                        accessToken: 'offline-token',
+                        accessToken: AUTH_KEYS.SECURE_OFFLINE_TOKEN,
                         isOffline: true
                     }
                 };
             }
 
-            log.warn('Offline validation failed', {
+            log.warn(AUTH_LOGS.OFFLINE_VAL_FAILED, {
                 matchUser: username === lastUser,
                 hasHash: !!savedHash,
                 hasProfile: !!profile
@@ -140,16 +154,16 @@ export const authStorageAdapter: IAuthStorage = {
                 success: false,
                 error: {
                     type: AuthErrorType.INVALID_CREDENTIALS,
-                    message: 'Credenciales inválidas o no disponibles offline'
+                    message: AUTH_LOGS.OFFLINE_VAL_INVALID
                 }
             };
         } catch (error) {
-            log.error('Error during offline validation', error);
+            log.error(AUTH_LOGS.OFFLINE_VAL_ERROR, error);
             return {
                 success: false,
                 error: {
                     type: AuthErrorType.UNKNOWN_ERROR,
-                    message: 'Error en la validación local'
+                    message: AUTH_LOGS.OFFLINE_VAL_LOCAL_ERROR
                 }
             };
         }
@@ -161,12 +175,12 @@ export const authStorageAdapter: IAuthStorage = {
 
     async getLastUsername(): Promise<string | null> {
         const lastUser = await offlineStorage.get<string>(AuthOfflineKeys.lastUsername());
-        log.debug('Checking lastUsername', { lastUser });
+        log.debug(AUTH_LOGS.CHECKING_LAST_USER, { lastUser });
         if (lastUser) return lastUser;
 
         // Fallback al perfil offline si no hay last_username
         const profile = await this.getOfflineProfile();
-        log.debug('Fallback to offline profile for username', { profileFound: !!profile, username: profile?.username });
+        log.debug(AUTH_LOGS.FALLBACK_OFFLINE_PROFILE, { profileFound: !!profile, username: profile?.username });
         return profile?.username || null;
     },
 
@@ -181,9 +195,9 @@ export const authStorageAdapter: IAuthStorage = {
         try {
             // Eliminar físicamente la clave antigua que causaba desincronización
             await deleteSecureItem('auth_device_id');
-            log.info('Legacy device identity data purged');
+            log.info(AUTH_LOGS.PURGE_LEGACY_DATA);
         } catch (error) {
-            log.warn('Error purging legacy data (possibly already gone)', error);
+            log.warn(AUTH_LOGS.PURGE_LEGACY_ERROR, error);
         }
     }
 };

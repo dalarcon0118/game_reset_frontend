@@ -24,5 +24,9 @@ export const NotificationApi = {
 
     deleteNotification: async (notificationId: string): Promise<any> => {
         return await apiClient.delete(`/notifications/${notificationId}/`, {});
+    },
+
+    clearAll: async (): Promise<any> => {
+        return await apiClient.delete('/notifications/clear/', {});
     }
 };

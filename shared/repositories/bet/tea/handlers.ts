@@ -7,10 +7,12 @@ import { isServerReachable } from '@/shared/utils/network';
 import { drawRepository } from '../../draw';
 import { mapBackendBetToFrontend } from '../bet.mapper.backend';
 import { Fx } from './types';
+import { SyncAdapter, syncWorker } from '@core/offline-storage/instance';
 import { placeBetFlow, placeBatchFlow } from '../flows/place-bet.flow';
 import { getBetsFlow } from '../flows/get-bets.flow';
 import { syncPendingFlow } from '../flows/sync-bets.flow';
 import { getFinancialSummaryFlow, getTotalsByDrawIdFlow } from '../flows/financial.flow';
+import { BET_LOGS } from '../bet.constants';
 
 const log = logger.withTag('BetSystemEffects');
 
@@ -40,14 +42,28 @@ export const createBetEffectHandlers = (
 
         [Fx.addPendingBet.type]: ({ bet }: any) => {
             return Task.fromPromise(() => storage.save(bet))
-                .andThen(() =>
-                    Task.fromPromise(() => notificationRepository.addNotification({
+                .andThen(() => Task.fromPromise(async () => {
+                    // Encolar para sincronización global
+                    await SyncAdapter.addToQueue({
+                        type: 'bet',
+                        entityId: bet.externalId,
+                        priority: 1,
+                        data: bet,
+                        status: 'pending',
+                        attempts: 0
+                    });
+
+                    // Notificación local
+                    await notificationRepository.addNotification({
                         title: 'Apuesta guardada offline',
                         message: `La apuesta por ${bet.amount} se guardará localmente...`,
                         type: 'warning',
-                        metadata: { betId: (bet as any).id, type: 'OFFLINE_BET' },
-                        updatedAt: new Date().toISOString()
-                    })))
+                        metadata: { betId: bet.externalId, type: 'OFFLINE_BET' }
+                    });
+
+                    // Disparar worker
+                    syncWorker.triggerSync().catch(() => { });
+                }))
                 .tap(() => notifySubscribers())
                 .tapError(e => log.error('ADD_PENDING_BET', e));
         },
@@ -59,29 +75,19 @@ export const createBetEffectHandlers = (
         [Fx.notifySyncResult.type]: ({ result: { success, failed, successBets, failedBets } }: any) => {
             return Task.fromPromise(async () => {
                 if (success > 0 && successBets && successBets.length > 0) {
-                    const successCodes = successBets.join(', ');
-                    const successMessage = success === 1 
-                        ? `Apuesta ${successCodes} sincronizada exitosamente.`
-                        : `Apuestas ${successCodes} sincronizadas exitosamente.`;
                     await notificationRepository.addNotification({
-                        title: 'Sincronizacion completada',
-                        message: successMessage,
-                        type: 'success', 
-                        metadata: { count: success, successBets, type: 'SYNC_SUCCESS' },
-                        updatedAt: new Date().toISOString()
+                        title: BET_LOGS.NOTIF_SYNC_SUCCESS_TITLE,
+                        message: BET_LOGS.NOTIF_SYNC_SUCCESS_MSG(success),
+                        type: 'success',
+                        metadata: { count: success, successBets, type: 'SYNC_SUCCESS' }
                     });
                 }
                 if (failed > 0 && failedBets && failedBets.length > 0) {
-                    const failedCodes = failedBets.map((b: any) => b.receiptCode).join(', ');
-                    const failedMessage = failed === 1
-                        ? `Apuesta ${failedCodes} no se pudo sincronizar. Se reintentara mas tarde.`
-                        : `Apuestas ${failedCodes} no se pudieron sincronizar. Se reintentaran mas tarde.`;
                     await notificationRepository.addNotification({
-                        title: 'Error de sincronizacion',
-                        message: failedMessage,
-                        type: 'error', 
-                        metadata: { count: failed, failedBets, type: 'SYNC_ERROR' },
-                        updatedAt: new Date().toISOString()
+                        title: BET_LOGS.NOTIF_SYNC_ERROR_TITLE,
+                        message: BET_LOGS.NOTIF_SYNC_ERROR_MSG(failed),
+                        type: 'error',
+                        metadata: { count: failed, failedBets, type: 'SYNC_ERROR' }
                     });
                 }
             })
@@ -160,7 +166,51 @@ export const createBetEffectHandlers = (
             return Task.fromPromise(async () => { notifySubscribers(); });
         },
         [Fx.triggerSyncIfOnline.type]: () => {
-            return Task.fromPromise(() => isServerReachable());
+            return Task.fromPromise(async () => {
+                const isOnline = await isServerReachable();
+                if (!isOnline) {
+                    log.info('[SYNC_TRIGGER] Offline, skipping sync');
+                    return { synced: false, reason: 'offline' };
+                }
+
+                try {
+                    log.info('[SYNC_TRIGGER] Online, executing sync...');
+                    const { syncWorker } = await import('@core/offline-storage/instance');
+                    const report = await syncWorker.triggerSync();
+
+                    log.info('[SYNC_TRIGGER] Sync completed', report);
+
+                    // Notify user about sync result
+                    if (report.succeeded > 0) {
+                        await notificationRepository.addNotification({
+                            title: BET_LOGS.NOTIF_SYNC_SUCCESS_TITLE,
+                            message: BET_LOGS.NOTIF_SYNC_SUCCESS_MSG(report.succeeded),
+                            type: 'success',
+                            metadata: { count: report.succeeded, type: 'SYNC_SUCCESS' }
+                        });
+                    }
+
+                    if (report.failed > 0) {
+                        await notificationRepository.addNotification({
+                            title: BET_LOGS.NOTIF_SYNC_ERROR_TITLE,
+                            message: BET_LOGS.NOTIF_SYNC_ERROR_MSG(report.failed),
+                            type: 'error',
+                            metadata: { count: report.failed, type: 'SYNC_FAILED' }
+                        });
+                    }
+
+                    return { synced: true, report };
+                } catch (error: any) {
+                    log.error('[SYNC_TRIGGER] Sync failed', error);
+                    await notificationRepository.addNotification({
+                        title: BET_LOGS.NOTIF_SYNC_ERROR_TITLE,
+                        message: 'No se pudo sincronizar con el servidor. Las apuestas se guardaron localmente.',
+                        type: 'error',
+                        metadata: { error: error.message, type: 'SYNC_ERROR' }
+                    });
+                    return { synced: false, error: error.message };
+                }
+            });
         },
     };
 

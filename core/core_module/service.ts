@@ -6,13 +6,12 @@ import { apiClient } from '@shared/services/api_client';
 import { ConnectivityEvent } from '@shared/services/api_client/api_client.types';
 import { isServerReachable } from '@shared/utils/network';
 import { logger } from '@shared/utils/logger';
-import { syncWorker, offlineEventBus } from '@shared/core/offline-storage/instance';
+import { syncWorker, offlineEventBus, offlineStorage } from '@shared/core/offline-storage/instance';
 import { BetPushStrategy } from '@shared/repositories/bet/sync/bet.push.strategy';
 import { DlqPushStrategy } from '@shared/repositories/dlq/sync/dlq.push.strategy';
 import { DrawsPullStrategy } from '@shared/repositories/draw/sync/draws.pull.strategy';
 import { TelemetryPushStrategy } from '@shared/repositories/system/telemetry/sync/telemetry.push.strategy';
 import { NotificationSyncStrategy } from '@shared/repositories/notification/sync/notification.sync.strategy';
-import { offlineStorage } from '@shared/core/offline-storage/instance';
 import { TimerRepository } from '@shared/repositories/system/time';
 import { CoreMsg } from './msg';
 import { CoreModel } from './model';
@@ -20,8 +19,9 @@ import { systemJanitor } from './services/system-janitor.service';
 import { Cmd } from '@core/tea-utils/cmd';
 import { SYSTEM_READY } from '@/config/signals';
 import { notificationRepository } from '@/shared/repositories/notification';
-import { SessionPolicy } from '@/shared/auth/session/session.policy';
-import { TokenState } from '@/shared/auth/session/session.types';
+import { DeviceSecretRepository } from '@/shared/repositories/crypto/device-secret.repository';
+import { TimeAnchorRepository } from '@/shared/repositories/crypto/time-anchor.repository';
+import { SessionPolicy } from '../../shared/auth/session/session.policy';
 
 const log = logger.withTag('CORE_SERVICE');
 
@@ -33,6 +33,12 @@ let _authRepo: IAuthRepository | null = null;
  */
 export const setAuthRepository = (repo: IAuthRepository) => {
   _authRepo = repo;
+
+  // CA-06: Root Injection de módulos criptográficos y tiempo (Evitar dependencias circulares)
+  _authRepo.setDeviceSecretRepository(DeviceSecretRepository);
+  _authRepo.setTimeAnchorRepository(TimeAnchorRepository);
+  _authRepo.setTimeRepository(TimerRepository);
+  log.info('AuthRepository dependencies injected from CoreService');
 };
 
 const getAuthRepo = (): IAuthRepository => {
@@ -136,6 +142,25 @@ export const CoreService = {
   },
 
   /**
+   * Tarea para sincronizar el Time Anchor (Fase 3: Latido Temporal).
+   */
+  syncTimeAnchorTask(): Cmd {
+    log.info(`[FINGERPRINT_INIT] 🕒 Iniciando sincronización de Time Anchor...`);
+    return Cmd.task({
+      task: () => TimeAnchorRepository.fetchAndStoreAnchor().fork(),
+      onSuccess: () => {
+        log.info(`[FINGERPRINT_INIT] ✅ Time Anchor sincronizado correctamente`);
+        return { type: 'NO_OP' } as any;
+      },
+      onFailure: (err) => {
+        log.error(`[FINGERPRINT_INIT] ❌ Fallo crítico en sincronización de Time Anchor`, err);
+        return { type: 'NO_OP' } as any;
+      },
+      label: 'SYNC_TIME_ANCHOR'
+    });
+  },
+
+  /**
    * Verifica el contexto de la sesión (Perfil + Estructura)
    * Intenta refrescar si falta información crítica.
    */
@@ -158,6 +183,8 @@ export const CoreService = {
     }
 
     if (user && user.structure) {
+      log.info(`[SESSION_CONTEXT] ✅ Contexto de sesión válido: user=${user.id}, structure=${user.structure.id}`);
+
       return {
         structureId: String(user.structure.id),
         user
@@ -235,7 +262,8 @@ export const CoreService = {
   },
 
   /**
-   * Verifica la proximidad de expiración del token y notifica si es necesario.
+   * Verifica la proximidad de expiración del token.
+   * Rediseño: Ya no notifica proactivamente. Solo registra el estado para diagnóstico.
    */
   async checkSessionExpirationProximity(): Promise<void> {
     try {
@@ -244,17 +272,7 @@ export const CoreService = {
       if (!access) return;
 
       const tokenState = SessionPolicy.resolveTokenState(access);
-      
-      // Si el token está por expirar (dentro del umbral de skew), notificamos
-      if (tokenState === TokenState.EXPIRED) {
-        log.warn('Session close to expiration, notifying user...');
-        await notificationRepository.addNotification({
-          title: 'Sesión por expirar',
-          message: 'Tu sesión expirará pronto. Asegúrate de sincronizar tus apuestas pendientes.',
-          type: 'warning',
-          updatedAt: new Date().toISOString()
-        });
-      }
+      log.debug('Session token state check', { tokenState });
     } catch (e) {
       log.error('Error checking session expiration proximity', e);
     }
@@ -349,12 +367,49 @@ export const CoreService = {
    */
   subscribeToAuthExpired(dispatch: (msg: CoreMsg) => void): () => void {
     const authRepo = getAuthRepo();
-    return authRepo.onSessionExpired((reason) => {
+
+    // 1. Suscripción a expiración estándar (para navegación al login)
+    const unsubExpired = authRepo.onSessionExpired((reason) => {
       dispatch({
         type: 'SESSION_EXPIRED',
         reason
       });
     });
+
+    // 2. Suscripción a fallo terminal de refresh (Escalamiento de Negocio)
+    const unsubRefreshFailed = authRepo.onRefreshTerminalFailed(async (error) => {
+      log.error('Terminal refresh failure detected', { error });
+
+      const { access } = await authRepo.getToken();
+
+      // Regla: Solo alertar si el token es CRÍTICO (< 1 min) Y hay riesgo de pérdida de datos
+      const isCritical = SessionPolicy.isTokenCritical(access);
+      const pendingBets = await betRepository.getPendingBets();
+
+      if (!isCritical || pendingBets.length === 0) {
+        log.info('Refresh failed but not critical yet or no data at risk. Skipping alert.', { isCritical, pendingCount: pendingBets.length });
+        return;
+      }
+
+      // Idempotencia: Verificar si ya existe una notificación de este tipo activa
+      const existingNotifs = await notificationRepository.getNotifications();
+      const hasActiveAlert = existingNotifs.some(n =>
+        n.status === 'pending' && n.title === 'Sesión por expirar'
+      );
+
+      if (!hasActiveAlert) {
+        await notificationRepository.addNotification({
+          title: 'Sesión por expirar',
+          message: `Tu sesión está a punto de terminar y no pudo renovarse automáticamente. Tienes ${pendingBets.length} apuesta(s) sin sincronizar.`,
+          type: 'error'
+        });
+      }
+    });
+
+    return () => {
+      unsubExpired();
+      unsubRefreshFailed();
+    };
   },
 
   /**
@@ -407,7 +462,13 @@ export const CoreService = {
     log.info('Initializing SyncWorker with domain strategies...');
 
     // 0. Configurar SSOT de Tiempo en el OfflineStorage
-
+    offlineStorage.configure({
+      clock: {
+        now: () => TimerRepository.getTrustedNow(Date.now()),
+        iso: () => new Date(TimerRepository.getTrustedNow(Date.now())).toISOString()
+      }
+    });
+    log.info('OfflineStorage configured with Trusted Timer SSOT');
 
     // 1. Registrar estrategias
     syncWorker.registerStrategy('bet', new BetPushStrategy());

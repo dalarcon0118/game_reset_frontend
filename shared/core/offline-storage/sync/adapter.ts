@@ -1,6 +1,9 @@
 import { offlineStorage } from '../storage';
 import { OfflineStorageKeyManager } from '../utils';
-import { SyncQueueItem, SyncMetadata } from '../types';
+import { SyncQueueItem, SyncMetadata, SYNC_CONSTANTS } from '../types';
+import logger from '@/shared/utils/logger';
+
+const log = logger.withTag('SyncAdapter');
 
 /**
  * Adaptador de infraestructura para gestionar la cola de sincronización global.
@@ -81,15 +84,48 @@ export const SyncAdapter = {
     },
 
     /**
-     * Obtiene items pendientes ordenados por prioridad
+     * Obtiene items pendientes ordenados por prioridad.
+     * Filtra automáticamente ítems que han excedido MAX_RETRIES.
+     * NUNCA resetea attempts. Los estados son permanentes.
      */
     async getPendingItems(): Promise<SyncQueueItem[]> {
         const queue = await this.getQueue();
+        const maxRetries = SYNC_CONSTANTS.MAX_RETRIES;
+
         const pending = queue
-            .filter(item => item.status === 'pending' || item.status === 'failed')
+            .filter(item => {
+                // Ignorar ítems completados o exhaustos (estados terminales)
+                if (item.status === 'completed' || item.status === 'synced' || item.status === 'exhausted') {
+                    return false;
+                }
+
+                // CRÍTICO: Si excedió el límite de reintentos, marcar como exhausted
+                if (item.attempts >= maxRetries) {
+                    log.debug(`Item ${item.entityId} exceeded max retries (${item.attempts}/${maxRetries}), marking exhausted`);
+                    // Actualización asíncrona en background para no bloquear
+                    this.updateQueueItem(item.id, { status: 'exhausted' }).catch(e => 
+                        console.error('[SyncAdapter] Failed to mark exhausted', e)
+                    );
+                    return false;
+                }
+
+                // Solo procesar pending o failed con intentos restantes
+                return item.status === 'pending' || item.status === 'failed';
+            })
             .sort((a, b) => a.priority - b.priority);
-        console.log(`[DEBUG_SYNC_ADAPTER] Found ${pending.length} pending items out of ${queue.length} total`);
+
+        log.debug(`[SyncAdapter] Found ${pending.length} processable items (filtered ${queue.length - pending.length} exhausted/completed)`);
         return pending;
+    },
+
+    /**
+     * Obtiene solo items urgentes (prioridad 0) para preemption.
+     */
+    async getUrgentItems(): Promise<SyncQueueItem[]> {
+        const pending = await this.getPendingItems();
+        const urgent = pending.filter(item => item.priority === 0);
+        log.debug(`[SyncAdapter] Found ${urgent.length} urgent items`);
+        return urgent;
     },
 
     /**

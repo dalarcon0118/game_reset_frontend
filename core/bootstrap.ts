@@ -10,6 +10,8 @@ import { deviceRepository } from '@shared/repositories/system/device';
 import { setAuthRepository, CoreService } from './core_module/service';
 import { offlineStorage } from '@/shared/core/offline-storage/storage';
 import { TimerRepository } from '@/shared/repositories/system/time';
+import { RepositoriesModule } from '@/shared/repositories';
+
 
 /**
  * Bootstrapping de infraestructura base del motor TEA.
@@ -47,6 +49,7 @@ const bootstrapInfrastructure = () => {
     }
 };
 
+RepositoriesModule.init();
 // 2. Ejecutar bootstrap de infraestructura
 bootstrapInfrastructure();
 

@@ -1,4 +1,5 @@
 import { SyncWorkerCore } from './sync/worker';
+import { SyncAdapter } from './sync/adapter';
 import { StorageJanitor } from './maintenance/janitor';
 import { SYNC_CONSTANTS, STORAGE_TTL } from './types';
 import { offlineEventBus } from './event_bus';
@@ -7,6 +8,7 @@ import { offlineStorage, commonPorts } from './storage';
 
 export { StorageJanitor } from './maintenance/janitor';
 export { offlineEventBus };
+export { SyncAdapter };
 export { SYNC_CONSTANTS, STORAGE_TTL };
 export { offlineStorage };
 

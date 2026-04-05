@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, useColorScheme } from 'react-native';
+import { Eye } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import FijosCorridosColumn from './fijos_corridos_column';
 import { ParletColumn } from './parlet_column';
@@ -21,15 +22,19 @@ export const BolitaListGroup: React.FC<BolitaListGroupProps> = ({
     onViewReceipt 
 }) => {
     const colorScheme = (useColorScheme() ?? 'light') as keyof typeof Colors;
-    const hasBets = group.fijosCorridos.length > 0 || 
-                    group.centenas.length > 0 || 
-                    group.parlets.length > 0;
 
     return (
         <View style={styles.groupContainer}>
             {receiptCode !== '-----' && (
                 <View style={styles.groupHeader}>
                     <Text style={styles.groupHeaderText}>Comprobante: {receiptCode}</Text>
+                    <TouchableOpacity
+                        onPress={() => onViewReceipt(receiptCode)}
+                        style={styles.eyeButton}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                        <Eye size={20} color={Colors[colorScheme].primary} />
+                    </TouchableOpacity>
                 </View>
             )}
             <View style={styles.gridContainer}>
@@ -43,18 +48,6 @@ export const BolitaListGroup: React.FC<BolitaListGroupProps> = ({
                     <CentenaColumn editable={false} data={group.centenas} />
                 </View>
             </View>
-
-            {/* Separador con botón "Ver comprobante" */}
-            {hasBets && (
-                <View style={styles.receiptSeparator}>
-                    <TouchableOpacity
-                        style={[styles.receiptButton, { backgroundColor: Colors[colorScheme].primary }]}
-                        onPress={() => onViewReceipt(receiptCode)}
-                    >
-                        <Text style={styles.receiptButtonText}>Ver comprobante</Text>
-                    </TouchableOpacity>
-                </View>
-            )}
         </View>
     );
 };
@@ -68,11 +61,17 @@ const styles = StyleSheet.create({
         padding: 8,
         borderBottomWidth: 1,
         borderBottomColor: '#eee',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
     },
     groupHeaderText: {
         fontSize: 14,
         fontWeight: 'bold',
         color: '#666',
+    },
+    eyeButton: {
+        padding: 4,
     },
     gridContainer: {
         flexDirection: 'row',
@@ -81,21 +80,4 @@ const styles = StyleSheet.create({
     columnWrapperFijos: { flex: 3, borderRightWidth: 1, borderRightColor: '#E8E8E8' },
     columnWrapperParlet: { flex: 2, borderRightWidth: 1, borderRightColor: '#E8E8E8' },
     columnWrapperCentena: { flex: 2 },
-    receiptSeparator: {
-        padding: 10,
-        backgroundColor: '#f0f0f0',
-        marginHorizontal: 8,
-        marginVertical: 5,
-        borderRadius: 8,
-    },
-    receiptButton: {
-        padding: 12,
-        borderRadius: 8,
-        alignItems: 'center',
-    },
-    receiptButtonText: {
-        color: 'white',
-        fontWeight: 'bold',
-        fontSize: 16,
-    },
 });

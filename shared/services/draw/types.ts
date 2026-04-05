@@ -1,5 +1,12 @@
 import { DrawType } from '@/types';
 
+export interface PrizeConfig {
+  version: number;
+  main_prize: string | null;
+  currency: string;
+  secondary_rules: { label: string; description: string }[];
+}
+
 export interface BackendDraw {
   id: number;
   draw_type: number;
@@ -32,6 +39,7 @@ export interface BackendDraw {
   };
   is_betting_open: boolean;
   extra_data: any;
+  prize_config?: PrizeConfig;
 }
 
 export interface ExtendedDrawType extends DrawType {
@@ -50,6 +58,7 @@ export interface ExtendedDrawType extends DrawType {
     description: string | null;
     code: string;
   };
+  prize_config?: PrizeConfig;
 }
 
 export interface DrawClosureConfirmation {

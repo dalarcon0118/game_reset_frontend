@@ -15,7 +15,7 @@ import { NOTIFICATIONS_UPDATED, NETWORK_STATUS_CHANGED } from '@/config/signals'
 import { offlineEventBus } from '@core/offline-storage/instance';
 import { AuthRepository } from '@/shared/repositories/auth';
 import { NotificationOfflineKeys } from '@/shared/repositories/notification/NotificationOfflineKeys';
-import { NotificationRepository } from '@/shared/repositories/notification/notification.repository';
+import { notificationRepository } from '@/shared/repositories/notification';
 
 
 // 🛠️ INJECT SERVICE
@@ -31,6 +31,7 @@ export const subscriptions = (model: Model) => {
         Sub.custom((dispatch) => {
             let isCancelled = false;
             let unsubscribe = () => { };
+            let debounceTimer: any = null;
 
             AuthRepository.getUserIdentity().then(user => {
                 if (isCancelled || !user) return;
@@ -41,14 +42,22 @@ export const subscriptions = (model: Model) => {
                 unsubscribe = offlineEventBus.subscribe((event) => {
                     // Si cualquier notificación del usuario actual cambia, refrescamos el store.
                     if (event.type === 'ENTITY_CHANGED' && event.entity.startsWith(prefix)) {
-                        log.debug('Notification storage changed, refreshing store UI');
-                        dispatch({ type: 'REFRESH_NOTIFICATIONS' });
+                        // Anti-flooding: Debounce el refresh para lotes (ej. sync de 50 items)
+                        if (debounceTimer) clearTimeout(debounceTimer);
+
+                        debounceTimer = setTimeout(() => {
+                            if (!isCancelled) {
+                                log.debug('Notification storage changed, refreshing store UI (debounced)');
+                                dispatch({ type: 'REFRESH_NOTIFICATIONS' });
+                            }
+                        }, 5000); // Aumentado a 5s de ventana para agrupar cambios (evita múltiples llamadas si llegan varias notificaciones o hay resyncs)
                     }
                 });
             });
 
             return () => {
                 isCancelled = true;
+                if (debounceTimer) clearTimeout(debounceTimer);
                 unsubscribe();
             };
         }, 'notification_storage_subscription'),
@@ -72,25 +81,33 @@ export const subscriptions = (model: Model) => {
         }, 'notification_session_subscription'),
 
         // 3. Escuchar cambios de conectividad para notificar al usuario.
-        Sub.receiveMsg(NETWORK_STATUS_CHANGED, ({ isOnline, wasOffline }) => {
-            if (!isOnline && !wasOffline) {
-                // Entramos en modo offline
-                return { type: 'ADD_SYSTEM_NOTIFICATION', payload: {
-                    title: 'Modo offline activado',
-                    message: 'Tus datos se guardarán localmente y se sincronizarán cuando recuperes conexión.',
-                    type: 'warning' as const
-                }};
-            }
-            if (isOnline && wasOffline) {
-                // Recuperamos conexión
-                return { type: 'ADD_SYSTEM_NOTIFICATION', payload: {
-                    title: 'Conexión recuperada',
-                    message: 'Sincronizando datos pendientes...',
-                    type: 'success' as const
-                }};
-            }
-            return { type: 'NONE' };
-        })
+        Sub.receiveMsg(
+            NETWORK_STATUS_CHANGED,
+            (payload, dispatch) => {
+                const { isOnline, wasOffline } = payload;
+                if (!isOnline && !wasOffline) {
+                    dispatch({
+                        type: 'ADD_SYSTEM_NOTIFICATION',
+                        payload: {
+                            title: 'Modo offline activado',
+                            message: 'Tus datos se guardarán localmente y se sincronizarán cuando recuperes conexión.',
+                            type: 'warning' as const
+                        }
+                    });
+                }
+                if (isOnline && wasOffline) {
+                    dispatch({
+                        type: 'ADD_SYSTEM_NOTIFICATION',
+                        payload: {
+                            title: 'Conexión recuperada',
+                            message: 'Sincronizando datos pendientes...',
+                            type: 'success' as const
+                        }
+                    });
+                }
+            },
+            'notification_network_subscription'
+        )
     ]);
 };
 
@@ -235,6 +252,36 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
                         ...model,
                         allNotifications: updatedNotifications,
                         notifications: RemoteData.success(filteredNotifications),
+                        unreadCount: 0
+                    },
+                    Cmd.sendMsg(NOTIFICATIONS_UPDATED({ unreadCount: 0 }))
+                );
+            }
+            return singleton({ ...model, notifications: webData as any });
+        })
+
+        .with({ type: 'CLEAR_ALL_NOTIFICATIONS_REQUESTED' }, () => {
+            return ret(
+                {
+                    ...model,
+                    allNotifications: [],
+                    notifications: RemoteData.success([]),
+                    unreadCount: 0
+                },
+                Cmd.batch([
+                    NotificationService.getInstance().clearAllNotifications(),
+                    Cmd.sendMsg(NOTIFICATIONS_UPDATED({ unreadCount: 0 }))
+                ])
+            );
+        })
+
+        .with({ type: 'NOTIFICATIONS_CLEARED' }, ({ webData }) => {
+            if (webData.type === 'Success') {
+                return ret(
+                    {
+                        ...model,
+                        allNotifications: [],
+                        notifications: RemoteData.success([]),
                         unreadCount: 0
                     },
                     Cmd.sendMsg(NOTIFICATIONS_UPDATED({ unreadCount: 0 }))
@@ -389,10 +436,9 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
 
         .with({ type: 'ADD_SYSTEM_NOTIFICATION' }, ({ payload }) => {
             log.info('Adding system notification', payload);
-            
+
             // Crear notificación usando NotificationRepository
-            const notificationRepo = new NotificationRepository();
-            notificationRepo.addNotification({
+            notificationRepository.addNotification({
                 title: payload.title,
                 message: payload.message,
                 type: payload.type,

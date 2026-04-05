@@ -6,10 +6,17 @@ import { DrawService } from '@/shared/services/draw';
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
 import { GameRegistry } from '@/shared/core/registry/game_registry';
 import { BetMapper, BetPlacementCandidate } from '@/shared/repositories/bet/bet.mapper';
-import { normalizeBetType, normalizeBetTypeId, normalizeNumbers, normalizeOwnerStructure } from '@/shared/types/bet_types';
+import { User } from '@/shared/repositories/auth/types/types';
+import logger from '@/shared/utils/logger';
+
+const log = logger.withTag('CREATE_BET');
 
 export interface CreateContextModel {
     createSession: CreateModel;
+    host: {
+        user: User | null;
+        isAuthenticated: boolean;
+    };
 }
 
 // Initial state for this submodule
@@ -259,10 +266,17 @@ export const updateCreate = <M extends CreateContextModel>(model: M, msg: Create
                 Cmd.task({
                     task: async () => {
                         // Usar el mapper para validar y normalizar el formato
-                        const mappedResult = BetMapper.toPlacementBatch(candidates);
+                        // Obtenemos el ID del usuario del estado sincronizado del host
+                        const ownerUser = model.host?.user?.id;
+                        if (!ownerUser) {
+                            log.error(`[CREATE_BET] ❌ Error: Intento de apuesta sin usuario sincronizado`);
+                            throw new Error('HOST_USER_NOT_SYNCED');
+                        }
+                        const mappedResult = BetMapper.toPlacementBatch(candidates, ownerUser);
                         if (mappedResult.isErr()) {
                             throw mappedResult.error;
                         }
+                        log.info(`[CREATE_BET] 🎯 Enviando apuestas normalizadas:`, mappedResult.value);
                         return await betRepository.placeBatch(mappedResult.value);
                     },
                     onSuccess: (result) => ({ type: CreateMsgType.SUBMISSION_RESULT, result: RemoteData.success(result) }),
@@ -285,5 +299,13 @@ export const updateCreate = <M extends CreateContextModel>(model: M, msg: Create
                 },
             });
         })
-        .otherwise(() => singleton(model));
+        //add with error msg
+        .with({ type: CreateMsgType.HANDLE_ERROR }, ({ error }) => {
+            log.error(`[CREATE_WORKSPACE] ❌ Error: ${error}`, model,);
+            return singleton(model);
+        })
+        .otherwise(() => {
+            log.debug(`[CREATE_WORKSPACE] 🔄 Sin manejar el mensaje: ${msg.type}`, model,);
+            return singleton(model);
+        });
 };

@@ -55,6 +55,7 @@ export interface GroupedBets {
     fijosCorridos: FormattedBet[];
     parlets: FormattedBet[];
     centenas: FormattedBet[];
+    loteria: FormattedBet[];
 }
 
 export interface VoucherData {
@@ -67,9 +68,17 @@ export interface VoucherData {
     groupedBets: GroupedBets | null;
 }
 
+export interface PrizeRule {
+    label: string;
+    description: string;
+}
+
 export interface VoucherMetadata {
     issueDate: string;
     awardDate: string;
     totalPrize: string;
+    prizeRules: PrizeRule[];
     disclaimer: string;
+    fingerprintHash?: string;
+    auditUrl?: string;
 }

@@ -1,4 +1,4 @@
-import { ExtendedDrawType, BackendDraw } from './types';
+import { ExtendedDrawType, BackendDraw, PrizeConfig } from './types';
 
 export const mapStatus = (
   backendStatus: string,
@@ -63,6 +63,7 @@ export const mapBackendDrawToFrontend = (backendDraw: BackendDraw): ExtendedDraw
     time: new Date(backendDraw.draw_datetime).toLocaleTimeString('es-ES', {
       hour: '2-digit',
       minute: '2-digit'
-    })
+    }),
+    prize_config: backendDraw.prize_config
   };
 };

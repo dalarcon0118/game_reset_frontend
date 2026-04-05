@@ -7,6 +7,7 @@ import { BetType } from '@/types';
 import { offlineEventBus } from '@core/offline-storage/instance';
 import { createElmStore } from '@/shared/core/tea';
 import { logger } from '@/shared/utils/logger';
+import { BET_LOG_TAGS, BET_LOGS, BET_VALUES } from './bet.constants';
 
 // TEA
 import { BetState, initialModel, Msg, Fx } from './tea/types';
@@ -17,8 +18,10 @@ import { createBetEffectHandlers } from './tea/handlers';
 import { BetOfflineAdapter } from './adapters/bet.offline.adapter';
 import { BetApiAdapter } from './adapters/bet.api.adapter';
 import { BetSyncListener } from './sync/bet.sync.listener';
+import { BetPushStrategy } from './sync/bet.push.strategy';
 import { EffectRegistry } from '@/shared/core/tea-utils/effect_registry';
 import { wrapLocalEffectHandlers } from './tea/local-effect-wrapper';
+import { syncWorker } from '@core/offline-storage/instance';
 
 // Notifications
 import { notificationRepository } from '@/shared/repositories/notification';
@@ -31,7 +34,7 @@ import { notificationRepository } from '@/shared/repositories/notification';
  * El motor TEA (Update -> Handlers) procesa la acción y llama al `resolve`
  * de forma aislada, evitando por completo las condiciones de carrera.
  */
-const log = logger.withTag('BetRepository');
+const log = logger.withTag(BET_LOG_TAGS.REPOSITORY);
 
 export const createBetRepository = (
     storage: IBetStorage,
@@ -70,6 +73,9 @@ export const createBetRepository = (
     const syncListener = new BetSyncListener(storage, notificationRepository);
     syncListener.start();
 
+    // Registrar estrategia de sincronización para el worker global
+    syncWorker.registerStrategy('bet', new BetPushStrategy());
+
     return {
         onBetChanged: (callback: () => void) => {
             subscribers.add(callback);
@@ -89,13 +95,13 @@ export const createBetRepository = (
         },
 
         getBets: async (filters?: ListBetsFilters) => {
-            const timeoutMs = 8000;
+            const timeoutMs = BET_VALUES.GET_BETS_TIMEOUT_MS;
             const mainPromise = new Promise<Result<Error, BetType[]>>(resolve => {
                 dispatch(Msg.getBetsRequested({ filters, resolve }));
             });
             const timeoutPromise = new Promise<Result<Error, BetType[]>>(resolve =>
                 setTimeout(() => {
-                    log.warn(`getBets timed out after ${timeoutMs}ms, returning error`);
+                    log.warn(`${BET_LOGS.GET_BETS_TIMEOUT} after ${timeoutMs}ms, returning error`);
                     resolve(Result.error(new Error('TIMEOUT')));
                 }, timeoutMs)
             );
@@ -148,28 +154,28 @@ export const createBetRepository = (
         applyMaintenance: async () => {
             dispatch(Msg.maintenanceCompleted());
             await Promise.all([
-                new Promise<number>((resolve, reject) => dispatch(Msg.cleanupFailedRequested({ days: 7, resolve: (result) => result.isOk() ? resolve(result.value) : reject(result.error) }))),
+                new Promise<number>((resolve, reject) => dispatch(Msg.cleanupFailedRequested({ days: BET_VALUES.CLEANUP_DAYS_DEFAULT, resolve: (result) => result.isOk() ? resolve(result.value) : reject(result.error) }))),
                 new Promise<number>((resolve, reject) => dispatch(Msg.recoverStuckRequested({ resolve: (result) => result.isOk() ? resolve(result.value) : reject(result.error) })))
             ]);
         },
 
         getFinancialSummary: async (todayStart: number, structureId?: string, defaultCommissionRate?: number) => {
-            log.info('getFinancialSummary called', { todayStart, structureId, defaultCommissionRate });
-            const timeoutMs = 8000;
+            log.info(BET_LOGS.FINANCIAL_SUMMARY_CALLED, { todayStart, structureId, defaultCommissionRate });
+            const timeoutMs = BET_VALUES.FINANCIAL_SUMMARY_TIMEOUT_MS;
             const mainPromise = new Promise<RawBetTotals>((resolve, reject) => {
                 dispatch(Msg.financialSummaryRequested({
                     todayStart,
                     structureId,
                     defaultRate: defaultCommissionRate,
                     resolve: (result) => {
-                        log.info('getFinancialSummary resolved', { isOk: result.isOk(), value: result.isOk() ? result.value : null });
+                        log.info(BET_LOGS.FINANCIAL_SUMMARY_RESOLVED, { isOk: result.isOk(), value: result.isOk() ? result.value : null });
                         result.isOk() ? resolve(result.value) : reject(result.error)
                     }
                 }));
             });
             const timeoutPromise = new Promise<RawBetTotals>((_, reject) =>
                 setTimeout(() => {
-                    log.warn(`getFinancialSummary timed out after ${timeoutMs}ms`);
+                    log.warn(`${BET_LOGS.FINANCIAL_SUMMARY_TIMEOUT} after ${timeoutMs}ms`);
                     reject(new Error('TIMEOUT_FINANCIAL_SUMMARY'));
                 }, timeoutMs)
             );

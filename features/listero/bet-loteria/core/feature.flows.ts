@@ -78,7 +78,7 @@ export const FeatureFlows = {
 
     // --- Orchestration Flows ---
 
-    init: (model: LoteriaFeatureModel, drawId: string, isEditing: boolean = true, structureId?: string): Return<LoteriaFeatureModel, FeatureMsg> => {
+    init: (model: LoteriaFeatureModel, drawId: string, isEditing: boolean = true, structureId?: string, userId?: string): Return<LoteriaFeatureModel, FeatureMsg> => {
         // IMPORTANTE: Usar initialModel en lugar de model para reiniciar el estado completamente
         // Esto asegura que las apuestas anteriores se borren al entrar al screen
         const baseState = {
@@ -86,6 +86,7 @@ export const FeatureFlows = {
             currentDrawId: drawId,
             isEditing,
             structureId: structureId || initialModel.structureId,
+            userId: userId || initialModel.userId,
         };
 
         const loadingModel: LoteriaFeatureModel = {
@@ -174,7 +175,13 @@ export const FeatureFlows = {
         return RemoteDataHttp.fetch<LoteriaBet[], FeatureMsg>(
             async () => {
                 // Filtrar solo por drawId (sin filtro de fecha)
-                const query = { drawId: String(drawId) };
+                const query = { 
+                    drawId: String(drawId),
+                    sort: {
+                        field: 'createdAt',
+                        order: 'desc' as const
+                    }
+                };
 
                 const betsResult = await betRepository.getBets(query);
 

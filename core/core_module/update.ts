@@ -35,15 +35,18 @@ export function update(model: CoreModel, msg: CoreMsg): Return<CoreModel, CoreMs
     )
 
     // --- Dominio de Sesión y Usuario ---
-    .with({ type: 'SESSION_STATUS_CHANGED' }, ({ payload }) =>
-      SessionHandler.handleStatusChanged(model, payload)
-    )
-    .with({ type: 'SESSION_CONTEXT_READY' }, ({ payload }) =>
-      SessionHandler.handleContextReady(model, payload)
-    )
-    .with({ type: 'SESSION_EXPIRED' }, () =>
-      SessionHandler.handleExpired(model)
-    )
+    .with({ type: 'SESSION_STATUS_CHANGED' }, ({ payload }) => {
+      log.info(`[SESSION_FLOW] 🔄 Estado de sesión cambiado: ${payload}`);
+      return SessionHandler.handleStatusChanged(model, payload);
+    })
+    .with({ type: 'SESSION_CONTEXT_READY' }, ({ payload }) => {
+      log.info(`[SESSION_FLOW] ✅ Contexto de sesión listo para: ${payload.structureId}`);
+      return SessionHandler.handleContextReady(model, payload);
+    })
+    .with({ type: 'SESSION_EXPIRED' }, () => {
+      log.warn(`[SESSION_FLOW] ⚠️ Sesión expirada`);
+      return SessionHandler.handleExpired(model);
+    })
 
     // --- Dominio de Red y Conectividad ---
     .with({ type: 'PHYSICAL_CONNECTION_CHANGED' }, ({ payload }) => {
@@ -77,6 +80,9 @@ export function update(model: CoreModel, msg: CoreMsg): Return<CoreModel, CoreMs
     })
     .with({ type: 'CHECK_SESSION_EXPIRATION' }, () => {
       return ret(model, CoreService.checkSessionExpirationTask());
+    })
+    .with({ type: 'TIME_ANCHOR_TICK' }, () => {
+      return ret(model, CoreService.syncTimeAnchorTask());
     })
     .with({ type: 'NO_OP' }, () => singleton(model))
     .exhaustive(() => {

@@ -27,7 +27,8 @@ export const BootstrapHandler = {
           CoreService.verifySessionContextTask(),
           CoreService.maintenanceTask('INITIAL_MAINTENANCE'),
           CoreService.initializeSyncWorkerTask(),
-          CoreService.syncPendingBetsOnStartupTask()
+          CoreService.syncPendingBetsOnStartupTask(),
+          CoreService.syncTimeAnchorTask()
         ])
         : (nextModel.isSystemReady ? CoreService.notifySystemReady(new Date().toISOString().split('T')[0]) : Cmd.none)
     );

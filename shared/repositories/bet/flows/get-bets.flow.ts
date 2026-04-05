@@ -63,24 +63,57 @@ const shouldKeepOfflineBet = (
 };
 
 /**
- * Merges offline and online bets.
- * Offline bets ya vienen deduplicadas del repositorio (BetOfflineAdapter).
- * La fusión usa buildBetDedupKey (SSOT del repositorio) para evitar duplicados
- * cuando la misma apuesta existe en ambos lados.
+ * SSOT-COMPLIANT MERGE: Offline es la UNICA fuente de verdad (SSOT).
+ *
+ * El storage offline contiene TODOS los datos completos y verificados de la apuesta:
+ * - numbers, amount, type, fingerprint, receiptCode, etc.
+ *
+ * El API online SOLO se usa para actualizar el estado de sincronización (status).
+ * NUNCA se sobrescribe datos offline con datos del online.
+ *
+ * Esta filosofía offline-first garantiza que:
+ * 1. Los datos siempre están disponibles (offline es SSOT)
+ * 2. El online es solo para status de sync
+ * 3. No hay silent errors ni fallbacks - el online es optional
  */
 const mergeBets = (ctx: GetBetsContext): Result<Error, BetType[]> => {
     const betsMap = new Map<string, BetType>();
 
-    // Offline primero (ya viene deduplicado del repositorio)
+    // OFFLINE ES EL SSOT: Insertar todas las apuestas offline primero
     ctx.offlineBets.forEach((bet: BetType) => {
         const key = buildBetDedupKey(bet);
         betsMap.set(key, bet);
+        log.debug('SSOT: Loaded offline bet', { key, hasFingerprint: !!(bet as any).fingerprint });
     });
 
-    // Online sobrescribe (backend es fuente de verdad para apuestas synced)
-    ctx.onlineBets.forEach((bet: BetType) => {
-        const key = buildBetDedupKey(bet);
-        betsMap.set(key, bet);
+    // ONLINE SOLO ACTUALIZA STATUS: Para cada apuesta online, solo actualizar el status
+    // NUNCA sobrescribir datos offline con datos del online
+    ctx.onlineBets.forEach((onlineBet: BetType) => {
+        const key = buildBetDedupKey(onlineBet);
+        const existingBet = betsMap.get(key);
+
+        if (existingBet) {
+            // ONLINE SOLO actualiza el status de sincronización
+            // Todos los demás campos permanecen intactos del offline (SSOT)
+            const updatedBet: BetType = {
+                ...existingBet,
+                status: onlineBet.status || existingBet.status,
+                isPending: onlineBet.status === 'synced' ? false : existingBet.isPending
+            };
+            betsMap.set(key, updatedBet);
+            log.debug('SSOT: Updated sync status from online', {
+                key,
+                previousStatus: existingBet.status,
+                newStatus: updatedBet.status,
+                hadFingerprint: !!(existingBet as any).fingerprint
+            });
+        } else {
+            // El online tiene una apuesta que no existe offline
+            // Esto es posible si alguien hizo una apuesta directamente online (sin pasar por offline)
+            // En ese caso, aceptamos el dato online tal cual
+            betsMap.set(key, onlineBet);
+            log.warn('SSOT: Online-only bet (no offline match)', { key });
+        }
     });
 
     let result = Array.from(betsMap.values());
@@ -113,11 +146,39 @@ const mergeBets = (ctx: GetBetsContext): Result<Error, BetType[]> => {
         });
     }
 
+    // Aplicar ordenamiento si esta definido en los filtros
+    if (ctx.filters?.sort) {
+        const { field, order } = ctx.filters.sort;
+
+        result = [...result].sort((a, b) => {
+            try {
+                let valueA: any = a[field];
+                let valueB: any = b[field];
+
+                // Manejo especial para fechas
+                if (field === 'createdAt' || field === 'timestamp') {
+                    valueA = new Date(valueA).getTime();
+                    valueB = new Date(valueB).getTime();
+                }
+
+                if (order === 'asc') {
+                    return valueA > valueB ? 1 : -1;
+                } else {
+                    return valueB > valueA ? 1 : -1;
+                }
+            } catch (e) {
+                // En caso de error, mantener orden original
+                return 0;
+            }
+        });
+    }
+
     log.info('GetBetsFlow result', {
         total: result.length,
         offline: ctx.offlineBets.length,
         online: ctx.onlineBets.length,
-        filter: ctx.filters?.date || 'none'
+        filter: ctx.filters?.date || 'none',
+        sort: ctx.filters?.sort ? `${ctx.filters.sort.field}:${ctx.filters.sort.order}` : 'none'
     });
 
     return Result.ok(result);

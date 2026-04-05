@@ -81,7 +81,7 @@ export const BetMapper = {
      * Convierte un candidato de apuesta en un BetPlacementInput validado.
      * Aplica normalización centralizada para asegurar consistencia.
      */
-    toPlacementInput: (candidate: BetPlacementCandidate): Result<Error, BetPlacementInput> => {
+    toPlacementInput: (candidate: BetPlacementCandidate, ownerUser?: string | number): Result<Error, BetPlacementInput> => {
         // Validar amount
         const amountResult = normalizeAmount(candidate.amount);
         if (amountResult.isErr()) return err(amountResult.error);
@@ -99,6 +99,11 @@ export const BetMapper = {
         // Normalizar numbers a string (formato canónico de almacenamiento)
         const normalizedNumbers = normalizeNumbers(candidate.numbers);
 
+        // ✅ Corregido: Usar comparacion explicita, no truthy, porque userId=0 es un valor valido
+        const normalizedOwnerUser = ownerUser !== null && ownerUser !== undefined
+            ? String(ownerUser)
+            : undefined;
+
         return ok({
             drawId: String(candidate.drawId),
             betTypeId: normalizedBetTypeId,
@@ -106,18 +111,18 @@ export const BetMapper = {
             numbers: normalizedNumbers,
             amount: amountResult.value,
             ownerStructure: ownerStructureResult.value,
+            ownerUser: normalizedOwnerUser,
             receiptCode: candidate.receiptCode
         });
     },
 
     /**
      * Convierte un array de candidatos en un array de BetPlacementInput.
-     * Si algún candidato falla, retorna error inmediatamente.
      */
-    toPlacementBatch: (candidates: BetPlacementCandidate[]): Result<Error, BetPlacementInput[]> => {
+    toPlacementBatch: (candidates: BetPlacementCandidate[], ownerUser?: string | number): Result<Error, BetPlacementInput[]> => {
         const mapped: BetPlacementInput[] = [];
         for (const candidate of candidates) {
-            const result = BetMapper.toPlacementInput(candidate);
+            const result = BetMapper.toPlacementInput(candidate, ownerUser);
             if (result.isErr()) return err(result.error);
             mapped.push(result.value);
         }

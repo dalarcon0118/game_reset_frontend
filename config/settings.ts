@@ -90,6 +90,8 @@ export const settings = {
         reconcile: (id: string) => `/dlq/${id}/reconcile/`,
       },
       changePin: () => '/auth/change-pin/',
+      deviceRegister: () => '/auth/device-register/',
+      timeSignature: () => '/auth/time-signature/',
       financialStatement: () => '/financial-statement/summary/',
       financialStatements: () => '/financial-statement/',
       dashboardStats: () => '/financial-statement/dashboard-stats/',

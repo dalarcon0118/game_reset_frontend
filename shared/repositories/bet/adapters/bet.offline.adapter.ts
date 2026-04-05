@@ -2,12 +2,14 @@ import { IBetStorage, BetDomainModel } from '../bet.types';
 import { offlineStorage } from '@core/offline-storage/instance';
 import { OfflineStorageKeyManager } from '@core/offline-storage/utils';
 import { logger } from '@/shared/utils/logger';
+import { BET_KEYS, BET_LOG_TAGS, BET_LOGS, BET_VALUES } from '../bet.constants';
 
-const log = logger.withTag('BetOfflineAdapter');
+const log = logger.withTag(BET_LOG_TAGS.OFFLINE_ADAPTER);
 
 const BetOfflineKeys = {
-    bet: (id: string) => OfflineStorageKeyManager.generateKey('bet', 'pending', id, 'data'),
-    getPattern: (entity: string = 'pending', id: string = '*') => OfflineStorageKeyManager.getPattern('bet', entity, id, 'data'),
+    bet: (id: string) => OfflineStorageKeyManager.generateKey(BET_KEYS.STORAGE_ENTITY, BET_KEYS.STORAGE_STATUS_PENDING, id, BET_KEYS.STORAGE_DATA_TYPE),
+    totalSales: (drawId: string | number) => OfflineStorageKeyManager.generateKey(BET_KEYS.STORAGE_ENTITY, 'balance', String(drawId), BET_KEYS.STORAGE_KEY_TOTAL_SALES),
+    getPattern: (entity: string = BET_KEYS.STORAGE_STATUS_PENDING, id: string = '*') => OfflineStorageKeyManager.getPattern(BET_KEYS.STORAGE_ENTITY, entity, id, BET_KEYS.STORAGE_DATA_TYPE),
 };
 
 /**
@@ -34,8 +36,19 @@ export function buildBetDedupKey(bet: {
 /**
  * Adaptador de almacenamiento offline para apuestas que utiliza el motor agnóstico
  * Cumple con el puerto IBetStorage definido en el dominio de apuestas.
+ * 
+ * FASE 1 FIX: Implementa deduplicación de getAll() con cache y mutex
  */
 export class BetOfflineAdapter implements IBetStorage {
+    // Cache en memoria para evitar lecturas repetidas del storage
+    private _cache: { data: BetDomainModel[]; timestamp: number } | null = null;
+    private static readonly CACHE_TTL_MS = 5000; // 5 segundos
+
+    // Mutex para prevenir reentradas concurrentes en getAll()
+    private _ongoingRetrieval: Promise<BetDomainModel[]> | null = null;
+
+    // Contador de deduplicaciones para métricas
+    private _dedupCounter = 0;
 
     /**
      * Guarda o actualiza una apuesta en el almacenamiento offline
@@ -43,23 +56,44 @@ export class BetOfflineAdapter implements IBetStorage {
     async save(bet: BetDomainModel): Promise<void> {
         const id = bet.externalId || (bet as any).offlineId;
         const key = BetOfflineKeys.bet(id);
-        log.info(`[BET-OFFLINE] Guardando apuesta: ${id} (Estado: ${bet.status})`);
+        log.info(`[${BET_LOG_TAGS.OFFLINE_ADAPTER}] ${BET_LOGS.SAVING_BET}: ${id} (Estado: ${bet.status})`);
+        log.info(`[FINGERPRINT_DEBUG] Saving bet with fingerprint:`, {
+            betId: id,
+            hasFingerprint: !!bet.fingerprint,
+            fingerprint: bet.fingerprint,
+            betKeys: Object.keys(bet)
+        });
         // Sin TTL - las apuestas pendientes persisten hasta sincronización manual
         await offlineStorage.set(key, bet);
+        // FASE 1 FIX: Invalidar cache después de modificar datos
+        this.invalidateCache();
     }
 
     /**
      * Guarda un lote de apuestas en una sola operación con lógica de Upsert inteligente.
-     * Identifica y elimina entradas temporales (UUID) que ya tienen un receiptCode canónico.
+     * SSOT COMPLIANT: Preserva el fingerprint y otros campos críticos del storage local
+     * cuando el API retorna datos nulos o degradados.
      */
     async saveBatch(bets: BetDomainModel[]): Promise<void> {
-        log.info(`[BET-OFFLINE] Guardando lote de ${bets.length} apuestas (Upsert Mode).`);
+        log.info(`[${BET_LOG_TAGS.OFFLINE_ADAPTER}] ${BET_LOGS.SAVING_BATCH}: ${bets.length} apuestas (Upsert Mode).`);
 
         // 1. Limpiar entradas que van a ser reemplazadas por este lote (Upsert)
         await this.cleanupOrphanedEntries(bets);
 
-        // 2. Preparar las nuevas entradas con su identidad canónica
-        const entries = bets.map(bet => {
+        // 2. SSOT FIX: Antes de guardar, preservar campos críticos de bets existentes
+        // El API puede retornar nulls (numbers_played, fingerprint_data) que sobrescribirían
+        // datos válidos del storage local. Siempre preservar del storage local si existe.
+        const betsWithPreservedFields = await Promise.all(bets.map(async (incomingBet) => {
+            const existingBet = await offlineStorage.get<BetDomainModel>(BetOfflineKeys.bet(incomingBet.externalId));
+            if (existingBet && existingBet.fingerprint && !incomingBet.fingerprint) {
+                log.info(`[SSOT_FIX] Preserving fingerprint from local storage for bet ${incomingBet.externalId}`);
+                return { ...incomingBet, fingerprint: existingBet.fingerprint };
+            }
+            return incomingBet;
+        }));
+
+        // 3. Preparar las nuevas entradas con su identidad canónica
+        const entries = betsWithPreservedFields.map(bet => {
             const id = bet.externalId || (bet as any).offlineId;
             return {
                 key: BetOfflineKeys.bet(id),
@@ -67,6 +101,8 @@ export class BetOfflineAdapter implements IBetStorage {
             };
         });
         await offlineStorage.setMulti(entries);
+        // FASE 1 FIX: Invalidar cache después de modificar datos
+        this.invalidateCache();
     }
 
     /**
@@ -112,7 +148,7 @@ export class BetOfflineAdapter implements IBetStorage {
         }
 
         if (toDelete.length > 0) {
-            log.info(`[BET-OFFLINE] Upsert: Eliminando ${toDelete.length} entradas temporales obsoletas`);
+            log.info(`[${BET_LOG_TAGS.OFFLINE_ADAPTER}] ${BET_LOGS.UPSERT_CLEANUP}: Eliminando ${toDelete.length} entradas temporales obsoletas`);
             for (const id of toDelete) {
                 await offlineStorage.remove(BetOfflineKeys.bet(id));
             }
@@ -121,31 +157,96 @@ export class BetOfflineAdapter implements IBetStorage {
 
     /**
      * Obtiene todas las apuestas registradas aplicando deduplicación semántica (SSOT).
+     * FASE 1 FIX: Implementa cache TTL y mutex para prevenir reentradas concurrentes.
      */
     async getAll(): Promise<BetDomainModel[]> {
-        log.info('[BET-OFFLINE] Recuperando todas las apuestas del almacenamiento...');
-        const pattern = BetOfflineKeys.getPattern('pending', '*');
+        const now = Date.now();
+
+        // 1. Verificar cache válido
+        if (this._cache && (now - this._cache.timestamp) < BetOfflineAdapter.CACHE_TTL_MS) {
+            this._dedupCounter++;
+            log.info(`[${BET_LOG_TAGS.OFFLINE_ADAPTER}] Cache hit (${this._dedupCounter} deduplicaciones evitadas)`);
+            return this._cache.data;
+        }
+
+        // 2. Mutex: Si hay una recuperación en curso, esperar a que termine
+        if (this._ongoingRetrieval) {
+            this._dedupCounter++;
+            log.info(`[${BET_LOG_TAGS.OFFLINE_ADAPTER}] Esperando recuperación en curso (deduplicación #${this._dedupCounter})`);
+            return this._ongoingRetrieval;
+        }
+
+        // 3. Crear promesa única y almacenar referencia para mutex
+        this._ongoingRetrieval = this._doGetAll();
+
+        try {
+            const result = await this._ongoingRetrieval;
+            return result;
+        } finally {
+            // Limpiar referencia del mutex
+            this._ongoingRetrieval = null;
+        }
+    }
+
+    /**
+     * Implementación real de getAll() - solo se ejecuta una vez por ciclo
+     */
+    private async _doGetAll(): Promise<BetDomainModel[]> {
+        log.info(`[${BET_LOG_TAGS.OFFLINE_ADAPTER}] ${BET_LOGS.RECOVERING_ALL}`);
+        const pattern = BetOfflineKeys.getPattern(BET_KEYS.STORAGE_STATUS_PENDING, '*');
+        log.info(`[FINGERPRINT_DEBUG] Query pattern: ${pattern}`);
         const results = await offlineStorage.query<BetDomainModel>(pattern).all();
+
+        log.info(`[FINGERPRINT_DEBUG] Raw results from storage:`, {
+            count: results.length,
+            sample: results[0] ? {
+                id: results[0].externalId,
+                hasFingerprint: !!(results[0] as any).fingerprint,
+                fingerprintKeys: (results[0] as any).fingerprint ? Object.keys((results[0] as any).fingerprint) : [],
+                allKeys: Object.keys(results[0])
+            } : 'no results'
+        });
 
         const validBets = results.filter((b): b is BetDomainModel => b !== null);
         const uniqueBets = this.dedup(validBets);
 
-        log.info(`[BET-OFFLINE] Deduplicación: ${validBets.length} → ${uniqueBets.length}`);
+        // Actualizar cache
+        this._cache = {
+            data: uniqueBets,
+            timestamp: Date.now()
+        };
+
+        log.info(`[FINGERPRINT_DEBUG] After dedup and cache:`, {
+            uniqueCount: uniqueBets.length,
+            sampleHasFingerprint: uniqueBets[0] ? !!(uniqueBets[0] as any).fingerprint : false
+        });
+
+        log.info(`[${BET_LOG_TAGS.OFFLINE_ADAPTER}] ${BET_LOGS.DEDUP_STATS}: ${validBets.length} → ${uniqueBets.length} (cache actualizado)`);
         return uniqueBets;
+    }
+
+    /**
+     * Invalida el cache de getAll() - llamar después de save/saveBatch/delete/updateStatus
+     */
+    private invalidateCache(): void {
+        if (this._cache) {
+            log.info(`[${BET_LOG_TAGS.OFFLINE_ADAPTER}] Cache invalidado`);
+            this._cache = null;
+        }
     }
 
     /**
      * Obtiene apuestas filtradas por diversos criterios (SSOT)
      */
-    async getFiltered(filters: { 
-        todayStart?: number; 
-        structureId?: string; 
+    async getFiltered(filters: {
+        todayStart?: number;
+        structureId?: string;
         drawId?: string | number;
         receiptCode?: string;
         date?: number | string;
     }): Promise<BetDomainModel[]> {
         const all = await this.getAll();
-        
+
         // 1. Determinar rango de fecha SOLO si se proporcionan filtros de tiempo
         let rangeStart: number | undefined;
         let rangeEnd: number | undefined;
@@ -189,30 +290,60 @@ export class BetOfflineAdapter implements IBetStorage {
     }
 
     /**
-     * Obtiene las apuestas pendientes de sincronizar
+     * Zero Trust Running Balance: Obtiene el total de ventas acumulado para un sorteo
+     */
+    async getTotalSales(drawId: string | number): Promise<number> {
+        const key = BetOfflineKeys.totalSales(drawId);
+        const stored = await offlineStorage.get<number>(key);
+        return stored || 0;
+    }
+
+    /**
+     * Zero Trust Running Balance: Incrementa el total de ventas acumulado
+     */
+    async incrementTotalSales(drawId: string | number, amount: number): Promise<number> {
+        const key = BetOfflineKeys.totalSales(drawId);
+        const current = await this.getTotalSales(drawId);
+        const next = current + amount;
+        await offlineStorage.set(key, next);
+        log.info(`[${BET_LOG_TAGS.OFFLINE_ADAPTER}] Running Balance actualizado para sorteo ${drawId}: ${current} -> ${next}`);
+        return next;
+    }
+
+    /**
+     * Obtiene las apuestas pendientes de sincronizar.
+     * FASE 4: Asegura orden FIFO (First-In-First-Out) basado en timestamp
+     * para mantener la integridad del Hash Chain en el backend.
      */
     async getPending(): Promise<BetDomainModel[]> {
-        log.info('[BET-OFFLINE] 1. Recuperando apuestas pendientes (pending, error, blocked)...');
+        log.info(`[${BET_LOG_TAGS.OFFLINE_ADAPTER}] 1. ${BET_LOGS.PENDING_RECOVERY}`);
         const all = await this.getAll();
-        const pending = all.filter(b => b.status === 'pending' || b.status === 'error' || b.status === 'blocked');
-        log.info(`[BET-OFFLINE] 2. Encontradas ${pending.length} apuestas pendientes.`);
+        const pending = all
+            .filter(b => b.status === 'pending' || b.status === 'error' || b.status === 'blocked')
+            // Ordenar por timestamp ascendente (FIFO)
+            .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+        log.info(`[${BET_LOG_TAGS.OFFLINE_ADAPTER}] 2. ${BET_LOGS.PENDING_FOUND}`);
         return pending;
     }
 
     /**
-     * Obtiene apuestas por estado
+     * Obtiene apuestas por estado.
+     * Mantiene el orden FIFO para consistencia.
      */
     async getByStatus(status: BetDomainModel['status']): Promise<BetDomainModel[]> {
-        log.info(`[BET-OFFLINE] Recuperando apuestas por estado: ${status}`);
+        log.info(`[${BET_LOG_TAGS.OFFLINE_ADAPTER}] ${BET_LOGS.STATUS_RECOVERY}: ${status}`);
         const all = await this.getAll();
-        return all.filter(b => b.status === status);
+        return all
+            .filter(b => b.status === status)
+            .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
     }
 
     /**
      * Obtiene apuestas recientes (pendientes o sincronizadas) para un sorteo específico.
      * Útil para cubrir la ventana de latencia del backend tras una sincronización exitosa.
      */
-    async getRecentByDraw(drawId: string | number, maxAgeMs: number = 60 * 60 * 1000): Promise<BetDomainModel[]> {
+    async getRecentByDraw(drawId: string | number, maxAgeMs: number = BET_VALUES.RECENT_MAX_AGE_MS): Promise<BetDomainModel[]> {
         const all = await this.getAll();
         const normalizedDrawId = String(drawId);
         const now = Date.now();
@@ -234,11 +365,11 @@ export class BetOfflineAdapter implements IBetStorage {
         const bet = await offlineStorage.get<BetDomainModel>(key);
 
         if (bet) {
-            log.info(`[BET-OFFLINE] Actualizando estado de apuesta ${offlineId}: ${bet.status} -> ${status}`);
+            log.info(`[${BET_LOG_TAGS.OFFLINE_ADAPTER}] ${BET_LOGS.UPDATE_STATUS} ${offlineId}: ${bet.status} -> ${status}`);
             const updatedBet = { ...bet, status, ...extra };
             await this.save(updatedBet);
         } else {
-            log.warn(`[BET-OFFLINE] No se encontró apuesta para actualizar: ${offlineId}`);
+            log.warn(`[${BET_LOG_TAGS.OFFLINE_ADAPTER}] ${BET_LOGS.UPDATE_NOT_FOUND}: ${offlineId}`);
         }
     }
 
@@ -249,6 +380,8 @@ export class BetOfflineAdapter implements IBetStorage {
         log.info(`[BET-OFFLINE] Eliminando apuesta del almacenamiento: ${offlineId}`);
         const key = BetOfflineKeys.bet(offlineId);
         await offlineStorage.remove(key);
+        // FASE 1 FIX: Invalidar cache después de modificar datos
+        this.invalidateCache();
     }
 
     /**

@@ -79,9 +79,16 @@ export interface BetType {
   createdAt: string; // ISO format for UI
   receiptCode?: string;
   ownerStructure?: string | number;
+  ownerUser?: string | number;
   isPending?: boolean; // Legacy flag for UI compatibility
   lastError?: string;
   retryCount?: number;
+  fingerprint?: { // FASE 5: Fingerprint criptográfico para verificación offline
+    hash: string;
+    version: number;
+    chainHash?: string;
+    raw_payload: string;
+  };
 }
 export type GameType = {
   id: string;

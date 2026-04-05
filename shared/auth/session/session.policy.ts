@@ -1,5 +1,6 @@
 import { SessionPolicyContext, TokenState, SessionStatus } from './session.types';
 import { logger } from '@/shared/utils/logger';
+import { TimerRepository } from '@/shared/repositories/system/time';
 
 const log = logger.withTag('SESSION_POLICY');
 
@@ -8,7 +9,8 @@ const log = logger.withTag('SESSION_POLICY');
  * Esta clase NO realiza I/O, es 100% determinística y testeable.
  */
 export class SessionPolicy {
-    private static REFRESH_SKEW_SECONDS = 300; // 5 minutos de margen para refresh
+    private static REFRESH_SKEW_SECONDS = 300; // 5 minutos: Ventana para refresco silencioso del sistema
+    private static CRITICAL_SKEW_SECONDS = 60; // 1 minuto: Ventana crítica para alertar al usuario
 
     /**
      * Determina el estado de un token JWT o marcador offline.
@@ -28,25 +30,42 @@ export class SessionPolicy {
 
             const payload = JSON.parse(this.atob(base64));
 
-            // Usar tiempo confiable si se proporciona, de lo contrario fallback a Date.now()
-            const now = Math.floor((trustedNow || Date.now()) / 1000);
+            // SSOT: Usar tiempo confiable sincronizado con el servidor para evitar falsos positivos por drift del reloj local
+            const now = Math.floor((trustedNow || TimerRepository.getTrustedNow(Date.now())) / 1000);
+            const timeRemaining = payload.exp - now;
 
-            log.info('Token resolution details', {
-                tokenStart: token.substring(0, 20) + '...',
-                payloadExp: payload.exp,
-                currentTime: now,
-                timeRemaining: payload.exp - now,
+            // LOG DETALLADO PARA DEPURACIÓN
+            log.debug('[SESSION_POLICY] Token state resolution', {
+                exp: payload.exp,
+                now,
+                timeRemaining,
                 refreshSkew: this.REFRESH_SKEW_SECONDS,
-                isExpiredSkew: (payload.exp - now) < this.REFRESH_SKEW_SECONDS,
-                usingTrustedTime: !!trustedNow
+                isExpiredSkew: timeRemaining < this.REFRESH_SKEW_SECONDS,
+                isCritical: timeRemaining < this.CRITICAL_SKEW_SECONDS
             });
 
-            if (payload.exp - now < this.REFRESH_SKEW_SECONDS) {
+            if (timeRemaining < this.REFRESH_SKEW_SECONDS) {
                 return TokenState.EXPIRED;
             }
             return TokenState.VALID;
         } catch (e) {
             return TokenState.INVALID;
+        }
+    }
+
+    /**
+     * Determina si el token está en una ventana crítica de expiración (ej. < 60s).
+     * Útil para decidir si se debe escalar una notificación al usuario.
+     */
+    static isTokenCritical(token: string | null): boolean {
+        if (!token) return false;
+        try {
+            const parts = token.split('.');
+            const payload = JSON.parse(this.atob(parts[1]));
+            const now = Math.floor(TimerRepository.getTrustedNow(Date.now()) / 1000);
+            return (payload.exp - now) < this.CRITICAL_SKEW_SECONDS;
+        } catch {
+            return false;
         }
     }
 

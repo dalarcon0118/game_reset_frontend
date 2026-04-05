@@ -90,7 +90,7 @@ export type Unsubscribe = () => void;
 // --- Sistema de Sincronización ---
 
 export type SyncStatus = 'pending' | 'syncing' | 'synced' | 'blocked' | 'error';
-export type QueueItemStatus = 'pending' | 'processing' | 'completed' | 'failed';
+export type QueueItemStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'exhausted';
 export type SyncEntityType = 'bet' | 'financial_update' | 'bet_deletion' | 'dlq' | 'telemetry' | 'notification';
 export type WorkerStatus = 'idle' | 'running' | 'paused' | 'error' | 'stopping' | 'stopped';
 

@@ -81,6 +81,7 @@ export interface LoteriaFeatureModel {
 
     // Structure ID del usuario actual (para registro financiero)
     structureId: string | null;
+    userId: string | null;
 
     // Sessions (Internalized)
     loteriaSession: LoteriaState;

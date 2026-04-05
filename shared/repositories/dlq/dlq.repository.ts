@@ -34,29 +34,32 @@ export class DlqRepository implements IDlqRepository {
 
     /**
      * Agrega un elemento a la DLQ.
+     * IMPORTANTE: No usa la cola de sincronización. Hace llamada directa al backend.
+     * Para evitar envíos duplicados, el backend usa idempotencia via DLQ item ID.
      */
     async add<T>(domain: string, entityId: string, payload: T, error: DlqError): Promise<string> {
-        this.log.info(`[DLQ-REPO] 1. Agregando item a DLQ: ${domain}:${entityId}`);
+        this.log.info(`[DLQ-REPO] Agregando item a DLQ: ${domain}:${entityId}`);
 
         try {
+            // 1. Guardar en storage local con estado 'pending_report'
             const id = await this.storage.add(domain, entityId, payload, error);
-            this.log.info(`[DLQ-REPO] 2. Item guardado en DLQ: ${id}`);
+            this.log.info(`[DLQ-REPO] Item guardado en DLQ local: ${id}`);
 
-            // 3. Registrar en la cola de sincronización global
-            const item = await this.storage.getById(id);
-            if (item) {
-                await SyncAdapter.addToQueue({
-                    type: 'dlq',
-                    entityId: id,
-                    priority: 1, // Prioridad normal para DLQ
-                    data: item,
-                    attempts: 0,
-                    status: 'pending'
-                });
-                this.log.info(`[DLQ-REPO] 3. Item ${id} registrado en la cola de sincronización.`);
+            // 2. Llamar al backend DIRECTAMENTE (sin pasar por SyncWorker)
+            // Si el backend ya tiene este ID, retorna 200 OK (idempotencia)
+            try {
+                await this.api.reportItem(domain, entityId, payload, error);
+                this.log.info(`[DLQ-REPO] Backend reportado exitosamente para item ${id}`);
+                
+                // 3. Marcar como reportado en storage local
+                await this.storage.updateStatus(id, 'reported');
+            } catch (apiError: any) {
+                // Si el backend falla, el ítem queda en 'pending_report'
+                // Se puede reintentar manualmente o via cleanup
+                this.log.warn(`[DLQ-REPO] Falló reporte al backend para ${id}: ${apiError.message}`);
             }
 
-            // 4. Notificar proactivamente al usuario
+            // 4. Notificar al usuario
             await notificationRepository.addNotification({
                 title: 'Revisión requerida',
                 message: `Una operación de ${domain} ha fallado repetidamente y requiere revisión manual.`,
@@ -70,6 +73,26 @@ export class DlqRepository implements IDlqRepository {
             this.log.error(`[DLQ-REPO] ERROR al guardar en DLQ: ${domain}:${entityId}`, err);
             throw err;
         }
+    }
+
+    /**
+     * Reintenta enviar un item específico al backend.
+     * Útil para items que fallaron en el reporte inicial.
+     */
+    async retryReport(id: string): Promise<void> {
+        const item = await this.storage.getById(id);
+        if (!item) {
+            throw new Error(`DLQ item ${id} not found`);
+        }
+
+        if (item.status === 'reported') {
+            this.log.info(`[DLQ-REPO] Item ${id} ya fue reportado, omitiendo`);
+            return;
+        }
+
+        await this.api.reportItem(item.domain, item.entityId, item.payload, item.error);
+        await this.storage.updateStatus(id, 'reported');
+        this.log.info(`[DLQ-REPO] Item ${id} reportado exitosamente en reintento`);
     }
 
     async getByDomain(domain: string): Promise<DlqItem[]> {

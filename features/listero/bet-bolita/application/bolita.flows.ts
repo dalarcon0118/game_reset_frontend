@@ -328,11 +328,8 @@ export const BolitaFlows = {
                         }
                     },
                     Cmd.batch([
-                        Cmd.navigate(successRoute),
-                        Cmd.alert({
-                            title: 'Éxito',
-                            message: 'Apuestas guardadas correctamente.'
-                        })
+                        Cmd.navigate(successRoute)
+
                     ])
                 );
             })
