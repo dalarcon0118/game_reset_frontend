@@ -1,12 +1,11 @@
-import React, { useMemo, memo } from 'react';
+import React, { memo, useState, useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { match } from 'ts-pattern';
 import { Badge, ButtonKit, Card, Flex, Label } from '@/shared/components';
-import { TimerRepository } from '@/shared/repositories/system/time';
 import { DRAW_STATUS } from '@/types';
 import { AlarmClock, CalendarClock, Clock3, CloudOff } from 'lucide-react-native';
 import { Draw } from '../core/types';
-import { TotalsByDrawIdMap, DrawFinancialTotals } from '../model';
+import { TotalsByDrawIdMap, DrawFinancialTotals, timeRef } from '../model';
 import SummaryCard from './summary_card';
 
 // Props del componente - SSOT: Draw y Totals vienen de fuentes separadas
@@ -18,7 +17,6 @@ interface DrawItemProps {
   onBetsListPress: (id: string, title: string, draw: Draw) => void;
   onCreateBetPress: (id: string, title: string, draw: Draw) => void;
   showBalance: boolean;
-  currentTime: number;
 }
 
 const DrawItemComponent: React.FC<DrawItemProps> = ({
@@ -28,9 +26,17 @@ const DrawItemComponent: React.FC<DrawItemProps> = ({
    onRewardsPress,
    onBetsListPress,
    onCreateBetPress,
-   showBalance,
-   currentTime
+   showBalance
 }: DrawItemProps) => {
+
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTick(t => t + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
   
   // SSOT: Obtener totales financieros desde BetRepository (totalsByDrawId)
   const drawId = draw.id.toString();
@@ -59,7 +65,7 @@ const DrawItemComponent: React.FC<DrawItemProps> = ({
 
     if (!draw.betting_end_time) return draw.status;
 
-    const now = new Date(TimerRepository.getTrustedNow(currentTime));
+    const now = new Date(timeRef.current);
     const endTime = new Date(draw.betting_end_time);
 
     if (now >= endTime) return DRAW_STATUS.CLOSED;
@@ -71,7 +77,7 @@ const DrawItemComponent: React.FC<DrawItemProps> = ({
   const getClosingTimeInfo = () => {
     if (!draw.betting_end_time || effectiveStatus !== DRAW_STATUS.OPEN) return null;
 
-    const now = TimerRepository.getTrustedNow(currentTime);
+    const now = timeRef.current;
     const endTime = new Date(draw.betting_end_time).getTime();
     const diffMs = endTime - now;
     const diffMins = Math.floor(diffMs / (1000 * 60));

@@ -74,7 +74,6 @@ export const DrawsListComponent: React.FC<DrawsListComponentProps> = ({ context 
                 onBetsListPress={(id, title, d) => dispatch(BETS_LIST_CLICKED({ id, title, draw: d }))}
                 onCreateBetPress={(id, title, d) => dispatch(CREATE_BET_CLICKED({ id, title, draw: d }))}
                 showBalance={context.state.showBalance}
-                currentTime={model.currentTime}
               />
             );
           })

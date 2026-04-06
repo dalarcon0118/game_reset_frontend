@@ -2,6 +2,9 @@ import { BackendDraw, BetType } from '../api/types/types';
 import { offlineStorage } from '@core/offline-storage/instance';
 import { DrawOfflineKeys } from '../draw.offline.keys';
 import { STORAGE_TTL } from '@core/offline-storage/types';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('DrawOfflineAdapter');
 
 /**
  * Adaptador de almacenamiento offline para Sorteos (Draws)
@@ -18,36 +21,66 @@ export class DrawOfflineAdapter {
      * @param structureId - Opcional: ID de la estructura para segmentar la caché
      */
     async saveDraws(draws: BackendDraw[], structureId?: string | number): Promise<void> {
-        // Guardamos la lista completa para acceso rápido (segmentada o global)
         const key = DrawOfflineKeys.drawList(structureId);
+        log.debug('[saveDraws] Guardando sorteos en caché', {
+            structureId,
+            key,
+            drawCount: draws.length,
+            drawIds: draws.map(d => d.id)
+        });
         await offlineStorage.set(key, draws, { ttl: STORAGE_TTL.DRAW });
 
-        // También guardamos cada sorteo individualmente para permitir consultas por ID (Redis-style)
         for (const draw of draws) {
             const individualKey = DrawOfflineKeys.draw(String(draw.id), 'data');
             await offlineStorage.set(individualKey, draw, { ttl: STORAGE_TTL.DRAW });
         }
+        log.debug('[saveDraws] Sorteos guardados exitosamente', { structureId, count: draws.length });
     }
 
     /**
      * Obtiene todos los sorteos cacheados
      * @param structureId - Opcional: ID de la estructura para buscar en caché segmentada
+     *
+     * CRITICAL FIX: Cuando se especifica structureId, NO se hace fallback a lista global.
+     * Esto previene que datos de un banco se mezclen con otro cuando diferentes usuarios
+     * (de diferentes bancos) usan el mismo dispositivo.
      */
     async getAll(structureId?: string | number): Promise<BackendDraw[]> {
-        // 1. Intentar obtener la lista segmentada por estructura
+        log.debug('[getAll] Solicitud de obtención de sorteos', { structureId });
+
         if (structureId) {
             const segmentedKey = DrawOfflineKeys.drawList(structureId);
+            log.debug('[getAll] Buscando caché segmentada', { structureId, key: segmentedKey });
+
             const segmentedList = await offlineStorage.get<BackendDraw[]>(segmentedKey);
-            if (segmentedList) return segmentedList;
+
+            if (segmentedList) {
+                log.debug('[getAll] Cache HIT segmentada', {
+                    structureId,
+                    key: segmentedKey,
+                    count: segmentedList.length
+                });
+                return segmentedList;
+            }
+
+            log.debug('[getAll] Cache MISS segmentada - retornando vacío para forzar fetch', {
+                structureId,
+                key: segmentedKey
+            });
+            return [];
         }
 
-        // 2. Fallback: Intentar obtener la lista global (legacy)
+        log.debug('[getAll] Sin structureId - usando fallback global');
         const globalKey = DrawOfflineKeys.drawList();
         const globalList = await offlineStorage.get<BackendDraw[]>(globalKey);
-        if (globalList) return globalList;
 
-        // 3. Fallback Final: Reconstruir desde llaves individuales
+        if (globalList) {
+            log.debug('[getAll] Cache HIT global', { count: globalList.length });
+            return globalList;
+        }
+
         const pattern = DrawOfflineKeys.getPattern('instance', '*', 'data');
+        log.debug('[getAll] Fallback a query por patrón', { pattern });
         return await offlineStorage.query<BackendDraw>(pattern).all();
     }
 

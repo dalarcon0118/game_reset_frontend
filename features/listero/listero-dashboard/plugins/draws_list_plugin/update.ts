@@ -1,4 +1,4 @@
-import { Model, DrawsListPluginConfig, DrawFinancialTotals } from './model';
+import { Model, DrawsListPluginConfig, DrawFinancialTotals, timeRef } from './model';
 import * as Msg from './msg';
 import { DrawTotalsUpdate } from './msg';
 import { Return, ret, Cmd, RemoteData } from '@core/tea-utils';
@@ -154,7 +154,7 @@ function handleFilterDraws(model: Model): Return<Model, Msg.Msg> {
     return ret({ ...model, filteredDraws: [] }, Cmd.none);
   }
 
-  const trustedNow = TimerRepository.getTrustedNow(model.currentTime);
+  const trustedNow = timeRef.current;
 
   const filteredDraws = filterDrawsUseCase.execute({
     draws: model.draws.data,
@@ -239,13 +239,12 @@ function handleBatchFinancialUpdate(
 }
 
 function handleTick(model: Model, time: number): Return<Model, Msg.Msg> {
-  const nextModel = { ...model, currentTime: time };
-
   if (model.draws.type !== 'Success') {
-    return ret(nextModel, Cmd.none);
+    return ret(model, Cmd.none);
   }
 
   const trustedNow = TimerRepository.getTrustedNow(time);
+  timeRef.current = trustedNow;
 
   const hasExpiredDraw = model.draws.data.some(draw => {
     if (!draw.betting_end_time) return false;
@@ -257,8 +256,8 @@ function handleTick(model: Model, time: number): Return<Model, Msg.Msg> {
   });
 
   if (hasExpiredDraw) {
-    return ret(nextModel, Cmd.ofMsg(Msg.FILTER_DRAWS()));
+    return ret(model, Cmd.ofMsg(Msg.FILTER_DRAWS()));
   }
 
-  return ret(nextModel, Cmd.none);
+  return ret(model, Cmd.none);
 }

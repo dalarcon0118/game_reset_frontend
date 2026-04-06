@@ -51,6 +51,13 @@ export interface DrawFinancialTotals {
  */
 export type TotalsByDrawIdMap = Map<string, DrawFinancialTotals>;
 
+/**
+ * Referencia mutable para el tiempo (fuera del modelo reactivo).
+ * Se actualiza cada segundo pero NO causa re-renders del modelo TEA.
+ * Los componentes la leen directamente para display del countdown.
+ */
+export const timeRef = { current: Date.now() };
+
 export interface Model {
   context: PluginContext | null;
   config: DrawsListPluginConfig;
@@ -63,8 +70,6 @@ export interface Model {
   commissionRate: number;
   // SSOT: Totales financieros por drawId (desde BetRepository)
   totalsByDrawId: TotalsByDrawIdMap;
-  // Tiempo actual para el countdown (se actualiza cada segundo via TICK)
-  currentTime: number;
 }
 
 export const initialModel = (params?: { context: PluginContext; config: DrawsListPluginConfig }): [Model, Cmd] => {
@@ -83,7 +88,6 @@ export const initialModel = (params?: { context: PluginContext; config: DrawsLis
       currentFilter: DRAW_FILTER.ALL,
       commissionRate: 0,
       totalsByDrawId: new Map(),
-      currentTime: Date.now(),
     },
     Cmd.none
   ];
