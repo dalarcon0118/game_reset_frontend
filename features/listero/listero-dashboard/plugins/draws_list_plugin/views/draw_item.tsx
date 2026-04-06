@@ -37,11 +37,11 @@ const DrawItemComponent: React.FC<DrawItemProps> = ({
     }, 1000);
     return () => clearInterval(interval);
   }, []);
-  
+
   // SSOT: Obtener totales financieros desde BetRepository (totalsByDrawId)
   const drawId = draw.id.toString();
   const totals: DrawFinancialTotals | undefined = totalsByDrawId.get(drawId);
-  
+
   // Valores financieros - vienen de BetRepository, no mezclados con Draw
   const totalCollected = totals?.totalCollected ?? 0;
   const premiumsPaid = totals?.premiumsPaid ?? 0;

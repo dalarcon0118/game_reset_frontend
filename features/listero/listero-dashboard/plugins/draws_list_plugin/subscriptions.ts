@@ -71,10 +71,13 @@ async function fetchBetTotalsByDrawId(commissionRate: number, structureId?: stri
 
 async function recomputeAndDispatchFinancialTotals(
   dispatch: (msg: ReturnType<typeof BATCH_OFFLINE_UPDATE>) => void,
-  commissionRate: number,
-  structureId?: string
+  hostStore: any
 ): Promise<void> {
   try {
+    const hostState = hostStore.getState();
+    const hostModel = hostState.model || hostState;
+    const commissionRate = hostModel.commissionRate || 0;
+    const structureId = hostModel.userStructureId || undefined;
     const updates = await fetchBetTotalsByDrawId(commissionRate, structureId);
     const timestamp = await TimerRepository.getTrustedNow(Date.now());
     dispatch(BATCH_OFFLINE_UPDATE({ updates, timestamp }));
@@ -185,34 +188,25 @@ export const subscriptions = (model: Model) => {
     Sub.custom((dispatch) => {
       log.info('Subscribing to DashboardService for Bet totals');
 
-      // Obtenemos el structureId inicial del contexto
-      let initialStructureId: string | undefined;
-      if (model.context?.hostStore) {
-        const hostState = model.context.hostStore.getState();
-        const initialPayload = extractHostState(hostState, model.config);
-        initialStructureId = initialPayload.userStructureId ?? undefined;
+      const hostStore = model.context?.hostStore;
+      if (!hostStore) {
+        return () => { };
       }
 
-      recomputeAndDispatchFinancialTotals(dispatch, model.commissionRate, initialStructureId);
+      recomputeAndDispatchFinancialTotals(dispatch, hostStore);
 
       const unsubscribe = dashboardService.onDashboardInvalided(() => {
         log.info('🔄 DRAWS_LIST_PLUGIN: Refreshing draws and totals due to Dashboard Invalidation');
 
-        // Forzamos la sincronización del estado del host para obtener los draws actualizados
-        // Sin setTimeout - directamente leemos el estado actual del store
-        let currentCommissionRate = model.commissionRate;
-        let currentStructureId = initialStructureId;
-        if (model.context?.hostStore) {
-          const hostState = model.context.hostStore.getState();
+        const currentHostStore = model.context?.hostStore;
+        if (currentHostStore) {
+          const hostState = currentHostStore.getState();
           const currentPayload = extractHostState(hostState, model.config);
-          currentCommissionRate = currentPayload.commissionRate;
-          currentStructureId = currentPayload.userStructureId ?? undefined;
           log.info('SYNC_STATE from invalidation', { drawsType: currentPayload.draws.type });
           dispatch(SYNC_STATE(currentPayload));
         }
 
-        // También recalculamos los totales financieros
-        recomputeAndDispatchFinancialTotals(dispatch, currentCommissionRate, currentStructureId);
+        recomputeAndDispatchFinancialTotals(dispatch, currentHostStore || hostStore);
       });
 
       return () => {

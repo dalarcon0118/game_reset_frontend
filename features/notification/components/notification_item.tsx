@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
 import { Card, Button } from '@ui-kitten/components';
-import { Info, AlertTriangle, AlertCircle, CheckCircle2, Bell } from 'lucide-react-native';
+import { Info, AlertTriangle, AlertCircle, CheckCircle2, Bell, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { AppNotification } from '../core/model';
 
 interface NotificationItemProps {
@@ -15,6 +15,8 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
   onMarkAsRead,
   onPress,
 }) => {
+  const [expanded, setExpanded] = useState(false);
+
   const getStatusIcon = () => {
     switch (notification.type) {
       case 'info':
@@ -47,6 +49,9 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
     });
   };
 
+  const messageLength = notification.message.length;
+  const shouldShowExpandButton = messageLength > 100;
+
   return (
     <TouchableOpacity onPress={() => onPress(notification)}>
       <Card style={[styles.card, getStatusStyle()]}>
@@ -55,27 +60,48 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
             {getStatusIcon()}
           </View>
           <View style={styles.content}>
-            <Text style={styles.title}>{notification.title}</Text>
-            <Text style={styles.message} numberOfLines={2}>
+            <View style={styles.titleRow}>
+              <Text style={styles.title} numberOfLines={expanded ? undefined : 1}>
+                {notification.title}
+              </Text>
+              {shouldShowExpandButton && (
+                <TouchableOpacity
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    setExpanded(!expanded);
+                  }}
+                  style={styles.expandButton}
+                >
+                  {expanded ? (
+                    <ChevronUp size={20} color="#666" />
+                  ) : (
+                    <ChevronDown size={20} color="#666" />
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
+            <Text style={styles.message} numberOfLines={expanded ? undefined : 3}>
               {notification.message}
             </Text>
-            <Text style={styles.timestamp}>
-              {formatDate(notification.createdAt)}
-            </Text>
+            <View style={styles.footerRow}>
+              <Text style={styles.timestamp}>
+                {formatDate(notification.createdAt)}
+              </Text>
+              {notification.status === 'pending' && (
+                <Button
+                  size="tiny"
+                  appearance="ghost"
+                  status="basic"
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    onMarkAsRead(notification.id);
+                  }}
+                >
+                  Marcar como leído
+                </Button>
+              )}
+            </View>
           </View>
-          {notification.status === 'pending' && (
-            <Button
-              size="tiny"
-              appearance="ghost"
-              status="basic"
-              onPress={(e) => {
-                e.stopPropagation();
-                onMarkAsRead(notification.id);
-              }}
-            >
-              Marcar como leído
-            </Button>
-          )}
         </View>
       </Card>
     </TouchableOpacity>
@@ -84,45 +110,65 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
 
 const styles = StyleSheet.create({
   card: {
-    marginVertical: 4,
-    marginHorizontal: 8,
-    borderRadius: 8,
+    marginVertical: 6,
+    marginHorizontal: 12,
+    borderRadius: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
   pendingContainer: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#FFFFFF',
     borderLeftWidth: 4,
     borderLeftColor: '#2196F3',
   },
   readContainer: {
-    backgroundColor: '#FFFFFF',
-    opacity: 0.8,
+    backgroundColor: '#FAFAFA',
+    opacity: 0.9,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',
   },
   iconContainer: {
-    marginRight: 12,
-    marginTop: 4,
+    marginRight: 14,
+    marginTop: 2,
   },
   content: {
     flex: 1,
     paddingRight: 8,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   title: {
     fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 4,
-    color: '#333',
+    fontWeight: '600',
+    marginBottom: 6,
+    color: '#222',
+    flex: 1,
+  },
+  expandButton: {
+    padding: 4,
+    marginLeft: 8,
   },
   message: {
     fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
-    lineHeight: 18,
+    color: '#555',
+    marginBottom: 10,
+    lineHeight: 20,
+  },
+  footerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   timestamp: {
     fontSize: 12,
-    color: '#999',
+    color: '#888',
   },
 });

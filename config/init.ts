@@ -10,40 +10,6 @@ import storageClient from '@core/offline-storage/storage_client';
 import { authStorageAdapter } from '../shared/repositories/auth/adapters/auth.storage.adapter';
 
 const log = logger.withTag('INIT');
-const APP_VERSION_KEY = 'APP_VERSION_TRACKER';
-
-/**
- * Checks if the app has been updated and clears the local cache if so.
- */
-async function checkAppUpdate() {
-    try {
-        const currentVersion = Constants.expoConfig?.version;
-        if (!currentVersion) {
-            log.warn('Could not determine app version from expoConfig');
-            return;
-        }
-        const storedVersion = await storageClient.get<string>(APP_VERSION_KEY);
-
-        if (storedVersion !== currentVersion) {
-            log.info(`Update detected: ${storedVersion || 'initial'} -> ${currentVersion}. Clearing local cache...`);
-
-            // Clear local storage but keep session (unless you want to force re-login)
-            await storageClient.clear();
-
-            // Save the new version
-            await storageClient.set(APP_VERSION_KEY, currentVersion);
-
-            log.info('Local cache cleared successfully after update.');
-        } else {
-            log.debug(`No update detected. Version: ${currentVersion}`);
-        }
-    } catch (error) {
-        log.error('Error during app update check', error);
-    }
-}
-
-// Execute update check
-checkAppUpdate();
 
 // Ignore specific warnings
 if (LogBox && LogBox.ignoreLogs) {

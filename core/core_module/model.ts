@@ -48,6 +48,12 @@ export interface CoreModel {
 
   /** Sistema completamente listo para operar (derivado de maintenanceStatus y sessionStatus) */
   isSystemReady: boolean;
+
+  /** Versión actual de la aplicación almacenada en localStorage (para detectar updates) */
+  storedAppVersion: string | null;
+
+  /** Flag indicando si los datos de sesión fueron limpiados por actualización de versión */
+  wasSessionCleanedByVersionMismatch: boolean;
 }
 
 export const initialModel: CoreModel = {
@@ -66,6 +72,8 @@ export const initialModel: CoreModel = {
     lastCheck: Date.now()
   },
   isOffline: false,
-  networkConnected: true, // Asumimos online por defecto hasta el primer evento
+  networkConnected: true,
   isSystemReady: false,
+  storedAppVersion: null,
+  wasSessionCleanedByVersionMismatch: false,
 };

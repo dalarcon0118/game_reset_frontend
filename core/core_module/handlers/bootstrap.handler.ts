@@ -7,7 +7,7 @@ import { updateModel } from './utils';
 
 export const BootstrapHandler = {
   handleStarted: (model: CoreModel): Return<CoreModel, CoreMsg> => {
-    return ret(updateModel(model, { bootstrapStatus: 'INITIALIZING' as const }), Cmd.none);
+    return ret(updateModel(model, { bootstrapStatus: 'INITIALIZING' as const }), CoreService.checkAndCleanSessionTask());
   },
 
   handleCompleted: (model: CoreModel, payload: any): Return<CoreModel, CoreMsg> => {

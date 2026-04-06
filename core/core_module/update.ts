@@ -11,6 +11,7 @@ import { BootstrapHandler } from './handlers/bootstrap.handler';
 import { SessionHandler } from './handlers/session.handler';
 import { ConnectivityHandler } from './handlers/connectivity.handler';
 import { MaintenanceHandler } from './handlers/maintenance.handler';
+import { updateModel } from './handlers/utils';
 import { Cmd } from '@/shared/core';
 import { CoreService } from './service';
 
@@ -40,6 +41,18 @@ export function update(model: CoreModel, msg: CoreMsg): Return<CoreModel, CoreMs
       return ret(
         { ...model, lastServerError: payload, error: payload.message },
         Cmd.navigate({ pathname: '/error', params: { message: payload.message } })
+      );
+    })
+
+    // --- Dominio de Version Mismatch ---
+    .with({ type: 'VERSION_MISMATCH_CLEANED' }, ({ payload }) => {
+      log.info(`[VERSION_FLOW] Datos de sesión limpiados por actualización: ${payload.previousVersion || 'initial'} -> ${payload.currentVersion}`);
+      return ret(
+        updateModel(model, {
+          storedAppVersion: payload.currentVersion,
+          wasSessionCleanedByVersionMismatch: true
+        }),
+        Cmd.none
       );
     })
 

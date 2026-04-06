@@ -48,4 +48,7 @@ export type CoreMsg =
   | { type: 'RETRY_BOOTSTRAP' }
 
   /** Error crítico del servidor (5xx) que requiere atención global */
-  | { type: 'SERVER_ERROR_500'; payload: { message: string; endpoint: string; status: number } };
+  | { type: 'SERVER_ERROR_500'; payload: { message: string; endpoint: string; status: number } }
+
+  /** Indica que se detectaron datos de sesión obsoletos por cambio de versión y fueron limpiados */
+  | { type: 'VERSION_MISMATCH_CLEANED'; payload: { previousVersion: string | null; currentVersion: string } };

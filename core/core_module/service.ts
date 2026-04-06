@@ -1,4 +1,5 @@
 import NetInfo from '@react-native-community/netinfo';
+import Constants from 'expo-constants';
 import { IAuthRepository, IOfflineConditionChecker } from '@shared/repositories/auth';
 import { hasDrawAvailable } from '@shared/repositories/draw';
 import { betRepository } from '@shared/repositories/bet/bet.repository';
@@ -19,11 +20,13 @@ import { systemJanitor } from './services/system-janitor.service';
 import { Cmd } from '@core/tea-utils/cmd';
 import { SYSTEM_READY } from '@/config/signals';
 import { notificationRepository } from '@/shared/repositories/notification';
-import { DeviceSecretRepository } from '@/shared/repositories/crypto/device-secret.repository';
-import { TimeAnchorRepository } from '@/shared/repositories/crypto/time-anchor.repository';
+import { DeviceSecretRepository } from '@shared/repositories/crypto/device-secret.repository';
+import { TimeAnchorRepository } from '@shared/repositories/crypto/time-anchor.repository';
 import { SessionPolicy } from '../../shared/auth/session/session.policy';
+import storageClient from '@core/offline-storage/storage_client';
 
 const log = logger.withTag('CORE_SERVICE');
+const APP_VERSION_KEY = 'APP_VERSION_TRACKER';
 
 let _authRepo: IAuthRepository | null = null;
 
@@ -83,6 +86,79 @@ export const CoreService = {
     const hasMaintenance = model.maintenanceStatus?.status === 'ready';
     const isAuthOrUnauth = model.sessionStatus === 'AUTHENTICATED' || model.sessionStatus === 'UNAUTHENTICATED';
     return hasMaintenance && isAuthOrUnauth;
+  },
+
+  /**
+   * Verifica si la versión de la app cambió y limpia los datos de sesión obsoletos.
+   * Retorna un payload con información del mismatch o null si no hubo cambio.
+   */
+  async checkVersionMismatch(): Promise<{ previousVersion: string | null; currentVersion: string } | null> {
+    const currentVersion = Constants.expoConfig?.version;
+    if (!currentVersion) {
+      log.warn('[VERSION_CHECK] No se pudo determinar la versión de la app desde expoConfig');
+      return null;
+    }
+
+    const storedVersion = await storageClient.get<string>(APP_VERSION_KEY);
+
+    if (storedVersion && storedVersion === currentVersion) {
+      log.debug(`[VERSION_CHECK] Versión igual: ${currentVersion}`);
+      return null;
+    }
+
+    log.info(`[VERSION_CHECK] Update detected: ${storedVersion || 'initial'} -> ${currentVersion}. Limpiando session data...`);
+
+    await this.clearSessionCache();
+
+    await storageClient.set(APP_VERSION_KEY, currentVersion);
+
+    return { previousVersion: storedVersion, currentVersion };
+  },
+
+  /**
+   * Limpia los datos de cache de sesión (estructura, stats, etc) pero preserva tokens.
+   * Esto fuerza una recarga de datos desde el servidor tras una actualización de la app.
+   */
+  async clearSessionCache(): Promise<void> {
+    const patternsToClean = [
+      '@v2:auth:*',
+      '@v2:structure*',
+      '@v2:financial*',
+      '@v2:draw*',
+      '@v2:timer*',
+    ];
+
+    for (const pattern of patternsToClean) {
+      try {
+        await offlineStorage.clear(pattern);
+      } catch (err) {
+        log.warn(`[VERSION_CHECK] Error clearing pattern ${pattern}`, err);
+      }
+    }
+
+    log.info(`[VERSION_CHECK] Session cache cleared for patterns: ${patternsToClean.join(', ')}`);
+  },
+
+  /**
+   * Tarea para verificar y limpiar datos de sesión si la versión cambió.
+   */
+  checkAndCleanSessionTask(): Cmd {
+    return Cmd.task({
+      task: () => this.checkVersionMismatch(),
+      onSuccess: (result) => {
+        if (result) {
+          log.info(`[VERSION_CHECK] ✅ Datos de sesión limpiados por actualización de versión`);
+          return { type: 'VERSION_MISMATCH_CLEANED', payload: result };
+        }
+        log.debug(`[VERSION_CHECK] No se detectó cambio de versión`);
+        return { type: 'NO_OP' } as any;
+      },
+      onFailure: (err) => {
+        log.error(`[VERSION_CHECK] ❌ Error verificando versión`, err);
+        return { type: 'NO_OP' } as any;
+      },
+      label: 'CHECK_AND_CLEAN_SESSION'
+    });
   },
 
   /**
