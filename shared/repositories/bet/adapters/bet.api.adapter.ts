@@ -42,8 +42,8 @@ const BackendBetCodec = t.intersection([
             hash: t.string,
             version: t.number,
             chainHash: t.string,
-            nonce: t.string,
-            timeAnchorSignature: t.string
+            nonce: t.union([t.string, t.null]),
+            timeAnchorSignature: t.union([t.string, t.null])
         })
     })
 ]);
