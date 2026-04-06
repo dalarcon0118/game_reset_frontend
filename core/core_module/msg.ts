@@ -45,4 +45,7 @@ export type CoreMsg =
   | { type: 'CHECK_SESSION_EXPIRATION' }
 
   /** Trigger para reintento de inicialización */
-  | { type: 'RETRY_BOOTSTRAP' };
+  | { type: 'RETRY_BOOTSTRAP' }
+
+  /** Error crítico del servidor (5xx) que requiere atención global */
+  | { type: 'SERVER_ERROR_500'; payload: { message: string; endpoint: string; status: number } };

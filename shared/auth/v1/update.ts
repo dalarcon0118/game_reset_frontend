@@ -156,11 +156,17 @@ export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMs
                 return update(model, REFRESH_STARTED());
             }
             if (payload.status === 403) {
-                // Posible bloqueo de dispositivo durante sesión activa
                 return singleton({
                     ...model,
                     status: AuthStatus.DEVICE_LOCKED,
                     error: 'Este dispositivo ya no está autorizado.'
+                });
+            }
+            if (payload.status === 504 || payload.status === 502 || payload.status === 503 || payload.status === 0) {
+                return singleton({
+                    ...model,
+                    status: AuthStatus.CONNECTION_ERROR,
+                    error: 'No se puede conectar al servidor. Verifica tu conexión a internet.'
                 });
             }
             return update(model, SESSION_EXPIRED_MSG({ reason: 'Error de autenticación' }));

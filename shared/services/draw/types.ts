@@ -2,9 +2,9 @@ import { DrawType } from '@/types';
 
 export interface PrizeConfig {
   version: number;
-  main_prize: string | null;
+  main_amount: number | null;
   currency: string;
-  secondary_rules: { label: string; description: string }[];
+  secondary_amounts: { label: string; description: string; amount: number }[];
 }
 
 export interface BackendDraw {

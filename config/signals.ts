@@ -20,6 +20,8 @@ export const NOTIFICATIONS_UPDATED = createMsg<'NOTIFICATIONS_UPDATED', { unread
 
 export const NETWORK_STATUS_CHANGED = createMsg<'NETWORK_STATUS_CHANGED', { isOnline: boolean; wasOffline: boolean }>('NETWORK_STATUS_CHANGED');
 
+export const SERVER_ERROR_500 = createMsg<'SERVER_ERROR_500', { message: string; endpoint: string; status: number }>('SERVER_ERROR_500');
+
 export const GLOBAL = createMsg<'GLOBAL', typeof GLOBAL_LOGOUT._type>('GLOBAL');
 
 export const GlobalSignals = {

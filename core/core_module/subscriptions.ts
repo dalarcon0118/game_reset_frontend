@@ -18,6 +18,11 @@ export function subscriptions(model: CoreModel): SubDescriptor<CoreMsg> {
       return CoreService.subscribeToConnectivity(dispatch);
     }, 'CORE_CONNECTIVITY_SENSOR') : Sub.none(),
 
+    // 1b. Suscripción a errores fatales del servidor (5xx) - Siempre activa para capturar errores tempranos
+    Sub.custom((dispatch) => {
+      return CoreService.subscribeToApiErrors(dispatch);
+    }, 'CORE_API_ERROR_SENSOR'),
+
     // 2. Latido Temporal: Cada 15 minutos si está autenticado para refrescar el Time Anchor (Fase 3: Riesgo 2)
     isAuthenticated ? Sub.every(15 * 60 * 1000, { type: 'TIME_ANCHOR_TICK' }, 'TIME_ANCHOR_TICKER') : Sub.none(),
 

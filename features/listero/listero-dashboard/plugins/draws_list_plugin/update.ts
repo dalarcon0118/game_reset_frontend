@@ -135,7 +135,17 @@ function handleSyncState(
     commissionRate: payload.commissionRate
   };
 
-  return ret(nextModel, Cmd.ofMsg(Msg.FILTER_DRAWS()));
+  const drawsDataChanged =
+    (RemoteData.isSuccess(model.draws) && RemoteData.isSuccess(payload.draws) && currentDrawsData !== nextDrawsData) ||
+    model.draws.type !== payload.draws.type;
+
+  const filterChanged = model.currentFilter !== payload.filter;
+
+  if (drawsDataChanged || filterChanged) {
+    return ret(nextModel, Cmd.ofMsg(Msg.FILTER_DRAWS()));
+  }
+
+  return ret(nextModel, Cmd.none);
 }
 
 function handleFilterDraws(model: Model): Return<Model, Msg.Msg> {
@@ -152,9 +162,13 @@ function handleFilterDraws(model: Model): Return<Model, Msg.Msg> {
     currentTime: trustedNow
   });
 
-  // SSOT: No mezclamos datos - Draw y Totals son fuentes separadas
-  // Los totales financieros están en model.totalsByDrawId
-  // El componente DrawItem consultará ambos usando selectors
+  const hasSameFilteredDraws =
+    model.filteredDraws.length === filteredDraws.length &&
+    model.filteredDraws.every((draw, i) => draw.id === (filteredDraws as Draw[])[i]?.id);
+
+  if (hasSameFilteredDraws) {
+    return ret(model, Cmd.none);
+  }
 
   return ret({ ...model, filteredDraws: filteredDraws as Draw[] }, Cmd.none);
 }

@@ -237,29 +237,25 @@ export const SuccessImpl = {
         const prizeRules: PrizeRule[] = [];
 
         if (prizeConfig) {
-            const { main_prize, currency = 'DOP', secondary_rules = [] } = prizeConfig;
+            const { main_amount, currency = 'DOP', secondary_amounts = [] } = prizeConfig;
 
-            if (main_prize) {
+            if (main_amount) {
                 try {
-                    const amount = Number(main_prize);
-                    if (!isNaN(amount)) {
-                        totalPrize = new Intl.NumberFormat('es-DO', {
-                            style: 'currency', currency, minimumFractionDigits: 2
-                        }).format(amount);
-                    } else {
-                        totalPrize = `${currency} ${main_prize}`;
-                    }
+                    totalPrize = new Intl.NumberFormat('es-DO', {
+                        style: 'currency', currency, minimumFractionDigits: 2
+                    }).format(main_amount);
                 } catch (e) {
-                    totalPrize = `${currency} ${main_prize}`;
+                    totalPrize = `${currency} ${main_amount}`;
                 }
             }
 
-            if (Array.isArray(secondary_rules)) {
-                secondary_rules.forEach((rule: any) => {
+            if (Array.isArray(secondary_amounts)) {
+                secondary_amounts.forEach((rule: any) => {
                     if (rule.label && rule.description) {
                         prizeRules.push({
                             label: String(rule.label),
-                            description: String(rule.description)
+                            description: String(rule.description),
+                            amount: rule.amount
                         });
                     }
                 });

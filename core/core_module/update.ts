@@ -34,6 +34,15 @@ export function update(model: CoreModel, msg: CoreMsg): Return<CoreModel, CoreMs
       update({ ...model, bootstrapStatus: 'IDLE' as const }, { type: 'BOOTSTRAP_STARTED' })
     )
 
+    // --- Dominio de Errores Server ---
+    .with({ type: 'SERVER_ERROR_500' }, ({ payload }) => {
+      log.error(`[SERVER_ERROR_500] Error crítico del servidor`, payload);
+      return ret(
+        { ...model, lastServerError: payload, error: payload.message },
+        Cmd.navigate({ pathname: '/error', params: { message: payload.message } })
+      );
+    })
+
     // --- Dominio de Sesión y Usuario ---
     .with({ type: 'SESSION_STATUS_CHANGED' }, ({ payload }) => {
       log.info(`[SESSION_FLOW] 🔄 Estado de sesión cambiado: ${payload}`);

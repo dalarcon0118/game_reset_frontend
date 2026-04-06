@@ -15,6 +15,7 @@ import { LoginHeader } from './components/LoginHeader';
 import { PinStatusDisplay } from './components/PinStatusDisplay';
 import { NumericKeypad } from './components/NumericKeypad';
 import { DeviceLockedView } from './components/DeviceLockedView';
+import { ConnectionErrorView } from './components/ConnectionErrorView';
 
 const log = logger.withTag('LOGIN_VIEW');
 
@@ -50,6 +51,10 @@ function LoginContent() {
 
   if (status === AuthStatus.DEVICE_LOCKED) {
     return <DeviceLockedView error={error} />;
+  }
+
+  if (status === AuthStatus.CONNECTION_ERROR) {
+    return <ConnectionErrorView error={error} />;
   }
 
   return (

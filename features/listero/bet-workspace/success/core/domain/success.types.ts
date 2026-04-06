@@ -71,6 +71,7 @@ export interface VoucherData {
 export interface PrizeRule {
     label: string;
     description: string;
+    amount?: number;
 }
 
 export interface VoucherMetadata {

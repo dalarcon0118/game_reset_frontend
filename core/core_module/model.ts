@@ -18,6 +18,9 @@ export interface CoreModel {
   /** Errores globales de infraestructura */
   error: string | null;
 
+  /** Último error 500 del servidor recibido */
+  lastServerError: { message: string; endpoint: string; status: number } | null;
+
   /** Política de navegación inyectada por el kernel (Composition Root) */
   navigationPolicy: NavigationPolicy | null;
 
@@ -55,6 +58,7 @@ export const initialModel: CoreModel = {
   userContext: null,
   maintenanceStatus: null,
   error: null,
+  lastServerError: null,
   navigationPolicy: null,
   connectivity: {
     isPhysicalConnected: true,

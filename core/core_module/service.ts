@@ -350,6 +350,45 @@ export const CoreService = {
   },
 
   /**
+   * Suscribe el dispatch a errores fatales del API Client (5xx).
+   * Notifica al CoreModule para que navegue a la página de error.
+   */
+  subscribeToApiErrors(dispatch: (msg: CoreMsg) => void): () => void {
+    log.debug('Subscribing to API error handler...');
+
+    apiClient.setErrorHandler(async (error: any, endpoint: string) => {
+      const isServerError = error.status >= 500 && error.status < 600;
+
+      if (isServerError) {
+        log.error(`[API_ERROR_HANDLER] Server error detected: ${error.status}`, { endpoint, message: error.message });
+
+        dispatch({
+          type: 'SERVER_ERROR_500',
+          payload: {
+            message: error.message || 'Error interno del servidor',
+            endpoint,
+            status: error.status
+          }
+        });
+      }
+
+      // Continuar con el manejo original de errores de autenticación
+      if (endpoint.includes('/login') || endpoint.includes('/token')) return null;
+
+      if (error.status === 401) {
+        getAuthRepo().notifySessionExpired('UNAUTHORIZED_API_RESPONSE');
+      }
+
+      return null;
+    });
+
+    return () => {
+      log.debug('Unsubscribing from API error handler...');
+      apiClient.setErrorHandler(null);
+    };
+  },
+
+  /**
    * Suscribe a cambios de sesión en el AuthRepository.
    */
   subscribeToAuthSession(dispatch: (msg: CoreMsg) => void): () => void {
