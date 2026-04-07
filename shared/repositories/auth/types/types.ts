@@ -15,6 +15,7 @@ export interface User {
     role: string;
     active: boolean;
     password?: string;
+    needs_pin_change?: boolean;
     structure?: UserStructure;
 }
 
@@ -22,13 +23,14 @@ export interface AuthSession {
     user: User;
     accessToken: string;
     refreshToken?: string;
-    confirmationToken?: string; // Token de confirmación (estrategia de seguridad)
-    dailySecret?: string; // Secreto diario para Zero Trust Fingerprint
+    confirmationToken?: string;
+    dailySecret?: string;
     timeAnchor?: {
         serverTime: number;
         signature: string;
         validUntil: number;
     };
+    needs_pin_change?: boolean;
     isOffline: boolean;
 }
 

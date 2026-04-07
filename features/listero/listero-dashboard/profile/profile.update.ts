@@ -161,10 +161,10 @@ export const updateProfile = (model: ProfileModel, msg: ProfileMsg): [ProfileMod
             }, [
                 Cmd.alert({
                     title: 'Éxito',
-                    message: 'Tu PIN ha sido actualizado correctamente.',
+                    message: 'Tu PIN ha sido actualizado correctamente. Ahora puedes usar la app normalmente.',
                     buttons: [{ text: 'OK' }]
                 }),
-                Cmd.navigate({ method: 'back', pathname: '' })
+                Cmd.navigate({ pathname: '/lister/dashboard', method: 'replace' })
             ]);
         })
         .with({ type: ProfileMsgType.CHANGE_PASSWORD_FAILED }, ({ error }) => {

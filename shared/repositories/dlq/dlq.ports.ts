@@ -13,7 +13,7 @@ export interface IDlqStorage {
 
 export interface IDlqApi {
     syncItems(items: DlqItem[]): Promise<{ success: number; failed: number }>;
-    reportItem(item: DlqItem): Promise<void>;
+    reportItem(domain: string, entityId: string, payload: any, error: any): Promise<void>;
     reconcile(id: string, resolution: 'reconcile' | 'discard'): Promise<void>;
 }
 

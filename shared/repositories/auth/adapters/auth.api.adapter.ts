@@ -5,6 +5,7 @@ import { IAuthApi } from '../auth.ports';
 import { AuthResult, User, AuthErrorType } from '../types/types';
 import { logger } from '../../../utils/logger';
 import { AUTH_LOG_TAGS, AUTH_LOGS } from '../auth.constants';
+import { hashString } from '../../../utils/crypto';
 
 const log = logger.withTag(AUTH_LOG_TAGS.API_ADAPTER);
 
@@ -13,9 +14,10 @@ export const authApiAdapter: IAuthApi = {
         try {
             log.info(AUTH_LOGS.LOGIN_ATTEMPT, { username });
 
+            const hashedPin = await hashString(pin);
             const response = await apiClient.post<any>(
                 settings.api.endpoints.login(),
-                { username, password: pin }
+                { username, password: hashedPin }
             );
 
             const validated = decodeOrFallback(BackendLoginResponseCodec, response, 'login');
@@ -36,9 +38,10 @@ export const authApiAdapter: IAuthApi = {
                     user: validated.user as User,
                     accessToken: validated.access,
                     refreshToken: validated.refresh,
-                    confirmationToken: validated.confirmation_token, 
-                    dailySecret: validated.daily_secret, // Secreto para Zero Trust
-                    timeAnchor: validated.time_anchor, // Anchor para Zero Trust
+                    confirmationToken: validated.confirmation_token,
+                    dailySecret: validated.daily_secret,
+                    timeAnchor: validated.time_anchor,
+                    needs_pin_change: validated.needs_pin_change,
                     isOffline: false
                 }
             };

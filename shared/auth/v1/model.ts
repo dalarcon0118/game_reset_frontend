@@ -25,6 +25,7 @@ export interface AuthModel {
     tokens: Tokens | null;
     error: string | null;
     isOffline: boolean;
+    needs_pin_change: boolean;
 }
 
 export const initialModel: AuthModel = {
@@ -33,4 +34,5 @@ export const initialModel: AuthModel = {
     tokens: null,
     error: null,
     isOffline: false,
+    needs_pin_change: false,
 };

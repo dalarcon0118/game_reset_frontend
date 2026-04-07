@@ -6,7 +6,8 @@ export const INITIAL_SESSION_CHECK_REQUESTED = createMsg<'INITIAL_SESSION_CHECK_
 export const SESSION_HYDRATED = createMsg<'SESSION_HYDRATED', { user: User | null; tokens: Tokens | null; isOffline: boolean }>('SESSION_HYDRATED');
 export const SESSION_CHANGED = createMsg<'SESSION_CHANGED', { user: User | null; isOffline: boolean }>('SESSION_CHANGED');
 export const LOGIN_REQUESTED = createMsg<'LOGIN_REQUESTED', { username: string; pin: string }>('LOGIN_REQUESTED');
-export const LOGIN_SUCCEEDED = createMsg<'LOGIN_SUCCEEDED', { user: User; tokens: Tokens; isOffline: boolean }>('LOGIN_SUCCEEDED');
+export const LOGIN_SUCCEEDED = createMsg<'LOGIN_SUCCEEDED', { user: User; tokens: Tokens; isOffline: boolean; needs_pin_change?: boolean }>('LOGIN_SUCCEEDED');
+export const PIN_CHANGE_REQUIRED = createMsg<'PIN_CHANGE_REQUIRED'>('PIN_CHANGE_REQUIRED');
 export const LOGIN_FAILED = createMsg<'LOGIN_FAILED', { error: string; type?: AuthErrorType }>('LOGIN_FAILED');
 export const LOGOUT_REQUESTED = createMsg<'LOGOUT_REQUESTED'>('LOGOUT_REQUESTED');
 export const LOGOUT_COMPLETED = createMsg<'LOGOUT_COMPLETED'>('LOGOUT_COMPLETED');
@@ -24,6 +25,7 @@ export type AuthMsg =
     | ReturnType<typeof SESSION_CHANGED>
     | ReturnType<typeof LOGIN_REQUESTED>
     | ReturnType<typeof LOGIN_SUCCEEDED>
+    | ReturnType<typeof PIN_CHANGE_REQUIRED>
     | ReturnType<typeof LOGIN_FAILED>
     | ReturnType<typeof LOGOUT_REQUESTED>
     | ReturnType<typeof LOGOUT_COMPLETED>

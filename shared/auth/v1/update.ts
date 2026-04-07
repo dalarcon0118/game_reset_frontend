@@ -7,6 +7,7 @@ import {
     SESSION_CHANGED,
     LOGIN_REQUESTED,
     LOGIN_SUCCEEDED,
+    PIN_CHANGE_REQUIRED,
     LOGIN_FAILED,
     LOGOUT_REQUESTED,
     LOGOUT_COMPLETED,
@@ -94,7 +95,8 @@ export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMs
                                         access: result.data.data.accessToken,
                                         refresh: result.data.data.refreshToken
                                     },
-                                    isOffline: result.data.data.isOffline
+                                    isOffline: result.data.data.isOffline,
+                                    needs_pin_change: result.data.data.needs_pin_change
                                 });
                             }
                             return LOGIN_FAILED({
@@ -110,15 +112,28 @@ export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMs
         })
 
         .with(LOGIN_SUCCEEDED.type(), ({ payload }) => {
-            // El repositorio ya guardó la sesión, v1 solo actualiza el estado local
-            return singleton({
-                ...model,
-                status: payload.isOffline ? AuthStatus.AUTHENTICATED_OFFLINE : AuthStatus.AUTHENTICATED,
-                user: payload.user,
-                tokens: payload.tokens,
-                isOffline: payload.isOffline,
-                error: null
-            });
+            const needsPinChange = payload.needs_pin_change || false;
+            return ret(
+                {
+                    ...model,
+                    status: payload.isOffline ? AuthStatus.AUTHENTICATED_OFFLINE : AuthStatus.AUTHENTICATED,
+                    user: payload.user,
+                    tokens: payload.tokens,
+                    isOffline: payload.isOffline,
+                    error: null,
+                    needs_pin_change: needsPinChange
+                },
+                needsPinChange
+                    ? Cmd.batch([
+                        Cmd.sendMsg(PIN_CHANGE_REQUIRED()),
+                        Cmd.navigate({ pathname: '/lister/change_password' })
+                    ])
+                    : Cmd.none
+            );
+        })
+
+        .with(PIN_CHANGE_REQUIRED.type(), () => {
+            return singleton(model);
         })
 
         .with(LOGIN_FAILED.type(), ({ payload }) => {

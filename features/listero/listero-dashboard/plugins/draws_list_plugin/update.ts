@@ -142,7 +142,26 @@ function handleSyncState(
   const filterChanged = model.currentFilter !== payload.filter;
 
   if (drawsDataChanged || filterChanged) {
-    return ret(nextModel, Cmd.ofMsg(Msg.FILTER_DRAWS()));
+    const nextModelWithFilter = { ...nextModel };
+
+    if (nextModel.draws.type === 'Success') {
+      const trustedNow = timeRef.current;
+      const filteredDraws = filterDrawsUseCase.execute({
+        draws: nextModel.draws.data,
+        filter: nextModel.currentFilter as StatusFilter,
+        currentTime: trustedNow
+      });
+
+      const hasSameFilteredDraws =
+        model.filteredDraws.length === filteredDraws.length &&
+        model.filteredDraws.every((draw, i) => draw.id === (filteredDraws as Draw[])[i]?.id);
+
+      if (!hasSameFilteredDraws) {
+        nextModelWithFilter.filteredDraws = filteredDraws as Draw[];
+      }
+    }
+
+    return ret(nextModelWithFilter, Cmd.none);
   }
 
   return ret(nextModel, Cmd.none);
@@ -230,9 +249,21 @@ function handleBatchFinancialUpdate(
     nextMapSize: nextModel.totalsByDrawId.size
   });
 
-  // Refiltrar para actualizar la vista con los nuevos totales
   if (model.draws.type === 'Success') {
-    return ret(nextModel, Cmd.ofMsg(Msg.FILTER_DRAWS()));
+    const trustedNow = TimerRepository.getTrustedNow(payload.timestamp);
+    const filteredDraws = filterDrawsUseCase.execute({
+      draws: model.draws.data,
+      filter: model.currentFilter as StatusFilter,
+      currentTime: trustedNow
+    });
+
+    const hasSameFilteredDraws =
+      model.filteredDraws.length === filteredDraws.length &&
+      model.filteredDraws.every((draw, i) => draw.id === filteredDraws[i]?.id);
+
+    if (!hasSameFilteredDraws) {
+      return ret({ ...nextModel, filteredDraws }, Cmd.none);
+    }
   }
 
   return ret(nextModel, Cmd.none);
@@ -256,7 +287,19 @@ function handleTick(model: Model, time: number): Return<Model, Msg.Msg> {
   });
 
   if (hasExpiredDraw) {
-    return ret(model, Cmd.ofMsg(Msg.FILTER_DRAWS()));
+    const filteredDraws = filterDrawsUseCase.execute({
+      draws: model.draws.data,
+      filter: model.currentFilter as StatusFilter,
+      currentTime: trustedNow
+    });
+
+    const hasSameFilteredDraws =
+      model.filteredDraws.length === filteredDraws.length &&
+      model.filteredDraws.every((draw, i) => draw.id === filteredDraws[i]?.id);
+
+    if (!hasSameFilteredDraws) {
+      return ret({ ...model, filteredDraws }, Cmd.none);
+    }
   }
 
   return ret(model, Cmd.none);

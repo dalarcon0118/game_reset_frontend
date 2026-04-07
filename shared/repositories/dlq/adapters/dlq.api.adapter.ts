@@ -15,7 +15,7 @@ export class DlqApiAdapter implements IDlqApi {
         log.info(`Syncing ${items.length} DLQ items to backend`);
 
         try {
-            const endpoint = settings.api.endpoints.dlq?.sync?.() || '/api/v1/dlq/sync';
+            const endpoint = settings.api.endpoints.dlq?.sync?.();
             const response = await apiClient.post<{ success: number; failed: number }>(endpoint, {
                 items
             });
@@ -36,12 +36,11 @@ export class DlqApiAdapter implements IDlqApi {
         log.debug(`Reporting DLQ item to backend: ${domain}:${entityId}`);
 
         try {
-            // El endpoint incluye el ID para idempotencia del lado del servidor
-            const endpoint = `/api/v1/dlq/${entityId}/report`;
+            const endpoint = settings.api.endpoints.dlq.report(entityId);
             await apiClient.post(endpoint, { domain, entityId, payload, error });
         } catch (error) {
             log.warn(`Failed to report DLQ item ${entityId}`, error);
-            throw error; // Propagar para que el repository maneje el retry
+            throw error;
         }
     }
 
@@ -49,7 +48,7 @@ export class DlqApiAdapter implements IDlqApi {
         log.info(`Reconciling DLQ item ${id} with resolution: ${resolution}`);
 
         try {
-            const endpoint = settings.api.endpoints.dlq?.reconcile?.(id) || `/api/v1/dlq/${id}/reconcile`;
+            const endpoint = settings.api.endpoints.dlq?.reconcile?.(id);
             await apiClient.post(endpoint, { resolution });
         } catch (error) {
             log.error(`Failed to reconcile DLQ item ${id}`, error);

@@ -10,13 +10,14 @@ export const BackendUserCodec = t.intersection([
   t.type({
     id: t.union([t.string, t.number]),
     username: t.string,
-    role: t.string, // Permitimos cualquier string para no acoplar el código a roles específicos
+    role: t.string,
     email: t.string,
     name: t.string,
   }),
   t.partial({
     active: t.boolean,
     password: t.string,
+    needs_pin_change: t.boolean,
     structure: t.type({
       id: t.number,
       name: t.string,
@@ -35,8 +36,9 @@ export const BackendLoginResponseCodec = t.intersection([
   }),
   t.partial({
     refresh: t.string,
-    confirmation_token: t.string, // Incluido para la estrategia
-    daily_secret: t.string, // Secreto diario para Zero Trust Fingerprint
+    confirmation_token: t.string,
+    daily_secret: t.string,
+    needs_pin_change: t.boolean,
     time_anchor: t.type({
       serverTime: t.number,
       signature: t.string,

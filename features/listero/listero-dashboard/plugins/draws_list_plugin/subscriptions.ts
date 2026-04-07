@@ -88,7 +88,7 @@ async function recomputeAndDispatchFinancialTotals(
 
 export const subscriptions = (model: Model) => {
   // DEBUG: Only log when subscriptions are actually being set up (first time or when IDs change)
-  log.debug('Setting up draws_list_plugin subscriptions', { hasContext: !!model.context, hasHostStore: !!model.context?.hostStore });
+  //log.debug('Setting up draws_list_plugin subscriptions', { hasContext: !!model.context, hasHostStore: !!model.context?.hostStore });
 
   // Validación de entradas: Asegurar que el contexto y hostStore existen antes de suscribirse
   if (!model.context) {
