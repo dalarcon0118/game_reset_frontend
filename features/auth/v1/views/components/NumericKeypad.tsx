@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, TouchableOpacity } from 'react-native';
 import { Text } from '@ui-kitten/components';
-import { styles } from '../login.styles';
+import { Delete } from 'lucide-react-native';
+import { styles, THEME } from '../login.styles';
 
 interface NumericKeypadProps {
   onPress: (val: string) => void;
@@ -14,6 +15,8 @@ export const NumericKeypad = ({
   onDelete,
   isDisabled
 }: NumericKeypadProps) => {
+  const iconColor = isDisabled ? 'rgba(143, 155, 179, 0.5)' : THEME.textSecondary;
+
   const renderKey = (val: string) => (
     <TouchableOpacity
       style={[styles.key, { opacity: isDisabled ? 0.3 : 1 }]}
@@ -43,14 +46,15 @@ export const NumericKeypad = ({
         {renderKey('9')}
       </View>
       <View style={styles.row}>
-        <View style={styles.key} />
+        <View style={styles.keyPlaceholder} />
         {renderKey('0')}
         <TouchableOpacity
-          style={styles.key}
+          style={[styles.key, { opacity: isDisabled ? 0.3 : 1 }]}
           onPress={onDelete}
+          activeOpacity={0.5}
           disabled={isDisabled}
         >
-          <Text style={styles.deleteKey}>DEL</Text>
+          <Delete size={24} color={iconColor} />
         </TouchableOpacity>
       </View>
     </View>

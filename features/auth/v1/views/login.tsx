@@ -1,5 +1,5 @@
 import React from 'react';
-import { SafeAreaView, TouchableOpacity } from 'react-native';
+import { SafeAreaView, TouchableOpacity, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
 import { Text } from '@ui-kitten/components';
 import { Flex } from '@/shared/components';
 import { useAuthV1 } from '../hooks/use_auth';
@@ -59,35 +59,44 @@ function LoginContent() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Flex flex={1} vertical justify="between" align="center" padding="xl">
-        <LoginHeader 
-          username={username}
-          onUsernameUpdate={updateUsername}
-          isEditing={isEditingUsername}
-          setIsEditing={toggleEditUsername}
-        />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1 }}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Flex flex={1} vertical justify="center" gap={30} align="center" padding="xl">
+            <LoginHeader
+              username={username}
+              onUsernameUpdate={updateUsername}
+              isEditing={isEditingUsername}
+              setIsEditing={toggleEditUsername}
+            />
 
-        <Flex vertical align="center" gap={40} style={{ width: '100%' }}>
-          <PinStatusDisplay 
-            pinLength={pin.length}
-            isAuthenticating={isAuthenticating}
-            error={error}
-          />
+            <Flex vertical align="center" gap={20} style={{ width: '100%' }}>
+              <PinStatusDisplay
+                pinLength={pin.length}
+                isAuthenticating={isAuthenticating}
+                error={error}
+              />
 
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => authDispatch(SESSION_EXPIRED_MSG({ reason: 'forgot_pin' }))}
-          >
-            <Text style={styles.forgotPin}>¿Olvidaste tu PIN?</Text>
-          </TouchableOpacity>
-        </Flex>
-
-        <NumericKeypad 
-          onPress={appendPin}
-          onDelete={removeLastPin}
-          isDisabled={isInputDisabled}
-        />
-      </Flex>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => authDispatch(SESSION_EXPIRED_MSG({ reason: 'forgot_pin' }))}
+              >
+                <Text style={styles.forgotPin}>¿Olvidaste tu PIN?</Text>
+              </TouchableOpacity>
+            </Flex>
+            <NumericKeypad
+              onPress={appendPin}
+              onDelete={removeLastPin}
+              isDisabled={isInputDisabled}
+            />
+          </Flex>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

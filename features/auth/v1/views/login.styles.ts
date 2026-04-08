@@ -45,7 +45,7 @@ export const styles = StyleSheet.create({
     padding: 8
   },
   statusContainer: {
-    height: 40,
+    height: 32,
     justifyContent: 'center',
     width: '100%',
     alignItems: 'center',
@@ -72,27 +72,30 @@ export const styles = StyleSheet.create({
   },
   keypadContainer: {
     width: '100%',
-    paddingBottom: 20,
+    paddingBottom: 10,
   },
   row: {
     flexDirection: 'row',
-    justifyContent: 'space-evenly',
-    marginBottom: 20,
+    justifyContent: 'space-between',
+    paddingHorizontal: 22,
+    marginBottom: 15,
   },
   key: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 60,
+    minWidth: 60,
+    height: 60,
+    borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
   },
   keyText: {
     color: THEME.keypadText,
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '400',
   },
-  deleteKey: {
-    fontSize: 16,
-    color: THEME.textSecondary
+  keyPlaceholder: {
+    minWidth: 60,
+    width: 60,
+    height: 60,
   }
 });

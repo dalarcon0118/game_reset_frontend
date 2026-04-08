@@ -33,7 +33,7 @@ export const LoginHeader = ({
   };
 
   return (
-    <Flex vertical align="center" style={{ marginTop: 60 }} gap={16}>
+    <Flex vertical align="center" style={{ marginTop: 60 }} gap={10}>
       <View style={styles.iconContainer}>
         <Lock size={32} color={THEME.accent} />
       </View>
