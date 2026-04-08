@@ -17,7 +17,7 @@ export const QRSuccessSeal: React.FC<QRSuccessSealProps> = ({ metadata }) => {
             <View style={styles.qrWrapper}>
                 <QRCode
                     value={qrValue}
-                    size={100}
+                    size={200}
                     color="#222B45"
                     backgroundColor="#F7F9FC"
                 />

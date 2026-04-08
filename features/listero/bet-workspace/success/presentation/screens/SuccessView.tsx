@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { StyleSheet, ScrollView, SafeAreaView, useColorScheme } from 'react-native';
+import { StyleSheet, ScrollView, SafeAreaView, useColorScheme, useWindowDimensions } from 'react-native';
 import { Layout } from '@ui-kitten/components';
 import { Stack } from 'expo-router';
 import ViewShot from 'react-native-view-shot';
@@ -27,6 +27,7 @@ export const SuccessView: React.FC<SuccessViewProps> = ({
     sharingStatus
 }) => {
     const colorScheme = (useColorScheme() ?? 'light') as 'light' | 'dark';
+    const { width } = useWindowDimensions();
     const internalViewShotRef = useRef<ViewShot>(null);
     const viewShotRef = externalViewShotRef || internalViewShotRef;
 
@@ -39,10 +40,10 @@ export const SuccessView: React.FC<SuccessViewProps> = ({
                 <ScrollView contentContainerStyle={styles.scrollContent}>
                     <ViewShot 
                         ref={viewShotRef} 
-                        options={{ format: 'png', quality: 1.0 }}
+                        options={{ format: 'png', quality: 1.0, width: width - 40 }}
                         style={[
                             styles.viewShotContainer, 
-                            { backgroundColor: '#F7F9FC', padding: 20 }
+                            { backgroundColor: '#F7F9FC', padding: 20, width: width - 40 }
                         ]}
                     >
                         <SuccessHeader receiptCode={data.receiptCode} />

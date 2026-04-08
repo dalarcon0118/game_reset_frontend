@@ -67,27 +67,21 @@ export const SuccessImpl = {
         // FASE 5: Construir URL de auditoría pública usando la URL base de settings
         const serverHost = settings.api.baseUrl.replace(/\/api$/, '');
 
-        // Zero Trust V2: Construir URL con parámetros para validación offline
+        // Zero Trust V2: Construir URL con receiptCode para resolver TODAS las apuestas del recibo
         let auditUrl: string | undefined = undefined;
-        if (firstFingerprint) {
+        if (finalReceiptCode && finalReceiptCode !== UI_CONSTANTS.EMPTY_RECEIPT_CODE) {
+            // Usar receiptCode como parámetro principal para que el backend resuelva todas las apuestas
+            auditUrl = `${serverHost}/public/audit/?rc=${finalReceiptCode}`;
+        } else if (firstFingerprint) {
+            // Fallback a hash individual si no hay receiptCode
             const uid = firstBet?.ownerUser || firstBet?.owner_user_id;
-            const amt = Number(firstBet?.amount || 0).toFixed(2);
-            const balRaw = firstBet?.fingerprint?.total_sales || firstBet?.total_sales || firstBet?.fingerprint_data?.total_sales;
-            const bal = Number(balRaw || 0).toFixed(2);
-
-            // Obtener raw_payload si está disponible (apuestas offline no sincronizadas)
             const rawPayload = firstBet?.fingerprint?.raw_payload;
 
-            // Si tenemos raw_payload, podemos verificar cryptográficamente sin necesidad de DB
-            if (rawPayload) {
+            if (rawPayload && uid) {
                 const encodedPayload = encodeURIComponent(rawPayload);
-                auditUrl = `${serverHost}/audit/?uid=${uid}&hash=${firstFingerprint}&raw=${encodedPayload}`;
-            } else if (uid && firstBet?.amount && balRaw) {
-                // Modo offline con datos parciales (sin raw_payload, solo para apuestas ya sincronizadas)
-                auditUrl = `${serverHost}/audit/?uid=${uid}&hash=${firstFingerprint}&amt=${amt}&bal=${bal}`;
+                auditUrl = `${serverHost}/public/audit/?uid=${uid}&hash=${firstFingerprint}&raw=${encodedPayload}`;
             } else {
-                // Fallback a URL simple por hash
-                auditUrl = `${serverHost}/audit/?hash=${firstFingerprint}`;
+                auditUrl = `${serverHost}/public/audit/?hash=${firstFingerprint}`;
             }
         }
 
