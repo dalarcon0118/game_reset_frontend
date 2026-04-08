@@ -1,4 +1,4 @@
-import { Model, DrawsListPluginConfig, DrawFinancialTotals, timeRef } from './model';
+import { Model, DrawsListPluginConfig, DrawFinancialTotals } from './model';
 import * as Msg from './msg';
 import { DrawTotalsUpdate } from './msg';
 import { Return, ret, Cmd, RemoteData } from '@core/tea-utils';
@@ -65,8 +65,6 @@ export const update = (model: Model, msg: Msg.Msg): Return<Model, Msg.Msg> => {
       handleNavigateToBetsList(model, m.payload))
     .with(Msg.CREATE_BET_CLICKED.type(), (m) =>
       handleNavigateToCreateBet(model, m.payload))
-    .with(Msg.TICK.type(), (m) =>
-      handleTick(model, m.payload))
     // SSOT: Totales financieros desde BetRepository
     .with(Msg.BATCH_OFFLINE_UPDATE.type(), (m) =>
       handleBatchFinancialUpdate(model, m.payload))
@@ -145,7 +143,7 @@ function handleSyncState(
     const nextModelWithFilter = { ...nextModel };
 
     if (nextModel.draws.type === 'Success') {
-      const trustedNow = timeRef.current;
+      const trustedNow = TimerRepository.getTrustedNow(Date.now());
       const filteredDraws = filterDrawsUseCase.execute({
         draws: nextModel.draws.data,
         filter: nextModel.currentFilter as StatusFilter,
@@ -173,7 +171,7 @@ function handleFilterDraws(model: Model): Return<Model, Msg.Msg> {
     return ret({ ...model, filteredDraws: [] }, Cmd.none);
   }
 
-  const trustedNow = timeRef.current;
+  const trustedNow = TimerRepository.getTrustedNow(Date.now());
 
   const filteredDraws = filterDrawsUseCase.execute({
     draws: model.draws.data,
@@ -267,40 +265,4 @@ function handleBatchFinancialUpdate(
   }
 
   return ret(nextModel, Cmd.none);
-}
-
-function handleTick(model: Model, time: number): Return<Model, Msg.Msg> {
-  if (model.draws.type !== 'Success') {
-    return ret(model, Cmd.none);
-  }
-
-  const trustedNow = TimerRepository.getTrustedNow(time);
-  timeRef.current = trustedNow;
-
-  const hasExpiredDraw = model.draws.data.some(draw => {
-    if (!draw.betting_end_time) return false;
-    const endTime = new Date(draw.betting_end_time).getTime();
-    if (trustedNow >= endTime) {
-      return true;
-    }
-    return false;
-  });
-
-  if (hasExpiredDraw) {
-    const filteredDraws = filterDrawsUseCase.execute({
-      draws: model.draws.data,
-      filter: model.currentFilter as StatusFilter,
-      currentTime: trustedNow
-    });
-
-    const hasSameFilteredDraws =
-      model.filteredDraws.length === filteredDraws.length &&
-      model.filteredDraws.every((draw, i) => draw.id === filteredDraws[i]?.id);
-
-    if (!hasSameFilteredDraws) {
-      return ret({ ...model, filteredDraws }, Cmd.none);
-    }
-  }
-
-  return ret(model, Cmd.none);
 }

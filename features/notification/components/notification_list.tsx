@@ -19,6 +19,14 @@ interface NotificationListProps {
 export const NotificationList: React.FC<NotificationListProps> = ({ onNotificationPress }) => {
   const model = NotificationModule.useStore(s => s.model);
   const dispatch = NotificationModule.useDispatch();
+  const rawData = model.notifications.type === 'Success' && Array.isArray(model.notifications.data)
+    ? model.notifications.data
+    : [];
+  const notifications = [...rawData].sort((a, b) => {
+    const timeA = new Date(a.createdAt).getTime();
+    const timeB = new Date(b.createdAt).getTime();
+    return timeB - timeA;
+  });
 
   const handleRefresh = () => {
     dispatch(REFRESH_NOTIFICATIONS());
@@ -99,9 +107,10 @@ export const NotificationList: React.FC<NotificationListProps> = ({ onNotificati
       {renderHeader()}
 
       <FlatList
-        data={model.notifications.type === 'Success' ? model.notifications.data : []}
+        data={notifications}
         renderItem={renderNotification}
         keyExtractor={(item) => item.id}
+      
         ListEmptyComponent={renderEmptyState}
         refreshControl={
           <RefreshControl

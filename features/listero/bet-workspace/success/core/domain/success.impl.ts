@@ -75,11 +75,18 @@ export const SuccessImpl = {
             const balRaw = firstBet?.fingerprint?.total_sales || firstBet?.total_sales || firstBet?.fingerprint_data?.total_sales;
             const bal = Number(balRaw || 0).toFixed(2);
 
-            // Si tenemos los datos mínimos, creamos la URL extendida para auditoría offline
-            if (uid && firstBet?.amount && balRaw) {
+            // Obtener raw_payload si está disponible (apuestas offline no sincronizadas)
+            const rawPayload = firstBet?.fingerprint?.raw_payload;
+
+            // Si tenemos raw_payload, podemos verificar cryptográficamente sin necesidad de DB
+            if (rawPayload) {
+                const encodedPayload = encodeURIComponent(rawPayload);
+                auditUrl = `${serverHost}/audit/?uid=${uid}&hash=${firstFingerprint}&raw=${encodedPayload}`;
+            } else if (uid && firstBet?.amount && balRaw) {
+                // Modo offline con datos parciales (sin raw_payload, solo para apuestas ya sincronizadas)
                 auditUrl = `${serverHost}/audit/?uid=${uid}&hash=${firstFingerprint}&amt=${amt}&bal=${bal}`;
             } else {
-                // Fallback a la URL simple por hash
+                // Fallback a URL simple por hash
                 auditUrl = `${serverHost}/audit/?hash=${firstFingerprint}`;
             }
         }

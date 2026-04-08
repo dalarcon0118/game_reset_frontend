@@ -1,6 +1,7 @@
 import { StructurePorts, ListeroDetails } from '../structure.ports';
 import { StructureApi } from '../api/api';
 import { Agency, DashboardSummary } from '../domain/models';
+import { StructureMapper } from '../mappers/mappers';
 
 export class StructureApiAdapter implements StructurePorts {
     async getChildren(id: number, level: number = 1): Promise<Agency[]> {
@@ -12,6 +13,10 @@ export class StructureApiAdapter implements StructurePorts {
     }
 
     async getListeroDetails(id: number, date?: string): Promise<ListeroDetails> {
-        return await StructureApi.getListeroDetails(id, date);
+        const backendDetails = await StructureApi.getListeroDetails(id, date);
+        return {
+            listero_name: backendDetails.listero_name,
+            draws: StructureMapper.toListeroDrawDetails(backendDetails.draws)
+        };
     }
 }

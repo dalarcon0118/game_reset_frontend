@@ -34,13 +34,13 @@ describe('syncBetsFlow', () => {
     describe('syncPendingFlow', () => {
         it('debe retornar { success: 1, failed: 0 } cuando una apuesta se sincroniza exitosamente', async () => {
             mockStorage.getPending.mockResolvedValue([
-                { externalId: 'bet-1', drawId: '100', amount: 50, ownerStructure: '1' }
+                { externalId: 'bet-1', drawId: '100', amount: 50, ownerStructure: '1', ownerUser: '30' }
             ]);
             mockApi.createWithIdempotencyKey.mockResolvedValue([{ id: 'backend-1' }]);
             mockDrawRepository.getBetTypes.mockResolvedValue({ isOk: () => true, value: [] });
             mockStorage.updateStatus.mockResolvedValue(undefined);
 
-            const result = await syncPendingFlow(mockStorage as any, mockApi as any);
+            const result = await syncPendingFlow(mockStorage as any, mockApi as any, 30);
 
             expect(result).toEqual({ success: 1, failed: 0 });
             expect(mockStorage.updateStatus).toHaveBeenCalledWith(
@@ -52,7 +52,7 @@ describe('syncBetsFlow', () => {
 
         it('debe retornar { success: 0, failed: 1 } cuando una apuesta falla con error 404', async () => {
             mockStorage.getPending.mockResolvedValue([
-                { externalId: 'bet-2', drawId: '999', amount: 50, ownerStructure: '1' }
+                { externalId: 'bet-2', drawId: '999', amount: 50, ownerStructure: '1', ownerUser: '30' }
             ]);
             mockApi.createWithIdempotencyKey.mockRejectedValue({
                 status: 404,
@@ -60,7 +60,7 @@ describe('syncBetsFlow', () => {
             });
             mockStorage.updateStatus.mockResolvedValue(undefined);
 
-            const result = await syncPendingFlow(mockStorage as any, mockApi as any);
+            const result = await syncPendingFlow(mockStorage as any, mockApi as any, 30);
 
             expect(result).toEqual({ success: 0, failed: 1 });
             expect(mockStorage.updateStatus).toHaveBeenCalledWith(
@@ -77,7 +77,7 @@ describe('syncBetsFlow', () => {
 
         it('debe retornar { success: 0, failed: 1 } cuando una apuesta falla con error 400 (betType invalido)', async () => {
             mockStorage.getPending.mockResolvedValue([
-                { externalId: 'bet-3', drawId: '395', amount: 50, ownerStructure: '1' }
+                { externalId: 'bet-3', drawId: '395', amount: 50, ownerStructure: '1', ownerUser: '30' }
             ]);
             mockApi.createWithIdempotencyKey.mockRejectedValue({
                 status: 400,
@@ -85,7 +85,7 @@ describe('syncBetsFlow', () => {
             });
             mockStorage.updateStatus.mockResolvedValue(undefined);
 
-            const result = await syncPendingFlow(mockStorage as any, mockApi as any);
+            const result = await syncPendingFlow(mockStorage as any, mockApi as any, 30);
 
             expect(result).toEqual({ success: 0, failed: 1 });
             expect(mockStorage.updateStatus).toHaveBeenCalledWith(
@@ -101,7 +101,7 @@ describe('syncBetsFlow', () => {
 
         it('debe asignar estado "pending" y no "blocked" para errores 500 (no fatal)', async () => {
             mockStorage.getPending.mockResolvedValue([
-                { externalId: 'bet-4', drawId: '100', amount: 50, ownerStructure: '1' }
+                { externalId: 'bet-4', drawId: '100', amount: 50, ownerStructure: '1', ownerUser: '30' }
             ]);
             mockApi.createWithIdempotencyKey.mockRejectedValue({
                 status: 500,
@@ -109,7 +109,7 @@ describe('syncBetsFlow', () => {
             });
             mockStorage.updateStatus.mockResolvedValue(undefined);
 
-            const result = await syncPendingFlow(mockStorage as any, mockApi as any);
+            const result = await syncPendingFlow(mockStorage as any, mockApi as any, 30);
 
             expect(result).toEqual({ success: 0, failed: 1 });
             expect(mockStorage.updateStatus).toHaveBeenCalledWith(
@@ -125,7 +125,7 @@ describe('syncBetsFlow', () => {
 
         it('debe NO llamar a reportToDlq para errores 500 (no fatal)', async () => {
             mockStorage.getPending.mockResolvedValue([
-                { externalId: 'bet-5', drawId: '100', amount: 50, ownerStructure: '1' }
+                { externalId: 'bet-5', drawId: '100', amount: 50, ownerStructure: '1', ownerUser: '30' }
             ]);
             mockApi.createWithIdempotencyKey.mockRejectedValue({
                 status: 500,
@@ -133,14 +133,14 @@ describe('syncBetsFlow', () => {
             });
             mockStorage.updateStatus.mockResolvedValue(undefined);
 
-            await syncPendingFlow(mockStorage as any, mockApi as any);
+            await syncPendingFlow(mockStorage as any, mockApi as any, 30);
 
             expect(mockApi.reportToDlq).not.toHaveBeenCalled();
         });
 
         it('debe llamar a reportToDlq para errores fatales (404)', async () => {
             mockStorage.getPending.mockResolvedValue([
-                { externalId: 'bet-6', drawId: '999', amount: 50, ownerStructure: '1' }
+                { externalId: 'bet-6', drawId: '999', amount: 50, ownerStructure: '1', ownerUser: '30' }
             ]);
             mockApi.createWithIdempotencyKey.mockRejectedValue({
                 status: 404,
@@ -149,7 +149,7 @@ describe('syncBetsFlow', () => {
             mockStorage.updateStatus.mockResolvedValue(undefined);
             mockApi.reportToDlq.mockResolvedValue({ status: 'reported' });
 
-            await syncPendingFlow(mockStorage as any, mockApi as any);
+            await syncPendingFlow(mockStorage as any, mockApi as any, 30);
 
             expect(mockApi.reportToDlq).toHaveBeenCalledWith(
                 expect.objectContaining({ externalId: 'bet-6' }),
@@ -159,7 +159,7 @@ describe('syncBetsFlow', () => {
 
         it('debe manejar errores 401 y 403 como no fatales (retryable)', async () => {
             mockStorage.getPending.mockResolvedValue([
-                { externalId: 'bet-auth-1', drawId: '100', amount: 50, ownerStructure: '1' }
+                { externalId: 'bet-auth-1', drawId: '100', amount: 50, ownerStructure: '1', ownerUser: '30' }
             ]);
             mockApi.createWithIdempotencyKey.mockRejectedValue({
                 status: 401,
@@ -167,7 +167,7 @@ describe('syncBetsFlow', () => {
             });
             mockStorage.updateStatus.mockResolvedValue(undefined);
 
-            const result = await syncPendingFlow(mockStorage as any, mockApi as any);
+            const result = await syncPendingFlow(mockStorage as any, mockApi as any, 30);
 
             expect(result).toEqual({ success: 0, failed: 1 });
             expect(mockStorage.updateStatus).toHaveBeenCalledWith(
@@ -183,9 +183,9 @@ describe('syncBetsFlow', () => {
 
         it('debe procesar multiples apuestas y contar exitosos y fallidos', async () => {
             mockStorage.getPending.mockResolvedValue([
-                { externalId: 'bet-a', drawId: '100', amount: 50, ownerStructure: '1' },
-                { externalId: 'bet-b', drawId: '999', amount: 50, ownerStructure: '1' },
-                { externalId: 'bet-c', drawId: '200', amount: 50, ownerStructure: '1' },
+                { externalId: 'bet-a', drawId: '100', amount: 50, ownerStructure: '1', ownerUser: '30' },
+                { externalId: 'bet-b', drawId: '999', amount: 50, ownerStructure: '1', ownerUser: '30' },
+                { externalId: 'bet-c', drawId: '200', amount: 50, ownerStructure: '1', ownerUser: '30' },
             ]);
             mockApi.createWithIdempotencyKey
                 .mockResolvedValueOnce([{ id: 'backend-a' }])
@@ -194,29 +194,71 @@ describe('syncBetsFlow', () => {
             mockDrawRepository.getBetTypes.mockResolvedValue({ isOk: () => true, value: [] });
             mockStorage.updateStatus.mockResolvedValue(undefined);
 
-            const result = await syncPendingFlow(mockStorage as any, mockApi as any);
+            const result = await syncPendingFlow(mockStorage as any, mockApi as any, 30);
 
             expect(result).toEqual({ success: 1, failed: 2 });
         });
 
         it('debe rechazar apuestas con amount <= 0', async () => {
             mockStorage.getPending.mockResolvedValue([
-                { externalId: 'bet-invalid', drawId: '100', amount: 0, ownerStructure: '1' }
+                { externalId: 'bet-invalid', drawId: '100', amount: 0, ownerStructure: '1', ownerUser: '30' }
             ]);
 
-            const result = await syncPendingFlow(mockStorage as any, mockApi as any);
+            const result = await syncPendingFlow(mockStorage as any, mockApi as any, 30);
 
             expect(result).toEqual({ success: 0, failed: 1 });
         });
 
         it('debe rechazar apuestas sin ownerStructure', async () => {
             mockStorage.getPending.mockResolvedValue([
-                { externalId: 'bet-no-owner', drawId: '100', amount: 50, ownerStructure: '' }
+                { externalId: 'bet-no-owner', drawId: '100', amount: 50, ownerStructure: '', ownerUser: '30' }
             ]);
 
-            const result = await syncPendingFlow(mockStorage as any, mockApi as any);
+            const result = await syncPendingFlow(mockStorage as any, mockApi as any, 30);
 
             expect(result).toEqual({ success: 0, failed: 1 });
+        });
+
+        it('debe rechazar apuestas huérfanas (sin ownerUser) por seguridad y marcarlas como blocked', async () => {
+            mockStorage.getPending.mockResolvedValue([
+                { externalId: 'bet-orphan', drawId: '100', amount: 50, ownerStructure: '1', ownerUser: '', syncContext: { attemptsCount: 0 } }
+            ]);
+
+            const result = await syncPendingFlow(mockStorage as any, mockApi as any, 30);
+
+            expect(result).toEqual({ success: 0, failed: 1 });
+            expect(result.failedBets[0].error).toContain('huérfana');
+            expect(mockStorage.updateStatus).toHaveBeenCalledWith(
+                'bet-orphan',
+                'blocked',
+                expect.objectContaining({
+                    syncContext: expect.objectContaining({
+                        errorType: 'FATAL',
+                        lastError: expect.stringContaining('huérfana')
+                    })
+                })
+            );
+        });
+
+        it('debe rechazar apuestas de otro usuario por seguridad y marcarlas como blocked', async () => {
+            mockStorage.getPending.mockResolvedValue([
+                { externalId: 'bet-other-user', drawId: '100', amount: 50, ownerStructure: '1', ownerUser: '29', syncContext: { attemptsCount: 0 } }
+            ]);
+
+            const result = await syncPendingFlow(mockStorage as any, mockApi as any, 30);
+
+            expect(result).toEqual({ success: 0, failed: 1 });
+            expect(result.failedBets[0].error).toContain('pertenece a otro usuario');
+            expect(mockStorage.updateStatus).toHaveBeenCalledWith(
+                'bet-other-user',
+                'blocked',
+                expect.objectContaining({
+                    syncContext: expect.objectContaining({
+                        errorType: 'FATAL',
+                        lastError: expect.stringContaining('pertenece a otro usuario')
+                    })
+                })
+            );
         });
     });
 });

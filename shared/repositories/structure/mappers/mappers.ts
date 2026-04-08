@@ -1,11 +1,24 @@
-import { BackendChildStructure, BackendDashboardSummary } from '../types/types';
+import { BackendChildStructure, BackendDashboardSummary, BackendListeroDrawDetail, ListeroDrawDetail } from '../types/types';
 import { Agency, DashboardSummary, StructureNodeType, HealthMetrics } from '../domain/models';
 
-/**
- * 🛠️ HELPER: Sanitization for financial values
- * Ensures no negative values reach the domain layer.
- */
 const sanitize = (val: number | undefined | null): number => Math.max(0, val || 0);
+
+const formatLocalTime = (utcTimestamp: string | null | undefined): string => {
+    if (!utcTimestamp) return 'N/A';
+    try {
+        const date = new Date(utcTimestamp);
+        if (isNaN(date.getTime())) return 'N/A';
+        const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        return date.toLocaleTimeString('es-ES', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+            timeZone: userTimeZone
+        });
+    } catch {
+        return 'N/A';
+    }
+};
 
 /**
  * Pure mappers to transform Backend/Infrastructure data into Domain entities.
@@ -98,5 +111,25 @@ export const StructureMapper = {
             netProfit,
             bankReserves
         };
-    }
+    },
+
+    toListeroDrawDetail: (backend: BackendListeroDrawDetail): ListeroDrawDetail => ({
+        draw_id: backend.draw_id,
+        draw_name: backend.draw_name,
+        draw_type_code: backend.draw_type_code,
+        draw_type_name: backend.draw_type_name,
+        draw_type_extra_data: backend.draw_type_extra_data,
+        status: backend.status,
+        winning_number: backend.winning_number,
+        opening_time: formatLocalTime(backend.opening_time),
+        closing_time: formatLocalTime(backend.closing_time),
+        total_collected: sanitize(backend.total_collected),
+        total_paid: sanitize(backend.total_paid),
+        net_result: sanitize(backend.net_result),
+        commissions: sanitize(backend.commissions),
+        status_closed: backend.status_closed
+    }),
+
+    toListeroDrawDetails: (backendList: BackendListeroDrawDetail[]): ListeroDrawDetail[] =>
+        backendList.map(StructureMapper.toListeroDrawDetail)
 };

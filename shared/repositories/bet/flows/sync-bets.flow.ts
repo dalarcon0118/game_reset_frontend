@@ -97,10 +97,12 @@ const syncSingleBet = async (
 
 /**
  * Flow for manual synchronization of all pending bets.
+ * SEGURIDAD: Solo sincroniza apuestas que pertenecen al usuario actual.
  */
 export const syncPendingFlow = async (
     storage: IBetStorage,
-    api: IBetApi
+    api: IBetApi,
+    currentUserId?: number
 ): Promise<{ success: number; failed: number; successBets: string[]; failedBets: { receiptCode: string; error: string }[] }> => {
     const pending = await storage.getPending();
     let success = 0;
@@ -109,6 +111,50 @@ export const syncPendingFlow = async (
     const failedBets: { receiptCode: string; error: string }[] = [];
 
     for (const bet of pending) {
+        // ==========================================================================
+        // SEGURIDAD CRÍTICA: Verificar propiedad de la apuesta
+        // ==========================================================================
+        const betOwnerUser = Number(bet.ownerUser) || 0;
+        const isOrphanBet = !bet.ownerUser || bet.ownerUser === '' || betOwnerUser === 0;
+
+        if (isOrphanBet) {
+            log.warn(`[SYNC-BET-FLOW] ⚠️ SEGURIDAD: Apuesta huérfana detectada ${bet.externalId}. Marcando como blocked.`);
+            await storage.updateStatus(bet.externalId, 'blocked', {
+                syncContext: {
+                    lastAttempt: Date.now(),
+                    attemptsCount: (bet.syncContext?.attemptsCount || 0) + 1,
+                    lastError: 'Apuesta sin propietario válido - huérfana',
+                    errorType: 'FATAL'
+                },
+                lastError: 'Apuesta sin propietario válido - huérfana'
+            });
+            failed++;
+            failedBets.push({
+                receiptCode: bet.receiptCode || 'Sin código',
+                error: 'Apuesta sin propietario válido - huérfana'
+            });
+            continue;
+        }
+
+        if (currentUserId && betOwnerUser !== currentUserId) {
+            log.error(`[SYNC-BET-FLOW] 🔒 SEGURIDAD: Apuesta ${bet.externalId} pertenece a usuario ${betOwnerUser}, no al actual ${currentUserId}. Marcando como blocked.`);
+            await storage.updateStatus(bet.externalId, 'blocked', {
+                syncContext: {
+                    lastAttempt: Date.now(),
+                    attemptsCount: (bet.syncContext?.attemptsCount || 0) + 1,
+                    lastError: `Apuesta pertenece a otro usuario (${betOwnerUser})`,
+                    errorType: 'FATAL'
+                },
+                lastError: `Apuesta pertenece a otro usuario (${betOwnerUser})`
+            });
+            failed++;
+            failedBets.push({
+                receiptCode: bet.receiptCode || 'Sin código',
+                error: `Apuesta pertenece a otro usuario (${betOwnerUser})`
+            });
+            continue;
+        }
+
         const res = await syncSingleBet(bet, storage, api);
         if (res.isOk()) {
             success++;

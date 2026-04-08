@@ -50,16 +50,35 @@ export const BET_LOGS = {
 
     // Notifications
     NOTIF_SAVED_TITLE: 'Apuesta Guardada',
-    NOTIF_SAVED_MESSAGE: (code: string) => `Apuesta ${code} guardada localmente (Pendiente de conexión)`,
+    NOTIF_SAVED_MESSAGE: (code: string, drawId: string, amount: number) =>
+        `Apuesta ${code} (RD$${amount}) guardada localmente. Sorteo #${drawId}. Se sincronizará cuando haya conexión.`,
     NOTIF_CREATING: 'Creando notificación pendiente para apuesta',
     NOTIF_SUCCESS: 'Notificación pendiente creada exitosamente para',
     NOTIF_FAILED: 'Fallo al crear notificación pendiente para',
+    NOTIF_SYNC_SUCCESS_MSG: (breakdown: Record<string, number>) => {
+        const bet = breakdown['bet'] ?? 0;
+        const notification = breakdown['notification'] ?? 0;
+        const parts: string[] = [];
+        if (bet > 0) parts.push(`${bet} apuesta${bet > 1 ? 's' : ''}`);
+        if (notification > 0) parts.push(`${notification} notificación${notification > 1 ? 'es' : ''}`);
+        if (parts.length === 0) return 'Sincronización completada.';
+        return `${parts.join(' y ')} sincronizada${parts.length === 1 ? '' : 's'} con el servidor.`;
+    },
     NOTIF_SYNC_SUCCESS_TITLE: 'Sincronización exitosa',
-    NOTIF_SYNC_SUCCESS_MSG: (count: number) => `${count} apuesta(s) sincronizada(s) con el servidor.`,
-    NOTIF_SYNC_SINGLE_SUCCESS_MSG: (code: string) => `Apuesta ${code} sincronizada con el servidor.`,
+    NOTIF_SYNC_ERROR_MSG: (breakdown: Record<string, number>) => {
+        const bet = breakdown['bet'] ?? 0;
+        const notification = breakdown['notification'] ?? 0;
+        const parts: string[] = [];
+        if (bet > 0) parts.push(`${bet} apuesta${bet > 1 ? 's' : ''}`);
+        if (notification > 0) parts.push(`${notification} notificación${notification > 1 ? 'es' : ''}`);
+        if (parts.length === 0) return 'Algunos ítems no se pudieron sincronizar. Se reintentará más tarde.';
+        return `${parts.join(' y ')} no se${parts.length === 1 ? ' pudo' : ' pudieron'} sincronizar. Se reintentará más tarde.`;
+    },
     NOTIF_SYNC_ERROR_TITLE: 'Error de sincronización',
-    NOTIF_SYNC_ERROR_MSG: (count: number) => `${count} item(s) no se pudieron sincronizar. Se reintentará más tarde.`,
-    NOTIF_SYNC_SINGLE_ERROR_MSG: (code: string) => `Apuesta ${code} no se pudo sincronizar. Se reintentará más tarde.`,
+    NOTIF_SYNC_SUCCESS_DETAIL: (code: string, drawId: string, amount: number) =>
+        `Apuesta ${code} (RD$${amount}) sincronizada al sorteo #${drawId}.`,
+    NOTIF_SYNC_ERROR_DETAIL: (code: string, drawId: string, reason: string) =>
+        `Apuesta ${code} (sorteo #${drawId}) no se pudo sincronizar. Razón: ${reason}. Se reintentará automáticamente.`,
 
     // Sync
     SYNC_PUSHING_BATCH: 'Sincronizando lote de apuestas',

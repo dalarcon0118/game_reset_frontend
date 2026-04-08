@@ -181,21 +181,12 @@ export const createBetEffectHandlers = (
                     log.info('[SYNC_TRIGGER] Sync completed', report);
 
                     // Notify user about sync result
-                    if (report.succeeded > 0) {
-                        await notificationRepository.addNotification({
-                            title: BET_LOGS.NOTIF_SYNC_SUCCESS_TITLE,
-                            message: BET_LOGS.NOTIF_SYNC_SUCCESS_MSG(report.succeeded),
-                            type: 'success',
-                            metadata: { count: report.succeeded, type: 'SYNC_SUCCESS' }
-                        });
-                    }
-
                     if (report.failed > 0) {
                         await notificationRepository.addNotification({
                             title: BET_LOGS.NOTIF_SYNC_ERROR_TITLE,
-                            message: BET_LOGS.NOTIF_SYNC_ERROR_MSG(report.failed),
+                            message: BET_LOGS.NOTIF_SYNC_ERROR_MSG(report.breakdown),
                             type: 'error',
-                            metadata: { count: report.failed, type: 'SYNC_FAILED' }
+                            metadata: { breakdown: report.breakdown, type: 'SYNC_FAILED' }
                         });
                     }
 

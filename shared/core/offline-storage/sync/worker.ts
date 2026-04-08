@@ -6,7 +6,8 @@ import {
     WorkerConfig,
     DomainEvent,
     SYNC_CONSTANTS,
-    SyncReport
+    SyncReport,
+    SyncBreakdown
 } from '../types';
 import { logger } from '../../../utils/logger';
 import { SyncAdapter } from './adapter';
@@ -103,7 +104,7 @@ export class SyncWorkerCore {
                 log.info(`[SYNC-WORKER] PREEMPTION: ${urgentItems.length} urgent items, processing immediately`);
                 WorkerStateManager.setStatus('running');
                 this.emitEvent('SYNC_STARTED', 'system');
-                const { succeeded, failed, errors: urgentErrors } = await this.executeSyncCycle(urgentItems);
+                const { succeeded, failed, errors: urgentErrors, breakdown: urgentBreakdown } = await this.executeSyncCycle(urgentItems);
                 errors.push(...urgentErrors);
                 const report: SyncReport = {
                     timestamp: Date.now(),
@@ -111,6 +112,7 @@ export class SyncWorkerCore {
                     processed: succeeded + failed,
                     succeeded,
                     failed,
+                    breakdown: urgentBreakdown,
                     errors,
                     duration: Date.now() - startTime
                 };
@@ -135,6 +137,7 @@ export class SyncWorkerCore {
                     processed: 0,
                     succeeded: 0,
                     failed: 0,
+                    breakdown: {},
                     errors: [],
                     duration: Date.now() - startTime
                 };
@@ -151,6 +154,7 @@ export class SyncWorkerCore {
                     processed: 0,
                     succeeded: 0,
                     failed: 0,
+                    breakdown: {},
                     errors: [],
                     duration: Date.now() - startTime
                 };
@@ -160,7 +164,7 @@ export class SyncWorkerCore {
             WorkerStateManager.setStatus('running');
             this.emitEvent('SYNC_STARTED', 'system');
 
-            const { succeeded, failed, errors: batchErrors } = await this.executeSyncCycle(
+            const { succeeded, failed, errors: batchErrors, breakdown } = await this.executeSyncCycle(
                 pendingItems.slice(0, this.config.batchSize)
             );
 
@@ -174,6 +178,7 @@ export class SyncWorkerCore {
                 processed: succeeded + failed,
                 succeeded,
                 failed,
+                breakdown,
                 errors,
                 duration: Date.now() - startTime
             };
@@ -223,10 +228,12 @@ export class SyncWorkerCore {
         succeeded: number;
         failed: number;
         errors: { entityId: string; type: string; reason: string }[];
+        breakdown: SyncBreakdown;
     }> {
         let succeeded = 0;
         let failed = 0;
         const errors: { entityId: string; type: string; reason: string }[] = [];
+        const breakdown: SyncBreakdown = {};
 
         // Agrupar ítems por tipo para aprovechar pushBatch
         const groups = items.reduce((acc, item) => {
@@ -239,30 +246,30 @@ export class SyncWorkerCore {
         log.info(`[SYNC-WORKER-DIAGNOSTIC] Grouped items into ${Object.keys(groups).length} types: ${Object.keys(groups).join(', ')}`);
 
         for (const [type, group] of Object.entries(groups)) {
-                // Circuit Breaker: Si la entidad está pausada, saltar todo el grupo
-                const breaker = entityCircuitBreaker[type] || { consecutiveFailures: 0, isPaused: false };
-                if (breaker.isPaused) {
-                    log.warn(`[SYNC-WORKER] Circuit breaker ACTIVE for ${type}, skipping ${group.length} items`);
-                    // Mover todos a pending pero no procesarlos
-                    await SyncAdapter.updateBatchQueueItems(group.map(item => ({
-                        id: item.id,
-                        data: { status: 'pending', error: 'Circuit breaker active' }
-                    })));
-                    continue;
-                }
+            // Circuit Breaker: Si la entidad está pausada, saltar todo el grupo
+            const breaker = entityCircuitBreaker[type] || { consecutiveFailures: 0, isPaused: false };
+            if (breaker.isPaused) {
+                log.warn(`[SYNC-WORKER] Circuit breaker ACTIVE for ${type}, skipping ${group.length} items`);
+                // Mover todos a pending pero no procesarlos
+                await SyncAdapter.updateBatchQueueItems(group.map(item => ({
+                    id: item.id,
+                    data: { status: 'pending', error: 'Circuit breaker active' }
+                })));
+                continue;
+            }
 
-                const strategy = this.strategies.get(type);
+            const strategy = this.strategies.get(type);
 
-                if (!strategy) {
-                    log.warn(`[SYNC-WORKER-DIAGNOSTIC] No strategy found for entity type: ${type}`);
-                    for (const item of group) {
-                        failed++;
-                        const reason = `No strategy for ${type}`;
-                        errors.push({ entityId: item.entityId, type: item.type, reason });
-                        await SyncAdapter.updateQueueItem(item.id, { status: 'failed', error: reason });
-                    }
-                    continue;
+            if (!strategy) {
+                log.warn(`[SYNC-WORKER-DIAGNOSTIC] No strategy found for entity type: ${type}`);
+                for (const item of group) {
+                    failed++;
+                    const reason = `No strategy for ${type}`;
+                    errors.push({ entityId: item.entityId, type: item.type, reason });
+                    await SyncAdapter.updateQueueItem(item.id, { status: 'failed', error: reason });
                 }
+                continue;
+            }
 
             try {
                 log.debug(`[SYNC-WORKER-DIAGNOSTIC] Processing group ${type} with ${group.length} items`);
@@ -272,30 +279,31 @@ export class SyncWorkerCore {
                     data: { status: 'processing' }
                 })));
 
-                let outcomes: SyncOutcome[];
+                let outcomes: SyncOutcome[][];
                 let flatOutcomes: SyncOutcome[];
 
                 if (strategy.pushBatch && group.length > 1) {
                     log.info(`[SYNC-WORKER-DIAGNOSTIC] Using pushBatch for ${type} (${group.length} items)`);
-                    outcomes = await strategy.pushBatch(group);
-                    flatOutcomes = outcomes;
+                    const batchResults = await strategy.pushBatch(group);
+                    outcomes = batchResults.map(r => [r]);
+                    flatOutcomes = batchResults;
                 } else if (strategy.push) {
                     log.info(`[SYNC-WORKER-DIAGNOSTIC] Using sequential push for ${type} (${group.length} items)`);
                     outcomes = await processWithConcurrency(group, (item) =>
                         strategy.push!(item).then(result => [result])
                     );
-                    flatOutcomes = outcomes.flat();
+                    flatOutcomes = outcomes.flat() as SyncOutcome[];
                 } else {
                     throw new Error(`Strategy for ${type} does not support push or pushBatch`);
                 }
 
-                log.debug(`[SYNC-WORKER-DIAGNOSTIC] Processing ${outcomes.length} outcomes for ${type}`);
+                log.debug(`[SYNC-WORKER-DIAGNOSTIC] Processing ${flatOutcomes.length} outcomes for ${type}`);
 
                 // Actualizar Circuit Breaker según resultados del batch
-                const fatalCount = outcomes.filter(o => o.type === 'FATAL_ERROR').length;
-                const successCount = outcomes.filter(o => o.type === 'SUCCESS').length;
+                const fatalCount = flatOutcomes.filter(o => o.type === 'FATAL_ERROR').length;
+                const successCount = flatOutcomes.filter(o => o.type === 'SUCCESS').length;
 
-                if (fatalCount === outcomes.length) {
+                if (fatalCount === flatOutcomes.length) {
                     // TODOS fatales en este batch: activar circuit breaker para esta entidad
                     breaker.consecutiveFailures += 1;
                     if (breaker.consecutiveFailures >= CIRCUIT_BREAKER_THRESHOLD) {
@@ -321,6 +329,7 @@ export class SyncWorkerCore {
                         log.info(`[SYNC-WORKER-DIAGNOSTIC] SUCCESS: ${item.type}/${item.entityId} -> BackendID: ${outcome.backendId || 'N/A'}`);
                         itemsToRemove.push(item.id);
                         succeeded++;
+                        breakdown[item.type] = (breakdown[item.type] || 0) + 1;
                         this.emitEvent('SYNC_ITEM_SUCCESS', item.type, {
                             entityId: item.entityId,
                             backendId: outcome.backendId
@@ -386,7 +395,7 @@ export class SyncWorkerCore {
             }
         }
 
-        return { succeeded, failed, errors };
+        return { succeeded, failed, errors, breakdown };
     }
 
     private async processQueue(): Promise<void> {

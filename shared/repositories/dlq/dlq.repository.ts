@@ -36,11 +36,22 @@ export class DlqRepository implements IDlqRepository {
      * Agrega un elemento a la DLQ.
      * IMPORTANTE: No usa la cola de sincronización. Hace llamada directa al backend.
      * Para evitar envíos duplicados, el backend usa idempotencia via DLQ item ID.
+     *
+     * SEGURIDAD: Deduplica por domain:entityId para evitar múltiples entradas
+     * para la misma entidad fallida.
      */
     async add<T>(domain: string, entityId: string, payload: T, error: DlqError): Promise<string> {
         this.log.info(`[DLQ-REPO] Agregando item a DLQ: ${domain}:${entityId}`);
 
         try {
+            // 0. DEDUPLICACIÓN: Verificar si ya existe un item para esta entidad
+            const existingItems = await this.storage.getByDomain(domain);
+            const existingItem = existingItems.find(item => item.entityId === entityId);
+            if (existingItem) {
+                this.log.warn(`[DLQ-REPO] Item duplicado detectado para ${domain}:${entityId}. ID existente: ${existingItem.id}. Omitiendo.`);
+                return existingItem.id;
+            }
+
             // 1. Guardar en storage local con estado 'pending_report'
             const id = await this.storage.add(domain, entityId, payload, error);
             this.log.info(`[DLQ-REPO] Item guardado en DLQ local: ${id}`);
@@ -50,7 +61,7 @@ export class DlqRepository implements IDlqRepository {
             try {
                 await this.api.reportItem(domain, entityId, payload, error);
                 this.log.info(`[DLQ-REPO] Backend reportado exitosamente para item ${id}`);
-                
+
                 // 3. Marcar como reportado en storage local
                 await this.storage.updateStatus(id, 'reported');
             } catch (apiError: any) {
@@ -59,13 +70,24 @@ export class DlqRepository implements IDlqRepository {
                 this.log.warn(`[DLQ-REPO] Falló reporte al backend para ${id}: ${apiError.message}`);
             }
 
-            // 4. Notificar al usuario
+            // 4. Notificar al usuario con mensaje detallado
+            const errorTitle = this.getErrorTitle(domain, error);
+            const errorMessage = this.getErrorMessage(domain, entityId, error);
+            const externalKey = `dlq:${domain}:${entityId}`;
+
             await notificationRepository.addNotification({
-                title: 'Revisión requerida',
-                message: `Una operación de ${domain} ha fallado repetidamente y requiere revisión manual.`,
+                title: errorTitle,
+                message: errorMessage,
                 type: 'error',
-                metadata: { entityId, domain, errorCode: error.code }
-            });
+                metadata: {
+                    entityId,
+                    domain,
+                    errorCode: error.code,
+                    errorMessage: error.message,
+                    suggestedAction: this.getSuggestedAction(domain, error),
+                    type: 'DLQ_ERROR'
+                }
+            }, externalKey);
 
             this.notifyChanged();
             return id;
@@ -73,6 +95,70 @@ export class DlqRepository implements IDlqRepository {
             this.log.error(`[DLQ-REPO] ERROR al guardar en DLQ: ${domain}:${entityId}`, err);
             throw err;
         }
+    }
+
+    /**
+     * Genera título de notificación según el tipo de error.
+     */
+    private getErrorTitle(domain: string, error: DlqError): string {
+        if (domain === 'bet') {
+            if (error.code === 'INVALID_HMAC' || error.message?.includes('hmac')) {
+                return 'Error de verificación de apuesta';
+            }
+            if (error.code === 'DRAW_CLOSED' || error.message?.includes('draw')) {
+                return 'Sorteo cerrado';
+            }
+            if (error.code === 'BET_TYPE_INVALID') {
+                return 'Tipo de apuesta inválido';
+            }
+            return 'Error de sincronización de apuesta';
+        }
+        return 'Revisión requerida';
+    }
+
+    /**
+     * Genera mensaje de error descriptivo con contexto.
+     */
+    private getErrorMessage(domain: string, entityId: string, error: DlqError): string {
+        const shortId = entityId.length > 8 ? `${entityId.substring(0, 8)}...` : entityId;
+
+        if (domain === 'bet') {
+            if (error.code === 'INVALID_HMAC' || error.message?.includes('hmac')) {
+                return `La apuesta ${shortId} no pudo ser verificada. Esto puede ocurrir si los datos fueron alterados o el dispositivo cambió. Reintentar más tarde o contactar soporte.`;
+            }
+            if (error.code === 'DRAW_CLOSED') {
+                return `La apuesta ${shortId} no se envió a tiempo. El sorteo ya está cerrado. La apuesta no puede ser procesada.`;
+            }
+            if (error.code === 'BET_TYPE_INVALID') {
+                return `La apuesta ${shortId} contiene un tipo de apuesta no válido para este sorteo. La apuesta fue bloqueada.`;
+            }
+            if (error.code === 'FATAL') {
+                return `La apuesta ${shortId} falló indefinidamente. La apuesta fue bloqueada y no se reintentará automáticamente.`;
+            }
+            return `La apuesta ${shortId} no se pudo sincronizar: ${error.message || error.code}`;
+        }
+        return `La operación ${domain}:${entityId} ha fallado: ${error.message || error.code}. Requiere revisión manual.`;
+    }
+
+    /**
+     * Sugiere acción al usuario según el tipo de error.
+     */
+    private getSuggestedAction(domain: string, error: DlqError): string {
+        if (domain === 'bet') {
+            if (error.code === 'INVALID_HMAC') {
+                return 'Cerrar sesión y volver a iniciar para refrescar credenciales.';
+            }
+            if (error.code === 'DRAW_CLOSED') {
+                return 'No se requiere acción. La apuesta fue creada offline después del cierre del sorteo.';
+            }
+            if (error.code === 'BET_TYPE_INVALID') {
+                return 'Contactar soporte si crees que es un error.';
+            }
+            if (error.code === 'FATAL') {
+                return 'La apuesta fue bloqueada. Contactar soporte si crees que es un error.';
+            }
+        }
+        return 'Reintentar más tarde o contactar soporte.';
     }
 
     /**

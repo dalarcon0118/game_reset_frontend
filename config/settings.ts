@@ -85,9 +85,9 @@ export const settings = {
       incidents: () => '/incidents/',
       closureConfirmations: () => '/draw/draw-closure-confirmations/',
       dlq: {
-        sync: () => '/dlq/sync/',
-        report: (id: string) => `/dlq/${id}/report/`,
-        reconcile: (id: string) => `/dlq/${id}/reconcile/`,
+        sync: () => '/bets/dead-letter-queue/',
+        report: () => '/bets/dead-letter-queue/report/',
+        reconcile: (id: string) => `/bets/dead-letter-queue/${id}/discard/`,
       },
       changePin: () => '/auth/change-pin/',
       deviceRegister: () => '/auth/device-register/',

@@ -12,6 +12,7 @@ import type { INotificationRepository } from '@/shared/repositories/notification
 import type { IAuthRepository } from '@/shared/repositories/auth/auth.ports';
 import type { ITimeRepository } from '@/shared/repositories/system/time';
 import { BET_LOG_TAGS, BET_LOGS } from '../bet.constants';
+import { isServerReachable } from '@/shared/utils/network';
 
 const log = logger.withTag(BET_LOG_TAGS.PLACE_FLOW);
 const generateReceiptCode = (): string =>
@@ -74,6 +75,7 @@ const prepareBet = (
  */
 const dispatchSideEffects = async (bets: BetDomainModel[], trustedNow: number): Promise<void> => {
     const notificationRepository = await RepositoriesModule.get<INotificationRepository>('NotificationRepository');
+    const isOnline = await isServerReachable();
 
     try {
         // Publicar eventos de cambio local
@@ -86,36 +88,37 @@ const dispatchSideEffects = async (bets: BetDomainModel[], trustedNow: number): 
             });
         });
 
-        // Notificar al usuario que la apuesta está pendiente de sincronización
-        // Usamos fire-and-forget para no bloquear el flujo y evitar timeouts
+        // Encolar en la cola global de sincronización (SyncWorker)
         for (const bet of bets) {
-            log.info(`[${BET_LOG_TAGS.NOTIFICATION}] ${BET_LOGS.NOTIF_CREATING} ${bet.receiptCode}`);
-
-            // 1. Encolar en la cola global de sincronización (SyncWorker)ßß
             await SyncAdapter.addToQueue({
                 type: 'bet',
                 entityId: bet.externalId,
-                priority: 1, // Prioridad alta para apuestas
+                priority: 1,
                 data: bet,
                 status: 'pending',
                 attempts: 0
             });
             log.info(`[${BET_LOG_TAGS.SYNC_STRATEGY}] Enqueued in global sync queue: ${bet.externalId}`);
+        }
 
-            // 2. Notificación local con clave de idempotencia
-            const externalKey = `bet-saved:${bet.receiptCode}`;
-            notificationRepository.addNotification({
-                title: BET_LOGS.NOTIF_SAVED_TITLE,
-                message: BET_LOGS.NOTIF_SAVED_MESSAGE(bet.receiptCode || ''),
-                type: 'warning',
-                metadata: {
-                    receiptCode: bet.receiptCode,
-                    drawId: bet.drawId,
-                    externalId: bet.externalId
-                }
-            }, externalKey)
-                .then(() => log.info(`[${BET_LOG_TAGS.NOTIFICATION}] ✅ ${BET_LOGS.NOTIF_SUCCESS} ${bet.receiptCode}`))
-                .catch(e => log.warn(`[${BET_LOG_TAGS.NOTIFICATION}] ❌ ${BET_LOGS.NOTIF_FAILED} ${bet.receiptCode}`, e));
+        // Solo mostrar "guardada" si está offline; si está online la notificación de sync se encargará
+        if (!isOnline) {
+            for (const bet of bets) {
+                const externalKey = `bet-saved:${bet.receiptCode}`;
+                notificationRepository.addNotification({
+                    title: BET_LOGS.NOTIF_SAVED_TITLE,
+                    message: BET_LOGS.NOTIF_SAVED_MESSAGE(bet.receiptCode || '', String(bet.drawId), bet.amount),
+                    type: 'warning',
+                    metadata: {
+                        receiptCode: bet.receiptCode,
+                        drawId: bet.drawId,
+                        amount: bet.amount,
+                        externalId: bet.externalId
+                    }
+                }, externalKey)
+                    .then(() => log.info(`[${BET_LOG_TAGS.NOTIFICATION}] ✅ Saved notification created for ${bet.receiptCode}`))
+                    .catch(e => log.warn(`[${BET_LOG_TAGS.NOTIFICATION}] ❌ Failed to create saved notification for ${bet.receiptCode}`, e));
+            }
         }
 
         syncWorker.triggerSync().catch(e => log.error('Worker trigger failed', e));
@@ -201,7 +204,7 @@ export const placeBetFlow = (
                                 })
                                 .map((fingerprint: any): BetDomainModel => {
                                     log.info(`[PLACE_BET_FLOW] ✅ Fingerprint V2 generado exitosamente para ${bet.externalId}`);
-                                    return { ...bet, fingerprint };
+                                    return { ...bet, fingerprint, ownerUser: String(userId) };
                                 });
                         })
                 });
@@ -278,7 +281,7 @@ export const placeBatchFlow = (
                                     timestamp: bet.timestamp
                                 })
                                     .mapError((e: Error | any) => new Error(`${BET_LOGS.SIGN_ERROR}: ${e}`))
-                                    .map((fingerprint: any): BetDomainModel => ({ ...bet, fingerprint }));
+                                    .map((fingerprint: any): BetDomainModel => ({ ...bet, fingerprint, ownerUser: String(userId) }));
                             })
                     };
 

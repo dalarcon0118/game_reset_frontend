@@ -22,6 +22,14 @@ export const authApiAdapter: IAuthApi = {
 
             const validated = decodeOrFallback(BackendLoginResponseCodec, response, 'login');
 
+            log.info('[AUTH_API] Raw response from login:', {
+                hasResponse: !!response,
+                responseKeys: response ? Object.keys(response) : [],
+                dailySecretInResponse: response?.daily_secret ? 'PRESENTE' : 'AUSENTE',
+                dailySecretValue: response?.daily_secret ? `${response.daily_secret.substring(0, 10)}...` : 'N/A',
+                timeAnchorInResponse: response?.time_anchor ? 'PRESENTE' : 'AUSENTE'
+            });
+
             if (!validated.access || !validated.user) {
                 return {
                     success: false,

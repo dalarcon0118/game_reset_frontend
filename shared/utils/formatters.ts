@@ -31,3 +31,39 @@ export const toLocalISODate = (timestamp: number): string => {
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
 };
+
+export const formatServerTimeToLocal = (
+    utcTimestamp: string | number | null | undefined,
+    locale: string = 'es-ES'
+): string => {
+    if (!utcTimestamp) return 'N/A';
+    try {
+        const date = typeof utcTimestamp === 'string'
+            ? new Date(utcTimestamp)
+            : new Date(utcTimestamp);
+        if (isNaN(date.getTime())) return 'N/A';
+        return date.toLocaleTimeString(locale, {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        });
+    } catch {
+        return 'N/A';
+    }
+};
+
+export const formatServerDateToLocal = (
+    utcTimestamp: string | number | null | undefined,
+    locale: string = 'es-ES'
+): string => {
+    if (!utcTimestamp) return 'N/A';
+    try {
+        const date = typeof utcTimestamp === 'string'
+            ? new Date(utcTimestamp)
+            : new Date(utcTimestamp);
+        if (isNaN(date.getTime())) return 'N/A';
+        return date.toLocaleDateString(locale);
+    } catch {
+        return 'N/A';
+    }
+};

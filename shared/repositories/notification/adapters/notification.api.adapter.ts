@@ -28,9 +28,15 @@ export class NotificationApiAdapter implements INotificationRepository {
 
             const remote = await NotificationApi.getNotifications();
 
-            // 3. Mezclar resultados (Lógica de dominio básica en infraestructura)
-            // En una arquitectura más estricta, esto lo haría un mapper o el repositorio padre.
-            return [...local, ...(remote as Notification[])];
+            // 3. Mezclar resultados y ordenar por fecha (Newest First)
+            const combined = [...local, ...(remote as Notification[])];
+            
+            // Deduplicación por ID (Evitar que una misma notificación local y remota se dupliquen si el sync ya ocurrió)
+            const uniqueById = Array.from(new Map(combined.map(n => [n.id, n])).values());
+
+            return uniqueById.sort((a, b) => 
+                new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            );
         } catch (error) {
             log.error('Failed to fetch remote notifications, returning local only', error);
             return local;

@@ -5,9 +5,10 @@ import { Badge, ButtonKit, Card, Flex, Label } from '@/shared/components';
 import { DRAW_STATUS } from '@/types';
 import { AlarmClock, CalendarClock, Clock3, CloudOff } from 'lucide-react-native';
 import { Draw } from '../core/types';
-import { TotalsByDrawIdMap, DrawFinancialTotals, timeRef } from '../model';
+import { TotalsByDrawIdMap, DrawFinancialTotals } from '../model';
 import SummaryCard from './summary_card';
-
+import logger from '@/shared/utils/logger';
+const log = logger.withTag('DrawItemComponent');
 // Props del componente - SSOT: Draw y Totals vienen de fuentes separadas
 interface DrawItemProps {
   draw: Draw;
@@ -29,14 +30,27 @@ const DrawItemComponent: React.FC<DrawItemProps> = ({
    showBalance
 }: DrawItemProps) => {
 
-  const [, setTick] = useState(0);
+  const [currentTime, setCurrentTime] = useState(Date.now());
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setTick(t => t + 1);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
+  const bettingEndTime = new Date(draw.betting_end_time).getTime();
+  const timeRemaining = bettingEndTime - Date.now();
+  
+  // Si ya cerró o falta menos de 5 min, interval inmediato
+  if (timeRemaining <= 0) return;
+  
+  if (timeRemaining < 5 * 60 * 1000) {
+    const intervalId = setInterval(() => setCurrentTime(Date.now()), 1000);
+    return () => clearInterval(intervalId);
+  }
+
+  return;
+}, [draw.betting_end_time]);
+
+  useEffect(() => {
+   log.debug(`DrawItemComponent: is_betting_open = ${draw.is_betting_open}, betting_end_time = ${draw.betting_end_time}`)
+  }, [draw]);
+
 
   // SSOT: Obtener totales financieros desde BetRepository (totalsByDrawId)
   const drawId = draw.id.toString();
@@ -65,7 +79,7 @@ const DrawItemComponent: React.FC<DrawItemProps> = ({
 
     if (!draw.betting_end_time) return draw.status;
 
-    const now = new Date(timeRef.current);
+    const now = new Date(currentTime);
     const endTime = new Date(draw.betting_end_time);
 
     if (now >= endTime) return DRAW_STATUS.CLOSED;
@@ -77,7 +91,7 @@ const DrawItemComponent: React.FC<DrawItemProps> = ({
   const getClosingTimeInfo = () => {
     if (!draw.betting_end_time || effectiveStatus !== DRAW_STATUS.OPEN) return null;
 
-    const now = timeRef.current;
+    const now = currentTime;
     const endTime = new Date(draw.betting_end_time).getTime();
     const diffMs = endTime - now;
     const diffMins = Math.floor(diffMs / (1000 * 60));
@@ -130,12 +144,22 @@ const DrawItemComponent: React.FC<DrawItemProps> = ({
     if (!dateString) return 'N/A';
     try {
       const date = new Date(dateString);
-      const hours = date.getHours().toString().padStart(2, '0');
-      const minutes = date.getMinutes().toString().padStart(2, '0');
-      return `${hours}:${minutes}`;
+      if (isNaN(date.getTime())) return 'N/A';
+      const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      return date.toLocaleTimeString('es-ES', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+        timeZone: userTimeZone
+      });
     } catch {
       return 'N/A';
     }
+  };
+
+  const formatDisplayTime = (displayTime: string | null | undefined) => {
+    if (!displayTime) return 'N/A';
+    return displayTime;
   };
 
   const hasOfflineBets = betCount > 0;
@@ -161,7 +185,7 @@ const DrawItemComponent: React.FC<DrawItemProps> = ({
             <Label type="detail" style={styles.dateText}>{draw.date}</Label>
             <Clock3 size={12} color="#8F9BB3" style={{ marginLeft: 4 }} />
             <Label type="detail" style={styles.dateText}>
-              {formatTime(draw.betting_start_time)} - {formatTime(draw.betting_end_time)}
+              {formatDisplayTime(draw.betting_start_time_display) || formatTime(draw.betting_start_time)} - {formatDisplayTime(draw.betting_end_time_display) || formatTime(draw.betting_end_time)}
             </Label>
           </Flex>
         </View>

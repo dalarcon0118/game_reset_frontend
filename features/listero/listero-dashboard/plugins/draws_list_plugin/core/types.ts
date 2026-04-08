@@ -13,6 +13,8 @@ export const DrawCodec = t.intersection([
     date: t.string,
     betting_start_time: t.union([t.string, t.null]),
     betting_end_time: t.union([t.string, t.null]),
+    betting_start_time_display: t.union([t.string, t.null]),
+    betting_end_time_display: t.union([t.string, t.null]),
     is_betting_open: t.boolean,
     category: t.union([t.literal('bolita'), t.literal('loteria'), t.undefined]),
     code: t.union([t.string, t.undefined]),

@@ -30,13 +30,13 @@ export class DlqApiAdapter implements IDlqApi {
 
     /**
      * Reporta un item al backend directamente.
-     * Usa el ID en la URL para que el backend pueda hacer idempotencia.
+     * Usa el ID en el body para que el backend pueda hacer idempotencia.
      */
     async reportItem(domain: string, entityId: string, payload: any, error: any): Promise<void> {
         log.debug(`Reporting DLQ item to backend: ${domain}:${entityId}`);
 
         try {
-            const endpoint = settings.api.endpoints.dlq.report(entityId);
+            const endpoint = settings.api.endpoints.dlq.report();
             await apiClient.post(endpoint, { domain, entityId, payload, error });
         } catch (error) {
             log.warn(`Failed to report DLQ item ${entityId}`, error);

@@ -19,19 +19,20 @@ export class DlqPushStrategy implements SyncStrategy {
     async push(item: SyncQueueItem<DlqItem>): Promise<SyncOutcome> {
         try {
             log.info(`Pushing DLQ item to backend: ${item.entityId}`);
-            
+
             if (!item.data) {
                 return { type: 'FATAL_ERROR', reason: 'No data found in sync item' };
             }
 
-            await this.api.reportItem(item.data);
-            
+            const { domain, entityId, payload, error } = item.data;
+            await this.api.reportItem(domain, entityId, payload, error);
+
             return { type: 'SUCCESS' };
         } catch (error: any) {
             log.error(`Failed to push DLQ item ${item.entityId}`, error);
-            return { 
-                type: 'RETRY_LATER', 
-                reason: error.message || 'Unknown error' 
+            return {
+                type: 'RETRY_LATER',
+                reason: error.message || 'Unknown error'
             };
         }
     }

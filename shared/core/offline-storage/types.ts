@@ -142,12 +142,15 @@ export interface SyncOutcome {
 /**
  * Reporte detallado de una sesión de sincronización manual.
  */
+export type SyncBreakdown = Record<string, number>;
+
 export interface SyncReport {
   timestamp: number;
   status: 'SUCCESS' | 'PARTIAL' | 'FAILED' | 'OFFLINE' | 'NO_ITEMS';
   processed: number;
   succeeded: number;
   failed: number;
+  breakdown: SyncBreakdown;
   errors: { entityId: string; type: string; reason: string }[];
   duration: number;
 }

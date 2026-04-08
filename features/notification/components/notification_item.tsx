@@ -3,6 +3,7 @@ import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
 import { Card, Button } from '@ui-kitten/components';
 import { Info, AlertTriangle, AlertCircle, CheckCircle2, Bell, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { AppNotification } from '../core/model';
+import { formatServerDateToLocal, formatServerTimeToLocal } from '@/shared/utils/formatters';
 
 interface NotificationItemProps {
   notification: AppNotification;
@@ -40,13 +41,20 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('es-ES', {
-      hour: '2-digit',
-      minute: '2-digit',
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'N/A';
+    const dateStr = date.toLocaleDateString('es-ES', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
     });
+    const timeStr = date.toLocaleTimeString('es-ES', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+    return `${dateStr} ${timeStr}`;
   };
 
   const messageLength = notification.message.length;

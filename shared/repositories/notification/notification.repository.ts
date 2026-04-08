@@ -71,7 +71,10 @@ export class NotificationRepository implements INotificationRepository {
         try {
             const userId = await this.getUserId();
             this.runBackgroundTasks(userId).catch(e => log.debug('Background tasks deferred', e));
-            return this.offlineAdapter.getAll(userId);
+            const notifications = await this.offlineAdapter.getAll(userId);
+            return notifications.sort((a, b) => 
+                new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            );
         } catch (error) {
             log.error('Failed to get notifications from SSOT', error);
             return [];

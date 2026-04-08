@@ -83,6 +83,12 @@ export class DeviceSecretRepository {
     private static readFromStorage(): Task<Error, string> {
         return Task.fromPromise(async () => {
             const stored = await SecureStore.getItemAsync(SECRET_KEY);
+            log.info('[DEVICE_SECRET_REPO] Reading from SecureStore', {
+                key: SECRET_KEY,
+                hasValue: !!stored,
+                valueLength: stored ? stored.length : 0,
+                first10Chars: stored ? stored.substring(0, 10) + '...' : 'N/A'
+            });
             if (!stored) throw new Error(CRYPTO_MESSAGES.DEVICE_SECRET_NOT_FOUND);
             return stored;
         });
@@ -90,6 +96,11 @@ export class DeviceSecretRepository {
 
     private static saveToStorage(secret: string): Task<Error, string> {
         return Task.fromPromise(async () => {
+            log.info('[DEVICE_SECRET_REPO] Saving to SecureStore', {
+                key: SECRET_KEY,
+                secretLength: secret.length,
+                first10Chars: secret.substring(0, 10) + '...'
+            });
             await SecureStore.setItemAsync(SECRET_KEY, secret);
             return secret;
         });

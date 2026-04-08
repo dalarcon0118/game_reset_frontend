@@ -314,11 +314,23 @@ class AuthRepositoryImpl implements IAuthRepository {
 
                     // FASE 1 Zero Trust: Propagar el secreto y el anchor al módulo criptográfico
                     if (onlineResult.data.dailySecret && this.deviceSecretRepo) {
+                        log.info('[AUTH_REPO] Saving dailySecret to DeviceSecretRepository', {
+                            dailySecret: onlineResult.data.dailySecret.substring(0, 10) + '...',
+                            hasDeviceSecretRepo: !!this.deviceSecretRepo
+                        });
                         this.deviceSecretRepo.saveDailySecret(onlineResult.data.dailySecret).fork().then(
-                            res => { if (res.isErr()) log.error('Failed to save daily secret', res.error); }
+                            res => {
+                                if (res.isErr()) {
+                                    log.error('[AUTH_REPO] Failed to save daily secret', res.error);
+                                } else {
+                                    log.info('[AUTH_REPO] Daily secret saved successfully', { secret: res.value.substring(0, 10) + '...' });
+                                }
+                            }
                         );
                     } else if (onlineResult.data.dailySecret) {
-                        log.error('Cannot save daily secret: DeviceSecretRepository not injected');
+                        log.error('[AUTH_REPO] Cannot save daily secret: DeviceSecretRepository not injected');
+                    } else {
+                        log.warn('[AUTH_REPO] No dailySecret in onlineResult.data - backend did not send it');
                     }
 
                     if (onlineResult.data.timeAnchor && this.timeAnchorRepo) {

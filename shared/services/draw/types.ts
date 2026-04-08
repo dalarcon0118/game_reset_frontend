@@ -59,6 +59,8 @@ export interface ExtendedDrawType extends DrawType {
     code: string;
   };
   prize_config?: PrizeConfig;
+  betting_start_time_display?: string;
+  betting_end_time_display?: string;
 }
 
 export interface DrawClosureConfirmation {

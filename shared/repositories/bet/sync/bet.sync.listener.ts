@@ -126,28 +126,24 @@ export class BetSyncListener {
                 }))
                     .tap(() => log.info(`[BET-SYNC-FLOW] Estado de apuesta ${entityId} actualizado a: synced`))
                     .tap(() => {
-                        // Notificar éxito de sincronización
                         if (!bet || !bet.receiptCode) {
                             return;
                         }
-                        if (this.shouldNotifySuccess(bet.receiptCode, backendId)) {
-                            log.info(`[BET-NOTIFICATION] Creando notificación de éxito para apuesta ${bet.receiptCode}`);
-                            const externalKey = `bet-synced:${bet.receiptCode}`;
-                            this.notificationRepository.addNotification({
-                                title: BET_LOGS.NOTIF_SYNC_SUCCESS_TITLE,
-                                message: BET_LOGS.NOTIF_SYNC_SINGLE_SUCCESS_MSG(bet.receiptCode),
-                                type: 'success',
-                                metadata: {
-                                    receiptCode: bet.receiptCode,
-                                    drawId: bet.drawId,
-                                    backendId: backendId
-                                }
-                            }, externalKey)
-                                .then(() => log.info(`[BET-NOTIFICATION] ✅ Notificación de éxito creada para ${bet.receiptCode}`))
-                                .catch(e => log.warn(`[BET-NOTIFICATION] ❌ Failed to create success notification for ${bet.receiptCode}`, e));
-                            return;
-                        }
-                        log.debug(`[BET-NOTIFICATION] Notificación duplicada omitida para ${bet.receiptCode}`);
+                        log.info(`[BET-NOTIFICATION] Creando notificación de éxito para apuesta ${bet.receiptCode}`);
+                        const externalKey = `bet-synced:${bet.receiptCode}`;
+                        this.notificationRepository.addNotification({
+                            title: BET_LOGS.NOTIF_SYNC_SUCCESS_TITLE,
+                            message: BET_LOGS.NOTIF_SYNC_SUCCESS_DETAIL(bet.receiptCode, String(bet.drawId), bet.amount),
+                            type: 'success',
+                            metadata: {
+                                receiptCode: bet.receiptCode,
+                                drawId: bet.drawId,
+                                amount: bet.amount,
+                                backendId
+                            }
+                        }, externalKey)
+                            .then(() => log.info(`[BET-NOTIFICATION] ✅ Notificación de éxito creada para ${bet.receiptCode}`))
+                            .catch(e => log.warn(`[BET-NOTIFICATION] ❌ Failed to create success notification for ${bet.receiptCode}`, e));
                     });
             })
             .tapError(e => log.error(`[BET-SYNC-FLOW] Error en handleSyncSuccess para apuesta ${entityId}`, e));

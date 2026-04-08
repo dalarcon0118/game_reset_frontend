@@ -1,6 +1,6 @@
 import { Model } from './model';
 import { Sub } from '@core/tea-utils';
-import { SYNC_STATE, BATCH_OFFLINE_UPDATE, DrawTotalsUpdate, TICK } from './msg';
+import { SYNC_STATE, BATCH_OFFLINE_UPDATE, DrawTotalsUpdate } from './msg';
 import { logger } from '@/shared/utils/logger';
 import { extractHostState, createDrawsHash, HostStatePayload } from './host.adapter';
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
@@ -213,20 +213,6 @@ export const subscriptions = (model: Model) => {
         unsubscribe();
         log.debug('Bet totals subscription cleanup');
       };
-    }, 'draws-list-dashboard-watch'),
-
-    // Countdown: Sub.custom permite acceder a Date.now() directamente en cada tick
-    Sub.custom((dispatch) => {
-      log.info('Starting draws countdown timer (1s interval)');
-
-      const intervalId = setInterval(() => {
-        dispatch(TICK(Date.now()));
-      }, 1000);
-
-      return () => {
-        log.info('Stopping draws countdown timer');
-        clearInterval(intervalId);
-      };
-    }, 'draws-list-countdown')
+    }, 'draws-list-dashboard-watch')
   ]);
 };

@@ -1,6 +1,32 @@
 import { ExtendedDrawType, BackendDraw } from '../types/types';
 import { GameRegistry } from '../../../../core/registry/game_registry';
 
+const formatLocalTime = (utcTimestamp: string | null | undefined): string => {
+  if (!utcTimestamp) return 'N/A';
+  try {
+    const date = new Date(utcTimestamp);
+    if (isNaN(date.getTime())) return 'N/A';
+    return date.toLocaleTimeString('es-ES', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+  } catch {
+    return 'N/A';
+  }
+};
+
+const formatLocalDate = (utcTimestamp: string | null | undefined): string => {
+  if (!utcTimestamp) return 'N/A';
+  try {
+    const date = new Date(utcTimestamp);
+    if (isNaN(date.getTime())) return 'N/A';
+    return date.toLocaleDateString('es-ES');
+  } catch {
+    return 'N/A';
+  }
+};
+
 export const mapStatus = (
   backendStatus: string,
   bettingStart: string | null,
@@ -70,10 +96,7 @@ export const mapBackendDrawToFrontend = (backendDraw: BackendDraw): ExtendedDraw
       code: backendDraw.draw_type_details?.code,
       name: backendDraw.name
     }),
-    date: new Date(backendDraw.draw_datetime).toLocaleDateString('es-ES'),
-    time: new Date(backendDraw.draw_datetime).toLocaleTimeString('es-ES', {
-      hour: '2-digit',
-      minute: '2-digit'
-    })
+    date: formatLocalDate(backendDraw.draw_datetime),
+    time: formatLocalTime(backendDraw.draw_datetime)
   };
 };
