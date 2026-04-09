@@ -68,6 +68,8 @@ export const update = (model: Model, msg: Msg.Msg): Return<Model, Msg.Msg> => {
     // SSOT: Totales financieros desde BetRepository
     .with(Msg.BATCH_OFFLINE_UPDATE.type(), (m) =>
       handleBatchFinancialUpdate(model, m.payload))
+    .with(Msg.TICK.type(), () =>
+      ret(model, Cmd.none))
     .with(Msg.NOOP.type(), () =>
       ret(model, Cmd.none))
     .exhaustive();
@@ -87,10 +89,11 @@ function handleSyncState(
   const currentDrawsData = (model.draws as any).data || [];
   const nextDrawsData = (payload.draws as any).data || [];
 
-  log.debug('handleSyncState called', {
-    currentDrawsType: model.draws.type,
-    newDrawsType: payload.draws.type,
-    drawsCount: nextDrawsData.length
+  log.debug('handleSyncState (Input from Host):', {
+    hostState: payload.draws.type,
+    localState: model.draws.type,
+    hostDrawsCount: nextDrawsData.length,
+    localDrawsCount: currentDrawsData.length
   });
 
   // 🛡️ PROTECCIÓN CONTRA RE-MONTAJE:
@@ -100,7 +103,10 @@ function handleSyncState(
   const isHostResetting = model.draws.type === 'Success' && payload.draws.type !== 'Success';
 
   if (isHostResetting) {
-    log.info('🛡️ Protection: Host is resetting (NotAsked/Loading), keeping local Success data');
+    log.info('🛡️ Protection: Host is resetting (NotAsked/Loading), keeping local Success data', {
+      localStatus: model.draws.type,
+      hostStatus: payload.draws.type
+    });
     // Solo actualizamos filtro y resumen si han cambiado, pero mantenemos nuestros draws
     return ret({
       ...model,

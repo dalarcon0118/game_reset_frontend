@@ -16,7 +16,7 @@ const syncSingleBet = async (
     bet: any,
     storage: IBetStorage,
     api: IBetApi
-): Promise<Result<Error, void>> => {
+): Promise<Result<Error, { structureTotalCollected?: number; structureId?: number }>> => {
     const amount = Number(bet.amount) || 0;
     const structureId = bet.ownerStructure;
     if (amount <= 0 || !structureId) {
@@ -27,7 +27,7 @@ const syncSingleBet = async (
     try {
         log.info(`[SYNC-BET-FLOW] 2. Iniciando sincronización de apuesta: ${bet.externalId}`);
         const response = await api.create(bet as any, bet.externalId);
-        const backendBets = Array.isArray(response) ? response : [response];
+        const backendBets = response.bets;
 
         const betTypesResult = await drawRepository.getBetTypes(String(bet.drawId || '')) as any;
         const betTypes: GameType[] = betTypesResult.isOk()
@@ -42,7 +42,7 @@ const syncSingleBet = async (
         const mappedBets = backendBets.map(b => mapBackendBetToFrontend(b, betTypes));
         log.info(`[SYNC-BET-FLOW] 3. Sincronización exitosa para apuesta: ${bet.externalId}. Actualizando estado...`);
         await storage.updateStatus(bet.externalId, 'synced', { backendBets: mappedBets });
-        return Result.ok(undefined);
+        return Result.ok({ structureTotalCollected: response.structureTotalCollected, structureId: response.structureId });
     } catch (error) {
         log.error(`[SYNC-BET-FLOW] 4. FALLO en sincronización de apuesta: ${bet.externalId}`, error);
 
@@ -103,12 +103,14 @@ export const syncPendingFlow = async (
     storage: IBetStorage,
     api: IBetApi,
     currentUserId?: number
-): Promise<{ success: number; failed: number; successBets: string[]; failedBets: { receiptCode: string; error: string }[] }> => {
+): Promise<{ success: number; failed: number; successBets: string[]; failedBets: { receiptCode: string; error: string }[]; structureTotalCollected?: number; structureId?: number }> => {
     const pending = await storage.getPending();
     let success = 0;
     let failed = 0;
     const successBets: string[] = [];
     const failedBets: { receiptCode: string; error: string }[] = [];
+    let structureTotalCollected: number | undefined;
+    let structureId: number | undefined;
 
     for (const bet of pending) {
         // ==========================================================================
@@ -159,6 +161,10 @@ export const syncPendingFlow = async (
         if (res.isOk()) {
             success++;
             successBets.push(bet.receiptCode || 'Sin código');
+            if (res.value.structureTotalCollected !== undefined) {
+                structureTotalCollected = res.value.structureTotalCollected;
+                structureId = res.value.structureId;
+            }
         } else {
             failed++;
             failedBets.push({
@@ -168,5 +174,5 @@ export const syncPendingFlow = async (
         }
     }
 
-    return { success, failed, successBets, failedBets };
+    return { success, failed, successBets, failedBets, structureTotalCollected, structureId };
 };

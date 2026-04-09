@@ -12,12 +12,16 @@ import { offlineStorage } from '@core/offline-storage/instance';
 import { IDrawRepository, DrawFinancialState } from './draw.ports';
 import { STORAGE_TTL } from '@core/offline-storage/types';
 
+import { toLocalISODate } from '@/shared/utils/formatters';
+
 // Constantes y Predicados puros
 const HAS_DRAW_STORAGE_KEY = 'has_draw_available';
 
 const isTodayDraw = (draw: BackendDraw) => {
-    const today = new Date().toISOString().split('T')[0];
-    return draw.draw_datetime.startsWith(today);
+    const today = toLocalISODate(Date.now());
+    // Convertimos la fecha del sorteo a local para comparar peras con peras
+    const drawLocalDate = toLocalISODate(new Date(draw.draw_datetime).getTime());
+    return drawLocalDate === today;
 };
 
 // Simple logger interface for type safety
@@ -80,7 +84,7 @@ export class DrawRepository implements IDrawRepository {
         return ResultAsync.fromPromise(isServerReachable(), e => e as Error)
             .andThen(isOnline => isOnline
                 ? this.fetchAndCacheRemote(params, structureId)
-                : err(new Error('Offline: No valid cached draws for today')))
+                : err(new Error('No internet connection and no cached draws available')))
             .map(draws => this.mapDrawsToFrontend(draws, structureId));
     }
 
@@ -95,14 +99,14 @@ export class DrawRepository implements IDrawRepository {
                 cachedExtraData: (cachedDraw as any).extra_data,
                 cachedAllKeys: Object.keys(cachedDraw)
             });
-            return ok(mapBackendDrawToFrontend(cachedDraw));
+            return ok<ExtendedDrawType, Error>(mapBackendDrawToFrontend(cachedDraw));
         }
 
         this.log.info('Cache miss: fetching draw from remote', { id });
 
         // 2. REMOTE-FALLBACK
-        return ResultAsync.fromPromise(this.api.getOne(id), e => e as Error)
-            .andThen(async (draw) => {
+        const result = await ResultAsync.fromPromise(this.api.getOne(id), e => e as Error)
+            .andThen((draw: BackendDraw) => {
                 this.log.info('📡 [DEBUG] Remote draw received:', {
                     drawId: draw.id,
                     hasPrizeConfig: !!(draw as any).prize_config,
@@ -110,35 +114,44 @@ export class DrawRepository implements IDrawRepository {
                     remoteExtraData: (draw as any).extra_data,
                     remoteAllKeys: Object.keys(draw)
                 });
-                await this.offlineAdapter.saveDraws([draw]); // Background save
-                return ok(mapBackendDrawToFrontend(draw));
+                this.offlineAdapter.saveDraws([draw]); // Background save
+                return ok<ExtendedDrawType, Error>(mapBackendDrawToFrontend(draw));
             })
-            .orElse(async (apiError) => {
-                const isOnline = await isServerReachable();
-                return err(isOnline
-                    ? apiError
-                    : new Error(`Offline: No se pudo obtener el sorteo ${id} y no está en caché`));
+            .orElse((apiError: Error) => {
+                return ResultAsync.fromPromise(isServerReachable(), e => e as Error)
+                    .andThen(isOnline => {
+                        return isOnline
+                            ? err<ExtendedDrawType, Error>(apiError)
+                            : err<ExtendedDrawType, Error>(new Error(`Offline: No se pudo obtener el sorteo ${id} y no está en caché`));
+                    });
             });
+
+        return result;
     }
 
     async getBetTypes(drawId: string | number): Promise<Result<BetType[], Error>> {
+        if (!drawId) {
+            return ok<BetType[], Error>([]);
+        }
         // 1. DISCO PRIMERO: Retorno inmediato sin chequeos de red ni sesión
         const cachedTypes = await this.offlineAdapter.getBetTypes(drawId);
         if (cachedTypes && cachedTypes.length > 0) {
             this.log.debug('Disco Hit: devolviendo tipos de apuesta instantáneamente', { drawId });
-            return ok(cachedTypes);
+            return ok<BetType[], Error>(cachedTypes);
         }
 
         // 2. RED SEGUNDO: Solo si no hay caché iniciamos el flujo de red
         this.log.info('No hay caché de tipos de apuesta, iniciando petición de red', { drawId });
-        return ResultAsync.fromPromise(isServerReachable(), e => e as Error)
+        const result = await ResultAsync.fromPromise(isServerReachable(), e => e as Error)
             .andThen(isOnline => isOnline
                 ? ResultAsync.fromPromise(this.api.getBetTypes(drawId), e => e as Error)
-                : err(new Error(`Offline: Tipos de apuesta no encontrados para sorteo ${drawId}`)))
-            .andThen(async (types) => {
-                if (types.length > 0) await this.offlineAdapter.saveBetTypes(drawId, types);
-                return ok(types);
+                : err<BetType[], Error>(new Error(`Offline: Tipos de apuesta no encontrados para sorteo ${drawId}`)))
+            .andThen((types: BetType[]) => {
+                if (types.length > 0) this.offlineAdapter.saveBetTypes(drawId, types);
+                return ok<BetType[], Error>(types);
             });
+
+        return result;
     }
 
     // ============================================================================
@@ -149,19 +162,24 @@ export class DrawRepository implements IDrawRepository {
         try {
             const draws = await this.getCachedDraws(structureId);
             const validDraws = draws.filter(isTodayDraw);
-            return ok(validDraws);
+            this.log.debug('getValidCachedDraws evaluation', {
+                totalInCache: draws.length,
+                validForToday: validDraws.length,
+                structureId
+            });
+            return ok<BackendDraw[], Error>(validDraws);
         } catch (error) {
-            return err(error as Error);
+            return err<BackendDraw[], Error>(error as Error);
         }
     }
 
     private fetchAndCacheRemote(params: any, structureId?: number): ResultAsync<BackendDraw[], Error> {
         return ResultAsync.fromPromise(this.api.list(params), e => e as Error)
-            .andThen(async (draws) => {
+            .andThen((draws: BackendDraw[]) => {
                 if (draws.length > 0) {
-                    await this.cacheDraws(draws, structureId);
+                    this.cacheDraws(draws, structureId);
                 }
-                return ok(draws);
+                return ok<BackendDraw[], Error>(draws);
             });
     }
 
@@ -321,29 +339,49 @@ export class DrawRepository implements IDrawRepository {
      * como fallback para mantener consistencia.
      */
     async hasDrawAvailable(): Promise<boolean> {
+        this.log.debug('[hasDrawAvailable] Verificando disponibilidad de sorteos para login offline');
         try {
-            // 1. Verificar el flag primero (optimización para evitar lectura de BD)
             const hasDrawFlag = await offlineStorage.get<boolean>(HAS_DRAW_STORAGE_KEY);
+            this.log.debug('[hasDrawAvailable] Flag hasDraw storage', { hasDrawFlag });
 
-            // 2. Si el flag es false, retornar false inmediatamente
             if (hasDrawFlag !== true) {
+                this.log.info('[hasDrawAvailable] Flag es false/null - denegando login offline', { hasDrawFlag });
                 return false;
             }
 
-            // 3. Verificar directamente la caché (fallback para mantener consistencia)
             const cachedDraws = await this.offlineAdapter.getAll();
             const hasDrawsInCache = cachedDraws.length > 0;
+            this.log.debug('[hasDrawAvailable] Cache verificada', {
+                cachedDrawsCount: cachedDraws.length,
+                hasDrawsInCache
+            });
 
-            // 4. Si hay inconsistencia entre flag y caché, corregir el flag
             if (!hasDrawsInCache && hasDrawFlag === true) {
-                this.log.warn('Inconsistency detected: flag is true but cache is empty, fixing flag');
+                this.log.warn('[hasDrawAvailable] Inconsistencia detectada: flag true pero cache vacía, corrigiendo flag');
                 await offlineStorage.set(HAS_DRAW_STORAGE_KEY, false);
             }
 
+            this.log.info('[hasDrawAvailable] Resultado final', { hasDrawsInCache });
             return hasDrawsInCache;
         } catch (error) {
-            this.log.error('Error checking hasDrawAvailable', error);
-            // Por seguridad, denegar offline si hay error
+            this.log.error('[hasDrawAvailable] Error al verificar disponibilidad', error);
+            return false;
+        }
+    }
+
+    async hasDrawAvailableForStructure(structureId: string | number): Promise<boolean> {
+        this.log.debug('[hasDrawAvailableForStructure] Verificando sorteos para estructura', { structureId });
+        try {
+            const cachedDraws = await this.offlineAdapter.getAll(structureId);
+            const hasDrawsInCache = cachedDraws.length > 0;
+            this.log.info('[hasDrawAvailableForStructure] Resultado', {
+                structureId,
+                cachedDrawsCount: cachedDraws.length,
+                hasDrawsInCache
+            });
+            return hasDrawsInCache;
+        } catch (error) {
+            this.log.error('[hasDrawAvailableForStructure] Error al verificar disponibilidad', error);
             return false;
         }
     }

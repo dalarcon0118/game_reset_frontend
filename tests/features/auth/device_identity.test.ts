@@ -9,7 +9,7 @@ import MockAdapter from 'axios-mock-adapter';
 import { settings } from '@/config/settings';
 import NetInfo from '@react-native-community/netinfo';
 import { logger } from '@/shared/utils/logger';
-import { Transport } from '@/shared/services/api_client/infra/transport';
+import { Transport } from '@/shared/services/api_client/infra';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Mock de Axios para el ApiClient

@@ -84,10 +84,11 @@ export const DataHandler = {
     },
 
     handleDrawsReceived: (model: Model, webData: WebData<DrawType[]>): Return<Model, Msg> => {
-        log.info('[DIAGNOSTIC] handleDrawsReceived', {
+        log.info('[DIAGNOSTIC] Dashboard handleDrawsReceived', {
             state: webData.type,
             count: webData.type === 'Success' ? webData.data.length : 0,
-            modelStatus: model.status.type
+            currentDashboardStatus: model.status.type,
+            userStructureId: model.userStructureId
         });
 
         if (webData.type === 'Success' && !Array.isArray(webData.data)) {

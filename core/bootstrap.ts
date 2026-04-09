@@ -31,7 +31,9 @@ const bootstrapInfrastructure = () => {
         apiClient.config({
             settings,
             log: logger.withTag('API_CLIENT'),
-            deviceIdProvider: () => deviceRepository.getUniqueId()
+            deviceIdProvider: () => deviceRepository.getUniqueId(),
+            timeSync: TimerRepository,
+            timeIntegrity: TimerRepository
         });
         log.debug('API Client configured with Device Identity Provider');
 

@@ -47,7 +47,23 @@ export interface BackendBet {
         chainHash?: string;
         nonce?: string;
         timeAnchorSignature?: string;
+        raw_payload?: string;
     };
+}
+
+export interface CreateBetResponse {
+    bets: BackendBet[];
+    structureTotalCollected: number;
+    structureId: number;
+}
+
+export interface SyncPendingResult {
+    success: number;
+    failed: number;
+    successBets: string[];
+    failedBets: { receiptCode: string; error: string }[];
+    structureTotalCollected?: number;
+    structureId?: number;
 }
 
 export interface SortParam {
@@ -137,9 +153,10 @@ export interface IBetRepository {
     placeBet(betData: BetPlacementInput): Promise<Result<Error, BetRepositoryResult>>;
     placeBatch(bets: BetPlacementInput[]): Promise<Result<Error, BetType[]>>;
     getBets(filters?: ListBetsFilters): Promise<Result<Error, BetType[]>>;
+    getBetsOfflineFirst(filters?: ListBetsFilters): Promise<Result<Error, BetType[]>>;
     getPendingBets(): Promise<BetDomainModel[]>;
     addPendingBet(bet: BetDomainModel): Promise<void>;
-    syncPending(): Promise<{ success: number; failed: number }>;
+    syncPending(): Promise<{ success: number; failed: number; successBets: string[]; failedBets: { receiptCode: string; error: string }[]; structureTotalCollected?: number; structureId?: number }>;
     applyMaintenance(): Promise<void>;
     cleanup(today: string): Promise<number>;
     recoverStuckBets(): Promise<number>;
@@ -197,7 +214,7 @@ export interface IBetStorage {
  * Port for Bet API (Network)
  */
 export interface IBetApi {
-    create(bet: BetDomainModel, idempotencyKey: string): Promise<BackendBet | BackendBet[]>;
+    create(bet: BetDomainModel, idempotencyKey: string): Promise<CreateBetResponse>;
     checkStatus(idempotencyKey: string): Promise<{ synced: boolean; bets?: BackendBet[] }>;
     list(filters?: ListBetsFilters): Promise<BackendBet[]>;
     delete(betId: number): Promise<void>;

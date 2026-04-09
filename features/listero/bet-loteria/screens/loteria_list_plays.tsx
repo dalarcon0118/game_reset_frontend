@@ -114,10 +114,11 @@ const styles = StyleSheet.create({
     contentContainer: {
         flexGrow: 1,
         minHeight: '101%',
+        paddingBottom: LayoutConstants.spacing.md,
     },
     content: {
         flex: 1,
-        paddingTop: 16,
+        paddingTop: LayoutConstants.spacing.xs,
     },
     footer: {
         padding: LayoutConstants.spacing.sm,

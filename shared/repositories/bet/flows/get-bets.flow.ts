@@ -293,7 +293,7 @@ export const getBetsFlow = (
     // We use a shorter timeout (4000ms) than the global repository timeout (8000ms)
     // so that if the network is slow, we fallback to offline data gracefully
     // before the entire flow gets aborted by the global timeout.
-    const timeoutMs = 4000;
+    const timeoutMs = 1000;
     const timeoutPromise = new Promise<any[]>((_, reject) =>
         setTimeout(() => reject(new Error(`Bet API timeout after ${timeoutMs}ms`)), timeoutMs)
     );
@@ -316,4 +316,137 @@ export const getBetsFlow = (
             const res = mergeBets(ctx);
             return res.isOk() ? Task.succeed(res.value) : Task.fail(res.error);
         });
+};
+
+const buildStorageFilters = (filters?: ListBetsFilters): any => {
+    const storageFilters: any = {};
+    if (filters?.drawId) storageFilters.drawId = filters.drawId;
+    if (filters?.receiptCode) storageFilters.receiptCode = filters.receiptCode;
+    if (filters?.date) {
+        storageFilters.date = typeof filters.date === 'number'
+            ? filters.date
+            : new Date(filters.date).getTime();
+    }
+    return storageFilters;
+};
+
+const fetchOnlineWithTimeout = async (
+    api: IBetApi,
+    filters: ListBetsFilters | undefined,
+    timeoutMs: number
+): Promise<any[]> => {
+    const timeoutPromise = new Promise<any[]>((_, reject) =>
+        setTimeout(() => reject(new Error(`Online timeout after ${timeoutMs}ms`)), timeoutMs)
+    );
+    try {
+        return await Promise.race([api.list(filters), timeoutPromise]);
+    } catch (e) {
+        const isTimeout = e?.message?.includes('timeout');
+        log[isTimeout ? 'info' : 'warn']('Online fetch failed', { error: e?.message });
+        return [];
+    }
+};
+
+const fetchTypesWithTimeout = async (
+    drawId: string,
+    timeoutMs: number
+): Promise<GameType[]> => {
+    try {
+        const timeoutPromise = new Promise<Result<any, any>>((resolve) =>
+            setTimeout(() => resolve(Result.error(new Error('Types timeout'))), timeoutMs)
+        );
+        const res = await Promise.race([
+            drawRepository.getBetTypes(drawId || ''),
+            timeoutPromise
+        ]);
+        if (res.isOk()) {
+            return (res.value as any[]).map(mapToGameType);
+        }
+    } catch (e) {
+        log.warn('Types fetch failed', { error: e?.message });
+    }
+    return [];
+};
+
+export interface HydratedBets {
+    bets: BetType[];
+    isFromOnline: boolean;
+    timestamp: number;
+}
+
+/**
+ * getBetsOfflineFirst - Hidratación en background con datos offline inmediatos.
+ * 
+ * Estrategia:
+ * 1. YIELD 1: Retorna inmediatamente con datos del storage local (~50ms)
+ * 2. BACKGROUND: Hace fetch online en paralelo (timeout 1s)
+ * 3. YIELD 2: Cuando la API responde, retorna datos mergeados (offline + online status)
+ * 
+ * El caller recibe datos inmediatos para renderizar, y luego recibe actualización
+ * cuando la API responde sin bloquear el thread principal.
+ */
+export const getBetsOfflineFirst = async function* (
+    storage: IBetStorage,
+    api: IBetApi,
+    filters?: ListBetsFilters
+): AsyncGenerator<HydratedBets, void, unknown> {
+    log.info('getBetsOfflineFirst starting', { filters });
+
+    // YIELD 1: Offline inmediatamente - no esperamos nada más
+    const storageFilters = buildStorageFilters(filters);
+    const offlineBetsRaw = await storage.getFiltered(storageFilters);
+    const onlineIdentitySets = buildOnlineIdentitySets([]);
+
+    const reconciledOffline = (offlineBetsRaw as any[]).filter((bet: any) =>
+        shouldKeepOfflineBet(bet, onlineIdentitySets)
+    );
+    const offlineBets = mapPendingBetsToFrontend(reconciledOffline, filters, []);
+
+    log.info('getBetsOfflineFirst YIELD 1 (offline)', { count: offlineBets.length });
+    yield {
+        bets: offlineBets as BetType[],
+        isFromOnline: false,
+        timestamp: Date.now()
+    };
+
+    // BACKGROUND: Fetch online y types en paralelo (no bloquea)
+    const [onlineBetsRaw, betTypes] = await Promise.all([
+        fetchOnlineWithTimeout(api, filters, 1000),
+        fetchTypesWithTimeout(filters?.drawId || '', 1000)
+    ]);
+
+    // Merge: Offline es SSOT, online solo actualiza status
+    const ctx: GetBetsContext = {
+        filters,
+        betTypes,
+        offlineBets: offlineBets as BetType[],
+        onlineBets: []
+    };
+
+    // Map online bets
+    const onlineMapped = (onlineBetsRaw as any[])
+        .map((b: any) => {
+            try { return mapBackendBetToFrontend(b, betTypes); }
+            catch (e) {
+                log.warn('Mapping error for bet', { betId: b.id, error: e });
+                return null;
+            }
+        })
+        .filter(Boolean) as BetType[];
+
+    ctx.onlineBets = onlineMapped;
+
+    const mergedResult = mergeBets(ctx);
+    const mergedBets = mergedResult.isOk() ? mergedResult.value : ctx.offlineBets;
+
+    log.info('getBetsOfflineFirst YIELD 2 (merged)', {
+        count: mergedBets.length,
+        fromOnline: onlineMapped.length
+    });
+
+    yield {
+        bets: mergedBets,
+        isFromOnline: true,
+        timestamp: Date.now()
+    };
 };

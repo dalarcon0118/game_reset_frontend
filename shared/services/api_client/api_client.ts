@@ -17,7 +17,7 @@ import { TokenState } from '@/shared/auth/session/session.types';
 import { CacheManager } from './core/cache_manager';
 import { ErrorManager } from './core/error_manager';
 import { RequestExecutor } from './core/request_executor';
-import { Transport } from './infra/transport';
+import { Transport } from './infra';
 
 export interface ApiClientConfig {
   tokenStorageGetter?: () => TokenStoragePort;

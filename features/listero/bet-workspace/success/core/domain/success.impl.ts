@@ -67,22 +67,47 @@ export const SuccessImpl = {
         // FASE 5: Construir URL de auditoría pública usando la URL base de settings
         const serverHost = settings.api.baseUrl.replace(/\/api$/, '');
 
-        // Zero Trust V2: Construir URL con receiptCode para resolver TODAS las apuestas del recibo
+        // Zero Trust V2: Construir URL de auditoría con datos criptográficos
+        // SIEMPRE usar uid+hash+raw cuando estén disponibles (sin importar sync status)
+        // El QR debe permitir verificación offline completa
         let auditUrl: string | undefined = undefined;
-        if (finalReceiptCode && finalReceiptCode !== UI_CONSTANTS.EMPTY_RECEIPT_CODE) {
-            // Usar receiptCode como parámetro principal para que el backend resuelva todas las apuestas
-            auditUrl = `${serverHost}/public/audit/?rc=${finalReceiptCode}`;
-        } else if (firstFingerprint) {
-            // Fallback a hash individual si no hay receiptCode
-            const uid = firstBet?.ownerUser || firstBet?.owner_user_id;
-            const rawPayload = firstBet?.fingerprint?.raw_payload;
+        const rawPayload = firstBet?.fingerprint?.raw_payload;
+        const directUid = firstBet?.ownerUser || firstBet?.owner_user_id;
 
-            if (rawPayload && uid) {
-                const encodedPayload = encodeURIComponent(rawPayload);
-                auditUrl = `${serverHost}/public/audit/?uid=${uid}&hash=${firstFingerprint}&raw=${encodedPayload}`;
-            } else {
-                auditUrl = `${serverHost}/public/audit/?hash=${firstFingerprint}`;
+        let uid = directUid;
+        if (!uid && rawPayload) {
+            try {
+                const payloadObj = JSON.parse(rawPayload);
+                uid = payloadObj.uid;
+                log.info('🔐 [QR_AUDIT_URL] Extracted uid from raw_payload:', { uid });
+            } catch (e) {
+                log.warn('🔐 [QR_AUDIT_URL] Failed to parse raw_payload for uid');
             }
+        }
+
+        log.info('🔐 [QR_AUDIT_URL] Deciding URL format:', {
+            hasFinalReceiptCode: !!finalReceiptCode,
+            finalReceiptCode,
+            hasFirstFingerprint: !!firstFingerprint,
+            hasRawPayload: !!rawPayload,
+            rawPayloadLength: rawPayload?.length || 0,
+            hasUid: !!uid,
+            uid,
+            firstBetStatus: firstBet?.status,
+            syncContext: firstBet?.syncContext
+        });
+
+        // Prioridad: 1) uid+hash+data (base64) > 2) rc (fallback) > 3) hash nomas
+        if (firstFingerprint && rawPayload && uid) {
+            const encodedPayload = btoa(rawPayload);
+            auditUrl = `${serverHost}/public/audit/?uid=${uid}&hash=${firstFingerprint}&data=${encodedPayload}`;
+            log.info('🔐 [QR_AUDIT_URL] Generated CRYPTO URL:', { auditUrl: auditUrl.substring(0, 200) });
+        } else if (finalReceiptCode && finalReceiptCode !== UI_CONSTANTS.EMPTY_RECEIPT_CODE) {
+            auditUrl = `${serverHost}/public/audit/?rc=${finalReceiptCode}`;
+            log.info('🔐 [QR_AUDIT_URL] Generated RC FALLBACK URL:', { auditUrl });
+        } else if (firstFingerprint) {
+            auditUrl = `${serverHost}/public/audit/?hash=${firstFingerprint}`;
+            log.info('🔐 [QR_AUDIT_URL] Generated HASH ONLY URL:', { auditUrl });
         }
 
         const metadata = SuccessImpl.calculateMetadata(draw, firstFingerprint, auditUrl);

@@ -71,7 +71,7 @@ export const styles = StyleSheet.create({
     fontWeight: '500',
   },
   keypadContainer: {
-    width: '100%',
+    width: '85%',
     paddingBottom: 10,
   },
   row: {

@@ -14,7 +14,7 @@ import { SessionPolicy } from '@/shared/auth/session/session.policy';
 import { SessionPolicyContext, TokenState } from '@/shared/auth/session/session.types';
 import { CacheManager } from './cache_manager';
 import { ErrorManager } from './error_manager';
-import { Transport } from '../infra/transport';
+import { Transport } from '../infra';
 
 type RequestExecutionOptions = Omit<
   RequestOptions,
@@ -435,11 +435,14 @@ export class RequestExecutor {
       return null;
     }
 
-    // Si llegamos aquí, el refresh falló o no era un 401. 
-    // Invocamos el handler global si existe (CoreModule se encargará del logout/signal)
-    const globalHandler = this.getErrorHandler();
-    if (globalHandler) {
-      await globalHandler(error, context.endpoint, context.options);
+    // Si llegamos aquí, el refresh falló o no era un 401.
+    // Solo invocamos el globalHandler para errores 401/403 (autenticación)
+    // 504 y otros errores de servidor NO deben disparar logout
+    if (status === 401 || status === 403) {
+      const globalHandler = this.getErrorHandler();
+      if (globalHandler) {
+        await globalHandler(error, context.endpoint, context.options);
+      }
     }
 
     return null;

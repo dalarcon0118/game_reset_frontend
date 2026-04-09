@@ -52,7 +52,7 @@ export const mapBackendBetToFrontend = (backendBet: BackendBet, betTypes: GameTy
             hash: backendBet.fingerprint_data.hash || '',
             version: backendBet.fingerprint_data.version || 1,
             chainHash: backendBet.fingerprint_data.chainHash || '',
-            raw_payload: '' // El backend no suele devolver el raw_payload por tamaño
+            raw_payload: backendBet.fingerprint_data.raw_payload || ''
         } : undefined
     };
 };

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, useColorScheme } from 'react-native';
 import { Eye } from 'lucide-react-native';
 import Colors from '@/constants/colors';
+import Layout from '@/constants/layout';
 import FijosCorridosColumn from './fijos_corridos_column';
 import { ParletColumn } from './parlet_column';
 import { CentenaColumn } from './centena_column';
@@ -54,11 +55,11 @@ export const BolitaListGroup: React.FC<BolitaListGroupProps> = ({
 
 const styles = StyleSheet.create({
     groupContainer: {
-        marginBottom: 10,
+        marginBottom: Layout.spacing.xxs,
     },
     groupHeader: {
         backgroundColor: '#f8f8f8',
-        padding: 8,
+        padding: Layout.spacing.xs,
         borderBottomWidth: 1,
         borderBottomColor: '#eee',
         flexDirection: 'row',
@@ -66,7 +67,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     groupHeaderText: {
-        fontSize: 14,
+        fontSize: 12,
         fontWeight: 'bold',
         color: '#666',
     },
@@ -75,7 +76,7 @@ const styles = StyleSheet.create({
     },
     gridContainer: {
         flexDirection: 'row',
-        paddingHorizontal: 8,
+        paddingHorizontal: Layout.spacing.xs,
     },
     columnWrapperFijos: { flex: 3, borderRightWidth: 1, borderRightColor: '#E8E8E8' },
     columnWrapperParlet: { flex: 2, borderRightWidth: 1, borderRightColor: '#E8E8E8' },

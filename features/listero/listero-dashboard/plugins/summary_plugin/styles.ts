@@ -2,9 +2,9 @@ import { StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({
   card: {
-    marginHorizontal: 16,
-    marginVertical: 8,
-    borderRadius: 20,
+    marginHorizontal: 12,
+    marginVertical: 6,
+    borderRadius: 16,
     borderWidth: 0,
     backgroundColor: '#FFFFFF',
     elevation: 3,
@@ -20,7 +20,7 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   title: {
     fontSize: 16,
@@ -32,32 +32,39 @@ export const styles = StyleSheet.create({
   },
   // Main Metrics (Top)
   mainMetricsContainer: {
+    flexDirection: 'row',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 10,
   },
-  mainMetricRow: {
+  mainMetricCard: {
+    flex: 1,
+    backgroundColor: '#F7F9FC',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+  },
+  mainMetricTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 4,
   },
   iconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 26,
+    height: 26,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
-  },
-  metricInfo: {
-    flex: 1,
+    marginRight: 6,
   },
   metricLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#8F9BB3',
-    fontWeight: '500',
+    fontWeight: '600',
     marginBottom: 0,
+    flexShrink: 1,
   },
   metricValue: {
-    fontSize: 18,
+    fontSize: 21,
     fontWeight: '800',
     color: '#1A2138',
   },
@@ -72,35 +79,46 @@ export const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#00D68F',
   },
-  // Divider
-  divider: {
-    height: 1,
-    backgroundColor: '#F7F9FC',
-    marginVertical: 2,
-  },
-  // Secondary Metrics (Bottom Row)
   secondaryMetricsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 10,
+    marginTop: 0,
+    gap: 6,
   },
   secondaryItem: {
     flex: 1,
-    alignItems: 'flex-start',
+    backgroundColor: '#FAFBFF',
+    borderRadius: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 6,
   },
   secondaryHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    gap: 3,
   },
   secondaryLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#8F9BB3',
     fontWeight: '600',
-    marginLeft: 4,
+    marginLeft: 3,
+    flexShrink: 1,
+  },
+  secondaryBadge: {
+    marginLeft: 3,
+    backgroundColor: '#EEF2FF',
+    borderRadius: 5,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+  },
+  secondaryBadgeText: {
+    fontSize: 9,
+    color: '#3366FF',
+    fontWeight: '700',
   },
   secondaryValue: {
-    fontSize: 15,
+    marginTop: 3,
+    fontSize: 18,
     fontWeight: '700',
     color: '#1A2138',
   },

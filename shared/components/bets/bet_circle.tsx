@@ -6,6 +6,7 @@ import Colors from '@/constants/colors';
 interface BetCircleProps {
   value: number | string;
   onPress?: () => void;
+  border?: boolean;
 }
 
 const BASE_SIZE = 40;
@@ -26,7 +27,7 @@ const getFontSize = (value: number | string): number => {
   return 12; // 4+ digits
 };
 
-export default function BetCircle({ value, onPress }: BetCircleProps) {
+export default function BetCircle({ value, onPress, border = true }: BetCircleProps) {
   const colorScheme = useColorScheme() ?? 'light';
   const size = getSizeForValue(value);
   const isFormattedLoteria = String(value).length >= 10;
@@ -35,6 +36,7 @@ export default function BetCircle({ value, onPress }: BetCircleProps) {
     <TouchableOpacity 
       style={[
         value === "+" ? styles.circle : styles.circleWithValue,
+        !border && styles.noBorder,
         { 
           borderColor: Colors[colorScheme].primary,
           width: size,
@@ -72,5 +74,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginHorizontal: 4,
+  },
+  noBorder: {
+    borderWidth: 0,
   },
 });

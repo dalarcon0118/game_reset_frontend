@@ -193,8 +193,7 @@ export const authStorageAdapter: IAuthStorage = {
     },
     async purgeLegacyData(): Promise<void> {
         try {
-            // Eliminar físicamente la clave antigua que causaba desincronización
-            await deleteSecureItem('auth_device_id');
+            await deleteSecureItem(AUTH_KEYS.LEGACY_DEVICE_ID);
             log.info(AUTH_LOGS.PURGE_LEGACY_DATA);
         } catch (error) {
             log.warn(AUTH_LOGS.PURGE_LEGACY_ERROR, error);

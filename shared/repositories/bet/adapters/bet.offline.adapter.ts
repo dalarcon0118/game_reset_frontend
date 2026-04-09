@@ -77,20 +77,33 @@ export class BetOfflineAdapter implements IBetStorage {
     async saveBatch(bets: BetDomainModel[]): Promise<void> {
         log.info(`[${BET_LOG_TAGS.OFFLINE_ADAPTER}] ${BET_LOGS.SAVING_BATCH}: ${bets.length} apuestas (Upsert Mode).`);
 
-        // 1. Limpiar entradas que van a ser reemplazadas por este lote (Upsert)
-        await this.cleanupOrphanedEntries(bets);
-
-        // 2. SSOT FIX: Antes de guardar, preservar campos críticos de bets existentes
-        // El API puede retornar nulls (numbers_played, fingerprint_data) que sobrescribirían
-        // datos válidos del storage local. Siempre preservar del storage local si existe.
+        // 1. SSOT FIX: Primero preservar datos del storage local ANTES de cualquier cleanup
+        // El raw_payload se genera localmente y es la fuente autoritativa.
+        // Este paso debe ser ANTES de cleanupOrphanedEntries para que no se pierdan los datos.
         const betsWithPreservedFields = await Promise.all(bets.map(async (incomingBet) => {
             const existingBet = await offlineStorage.get<BetDomainModel>(BetOfflineKeys.bet(incomingBet.externalId));
-            if (existingBet && existingBet.fingerprint && !incomingBet.fingerprint) {
-                log.info(`[SSOT_FIX] Preserving fingerprint from local storage for bet ${incomingBet.externalId}`);
-                return { ...incomingBet, fingerprint: existingBet.fingerprint };
+            if (existingBet && existingBet.fingerprint) {
+                const incomingFingerprint = incomingBet.fingerprint;
+                const existingFingerprint = existingBet.fingerprint;
+                const hasRawPayloadInExisting = !!(existingFingerprint && existingFingerprint.raw_payload);
+
+                if (hasRawPayloadInExisting) {
+                    log.info(`[SSOT_FIX] Preserving raw_payload from LOCAL storage for bet ${incomingBet.externalId}`);
+                    return {
+                        ...incomingBet,
+                        fingerprint: {
+                            ...incomingFingerprint,
+                            raw_payload: existingFingerprint.raw_payload
+                        }
+                    };
+                }
             }
             return incomingBet;
         }));
+
+        // 2. Limpiar entradas que van a ser reemplazadas por este lote (Upsert)
+        // IMPORTANTE: Usar betsWithPreservedFields para que cleanup vea los receiptCodes correctos
+        await this.cleanupOrphanedEntries(betsWithPreservedFields as BetDomainModel[]);
 
         // 3. Preparar las nuevas entradas con su identidad canónica
         const entries = betsWithPreservedFields.map(bet => {

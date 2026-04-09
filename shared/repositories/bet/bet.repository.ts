@@ -108,8 +108,30 @@ export const createBetRepository = (
             return Promise.race([mainPromise, timeoutPromise]);
         },
 
+        getBetsOfflineFirst: async (filters?: ListBetsFilters) => {
+            const timeoutMs = 1000;
+            const storageFilters: any = {};
+            if (filters?.drawId) storageFilters.drawId = filters.drawId;
+            if (filters?.receiptCode) storageFilters.receiptCode = filters.receiptCode;
+            if (filters?.date) {
+                storageFilters.date = typeof filters.date === 'number'
+                    ? filters.date
+                    : new Date(filters.date).getTime();
+            }
+            try {
+                const offlineBets = await storage.getFiltered(storageFilters);
+                setTimeout(() => {
+                    dispatch(Msg.getBetsRequested({ filters, resolve: () => { } }));
+                }, 0);
+                return Result.ok(offlineBets as BetType[]);
+            } catch (error) {
+                log.warn('getBetsOfflineFirst failed', { error });
+                return Result.error(error as Error);
+            }
+        },
+
         syncPending: async () => {
-            return new Promise<{ success: number; failed: number }>((resolve, reject) => {
+            return new Promise<{ success: number; failed: number; successBets: string[]; failedBets: { receiptCode: string; error: string }[]; structureTotalCollected?: number; structureId?: number }>((resolve, reject) => {
                 dispatch(Msg.syncRequested({
                     resolve: (result) => result.isOk() ? resolve(result.value) : reject(result.error)
                 }));

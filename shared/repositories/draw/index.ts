@@ -16,3 +16,4 @@ export const drawRepository = new DrawRepository(
  * Utilizada por el sistema de autenticación para permitir/denegar login offline.
  */
 export const hasDrawAvailable = () => drawRepository.hasDrawAvailable();
+export const hasDrawAvailableForStructure = (structureId: string | number) => drawRepository.hasDrawAvailableForStructure(structureId);

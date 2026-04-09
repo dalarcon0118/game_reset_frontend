@@ -1,7 +1,7 @@
 import NetInfo from '@react-native-community/netinfo';
 import Constants from 'expo-constants';
 import { IAuthRepository, IOfflineConditionChecker } from '@shared/repositories/auth';
-import { hasDrawAvailable } from '@shared/repositories/draw';
+import { hasDrawAvailable, hasDrawAvailableForStructure } from '@shared/repositories/draw';
 import { betRepository } from '@shared/repositories/bet/bet.repository';
 import { apiClient } from '@shared/services/api_client';
 import { ConnectivityEvent } from '@shared/services/api_client/api_client.types';
@@ -14,6 +14,7 @@ import { DrawsPullStrategy } from '@shared/repositories/draw/sync/draws.pull.str
 import { TelemetryPushStrategy } from '@shared/repositories/system/telemetry/sync/telemetry.push.strategy';
 import { NotificationSyncStrategy } from '@shared/repositories/notification/sync/notification.sync.strategy';
 import { TimerRepository } from '@shared/repositories/system/time';
+import { maintenanceRepository } from '@shared/repositories/system/maintenance/maintenance.repository';
 import { CoreMsg } from './msg';
 import { CoreModel } from './model';
 import { systemJanitor } from './services/system-janitor.service';
@@ -56,6 +57,8 @@ const syncPendingBetsIfOnlineAndNeeded = async (): Promise<{
   reason?: 'NO_PENDING' | 'OFFLINE';
   success?: number;
   failed?: number;
+  structureTotalCollected?: number;
+  structureId?: number;
 }> => {
   const pending = await betRepository.getPendingBets();
   if (pending.length === 0) {
@@ -68,7 +71,13 @@ const syncPendingBetsIfOnlineAndNeeded = async (): Promise<{
   }
 
   const result = await betRepository.syncPending();
-  return { skipped: false, success: result.success, failed: result.failed };
+  return {
+    skipped: false,
+    success: result.success,
+    failed: result.failed,
+    structureTotalCollected: result.structureTotalCollected,
+    structureId: result.structureId
+  };
 };
 
 /**
@@ -190,21 +199,37 @@ export const CoreService = {
 
   /**
    * Tarea para el mantenimiento del sistema.
+   * SOLO se ejecuta si no se ha hecho mantenimiento hoy (idempotencia).
    */
   maintenanceTask(label: string): Cmd {
     return Cmd.task({
       task: async () => {
-        // Add timeout to maintenance to prevent hanging
+        const today = new Date().toISOString().split('T')[0];
+        const alreadyPrepared = await maintenanceRepository.isDayPrepared(today);
+        if (alreadyPrepared) {
+          log.info(`[${label}] Mantenimiento ya realizado hoy (${today}). Omitiendo.`);
+          return { skipped: true, date: today };
+        }
         const maintenancePromise = systemJanitor.prepareDailySession();
         const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Maintenance task timed out')), 10000)
         );
         return await Promise.race([maintenancePromise, timeoutPromise]);
       },
-      onSuccess: () => ({ type: 'NO_OP' } as any),
+      onSuccess: (result: any) => {
+        if (result?.skipped) {
+          // Even if skipped, we need to notify to unblock system readiness
+          offlineEventBus.publish({
+            type: 'MAINTENANCE_COMPLETED',
+            entity: 'system',
+            payload: { date: result.date, status: 'ready' },
+            timestamp: Date.now()
+          });
+        }
+        return { type: 'NO_OP' } as any;
+      },
       onFailure: (err) => {
         log.error(`${label} maintenance failed`, err);
-        // Even on failure, notify maintenance completed to unblock system
         offlineEventBus.publish({
           type: 'MAINTENANCE_COMPLETED',
           entity: 'system',
@@ -305,6 +330,9 @@ export const CoreService = {
     const offlineConditionChecker: IOfflineConditionChecker = {
       canContinueOffline: async () => {
         return await hasDrawAvailable();
+      },
+      canContinueOfflineForStructure: async (structureId: string | number) => {
+        return await hasDrawAvailableForStructure(structureId);
       }
     };
     getAuthRepo().setOfflineConditionChecker(offlineConditionChecker);
@@ -363,6 +391,55 @@ export const CoreService = {
       onSuccess: () => ({ type: 'NO_OP' } as any),
       onFailure: () => ({ type: 'NO_OP' } as any),
       label: 'CHECK_SESSION_EXPIRATION'
+    });
+  },
+
+  /**
+   * Verifica la inactividad del usuario basándose en la última apuesta creada.
+   * Si no hay apuestas o pasaron más de 15 min desde la última, fuerza logout.
+   */
+  async checkInactivityProximity(): Promise<CoreMsg> {
+    try {
+      const allBets = await betRepository.getAllRawBets();
+      const now = Date.now();
+      const FIFTEEN_MIN_MS = 15 * 60 * 1000;
+
+      if (!allBets || allBets.length === 0) {
+        log.info('[INACTIVITY] No bets found - expiring session');
+        return { type: 'SESSION_EXPIRED', reason: 'INACTIVITY' } as CoreMsg;
+      }
+
+      const lastBet = allBets.reduce((latest, bet) => {
+        const betTime = bet.timestamp || bet.createdAt || 0;
+        return betTime > (latest.timestamp || latest.createdAt || 0) ? bet : latest;
+      });
+
+      const lastBetTime = (lastBet.timestamp || lastBet.createdAt || 0) as number;
+      const elapsed = now - lastBetTime;
+
+      log.debug('[INACTIVITY] Checking last bet activity', { lastBetTime, elapsed, threshold: FIFTEEN_MIN_MS });
+
+      if (elapsed > FIFTEEN_MIN_MS) {
+        log.info(`[INACTIVITY] Session expired: ${Math.round(elapsed / 60000)}min since last bet (threshold: 15min)`);
+        return { type: 'SESSION_EXPIRED', reason: 'INACTIVITY' } as CoreMsg;
+      }
+
+      return { type: 'NO_OP' } as any;
+    } catch (e) {
+      log.error('[INACTIVITY] Error checking inactivity', e);
+      return { type: 'NO_OP' } as any;
+    }
+  },
+
+  /**
+   * Tarea para verificar la inactividad del usuario.
+   */
+  checkInactivityTask(): Cmd {
+    return Cmd.task({
+      task: () => this.checkInactivityProximity(),
+      onSuccess: (msg) => msg,
+      onFailure: () => ({ type: 'NO_OP' } as any),
+      label: 'CHECK_INACTIVITY'
     });
   },
 

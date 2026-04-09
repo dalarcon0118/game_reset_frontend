@@ -51,6 +51,12 @@ const BackendBetCodec = t.intersection([
 const BackendBetArrayCodec = t.array(BackendBetCodec);
 const BackendBetOrArrayCodec = t.union([BackendBetCodec, BackendBetArrayCodec]);
 
+const CreateBetResponseCodec = t.type({
+    bets: t.union([BackendBetCodec, BackendBetArrayCodec]),
+    structureTotalCollected: t.number,
+    structureId: t.union([t.string, t.number])
+});
+
 const decodeOrFallback = <T>(codec: t.Type<T>, value: unknown, label: string): T => {
     const result = codec.decode(value);
     if (isRight(result)) return result.right;
@@ -63,7 +69,7 @@ const decodeOrFallback = <T>(codec: t.Type<T>, value: unknown, label: string): T
 // ============================================================================
 
 export class BetApiAdapter implements IBetApi {
-    async create(bet: BetDomainModel, idempotencyKey: string): Promise<BackendBet | BackendBet[]> {
+    async create(bet: BetDomainModel, idempotencyKey: string): Promise<CreateBetResponse> {
         log.info(`${logs_text.API_SENDING_BET}: ${idempotencyKey}`);
         const betTypeId = bet.betTypeCode || bet.betTypeId;
 
@@ -76,11 +82,11 @@ export class BetApiAdapter implements IBetApi {
                 numbers: bet.numbers,
                 external_id: idempotencyKey,
                 owner_structure: bet.ownerStructure,
-                fingerprint: bet.fingerprint, // CRITICAL: Include fingerprint for backend validation
-                total_sales: bet.fingerprint?.total_sales // Zero Trust V2: Send balance explicitly
+                fingerprint: bet.fingerprint,
+                total_sales: bet.fingerprint?.total_sales
             }],
             receiptCode: bet.receiptCode,
-            fingerprint: bet.fingerprint // Also at root for single-bet legacy views
+            fingerprint: bet.fingerprint
         };
 
         const response = await apiClient.post<any>(
@@ -88,7 +94,9 @@ export class BetApiAdapter implements IBetApi {
             dto,
             { headers: { 'X-Idempotency-Key': idempotencyKey } }
         );
-        return decodeOrFallback(BackendBetOrArrayCodec, response, 'create') as any;
+        const decoded = decodeOrFallback(CreateBetResponseCodec, response, 'create');
+        const bets = Array.isArray(decoded.bets) ? decoded.bets : [decoded.bets];
+        return { bets, structureTotalCollected: decoded.structureTotalCollected, structureId: Number(decoded.structureId) };
     }
 
     async checkStatus(idempotencyKey: string): Promise<{ synced: boolean; bets?: BackendBet[] }> {

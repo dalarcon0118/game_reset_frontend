@@ -1,45 +1,41 @@
+import { logger } from '@/shared/utils/logger';
+import { ResponseCache } from './response-cache';
+import { RequestDeduplicator } from './request-deduplicator';
+import {
+  TransportError,
+  NetworkError,
+  HttpError,
+  TimeoutError,
+  AbortError
+} from './errors';
+
+const log = logger.withTag('TRANSPORT');
+
 export class Transport {
-  private pendingRequests: Map<string, Promise<Response>> = new Map();
-  
-  // FASE 2 FIX: Cache de respuestas para request coalescing
-  private responseCache: Map<string, { response: Response; timestamp: number }> = new Map();
-  private static readonly CACHE_TTL_MS = 2000; // 2 segundos de cache para requests idénticas
-  
-  // Métricas de deduplicación
-  private dedupCounter = 0;
+  private responseCache = new ResponseCache();
+  private deduplicator = new RequestDeduplicator();
   private cacheHitCounter = 0;
 
-  /**
-   * Generates a unique key for request deduplication
-   */
-  private getRequestKey(url: string, config: RequestInit): string {
-    const method = config.method || 'GET';
-    const body = config.body ? JSON.stringify(config.body) : '';
-    return `${method}:${url}:${body}`;
-  }
-  
-  /**
-   * Limpia entradas de cache expiradas
-   */
-  private cleanExpiredCache(): void {
-    const now = Date.now();
-    for (const [key, entry] of this.responseCache) {
-      if (now - entry.timestamp > Transport.CACHE_TTL_MS) {
-        this.responseCache.delete(key);
-      }
-    }
-  }
-  
-  /**
-   * Obtiene métricas de deduplicación para debugging
-   */
   getMetrics(): { dedupCount: number; cacheHitCount: number; pendingCount: number; cacheSize: number } {
     return {
-      dedupCount: this.dedupCounter,
+      dedupCount: this.deduplicator.getDedupCount(),
       cacheHitCount: this.cacheHitCounter,
-      pendingCount: this.pendingRequests.size,
+      pendingCount: this.deduplicator.getPendingCount(),
       cacheSize: this.responseCache.size
     };
+  }
+
+  private getRequestKey(url: string, config: RequestInit): string {
+    const method = (config.method || 'GET').toUpperCase();
+    let body = '';
+    if (config.body) {
+      if (typeof config.body === 'string') {
+        body = config.body;
+      } else {
+        body = JSON.stringify(config.body);
+      }
+    }
+    return `${method}:${url}:${body}`;
   }
 
   async fetchWithTimeout(
@@ -49,70 +45,74 @@ export class Transport {
     abortSignal?: AbortSignal
   ): Promise<Response> {
     const requestKey = this.getRequestKey(url, config);
-    const now = Date.now();
+    const method = config.method || 'GET';
 
-    // FASE 2 FIX: Verificar cache de respuestas primero
     const cached = this.responseCache.get(requestKey);
-    if (cached && (now - cached.timestamp) < Transport.CACHE_TTL_MS) {
+    if (cached) {
       this.cacheHitCounter++;
-      console.log(`[TRANSPORT] Cache hit (${this.cacheHitCounter} hits): ${config.method || 'GET'} ${url}`);
-      return cached.response.clone();
+      log.debug(`Cache hit (${this.cacheHitCounter} hits): ${method} ${url}`);
+      return cached;
     }
 
-    // Deduplication: Return existing promise if same request is already in flight
-    // We clone the response to allow multiple callers to read the body independently (SSOT)
-    if (this.pendingRequests.has(requestKey)) {
-      this.dedupCounter++;
-      console.log(`[TRANSPORT] Deduplicating request (${this.dedupCounter} deduped): ${config.method || 'GET'} ${url}`);
-      return this.pendingRequests.get(requestKey)!.then(res => res.clone());
-    }
+    return this.deduplicator.getOrCreate(
+      requestKey,
+      () => this.executeRequest(url, config, timeout, abortSignal, requestKey)
+    );
+  }
 
+  private async executeRequest(
+    url: string,
+    config: RequestInit,
+    timeout: number,
+    abortSignal: AbortSignal | undefined,
+    requestKey: string
+  ): Promise<Response> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
     const unbindAbort = this.bindAbortSignal(abortSignal, controller);
+    const method = (config.method || 'GET').toUpperCase();
 
-    const requestPromise = (async () => {
-      try {
-        console.log(`[TRANSPORT] Fetching: ${config.method || 'GET'} ${url}`);
+    try {
+      log.debug(`Fetching: ${method} ${url}`);
 
-        const response = await fetch(url, {
-          ...config,
-          signal: controller.signal
-        });
-        console.log(`[TRANSPORT] Response: ${response.status} ${url}`);
-        
-        // FASE 2 FIX: Guardar en cache si es GET exitoso
-        if ((config.method || 'GET') === 'GET' && response.ok) {
-          this.responseCache.set(requestKey, {
-            response: response.clone(),
-            timestamp: Date.now()
-          });
-          // Limpiar cache expirado periódicamente
-          if (this.responseCache.size > 10) {
-            this.cleanExpiredCache();
-          }
-        }
-        
-        return response;
-      } catch (error: any) {
-        if (error.name === 'AbortError') {
-          console.error(`[TRANSPORT] Timeout/Abort fetching ${url} after ${timeout}ms`);
-        } else {
-          console.error(`[TRANSPORT] Error fetching ${url}:`, error.message, error.stack);
-        }
-        throw error;
-      } finally {
-        clearTimeout(timeoutId);
-        unbindAbort();
-        // Remove from pending requests when done
-        this.pendingRequests.delete(requestKey);
+      const response = await fetch(url, {
+        ...config,
+        signal: controller.signal
+      });
+
+      log.debug(`Response: ${response.status} ${url}`);
+
+      if (!response.ok) {
+        throw new HttpError(url, method, timeout, response.status);
       }
-    })();
 
-    // Store the promise for deduplication
-    this.pendingRequests.set(requestKey, requestPromise);
+      if (method === 'GET') {
+        this.responseCache.set(requestKey, response);
+      }
 
-    return requestPromise.then(res => res.clone());
+      return response;
+    } catch (error: any) {
+      if (error instanceof HttpError) {
+        throw error;
+      }
+
+      if (error.name === 'AbortError') {
+        const isTimeout = !abortSignal || abortSignal.aborted;
+        if (isTimeout) {
+          throw new TimeoutError(url, method, timeout);
+        }
+        throw new AbortError(url, method, timeout);
+      }
+
+      if (error.message === 'Network request failed' || error.message.includes('fetch')) {
+        throw new NetworkError(url, method, timeout, error);
+      }
+
+      throw new TransportError(error.message || 'Unknown error', url, method, timeout, undefined, error);
+    } finally {
+      clearTimeout(timeoutId);
+      unbindAbort();
+    }
   }
 
   private bindAbortSignal(externalSignal: AbortSignal | undefined, controller: AbortController): () => void {
@@ -130,3 +130,7 @@ export class Transport {
     return () => externalSignal.removeEventListener('abort', onAbort);
   }
 }
+
+export { TransportError, NetworkError, HttpError, TimeoutError, AbortError } from './errors';
+export { ResponseCache } from './response-cache';
+export { RequestDeduplicator } from './request-deduplicator';

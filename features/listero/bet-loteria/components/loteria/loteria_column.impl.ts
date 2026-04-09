@@ -1,6 +1,36 @@
 import { LoteriaBet } from '@/types';
 import { LoteriaGroup } from './loteria_column.types';
 
+const toNumberOrNull = (value: unknown): number | null => {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string') {
+        const parsed = Number(value);
+        if (Number.isFinite(parsed)) return parsed;
+    }
+    return null;
+};
+
+const toTimestamp = (bet: LoteriaBet): number => {
+    const source = (bet as unknown as { createdAt?: string; timestamp?: string; updatedAt?: string });
+    const raw = source.createdAt || source.timestamp || source.updatedAt;
+    if (!raw) return 0;
+    const time = new Date(raw).getTime();
+    return Number.isFinite(time) ? time : 0;
+};
+
+const compareBetsDesc = (a: LoteriaBet, b: LoteriaBet): number => {
+    const timeDiff = toTimestamp(b) - toTimestamp(a);
+    if (timeDiff !== 0) return timeDiff;
+
+    const idDiff = (toNumberOrNull(b.id) ?? Number.MIN_SAFE_INTEGER) - (toNumberOrNull(a.id) ?? Number.MIN_SAFE_INTEGER);
+    if (idDiff !== 0) return idDiff;
+
+    const betDiff = (toNumberOrNull(b.bet) ?? Number.MIN_SAFE_INTEGER) - (toNumberOrNull(a.bet) ?? Number.MIN_SAFE_INTEGER);
+    if (betDiff !== 0) return betDiff;
+
+    return String(b.id).localeCompare(String(a.id));
+};
+
 /**
  * Agrupa las apuestas de lotería por código de recibo.
  * Si isEditing es true, todas las apuestas se agrupan bajo el código 'local'.
@@ -22,7 +52,7 @@ export const groupBetsByReceipt = (bets: LoteriaBet[], isEditing: boolean): Lote
     }
 
     if (isEditing) {
-        return [{ receiptCode: 'local', items: bets }];
+        return [{ receiptCode: 'local', items: [...bets].sort(compareBetsDesc) }];
     }
 
     const groups: { [key: string]: LoteriaBet[] } = {};
@@ -37,13 +67,6 @@ export const groupBetsByReceipt = (bets: LoteriaBet[], isEditing: boolean): Lote
 
     // Ordenar tambien los grupos de recibos, el grupo mas nuevo primero
     return Object.entries(groups)
-        .map(([receiptCode, items]) => ({ receiptCode, items }))
-        .sort((groupA, groupB) => {
-            try {
-                // Tomamos la fecha del primer elemento (que ya es el mas nuevo del grupo)
-                return new Date(groupB.items[0].createdAt).getTime() - new Date(groupA.items[0].createdAt).getTime();
-            } catch (e) {
-                return 0;
-            }
-        });
+        .map(([receiptCode, items]) => ({ receiptCode, items: [...items].sort(compareBetsDesc) }))
+        .sort((groupA, groupB) => compareBetsDesc(groupA.items[0], groupB.items[0]));
 };

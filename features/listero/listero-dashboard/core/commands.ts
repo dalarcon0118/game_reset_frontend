@@ -54,22 +54,29 @@ export const fetchDrawsCmd = (structureId: string | null): Cmd => {
         task: async () => {
             try {
                 const fetchPromise = drawRepository.getDraws({ owner_structure: structureId, today: true });
-                const result = await withTimeout(fetchPromise, 30000, 'fetchDraws');
+                const result = await withTimeout(fetchPromise, 10000, 'fetchDraws');
 
                 if (result.isOk()) {
                     return result.value;
                 }
                 throw result.error;
             } catch (e) {
-                // This is an expected error case when offline with no cache
                 const errorMessage = e instanceof Error ? e.message : String(e);
-                if (errorMessage.includes('No internet connection and no cached draws available')) {
-                    log.warn('Offline mode: No internet connection and no cached draws available');
-                    // Return empty array instead of throwing to avoid getting stuck in Loading
+                log.warn('Error fetching draws, evaluating fallback', { errorMessage });
+
+                // Evaluamos si es un error de red o falta de caché
+                const isOfflineError = 
+                    errorMessage.includes('No internet connection') || 
+                    errorMessage.includes('Offline') ||
+                    errorMessage.includes('timed out') ||
+                    errorMessage.includes('Network Error');
+
+                if (isOfflineError) {
+                    log.info('Graceful fallback: returning empty list for offline mode');
                     return [];
-                } else {
-                    log.error('Unexpected error in fetchDrawsCmd task', e);
                 }
+                
+                log.error('Unexpected error in fetchDrawsCmd task', e);
                 throw e;
             }
         },

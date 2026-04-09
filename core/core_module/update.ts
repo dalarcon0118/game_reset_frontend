@@ -104,7 +104,13 @@ export function update(model: CoreModel, msg: CoreMsg): Return<CoreModel, CoreMs
       return ret(model, CoreService.checkSessionExpirationTask());
     })
     .with({ type: 'TIME_ANCHOR_TICK' }, () => {
-      return ret(model, CoreService.syncTimeAnchorTask());
+      return ret(model, Cmd.batch([
+        CoreService.syncTimeAnchorTask(),
+        CoreService.checkInactivityTask()
+      ]));
+    })
+    .with({ type: 'CHECK_INACTIVITY' }, () => {
+      return ret(model, CoreService.checkInactivityTask());
     })
     .with({ type: 'NO_OP' }, () => singleton(model))
     .exhaustive(() => {

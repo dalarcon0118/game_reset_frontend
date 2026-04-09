@@ -88,12 +88,21 @@ export const DrawsListComponent: React.FC<DrawsListComponentProps> = ({ context 
 
   return (
     <View style={styles.content}>
-      {match(model?.draws || RemoteData.notAsked())
-        .with({ type: 'NotAsked' }, renderNotAsked)
-        .with({ type: 'Loading' }, renderLoading)
-        .with({ type: 'Failure' }, renderError)
-        .with({ type: 'Success' }, renderSuccess)
-        .exhaustive()}
+      {(() => {
+        const state = model?.draws?.type || 'NotAsked';
+        log.debug('Rendering DrawsList state:', { 
+          state, 
+          filteredCount: model?.filteredDraws?.length || 0,
+          hasHostStore: !!context?.hostStore
+        });
+        
+        return match(model?.draws || RemoteData.notAsked())
+          .with({ type: 'NotAsked' }, renderNotAsked)
+          .with({ type: 'Loading' }, renderLoading)
+          .with({ type: 'Failure' }, renderError)
+          .with({ type: 'Success' }, renderSuccess)
+          .exhaustive();
+      })()}
     </View>
   );
 };

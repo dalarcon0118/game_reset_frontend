@@ -16,6 +16,9 @@ export const AUTH_KEYS = {
     SECURE_CONFIRMATION_TOKEN: 'auth_confirmation_token',
     SECURE_DAILY_SECRET: 'auth_daily_secret',
     SECURE_OFFLINE_TOKEN: 'offline-token',
+
+    // Legacy Keys
+    LEGACY_DEVICE_ID: 'auth_device_id',
 };
 
 export const AUTH_LOG_TAGS = {

@@ -55,7 +55,7 @@ export class DrawOfflineAdapter {
             const segmentedList = await offlineStorage.get<BackendDraw[]>(segmentedKey);
 
             if (segmentedList) {
-                log.debug('[getAll] Cache HIT segmentada', {
+                log.debug('[getAll] Cache HIT segmentada (lista)', {
                     structureId,
                     key: segmentedKey,
                     count: segmentedList.length
@@ -63,10 +63,25 @@ export class DrawOfflineAdapter {
                 return segmentedList;
             }
 
-            log.debug('[getAll] Cache MISS segmentada - retornando vacío para forzar fetch', {
-                structureId,
-                key: segmentedKey
-            });
+            // FALLBACK: Si no hay lista segmentada, buscamos sorteos individuales
+            log.debug('[getAll] Cache MISS lista segmentada - Buscando sorteos individuales por patrón', { structureId });
+            const pattern = DrawOfflineKeys.getPattern('instance', '*', 'data');
+            const allIndividualDraws = await offlineStorage.query<BackendDraw>(pattern).all();
+
+            // Filtrar los sorteos que pertenecen a esta estructura
+            const filteredByStructure = allIndividualDraws.filter(draw =>
+                String(draw.owner_structure) === String(structureId)
+            );
+
+            if (filteredByStructure.length > 0) {
+                log.info('[getAll] Cache HIT individual (reconstrucción desde registros)', {
+                    structureId,
+                    count: filteredByStructure.length
+                });
+                return filteredByStructure;
+            }
+
+            log.debug('[getAll] No se encontraron sorteos (lista ni individuales) para la estructura', { structureId });
             return [];
         }
 
@@ -79,9 +94,8 @@ export class DrawOfflineAdapter {
             return globalList;
         }
 
-        const pattern = DrawOfflineKeys.getPattern('instance', '*', 'data');
-        log.debug('[getAll] Fallback a query por patrón', { pattern });
-        return await offlineStorage.query<BackendDraw>(pattern).all();
+        log.warn('[getAll] Fallback global DENEGADO - sin structureId no se puede garantizar seguridad de datos. Se requieren sorteos segmentados por estructura.');
+        return [];
     }
 
     /**

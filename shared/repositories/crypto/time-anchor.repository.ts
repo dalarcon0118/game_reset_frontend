@@ -134,10 +134,11 @@ export class TimeAnchorRepository {
                     return Result.error(TIME_ANCHOR_ERRORS.REBOOT_DETECTED);
                 }
 
-                // 3. Validación de Drift (Cambio manual de hora en OS)
+                // 3. Validación de Drift (Cambio de hora en OS o manipulación)
                 // Comparamos cuánto avanzó el reloj del sistema vs cuánto avanzó el monotónico
                 const systemDelta = Date.now() - anchor.systemTimeAtSync;
                 const drift = Math.abs(systemDelta - monotonicDelta);
+                const DRIFT_THRESHOLD = 5 * 60 * 1000; // 5 minutos - tolerar OS sync sin perder seguridad
 
                 log.info(`[TIME_ANCHOR_CHECK] 🕐 Verificación de drift de reloj:`, {
                     systemTimeAtSync: anchor.systemTimeAtSync,
@@ -145,13 +146,12 @@ export class TimeAnchorRepository {
                     systemDelta,
                     monotonicDelta,
                     drift,
-                    driftThreshold: 60000,
-                    isDriftDetected: drift > 60000
+                    driftThreshold: DRIFT_THRESHOLD,
+                    isDriftDetected: drift > DRIFT_THRESHOLD
                 });
 
-                // Si el drift es mayor a 60 segundos (margen amplio para sleep del OS)
-                // significa que el usuario cambió la hora manualmente mientras estaba offline.
-                if (drift > 60000) {
+                // Si el drift es mayor a 5 minutos, puede ser manipulación de reloj
+                if (drift > DRIFT_THRESHOLD) {
                     log.error(`[TIME_ANCHOR_CHECK] ❌ DRIFT_DETECTED: Drift de ${drift}ms detectado. Posible manipulación de reloj.`);
                     return Result.error(TIME_ANCHOR_ERRORS.DRIFT_DETECTED);
                 }

@@ -90,7 +90,7 @@ const RenderGroup: React.FC<RenderGroupProps> = memo(({
                     )}
                 </View>
             )}
-
+             <View style={styles.groupContent}>   
             {group.items.map((item: LoteriaBet) => (
                 <LoteriaBetRow
                     key={item.id}
@@ -101,7 +101,7 @@ const RenderGroup: React.FC<RenderGroupProps> = memo(({
                     onOpenAmountKeyboard={onOpenAmountKeyboard}
                 />
             ))}
-
+             </View>
             {!isEditing && !isLast && (
                 <View style={styles.groupSeparator} />
             )}
@@ -113,15 +113,20 @@ RenderGroup.displayName = 'RenderGroup';
 
 const styles = StyleSheet.create({
     listContent: {
-        paddingVertical: Layout.spacing.xs,
+        paddingVertical: Layout.spacing.xxs,
     },
     groupContainer: {
-        marginBottom: Layout.spacing.md,
+        marginBottom: 0,
+        paddingBottom: 0,
+    },
+    groupContent: {
+        marginBottom: 0,
+        paddingBottom: Layout.spacing.xxs,
     },
     groupHeader: {
         backgroundColor: '#f8f8f8',
-        padding: 8,
-        marginBottom: 8,
+        padding: Layout.spacing.xxs,
+        marginBottom: Layout.spacing.xxs,
         borderRadius: 4,
         borderLeftWidth: 4,
         borderLeftColor: '#3366FF',
@@ -130,7 +135,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     groupHeaderText: {
-        fontSize: 14,
+        fontSize: 12,
         fontWeight: 'bold',
         color: '#666',
     },
@@ -140,6 +145,6 @@ const styles = StyleSheet.create({
     groupSeparator: {
         height: 1,
         backgroundColor: '#E8E8E8',
-        marginVertical: 16,
+        marginVertical: Layout.spacing.xxs,
     },
 });

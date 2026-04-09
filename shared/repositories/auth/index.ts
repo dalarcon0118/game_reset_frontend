@@ -3,6 +3,8 @@ import { authApiAdapter } from './adapters/auth.api.adapter';
 import { authStorageAdapter } from './adapters/auth.storage.adapter';
 import { IAuthApi, IAuthStorage, IAuthRepository, IOfflineConditionChecker } from './auth.ports';
 import { AuthResult, User, AuthErrorType } from './types/types';
+import { AUTH_MESSAGES } from './auth.messages';
+import { AUTH_ERROR_CODES } from './auth.error-codes';
 import { logger } from '../../utils/logger';
 import { setAuthRepository } from '../../services/api_client';
 import { SessionPolicy } from '@/shared/auth/session/session.policy';
@@ -18,6 +20,8 @@ export * from './types/types';
 export * from './codecs/codecs';
 export * from './auth.ports';
 export * from './auth.keys';
+export * from './auth.messages';
+export * from './auth.error-codes';
 
 /**
  * AuthRepository - Orquestador agnóstico de autenticación y autorización.
@@ -133,7 +137,7 @@ class AuthRepositoryImpl implements IAuthRepository {
         return ResultAsync.fromPromise(
             (async () => {
                 const user = await this.api.getMe();
-                if (!user) throw new Error('FAILED_TO_GET_USER_PROFILE');
+                if (!user) throw new Error(AUTH_ERROR_CODES.FAILED_TO_GET_USER_PROFILE);
 
                 const session = await this.storage.getSession();
                 await this.storage.saveSession({
@@ -229,12 +233,12 @@ class AuthRepositoryImpl implements IAuthRepository {
     async refresh(): Promise<AuthResult> {
         const { refresh } = await this.getToken();
         if (!refresh) {
-            this.notifyExpiredListeners('NO_REFRESH_TOKEN');
+            this.notifyExpiredListeners(AUTH_ERROR_CODES.NO_REFRESH_TOKEN);
             return {
                 success: false,
                 error: {
                     type: AuthErrorType.SESSION_EXPIRED,
-                    message: 'NO_REFRESH_TOKEN'
+                    message: AUTH_ERROR_CODES.NO_REFRESH_TOKEN
                 }
             };
         }
@@ -266,8 +270,8 @@ class AuthRepositoryImpl implements IAuthRepository {
 
             // Si el refresh falla con 401/403, la sesión ha expirado
             if (!response.success && response.error && (response.error.type === AuthErrorType.SESSION_EXPIRED || response.error.type === AuthErrorType.INVALID_CREDENTIALS)) {
-                this.notifyRefreshFailedListeners(response.error.message || 'TERMINAL_REFRESH_FAILURE');
-                this.notifyExpiredListeners(response.error.message || 'SESSION_EXPIRED');
+                this.notifyRefreshFailedListeners(response.error.message || AUTH_ERROR_CODES.TERMINAL_REFRESH_FAILURE);
+                this.notifyExpiredListeners(response.error.message || AUTH_ERROR_CODES.SESSION_EXPIRED);
             }
 
             return response;
@@ -391,25 +395,34 @@ class AuthRepositoryImpl implements IAuthRepository {
                     success: false,
                     error: {
                         type: AuthErrorType.UNKNOWN_ERROR,
-                        message: 'Integridad de tiempo violada. Por favor sincronice su reloj o conecte a internet.'
+                        message: AUTH_MESSAGES.TIME_INTEGRITY_VIOLATION
                     }
                 };
             }
 
             // 4. Verificar condiciones adicionales antes de permitir login offline
-            // Si hay un checker configurado, verificar si permite offline
-            if (this.offlineConditionChecker) {
-                const canContinueOffline = await this.offlineConditionChecker.canContinueOffline();
-                if (!canContinueOffline) {
-                    log.warn('Offline login blocked by condition checker - no draws available');
-                    return {
-                        success: false,
-                        error: {
-                            type: AuthErrorType.OFFLINE_NOT_ALLOWED,
-                            message: 'La aplicación necesita estar en modo online para cargar los sorteos disponibles'
-                        }
-                    };
-                }
+            // FAIL-SAFE: Si no hay checker configurado, denegar offline por defecto
+            if (!this.offlineConditionChecker) {
+                log.error('Offline condition checker NOT configured - blocking offline login for safety');
+                return {
+                    success: false,
+                    error: {
+                        type: AuthErrorType.OFFLINE_NOT_ALLOWED,
+                        message: AUTH_MESSAGES.OFFLINE_CONDITION_CHECKER_MISSING
+                    }
+                };
+            }
+
+            const canContinueOffline = await this.offlineConditionChecker.canContinueOffline();
+            if (!canContinueOffline) {
+                log.warn('Offline login blocked - no draws available');
+                return {
+                    success: false,
+                    error: {
+                        type: AuthErrorType.OFFLINE_NOT_ALLOWED,
+                        message: AUTH_MESSAGES.OFFLINE_LOGIN_DENIED_NO_DRAWS
+                    }
+                };
             }
 
             // 5. Intentar validación offline como modo de supervivencia
@@ -422,7 +435,7 @@ class AuthRepositoryImpl implements IAuthRepository {
                 success: false,
                 error: {
                     type: AuthErrorType.UNKNOWN_ERROR,
-                    message: error.message || 'Error inesperado en el sistema'
+                    message: AUTH_MESSAGES.UNEXPECTED_ERROR
                 }
             };
         }
@@ -430,17 +443,45 @@ class AuthRepositoryImpl implements IAuthRepository {
 
     private async performOfflineValidation(username: string, pin: string): Promise<AuthResult> {
         const offlineResult = await this.storage.validateOffline(username, pin);
-        if (offlineResult.success && offlineResult.data) {
-            // Save the offline session to SecureStore so subsequent hydration can find it
-            await this.storage.saveSession({
-                user: offlineResult.data.user,
-                accessToken: offlineResult.data.accessToken || 'offline-token',
-                refreshToken: offlineResult.data.refreshToken,
-                confirmationToken: undefined,
-                isOffline: true
-            });
-            this.notifySessionListeners(offlineResult.data.user);
+        if (!offlineResult.success || !offlineResult.data) {
+            return offlineResult;
         }
+
+        const userStructureId = offlineResult.data.user.structure?.id;
+        if (!userStructureId) {
+            log.warn('performOfflineValidation: Usuario sin estructura - denegando login offline', { username });
+            return {
+                success: false,
+                error: {
+                    type: AuthErrorType.OFFLINE_NOT_ALLOWED,
+                    message: AUTH_MESSAGES.OFFLINE_USER_NO_STRUCTURE
+                }
+            };
+        }
+
+        const canContinueOffline = await this.offlineConditionChecker.canContinueOfflineForStructure(userStructureId);
+        if (!canContinueOffline) {
+            log.warn('performOfflineValidation: No hay sorteos para la estructura - denegando login offline', {
+                username,
+                structureId: userStructureId
+            });
+            return {
+                success: false,
+                error: {
+                    type: AuthErrorType.OFFLINE_NOT_ALLOWED,
+                    message: AUTH_MESSAGES.OFFLINE_NO_DRAWS_FOR_STRUCTURE
+                }
+            };
+        }
+
+        await this.storage.saveSession({
+            user: offlineResult.data.user,
+            accessToken: offlineResult.data.accessToken || 'offline-token',
+            refreshToken: offlineResult.data.refreshToken,
+            confirmationToken: undefined,
+            isOffline: true
+        });
+        this.notifySessionListeners(offlineResult.data.user);
         return offlineResult;
     }
 

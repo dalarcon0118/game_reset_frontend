@@ -9,6 +9,7 @@ import { ITimeRepository } from '../system/time';
  */
 export interface IOfflineConditionChecker {
     canContinueOffline(): Promise<boolean>;
+    canContinueOfflineForStructure(structureId: string | number): Promise<boolean>;
 }
 
 export interface IAuthApi {

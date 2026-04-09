@@ -3,18 +3,19 @@ import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
 import { Card, Button } from '@ui-kitten/components';
 import { Info, AlertTriangle, AlertCircle, CheckCircle2, Bell, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { AppNotification } from '../core/model';
-import { formatServerDateToLocal, formatServerTimeToLocal } from '@/shared/utils/formatters';
 
 interface NotificationItemProps {
   notification: AppNotification;
   onMarkAsRead: (id: string) => void;
   onPress: (notification: AppNotification) => void;
+  onViewDetails?: (notification: AppNotification) => void;
 }
 
 export const NotificationItem: React.FC<NotificationItemProps> = ({
   notification,
   onMarkAsRead,
   onPress,
+  onViewDetails,
 }) => {
   const [expanded, setExpanded] = useState(false);
 
@@ -95,19 +96,32 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
               <Text style={styles.timestamp}>
                 {formatDate(notification.createdAt)}
               </Text>
-              {notification.status === 'pending' && (
+              <View style={styles.actionButtons}>
+                {notification.status === 'pending' && (
+                  <Button
+                    size="tiny"
+                    appearance="ghost"
+                    status="basic"
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      onMarkAsRead(notification.id);
+                    }}
+                  >
+                    Marcar como leído
+                  </Button>
+                )}
                 <Button
                   size="tiny"
-                  appearance="ghost"
-                  status="basic"
+                  appearance="outline"
+                  status="info"
                   onPress={(e) => {
                     e.stopPropagation();
-                    onMarkAsRead(notification.id);
+                    onViewDetails ? onViewDetails(notification) : onPress(notification);
                   }}
                 >
-                  Marcar como leído
+                  Detalles
                 </Button>
-              )}
+              </View>
             </View>
           </View>
         </View>
@@ -174,6 +188,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 8,
   },
   timestamp: {
     fontSize: 12,

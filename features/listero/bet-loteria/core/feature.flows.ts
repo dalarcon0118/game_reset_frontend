@@ -104,7 +104,8 @@ export const FeatureFlows = {
 
         // ESTRATEGIA: Carga en Paralelo con Prioridad de Disco
         // 1. CARGA INMEDIATA (Disco): Las apuestas existentes se piden sin esperar a la red.
-        const localCmd = !isEditing ? FeatureFlows.fetchExistingBets(drawId, null) : Cmd.none;
+        // Usamos offline-first para mostrar datos inmediatos mientras la API responde en background.
+        const localCmd = !isEditing ? FeatureFlows.fetchExistingBetsOfflineFirst(drawId, null) : Cmd.none;
 
         // 2. CARGA DE METADATOS (Red/Caché): Sorteo y tipos de apuesta.
         const networkCmds = Cmd.batch([
@@ -174,11 +175,10 @@ export const FeatureFlows = {
         log.debug('FETCH_EXISTING_BETS', { drawId, betTypeId });
         return RemoteDataHttp.fetch<LoteriaBet[], FeatureMsg>(
             async () => {
-                // Filtrar solo por drawId (sin filtro de fecha)
-                const query = { 
+                const query = {
                     drawId: String(drawId),
                     sort: {
-                        field: 'createdAt',
+                        field: 'createdAt' as const,
                         order: 'desc' as const
                     }
                 };
@@ -213,6 +213,51 @@ export const FeatureFlows = {
             },
             (response) => ({ type: 'FETCH_EXISTING_BETS_RESPONSE', response })
         );
+    },
+
+    fetchExistingBetsOfflineFirst: (drawId: string, betTypeId?: string | null): Cmd => {
+        log.debug('FETCH_EXISTING_BETS_OFFLINE_FIRST', { drawId, betTypeId });
+        return Cmd.task({
+            task: async () => {
+                const query = {
+                    drawId: String(drawId),
+                    sort: {
+                        field: 'createdAt' as const,
+                        order: 'desc' as const
+                    }
+                };
+
+                // First, get offline data immediately
+                const offlineResult = await betRepository.getBetsOfflineFirst(query);
+
+                if (offlineResult.isErr()) {
+                    log.warn('Offline first failed', { error: offlineResult.error.message });
+                    return [];
+                }
+
+                const bets = offlineResult.value
+                    .filter((b: BetType) => {
+                        const isLoteria = isLoteriaType(b.type || '', b.betTypeId);
+                        if (betTypeId) {
+                            return String(b.betTypeId) === String(betTypeId);
+                        }
+                        return isLoteria;
+                    })
+                    .map((b: BetType) => ({
+                        id: b.id,
+                        bet: b.numbers,
+                        amount: b.amount,
+                        receiptCode: b.receiptCode,
+                        betTypeid: b.betTypeId,
+                        drawid: String(b.drawId || '')
+                    })) as unknown as LoteriaBet[];
+
+                log.info('fetchExistingBetsOfflineFirst result', { count: bets.length });
+                return bets;
+            },
+            onSuccess: (bets) => ({ type: 'FETCH_EXISTING_BETS_RESPONSE' as const, response: { type: 'Success' as const, data: bets } }),
+            onFailure: (error) => ({ type: 'FETCH_EXISTING_BETS_RESPONSE' as const, response: { type: 'Failure' as const, error: String(error) } })
+        });
     },
 
     // --- Core Business Flows ---
@@ -284,9 +329,9 @@ export const FeatureFlows = {
         // 2. Set Loading State con el código ya inyectado
         const loadingModel = {
             ...model,
-            summary: { 
-                ...model.summary, 
-                isSaving: true, 
+            summary: {
+                ...model.summary,
+                isSaving: true,
                 error: null,
                 pendingReceiptCode: receiptCode
             }
@@ -306,7 +351,7 @@ export const FeatureFlows = {
                         // Inyectamos el receiptCode en cada apuesta del lote si el repo lo permite
                         // o lo usamos como referencia para el guardado offline.
                         const payloadWithCode = payload.map(p => ({ ...p, receiptCode }));
-                        
+
                         return ResultAsync.fromPromise(
                             betRepository.placeBatch(payloadWithCode).then((result) => {
                                 if (result.isErr()) {
@@ -339,15 +384,15 @@ export const FeatureFlows = {
     },
 
     finalizeSaveSuccess: (model: LoteriaFeatureModel, bets: any[] = [], drawIdFromMsg?: string, receiptCodeFromMsg?: string): Return<LoteriaFeatureModel, FeatureMsg> => {
-        
+
         // ESTRATEGIA ELM: El dato del Mensaje (inyectado en el fetch) es la ÚNICA fuente de verdad.
         // Ignoramos el modelo (que puede estar sucio) y la respuesta (que puede venir vacía en offline).
         const receiptCode = receiptCodeFromMsg || (bets && bets.length > 0 && bets[0]?.receiptCode);
         const drawId = drawIdFromMsg || model.currentDrawId;
 
-        log.info('FINALIZE_SAVE_SUCCESS: Preparando navegación', { 
-            receiptCode, 
-            drawId, 
+        log.info('FINALIZE_SAVE_SUCCESS: Preparando navegación', {
+            receiptCode,
+            drawId,
             hasBets: bets?.length > 0,
             source: receiptCodeFromMsg ? 'MSG_INJECTED' : 'BETS_DATA'
         });

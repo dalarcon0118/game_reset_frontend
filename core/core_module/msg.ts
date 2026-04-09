@@ -44,6 +44,9 @@ export type CoreMsg =
   /** Dispara la verificación de expiración de sesión */
   | { type: 'CHECK_SESSION_EXPIRATION' }
 
+  /** Dispara la verificación de inactividad del usuario */
+  | { type: 'CHECK_INACTIVITY' }
+
   /** Trigger para reintento de inicialización */
   | { type: 'RETRY_BOOTSTRAP' }
 

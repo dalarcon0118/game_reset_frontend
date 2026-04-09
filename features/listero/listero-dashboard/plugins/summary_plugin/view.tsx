@@ -8,7 +8,7 @@ import { SummaryModule, selectModel, selectDispatch } from './store';
 import { RemoteData } from '@core/tea-utils';
 import { formatCurrency } from '@/shared/utils/formatters';
 import { styles } from './styles';
-import { Model, DailyTotals } from './model';
+import { Model } from './model';
 
 // ============================================================================
 // PURE COMPONENTS (Views as Functions: Props -> UI)
@@ -41,25 +41,30 @@ const EmptyView = ({ onReload }: { onReload: () => void }) => (
   </View>
 );
 
-const MetricRow = ({ icon: Icon, color, bg, label, value, valueColor = undefined }: any) => (
-  <View style={styles.mainMetricRow}>
-    <View style={[styles.iconContainer, { backgroundColor: bg }]}>
-      <Icon size={24} color={color} />
-    </View>
-    <View style={styles.metricInfo}>
+const MainMetricCard = ({ icon: Icon, color, bg, label, value, valueColor = undefined }: any) => (
+  <View style={styles.mainMetricCard}>
+    <View style={styles.mainMetricTopRow}>
+      <View style={[styles.iconContainer, { backgroundColor: bg }]}>
+        <Icon size={20} color={color} />
+      </View>
       <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={[styles.metricValue, valueColor && { color: valueColor }]}>{value}</Text>
     </View>
+    <Text style={[styles.metricValue, valueColor && { color: valueColor }]}>{value}</Text>
   </View>
 );
 
-const SecondaryMetric = ({ icon: Icon, label, value, valueColor = undefined }: any) => (
+const SecondaryMetric = ({ icon: Icon, label, value, valueColor = undefined, badgeText = undefined }: any) => (
   <View style={styles.secondaryItem}>
     <View style={styles.secondaryHeader}>
-      <Icon size={16} color="#8F9BB3" style={{ marginRight: 4 }} />
-      <Text style={styles.secondaryLabel}>{label}</Text>
+      <Icon size={14} color="#8F9BB3" />
+      <Text style={styles.secondaryLabel} numberOfLines={1} ellipsizeMode="tail">{label}</Text>
+      {badgeText && (
+        <View style={styles.secondaryBadge}>
+          <Text style={styles.secondaryBadgeText}>{badgeText}</Text>
+        </View>
+      )}
     </View>
-    <Text style={[styles.secondaryValue, valueColor && { color: valueColor }]}>{value}</Text>
+    <Text style={[styles.secondaryValue, valueColor && { color: valueColor }]} numberOfLines={1}>{value}</Text>
   </View>
 );
 
@@ -81,12 +86,11 @@ const DashboardContent = ({ model, dispatch }: { model: Model; dispatch: any }) 
       </View>
 
       <View style={styles.mainMetricsContainer}>
-        <MetricRow 
+        <MainMetricCard 
           icon={PiggyBank} color="#00D68F" bg="#E8FBF4" 
           label="Ganancia Estimada" value={hide(dailyTotals.estimatedCommission)} 
         />
-        <View style={styles.divider} />
-        <MetricRow 
+        <MainMetricCard 
           icon={Wallet} color="#3366FF" bg="#F0F5FF" 
           label="Total a Rendir" value={hide(dailyTotals.amountToRemit)} valueColor="#3366FF" 
         />
@@ -95,7 +99,12 @@ const DashboardContent = ({ model, dispatch }: { model: Model; dispatch: any }) 
       <View style={styles.secondaryMetricsRow}>
         <SecondaryMetric icon={FileText} label="Recolectado" value={hide(dailyTotals.totalCollected)} />
         <SecondaryMetric icon={TrendingUp} label="Premios" value={hide(dailyTotals.premiumsPaid)} valueColor="#FF3D71" />
-        <SecondaryMetric icon={BarChart3} label={`Comisión (${Math.round(commissionRate * 100)}%)`} value={hide(dailyTotals.estimatedCommission)} />
+        <SecondaryMetric
+          icon={BarChart3}
+          label="Comisión"
+          badgeText={`${Math.round(commissionRate * 100)}%`}
+          value={hide(dailyTotals.estimatedCommission)}
+        />
       </View>
     </View>
   );

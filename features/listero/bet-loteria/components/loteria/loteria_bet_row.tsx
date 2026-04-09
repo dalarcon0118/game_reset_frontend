@@ -30,6 +30,7 @@ export const LoteriaBetRow: React.FC<LoteriaBetRowProps> = memo(({
                     <BetCircle
                         key={`${item.bet}-${index}`}
                         value={group}
+                        border={false}
                         onPress={() => isEditing && onEditBet(item.id)}
                     />
                 ))}
@@ -50,8 +51,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: Layout.spacing.md,
-        paddingHorizontal: Layout.spacing.lg,
+        marginBottom: Layout.spacing.xxs,
+        paddingHorizontal: Layout.spacing.xs,
     },
     betRowCentered: {
         justifyContent: 'center',

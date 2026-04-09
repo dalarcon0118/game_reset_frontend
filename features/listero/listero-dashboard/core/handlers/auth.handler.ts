@@ -11,6 +11,12 @@ import { adaptAuthUser, DashboardUser } from '../user.dto';
 const log = logger.withTag('DASHBOARD_AUTH_HANDLER');
 
 const triggerInitialLoad = (model: Model): Return<Model, Msg> => {
+    log.debug('triggerInitialLoad evaluation', {
+        status: model.status.type,
+        userStructureId: model.userStructureId,
+        drawsType: model.draws.type
+    });
+
     // STATE MACHINE GUARD: Solo permitir carga si estamos en LOADING_DATA
     if (model.status.type !== 'LOADING_DATA') {
         log.debug('triggerInitialLoad skipped: Must be in LOADING_DATA state', { currentStatus: model.status.type });
