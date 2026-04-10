@@ -33,19 +33,22 @@ const DrawItemComponent: React.FC<DrawItemProps> = ({
   const [currentTime, setCurrentTime] = useState(Date.now());
 
   useEffect(() => {
-  const bettingEndTime = new Date(draw.betting_end_time).getTime();
-  const timeRemaining = bettingEndTime - Date.now();
-  
-  // Si ya cerró o falta menos de 5 min, interval inmediato
-  if (timeRemaining <= 0) return;
-  
-  if (timeRemaining < 5 * 60 * 1000) {
-    const intervalId = setInterval(() => setCurrentTime(Date.now()), 1000);
-    return () => clearInterval(intervalId);
-  }
+    if (!draw.betting_end_time) return;
+    const bettingEndTime = new Date(draw.betting_end_time).getTime();
+    const timeRemaining = bettingEndTime - Date.now();
 
-  return;
-}, [draw.betting_end_time]);
+    if (timeRemaining <= 0) {
+      const intervalId = setInterval(() => setCurrentTime(Date.now()), 1000);
+      return () => clearInterval(intervalId);
+    }
+
+    if (timeRemaining < 5 * 60 * 1000) {
+      const intervalId = setInterval(() => setCurrentTime(Date.now()), 1000);
+      return () => clearInterval(intervalId);
+    }
+
+    return;
+  }, [draw.betting_end_time]);
 
   useEffect(() => {
    log.debug(`DrawItemComponent: is_betting_open = ${draw.is_betting_open}, betting_end_time = ${draw.betting_end_time}`)
