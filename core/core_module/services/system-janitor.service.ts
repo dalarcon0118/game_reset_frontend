@@ -213,9 +213,9 @@ export class SystemJanitor {
                     message: `Sesión diaria iniciada correctamente para el ${today}. ${betDeleted > 0 ? `${betDeleted} apuesta(s) antigua(s) limpiada(s).` : 'No había apuestas pendientes.'} ${drawDeleted > 0 ? `${drawDeleted} sorteo(s) antiguo(s) limpiado(s).` : ''}`,
                     type: 'info',
                     metadata: {
-                        action: 'JANITOR_CLEANUP',
-                        deletedBets: betDeleted,
-                        deletedDraws: drawDeleted,
+                        procedente: 'JANITOR_CLEANUP',
+                        ApuestasEliminadas: betDeleted,
+                        SorteosEliminados: drawDeleted,
                         today,
                         hadErrors: false
                     }

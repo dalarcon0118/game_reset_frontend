@@ -15,7 +15,7 @@ export default function NotificationsScreen() {
   }, [dispatch]);
 
   const handleNotificationPress = React.useCallback((notification: AppNotification) => {
-    dispatch(NAVIGATE_TO_DETAIL(notification));
+    dispatch(NAVIGATE_TO_DETAIL(notification.id));
   }, [dispatch]);
 
   const handleBackAction = React.useCallback(() => {

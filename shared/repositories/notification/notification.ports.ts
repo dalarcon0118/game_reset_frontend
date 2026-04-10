@@ -20,6 +20,7 @@ export interface INotificationRepository {
     markAllAsRead(): Promise<void>;
     deleteNotification(notificationId: string): Promise<void>;
     clearAllNotifications(): Promise<void>;
+    forceSyncFromBackend(): Promise<Notification[]>;
     getStreamUrl(token: string): string;
     isReady(): boolean;
 }

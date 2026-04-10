@@ -57,6 +57,7 @@ export class BetOfflineAdapter implements IBetStorage {
         const id = bet.externalId || (bet as any).offlineId;
         const key = BetOfflineKeys.bet(id);
         log.info(`[${BET_LOG_TAGS.OFFLINE_ADAPTER}] ${BET_LOGS.SAVING_BET}: ${id} (Estado: ${bet.status})`);
+        log.info(`[${BET_LOG_TAGS.OFFLINE_ADAPTER}] 🔍 TRACE save bet: ${JSON.stringify({ id, ownerUser: bet.ownerUser, ownerStructure: bet.ownerStructure, receiptCode: bet.receiptCode, drawId: bet.drawId, amount: bet.amount, status: bet.status })}`);
         log.info(`[FINGERPRINT_DEBUG] Saving bet with fingerprint:`, {
             betId: id,
             hasFingerprint: !!bet.fingerprint,
@@ -336,7 +337,9 @@ export class BetOfflineAdapter implements IBetStorage {
             // Ordenar por timestamp ascendente (FIFO)
             .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
 
-        log.info(`[${BET_LOG_TAGS.OFFLINE_ADAPTER}] 2. ${BET_LOGS.PENDING_FOUND}`);
+        log.info(`[${BET_LOG_TAGS.OFFLINE_ADAPTER}] 2. ${BET_LOGS.PENDING_FOUND}. Total pending: ${pending.length}`);
+        log.debug(`[${BET_LOG_TAGS.OFFLINE_ADAPTER}] 🔍 TRACE getPending: ${JSON.stringify(pending.map(b => ({ externalId: b.externalId, ownerUser: b.ownerUser, receiptCode: b.receiptCode, status: b.status })))}`);
+
         return pending;
     }
 

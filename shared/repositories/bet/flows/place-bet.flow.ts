@@ -203,8 +203,10 @@ export const placeBetFlow = (
                                     return new Error(`${BET_LOGS.SIGN_ERROR}: ${e}`);
                                 })
                                 .map((fingerprint: any): BetDomainModel => {
-                                    log.info(`[PLACE_BET_FLOW] ✅ Fingerprint V2 generado exitosamente para ${bet.externalId}`);
-                                    return { ...bet, fingerprint, ownerUser: String(userId) };
+                                    const betWithOwner = { ...bet, fingerprint, ownerUser: String(userId) };
+                                    log.info(`[PLACE_BET_FLOW] ✅ Fingerprint V2 generado exitosamente para ${bet.externalId}. Guardando con ownerUser=${betWithOwner.ownerUser}`);
+                                    log.debug(`[PLACE_BET_FLOW] 🔍 TRACE save: ${JSON.stringify({ externalId: betWithOwner.externalId, ownerUser: betWithOwner.ownerUser, ownerStructure: betWithOwner.ownerStructure, receiptCode: betWithOwner.receiptCode, drawId: betWithOwner.drawId, amount: betWithOwner.amount })}`);
+                                    return betWithOwner;
                                 });
                         })
                 });
@@ -281,7 +283,12 @@ export const placeBatchFlow = (
                                     timestamp: bet.timestamp
                                 })
                                     .mapError((e: Error | any) => new Error(`${BET_LOGS.SIGN_ERROR}: ${e}`))
-                                    .map((fingerprint: any): BetDomainModel => ({ ...bet, fingerprint, ownerUser: String(userId) }));
+                                    .map((fingerprint: any): BetDomainModel => {
+                                        const signedBet = { ...bet, fingerprint, ownerUser: String(userId) };
+                                        log.info(`[PLACE_BATCH_FLOW] ✅ Fingerprint V2 para bet ${bet.externalId}. ownerUser=${signedBet.ownerUser}`);
+                                        log.debug(`[PLACE_BATCH_FLOW] 🔍 TRACE: ${JSON.stringify({ externalId: signedBet.externalId, ownerUser: signedBet.ownerUser, ownerStructure: signedBet.ownerStructure, receiptCode: signedBet.receiptCode })}`);
+                                        return signedBet;
+                                    });
                             })
                     };
 

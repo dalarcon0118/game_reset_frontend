@@ -37,6 +37,7 @@ class AuthRepositoryImpl implements IAuthRepository {
     private isLoggingOut = false; // Flag para evitar race conditions durante logout
     private isExiting = false; // Flag para prevenir múltiples señales de expiración
     private isNetworkOnline = true; // SSoT: Estado de red global inyectado por CoreModule
+    private networkChecker: (() => Promise<boolean>) | null = null; // Verificador de conectividad en tiempo real
     private offlineConditionChecker: IOfflineConditionChecker | null = null; // Inyectado por CoreModule
     private deviceSecretRepo: IDeviceSecretRepository | null = null;
     private timeAnchorRepo: ITimeAnchorRepository | null = null;
@@ -304,10 +305,20 @@ class AuthRepositoryImpl implements IAuthRepository {
      */
     async login(username: string, pin: string): Promise<AuthResult> {
         try {
-            // 1. Siempre intentar online primero si el sensor de red global lo permite
-            log.info('Evaluating login strategy...', { username, isNetworkOnline: this.isNetworkOnline });
+            // 1. Evaluar conectividad en tiempo real antes de decidir estrategia
+            // Si el sensor global dice OFFLINE pero tenemos checker, verificamos realmente
+            let shouldAttemptOnline = this.isNetworkOnline;
 
-            if (this.isNetworkOnline) {
+            if (!this.isNetworkOnline && this.networkChecker) {
+                log.info('Global sensor says OFFLINE but networkChecker available - verifying real connectivity...');
+                const isReachable = await this.networkChecker();
+                shouldAttemptOnline = isReachable;
+                log.info('Real-time connectivity check result', { isReachable, wasGlobalSensorOffline: true });
+            }
+
+            log.info('Evaluating login strategy...', { username, isNetworkOnline: this.isNetworkOnline, shouldAttemptOnline });
+
+            if (shouldAttemptOnline) {
                 log.info('Attempting online login (Network is ONLINE)...', { username });
                 const onlineResult = await this.api.login(username, pin);
 
@@ -525,6 +536,12 @@ class AuthRepositoryImpl implements IAuthRepository {
             log.info(`[SSOT-SYNC] Global network status updated in AuthRepository: ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
             this.isNetworkOnline = isOnline;
         }
+    }
+
+    /** Inyecta el verificador de conectividad en tiempo real (ping al servidor) */
+    setNetworkChecker(checker: () => Promise<boolean>): void {
+        this.networkChecker = checker;
+        log.info('[SSOT-SYNC] Network checker injected into AuthRepository');
     }
 
     /** Inyecta el checker de condiciones offline del CoreModule */

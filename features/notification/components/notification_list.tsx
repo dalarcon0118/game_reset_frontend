@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, FlatList, Text, RefreshControl } from 'react-native';
 import { Button, Layout } from '@ui-kitten/components';
-import { BellOff } from 'lucide-react-native';
+import { BellOff, RefreshCw } from 'lucide-react-native';
 import { NotificationModule } from '../core/store';
 import { NotificationItem } from './notification_item';
 import { AppNotification } from '../core/model';
@@ -9,7 +9,8 @@ import {
   MARK_ALL_AS_READ_REQUESTED,
   FILTER_CHANGED,
   REFRESH_NOTIFICATIONS,
-  MARK_AS_READ_REQUESTED
+  MARK_AS_READ_REQUESTED,
+  SYNC_FROM_BACKEND_REQUESTED
 } from '../core/msg';
 
 interface NotificationListProps {
@@ -44,6 +45,10 @@ export const NotificationList: React.FC<NotificationListProps> = ({ onNotificati
     dispatch(MARK_AS_READ_REQUESTED(id));
   };
 
+  const handleSyncFromBackend = () => {
+    dispatch(SYNC_FROM_BACKEND_REQUESTED());
+  };
+
   const renderNotification = ({ item }: { item: AppNotification }) => (
     <NotificationItem
       notification={item}
@@ -60,51 +65,67 @@ export const NotificationList: React.FC<NotificationListProps> = ({ onNotificati
     </Layout>
   );
 
-  const renderHeader = () => (
-    <View style={styles.header}>
-      <View style={styles.filterContainer}>
-        <Button
-          size="small"
-          appearance={model.currentFilter === 'all' ? 'filled' : 'outline'}
-          status="basic"
-          onPress={() => handleFilterChange('all')}
-        >
-          Todas
-        </Button>
-        <Button
-          size="small"
-          appearance={model.currentFilter === 'pending' ? 'filled' : 'outline'}
-          status="basic"
-          onPress={() => handleFilterChange('pending')}
-        >
-          {`Pendientes (${model.unreadCount})`}
-        </Button>
-        <Button
-          size="small"
-          appearance={model.currentFilter === 'read' ? 'filled' : 'outline'}
-          status="basic"
-          onPress={() => handleFilterChange('read')}
-        >
-          Leídas
-        </Button>
-      </View>
-
-      {model.unreadCount > 0 && (
-        <Button
-          size="small"
-          appearance="ghost"
-          status="basic"
-          onPress={handleMarkAllAsRead}
-        >
-          Marcar todas como leídas
-        </Button>
-      )}
+  const renderFilterChips = () => (
+    <View style={styles.filterContainer}>
+      <Button
+        size="small"
+        appearance={model.currentFilter === 'all' ? 'filled' : 'outline'}
+        status="basic"
+        onPress={() => handleFilterChange('all')}
+      >
+        Todas
+      </Button>
+      <Button
+        size="small"
+        appearance={model.currentFilter === 'pending' ? 'filled' : 'outline'}
+        status="basic"
+        onPress={() => handleFilterChange('pending')}
+      >
+        {`Pendientes (${model.unreadCount})`}
+      </Button>
+      <Button
+        size="small"
+        appearance={model.currentFilter === 'read' ? 'filled' : 'outline'}
+        status="basic"
+        onPress={() => handleFilterChange('read')}
+      >
+        Leídas
+      </Button>
     </View>
   );
 
   return (
     <Layout style={styles.container}>
-      {renderHeader()}
+      <View style={styles.headerRow}>
+        <View style={styles.headerTopRow}>
+          <Text style={styles.headerTitle}>Notificaciones</Text>
+          <Button
+            size="small"
+            appearance="outline"
+            status="primary"
+            style={styles.syncButton}
+            onPress={handleSyncFromBackend}
+            accessoryLeft={() => <RefreshCw size={16} color="#2196F3" />}
+          >
+            Sincronizar
+          </Button>
+        </View>
+        {model.unreadCount > 0 && (
+          <View style={styles.headerSecondaryRow}>
+            <Button
+              size="small"
+              appearance="ghost"
+              status="basic"
+              style={styles.markAllButton}
+              onPress={handleMarkAllAsRead}
+            >
+              Marcar todas como leídas
+            </Button>
+          </View>
+        )}
+      </View>
+
+      {renderFilterChips()}
 
       <FlatList
         data={notifications}
@@ -133,10 +154,45 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
   },
+  headerRow: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+    gap: 8,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#222',
+    flexShrink: 1,
+    paddingRight: 8,
+  },
+  syncButton: {
+    alignSelf: 'flex-end',
+  },
+  headerSecondaryRow: {
+    alignItems: 'flex-end',
+  },
+  markAllButton: {
+    alignSelf: 'flex-end',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   filterContainer: {
     flexDirection: 'row',
     gap: 8,
     marginBottom: 12,
+    paddingHorizontal: 16,
+    paddingTop: 12,
   },
   emptyState: {
     flex: 1,

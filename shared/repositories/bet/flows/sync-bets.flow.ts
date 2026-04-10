@@ -112,6 +112,8 @@ export const syncPendingFlow = async (
     let structureTotalCollected: number | undefined;
     let structureId: number | undefined;
 
+    log.info(`[SYNC-BET-FLOW] 📋 Iniciando syncPendingFlow. Pending bets: ${pending.length}, currentUserId: ${currentUserId}`);
+
     for (const bet of pending) {
         // ==========================================================================
         // SEGURIDAD CRÍTICA: Verificar propiedad de la apuesta
@@ -119,8 +121,11 @@ export const syncPendingFlow = async (
         const betOwnerUser = Number(bet.ownerUser) || 0;
         const isOrphanBet = !bet.ownerUser || bet.ownerUser === '' || betOwnerUser === 0;
 
+        log.debug(`[SYNC-BET-FLOW] 🔍 Verificando apuesta ${bet.externalId}: ownerUser=${bet.ownerUser}, betOwnerUser=${betOwnerUser}, isOrphan=${isOrphanBet}`);
+
         if (isOrphanBet) {
-            log.warn(`[SYNC-BET-FLOW] ⚠️ SEGURIDAD: Apuesta huérfana detectada ${bet.externalId}. Marcando como blocked.`);
+            log.warn(`[SYNC-BET-FLOW] ⚠️ SEGURIDAD: Apuesta huérfana detectada ${bet.externalId}. OwnerUser actual: '${bet.ownerUser}', parsed: ${betOwnerUser}. Receipt: ${bet.receiptCode}. Marcando como blocked.`);
+            log.warn(`[SYNC-BET-FLOW] 🔍 TRACE huérfana: bet=${JSON.stringify({ externalId: bet.externalId, ownerUser: bet.ownerUser, ownerStructure: bet.ownerStructure, receiptCode: bet.receiptCode, drawId: bet.drawId, amount: bet.amount, status: bet.status })}`);
             await storage.updateStatus(bet.externalId, 'blocked', {
                 syncContext: {
                     lastAttempt: Date.now(),

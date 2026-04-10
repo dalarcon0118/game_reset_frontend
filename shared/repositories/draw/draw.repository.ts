@@ -291,17 +291,23 @@ export class DrawRepository implements IDrawRepository {
             let removed = 0;
 
             // 1. Limpiar solo la caché de LISTAS.
-            // Esto fuerza a la app a pedir datos frescos al servidor, 
+            // Esto fuerza a la app a pedir datos frescos al servidor,
             // pero NO borra los sorteos individuales.
             await this.offlineAdapter.clearLists();
-            removed++;
 
             // 2. Obtener todos los sorteos individuales cacheados
             const allCachedDraws = await this.offlineAdapter.getAll();
 
             // 3. Filtrar y borrar solo los que sean estrictamente anteriores a 'today'
             // La fecha de BackendDraw viene en formato YYYY-MM-DD
-            const toDelete = allCachedDraws.filter(draw => (draw as any).date < today);
+            const toDelete = allCachedDraws.filter(draw => (draw as any).date && (draw as any).date < today);
+
+            const withoutDate = allCachedDraws.filter(draw => !(draw as any).date);
+            if (withoutDate.length > 0) {
+                this.log.warn(`Found ${withoutDate.length} draws without date field - these will not be cleaned up`, {
+                    drawIds: withoutDate.map(d => d.id)
+                });
+            }
 
             this.log.debug(`Found ${toDelete.length} old draws to cleanup out of ${allCachedDraws.length} total`, {
                 today,
@@ -345,7 +351,12 @@ export class DrawRepository implements IDrawRepository {
             this.log.debug('[hasDrawAvailable] Flag hasDraw storage', { hasDrawFlag });
 
             if (hasDrawFlag !== true) {
-                this.log.info('[hasDrawAvailable] Flag es false/null - denegando login offline', { hasDrawFlag });
+                this.log.info('[hasDrawAvailable] Flag es false/null - verificando cache como fallback', { hasDrawFlag });
+                const cachedDraws = await this.offlineAdapter.getAll();
+                if (cachedDraws.length > 0) {
+                    this.log.warn('[hasDrawAvailable] Inconsistencia: flag false pero hay sorteos en cache - permitiendo login', { cachedCount: cachedDraws.length });
+                    return true;
+                }
                 return false;
             }
 

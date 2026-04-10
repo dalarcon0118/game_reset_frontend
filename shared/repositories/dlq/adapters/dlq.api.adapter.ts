@@ -3,8 +3,20 @@ import { DlqItem } from '../dlq.types';
 import apiClient from '@/shared/services/api_client';
 import settings from '@/config/settings';
 import { logger } from '@/shared/utils/logger';
+import { RepositoriesModule } from '@/shared/repositories';
+import type { IAuthRepository } from '@/shared/repositories/auth/auth.ports';
 
 const log = logger.withTag('DlqApiAdapter');
+
+interface BetPayload {
+    externalId?: string;
+    drawId?: string | number;
+    amount?: number | string;
+    ownerUser?: string | number;
+    ownerStructure?: string | number;
+    receiptCode?: string;
+    [key: string]: any;
+}
 
 export class DlqApiAdapter implements IDlqApi {
     async syncItems(items: DlqItem[]): Promise<{ success: number; failed: number }> {
@@ -28,18 +40,36 @@ export class DlqApiAdapter implements IDlqApi {
         }
     }
 
-    /**
-     * Reporta un item al backend directamente.
-     * Usa el ID en el body para que el backend pueda hacer idempotencia.
-     */
     async reportItem(domain: string, entityId: string, payload: any, error: any): Promise<void> {
-        log.debug(`Reporting DLQ item to backend: ${domain}:${entityId}`);
+        log.info(`[DlqApiAdapter] 📤 Reportando DLQ item al backend: domain=${domain}, entityId=${entityId}`);
 
         try {
+            const authRepo = RepositoriesModule.getSync<IAuthRepository>('AuthRepository');
+            const currentUser = await authRepo.getUserIdentity();
+            const userId = currentUser?.id ? String(currentUser.id) : undefined;
+            log.debug(`[DlqApiAdapter] 🔍 TRACE auth: currentUser=${JSON.stringify(currentUser)}, resolved userId=${userId}`);
+
+            const betPayload = payload as BetPayload;
             const endpoint = settings.api.endpoints.dlq.report();
-            await apiClient.post(endpoint, { domain, entityId, payload, error });
-        } catch (error) {
-            log.warn(`Failed to report DLQ item ${entityId}`, error);
+
+            const backendPayload = {
+                idempotency_key: betPayload.externalId || entityId,
+                local_id: entityId,
+                draw_id: betPayload.drawId ? String(betPayload.drawId) : undefined,
+                amount: betPayload.amount ? Number(betPayload.amount) : undefined,
+                error: typeof error === 'string' ? error : error?.message || JSON.stringify(error),
+                user_id: userId,
+                bet_data: payload
+            };
+
+            log.info(`[DlqApiAdapter] 📦 Payload completo enviado al backend: ${JSON.stringify(backendPayload)}`);
+            log.debug(`[DlqApiAdapter] 🔍 TRACE payload details: ownerUser=${betPayload.ownerUser}, ownerStructure=${betPayload.ownerStructure}, receiptCode=${betPayload.receiptCode}`);
+
+            await apiClient.post(endpoint, backendPayload);
+            log.info(`[DlqApiAdapter] ✅ DLQ item reportado exitosamente: ${entityId}`);
+        } catch (error: any) {
+            log.error(`[DlqApiAdapter] ❌ Falló reporte de DLQ item ${entityId}: status=${error.status}, message=${error.message}`);
+            log.debug(`[DlqApiAdapter] 🔍 TRACE error response: ${JSON.stringify(error.response)}`);
             throw error;
         }
     }

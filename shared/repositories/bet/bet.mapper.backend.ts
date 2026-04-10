@@ -100,9 +100,10 @@ export const mapSinglePendingBetToFrontend = (pb: BetDomainModel, betTypes: Game
             betTypeId: pb.betTypeCode || pb.betTypeId,
             betTypeCode: pb.betTypeCode,
             ownerStructure: pb.ownerStructure,
+            ownerUser: pb.ownerUser,
             status: pb.status || 'pending',
-            fingerprint: pb.fingerprint // FIX: Preservar fingerprint del dominio
-        } as BetType & { fingerprint?: typeof pb.fingerprint };
+            fingerprint: pb.fingerprint
+        } as BetType & { fingerprint?: typeof pb.fingerprint; ownerUser?: typeof pb.ownerUser };
     }
 
     const betTypeRef = String(pb.betTypeCode || pb.betTypeId || '');
@@ -127,7 +128,8 @@ export const mapSinglePendingBetToFrontend = (pb: BetDomainModel, betTypes: Game
         betTypeId: pb.betTypeCode || pb.betTypeId,
         betTypeCode: pb.betTypeCode,
         ownerStructure: pb.ownerStructure,
+        ownerUser: pb.ownerUser,
         status: pb.status || 'pending',
-        fingerprint: pb.fingerprint // FIX: Preservar fingerprint del dominio
-    } as BetType & { fingerprint?: typeof pb.fingerprint };
+        fingerprint: pb.fingerprint
+    } as BetType & { fingerprint?: typeof pb.fingerprint; ownerUser?: typeof pb.ownerUser };
 };

@@ -34,19 +34,24 @@ export class BetPushStrategy implements SyncStrategy {
             const results = await Promise.all(items.map(async (item): Promise<SyncOutcome> => {
                 try {
                     if (!item.data) {
+                        log.error(`[SYNC_PUSH] ❌ Item sin datos: ${item.entityId}`);
                         return { type: 'FATAL_ERROR', reason: BET_LOGS.SYNC_NO_DATA };
                     }
 
                     // Aseguramos que el fingerprint sea recalculado si el ownerUser era inválido (0)
                     // Esto permite recuperar apuestas bloqueadas por firmas corruptas
                     const betData = { ...item.data };
+                    log.debug(`[SYNC_PUSH] 🔍 Procesando apuesta ${item.entityId}: ownerUser=${betData.ownerUser}, ownerStructure=${betData.ownerStructure}, receiptCode=${betData.receiptCode}`);
+
                     if (betData.ownerUser === "0" || !betData.ownerUser) {
-                        log.warn(`[SYNC_PUSH] ⚠️ Apuesta ${item.entityId} tiene ownerUser inválido. Se requiere re-firma.`);
+                        log.warn(`[SYNC_PUSH] ⚠️ Apuesta ${item.entityId} tiene ownerUser inválido (${betData.ownerUser}). Se requiere re-firma. betData completo: ${JSON.stringify({ externalId: betData.externalId, ownerUser: betData.ownerUser, ownerStructure: betData.ownerStructure, receiptCode: betData.receiptCode })}`);
                     }
 
                     // 1. Intentar creación directamente (El backend maneja la idempotencia nativamente)
+                    log.info(`[SYNC_PUSH] 📤 Enviando apuesta ${item.entityId} al backend...`);
                     const response = await this.api.create(betData, item.entityId);
                     const backendId = Array.isArray(response) ? response[0]?.id?.toString() : (response as any).id?.toString();
+                    log.info(`[SYNC_PUSH] ✅ Apuesta ${item.entityId} sincronizada exitosamente. backendId: ${backendId}`);
 
                     return {
                         type: 'SUCCESS',
@@ -56,7 +61,7 @@ export class BetPushStrategy implements SyncStrategy {
                     const status = error.status || error.response?.status;
                     const reason = error.data?.detail || error.data?.message || error.message || `HTTP ${status || 'Unknown Error'}`;
 
-                    log.error(`[${BET_LOGS.SYNC_ERROR}] ${item.entityId}:`, reason);
+                    log.error(`[${BET_LOGS.SYNC_ERROR}] ❌ Apuesta ${item.entityId} falló con HTTP ${status}: ${reason}`);
 
                     // MODO MANUAL PURO: Cualquier error se considera FATAL para detener reintentos automáticos
                     // y permitir que el usuario decida cuándo reintentar desde la UI.

@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Card, Button } from '@ui-kitten/components';
-import { Eye, EyeOff, PiggyBank, Wallet, FileText, TrendingUp, BarChart3 } from 'lucide-react-native';
+import { Eye, EyeOff, PiggyBank, Wallet, FileText, TrendingUp } from 'lucide-react-native';
 import { match } from 'ts-pattern';
 import { GET_FINANCIAL_BETS, TOGGLE_BALANCE_VISIBILITY } from './msg';
 import { SummaryModule, selectModel, selectDispatch } from './store';
@@ -41,13 +41,18 @@ const EmptyView = ({ onReload }: { onReload: () => void }) => (
   </View>
 );
 
-const MainMetricCard = ({ icon: Icon, color, bg, label, value, valueColor = undefined }: any) => (
+const MainMetricCard = ({ icon: Icon, color, bg, label, value, valueColor = undefined, badgeText = undefined }: any) => (
   <View style={styles.mainMetricCard}>
     <View style={styles.mainMetricTopRow}>
       <View style={[styles.iconContainer, { backgroundColor: bg }]}>
         <Icon size={20} color={color} />
       </View>
       <Text style={styles.metricLabel}>{label}</Text>
+      {badgeText && (
+        <View style={styles.percentageBadge}>
+          <Text style={styles.percentageText}>{badgeText}</Text>
+        </View>
+      )}
     </View>
     <Text style={[styles.metricValue, valueColor && { color: valueColor }]}>{value}</Text>
   </View>
@@ -88,23 +93,18 @@ const DashboardContent = ({ model, dispatch }: { model: Model; dispatch: any }) 
       <View style={styles.mainMetricsContainer}>
         <MainMetricCard 
           icon={PiggyBank} color="#00D68F" bg="#E8FBF4" 
-          label="Ganancia Estimada" value={hide(dailyTotals.estimatedCommission)} 
+          label="Ganancia Estimada" value={hide(dailyTotals.estimatedCommission)}
+          badgeText={`${Math.round(commissionRate * 100)}%`}
         />
         <MainMetricCard 
           icon={Wallet} color="#3366FF" bg="#F0F5FF" 
-          label="Total a Rendir" value={hide(dailyTotals.amountToRemit)} valueColor="#3366FF" 
+          label="Total a Entregar" value={hide(dailyTotals.amountToRemit)} valueColor="#3366FF" 
         />
       </View>
 
       <View style={styles.secondaryMetricsRow}>
-        <SecondaryMetric icon={FileText} label="Recolectado" value={hide(dailyTotals.totalCollected)} />
-        <SecondaryMetric icon={TrendingUp} label="Premios" value={hide(dailyTotals.premiumsPaid)} valueColor="#FF3D71" />
-        <SecondaryMetric
-          icon={BarChart3}
-          label="Comisión"
-          badgeText={`${Math.round(commissionRate * 100)}%`}
-          value={hide(dailyTotals.estimatedCommission)}
-        />
+        <SecondaryMetric icon={FileText} label="Total Vendido" value={hide(dailyTotals.totalCollected)} />
+        <SecondaryMetric icon={TrendingUp} label="Premios Pagados" value={hide(dailyTotals.premiumsPaid)} valueColor="#FF3D71" />
       </View>
     </View>
   );

@@ -11,15 +11,10 @@ export default function NotificationDetailScreen() {
   const model = useNotificationStore(selectNotificationModel) as Model;
   const dispatch = useNotificationStore(selectNotificationDispatch);
 
-  // Usamos la notificación del modelo si está seleccionada, sino intentamos parsear de los params
   const params = useLocalSearchParams();
-  const notificationParam = params.notification;
+  const notificationId = params.id as string;
 
-  const notificationFromParams: AppNotification | null = typeof notificationParam === 'string'
-    ? JSON.parse(decodeURIComponent(notificationParam))
-    : null;
-
-  const notification = model.selectedNotification || notificationFromParams;
+  const notification = model.allNotifications.find(n => n.id === notificationId) || null;
 
   if (!notification) {
     return (

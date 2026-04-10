@@ -129,23 +129,19 @@ export const CoreService = {
    * Esto fuerza una recarga de datos desde el servidor tras una actualización de la app.
    */
   async clearSessionCache(): Promise<void> {
-    const patternsToClean = [
-      '@v2:auth:*',
-      '@v2:structure*',
-      '@v2:financial*',
-      '@v2:draw*',
-      '@v2:timer*',
-    ];
+    const SYSTEM_KEYS_TO_PRESERVE = [APP_VERSION_KEY];
+    const allKeys = await storageClient.getAllKeys();
 
-    for (const pattern of patternsToClean) {
-      try {
-        await offlineStorage.clear(pattern);
-      } catch (err) {
-        log.warn(`[VERSION_CHECK] Error clearing pattern ${pattern}`, err);
-      }
+    const keysToClean = allKeys.filter(key =>
+      key.startsWith('@v2:') && !SYSTEM_KEYS_TO_PRESERVE.includes(key)
+    );
+
+    if (keysToClean.length > 0) {
+      await storageClient.removeMulti(keysToClean);
+      log.info(`[VERSION_CHECK] Session cache cleared: ${keysToClean.length} keys removed`);
+    } else {
+      log.info(`[VERSION_CHECK] No session cache keys to clear`);
     }
-
-    log.info(`[VERSION_CHECK] Session cache cleared for patterns: ${patternsToClean.join(', ')}`);
   },
 
   /**

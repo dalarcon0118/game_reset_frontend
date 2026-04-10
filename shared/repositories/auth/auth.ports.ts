@@ -51,6 +51,9 @@ export interface IAuthRepository {
     /** Inyecta el sensor de red global del CoreModule */
     setNetworkStatus(isOnline: boolean): void;
 
+    /** Inyecta el verificador de conectividad en tiempo real (ping al servidor) */
+    setNetworkChecker(checker: () => Promise<boolean>): void;
+
     /** Inyecta el checker de condiciones offline del CoreModule */
     setOfflineConditionChecker(checker: IOfflineConditionChecker): void;
 

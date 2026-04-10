@@ -69,6 +69,7 @@ export const styles = StyleSheet.create({
     color: '#1A2138',
   },
   percentageBadge: {
+    marginLeft: 'auto',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,

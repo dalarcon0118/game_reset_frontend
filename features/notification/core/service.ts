@@ -100,4 +100,17 @@ export class NotificationService {
             onFailure: () => ({ type: 'FETCH_PENDING_REWARDS_COUNT_SUCCESS', count: 0 } as any)
         });
     }
+
+    /**
+     * Force sync notifications from backend (bypass local cache)
+     */
+    forceSyncFromBackend(): Cmd {
+        return Cmd.task({
+            task: async () => {
+                return await this.notificationRepo.forceSyncFromBackend();
+            },
+            onSuccess: (notifications: any[]) => ({ type: 'NOTIFICATIONS_RECEIVED', webData: { type: 'Success', data: notifications } }),
+            onFailure: (error: any) => ({ type: 'NOTIFICATIONS_RECEIVED', webData: { type: 'Failure', error: String(error) } } as any)
+        });
+    }
 }

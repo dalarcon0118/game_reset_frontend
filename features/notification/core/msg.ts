@@ -16,7 +16,7 @@ export type Msg =
     | { type: 'CLEAR_FILTER' }
     | { type: 'REFRESH_NOTIFICATIONS' }
     | { type: 'RESET_STATE' }
-    | { type: 'NAVIGATE_TO_DETAIL'; notification: AppNotification }
+    | { type: 'NAVIGATE_TO_DETAIL'; notificationId: string }
     | { type: 'NAVIGATE_BACK' }
     | { type: 'NONE' }
     | { type: 'NOTIFICATION_ERROR'; error: string }
@@ -26,7 +26,8 @@ export type Msg =
     | { type: 'NOTIFICATION_DELETED'; webData: WebData<void>; notificationId: string }
     | { type: 'FETCH_PENDING_REWARDS_COUNT_REQUESTED' }
     | { type: 'FETCH_PENDING_REWARDS_COUNT_SUCCESS'; count: number }
-    | { type: 'ADD_SYSTEM_NOTIFICATION'; payload: { title: string; message: string; type: 'warning' | 'success' | 'info' } };
+    | { type: 'ADD_SYSTEM_NOTIFICATION'; payload: { title: string; message: string; type: 'warning' | 'success' | 'info' } }
+    | { type: 'SYNC_FROM_BACKEND_REQUESTED' };
 
 // Action creators
 export const FETCH_NOTIFICATIONS_REQUESTED = (): Msg => ({ type: 'FETCH_NOTIFICATIONS_REQUESTED' });
@@ -78,7 +79,7 @@ export const REMOVE_NOTIFICATION = (notificationId: string): Msg => ({
 });
 export const CLEAR_FILTER = (): Msg => ({ type: 'CLEAR_FILTER' });
 export const REFRESH_NOTIFICATIONS = (): Msg => ({ type: 'REFRESH_NOTIFICATIONS' });
-export const NAVIGATE_TO_DETAIL = (notification: AppNotification): Msg => ({ type: 'NAVIGATE_TO_DETAIL', notification });
+export const NAVIGATE_TO_DETAIL = (notificationId: string): Msg => ({ type: 'NAVIGATE_TO_DETAIL', notificationId });
 export const NAVIGATE_BACK = (): Msg => ({ type: 'NAVIGATE_BACK' });
 export const NOTIFICATION_ERROR = (error: string): Msg => ({
     type: 'NOTIFICATION_ERROR',
@@ -89,3 +90,4 @@ export const FETCH_PENDING_REWARDS_COUNT_SUCCESS = (count: number): Msg => ({
     type: 'FETCH_PENDING_REWARDS_COUNT_SUCCESS',
     count
 });
+export const SYNC_FROM_BACKEND_REQUESTED = (): Msg => ({ type: 'SYNC_FROM_BACKEND_REQUESTED' });

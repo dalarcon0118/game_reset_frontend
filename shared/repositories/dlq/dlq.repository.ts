@@ -42,6 +42,7 @@ export class DlqRepository implements IDlqRepository {
      */
     async add<T>(domain: string, entityId: string, payload: T, error: DlqError): Promise<string> {
         this.log.info(`[DLQ-REPO] Agregando item a DLQ: ${domain}:${entityId}`);
+        this.log.debug(`[DLQ-REPO] 🔍 TRACE add DLQ: domain=${domain}, entityId=${entityId}, payload=${JSON.stringify(payload)}, error=${JSON.stringify(error)}`);
 
         try {
             // 0. DEDUPLICACIÓN: Verificar si ya existe un item para esta entidad
@@ -59,15 +60,17 @@ export class DlqRepository implements IDlqRepository {
             // 2. Llamar al backend DIRECTAMENTE (sin pasar por SyncWorker)
             // Si el backend ya tiene este ID, retorna 200 OK (idempotencia)
             try {
+                this.log.info(`[DLQ-REPO] 📤 Reportando item al backend: ${entityId}`);
                 await this.api.reportItem(domain, entityId, payload, error);
-                this.log.info(`[DLQ-REPO] Backend reportado exitosamente para item ${id}`);
+                this.log.info(`[DLQ-REPO] ✅ Backend reportado exitosamente para item ${id}`);
 
                 // 3. Marcar como reportado en storage local
                 await this.storage.updateStatus(id, 'reported');
             } catch (apiError: any) {
                 // Si el backend falla, el ítem queda en 'pending_report'
                 // Se puede reintentar manualmente o via cleanup
-                this.log.warn(`[DLQ-REPO] Falló reporte al backend para ${id}: ${apiError.message}`);
+                this.log.warn(`[DLQ-REPO] ❌ Falló reporte al backend para ${id}: ${apiError.message}`);
+                this.log.warn(`[DLQ-REPO] 🔍 TRACE apiError: status=${apiError.status}, response=${JSON.stringify(apiError.response)}`);
             }
 
             // 4. Notificar al usuario con mensaje detallado

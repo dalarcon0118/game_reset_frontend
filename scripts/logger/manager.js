@@ -46,20 +46,23 @@ class LogManager {
     if (!viewName || viewName === 'BOOT') return 'boot.log';
     if (viewName === '/') return 'root.log';
 
-    // Si es una ruta completa (empieza por /)
-    if (viewName.includes('/')) {
-      const segments = viewName
+    let cleanPath = viewName.split('?')[0];
+
+    if (cleanPath.includes('/')) {
+      const segments = cleanPath
         .split('/')
         .filter(s => s && !/^\d+$/.test(s) && !s.includes('[') && !s.includes('('));
       
       if (segments.length > 0) {
-        // Tomamos los últimos 2 segmentos significativos (ej: bolita.list)
         const relevant = segments.slice(-2);
-        return `${relevant.join('.').toLowerCase()}.log`;
+        let filename = `${relevant.join('.').toLowerCase()}.log`;
+        if (filename.length > 200) {
+          filename = filename.substring(0, 200);
+        }
+        return filename;
       }
     }
 
-    // Mapeo de compatibilidad para nombres cortos (fallback)
     const nameMap = {
       'LOGIN': 'auth.login.log',
       'LIST': 'loteria.list.log',
@@ -69,11 +72,14 @@ class LogManager {
       'TABS': 'lister.main.log'
     };
 
-    if (nameMap[viewName]) return nameMap[viewName];
+    if (nameMap[cleanPath]) return nameMap[cleanPath];
 
-    // Sanitizar cualquier otro nombre para evitar caracteres de ruta
-    const sanitized = viewName.replace(/[\/\\]/g, '_').toLowerCase();
-    return `view_${sanitized}.log`;
+    const sanitized = cleanPath.replace(/[\/\\]/g, '_').toLowerCase();
+    let finalName = `view_${sanitized}.log`;
+    if (finalName.length > 200) {
+      finalName = finalName.substring(0, 200);
+    }
+    return finalName;
   }
 
   /**

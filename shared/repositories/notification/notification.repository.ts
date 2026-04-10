@@ -265,6 +265,24 @@ export class NotificationRepository implements INotificationRepository {
         syncWorker.triggerSync();
     }
 
+    async forceSyncFromBackend(): Promise<Notification[]> {
+        const userId = await this.getUserId();
+        if (!(await isServerReachable())) {
+            log.warn('Force sync skipped: server unreachable');
+            return [];
+        }
+
+        try {
+            const remote = await this.api.getNotifications() as Notification[];
+            await this.offlineAdapter.saveBatch(userId, remote);
+            log.info(`Force sync complete: ${remote.length} notifications fetched`);
+            return remote;
+        } catch (error) {
+            log.error('Force sync failed', error);
+            return [];
+        }
+    }
+
     getStreamUrl(token: string): string {
         const settings = require('@/config/settings').default;
         return `${settings.api.baseUrl}/notifications/stream/?token=${encodeURIComponent(token)}`;

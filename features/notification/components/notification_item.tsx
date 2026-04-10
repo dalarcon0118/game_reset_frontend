@@ -93,15 +93,16 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
               {notification.message}
             </Text>
             <View style={styles.footerRow}>
-              <Text style={styles.timestamp}>
-                {formatDate(notification.createdAt)}
-              </Text>
-              <View style={styles.actionButtons}>
+              <View style={styles.footerMetaRow}>
+                <Text style={styles.timestamp}>
+                  {formatDate(notification.createdAt)}
+                </Text>
                 {notification.status === 'pending' && (
                   <Button
                     size="tiny"
                     appearance="ghost"
                     status="basic"
+                    style={styles.markReadButton}
                     onPress={(e) => {
                       e.stopPropagation();
                       onMarkAsRead(notification.id);
@@ -110,10 +111,13 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
                     Marcar como leído
                   </Button>
                 )}
+              </View>
+              <View style={styles.detailsRow}>
                 <Button
                   size="tiny"
                   appearance="outline"
                   status="info"
+                  style={styles.detailsButton}
                   onPress={(e) => {
                     e.stopPropagation();
                     onViewDetails ? onViewDetails(notification) : onPress(notification);
@@ -185,10 +189,23 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   footerRow: {
+    gap: 8,
+    marginTop: 8,
+  },
+  footerMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 8,
+  },
+  detailsRow: {
+    alignItems: 'flex-end',
+  },
+  markReadButton: {
+    marginLeft: 8,
+  },
+  detailsButton: {
+    minWidth: 86,
+    alignSelf: 'flex-end',
   },
   actionButtons: {
     flexDirection: 'row',

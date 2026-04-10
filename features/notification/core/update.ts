@@ -378,6 +378,13 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
             return ret(model, NotificationService.getInstance().fetchNotifications());
         })
 
+        .with({ type: 'SYNC_FROM_BACKEND_REQUESTED' }, () => {
+            return ret(
+                { ...model, notifications: RemoteData.loading() },
+                NotificationService.getInstance().forceSyncFromBackend()
+            );
+        })
+
         .with({ type: 'NOTIFICATION_ERROR' }, ({ error }) => {
             log.error('Notification error', error);
             return singleton(model);
@@ -391,15 +398,19 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
             selectedNotification: null
         }))
 
-        .with({ type: 'NAVIGATE_TO_DETAIL' }, ({ notification }) => {
-            const notificationParam = encodeURIComponent(JSON.stringify(notification));
-            const navigateCmd = Cmd.navigate(`/notification/detail?notification=${notificationParam}`);
+        .with({ type: 'NAVIGATE_TO_DETAIL' }, ({ notificationId }) => {
+            const notification = model.allNotifications.find(n => n.id === notificationId);
+            if (!notification) {
+                return singleton(model);
+            }
+
+            const navigateCmd = Cmd.navigate(`/notification/detail?id=${notificationId}`);
 
             if (notification.status === 'pending') {
                 const timestamp = new Date().toISOString();
                 const updatedNotifications = updateNotificationStatus(
                     model.allNotifications || [],
-                    notification.id,
+                    notificationId,
                     'read',
                     timestamp
                 );
@@ -415,7 +426,7 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
                         notifications: RemoteData.success(filteredNotifications),
                         unreadCount
                     },
-                    Cmd.batch([navigateCmd, NotificationService.getInstance().markAsRead(notification.id)])
+                    Cmd.batch([navigateCmd, NotificationService.getInstance().markAsRead(notificationId)])
                 );
             }
 
