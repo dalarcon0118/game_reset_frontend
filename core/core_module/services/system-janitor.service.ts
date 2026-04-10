@@ -74,37 +74,17 @@ export class SystemJanitor {
                 }
             }
 
-            // 3. Ejecución de Mantenimiento en Repositorios (Expertos)
-            // Aplicamos mantenimiento preventivo primero (local y seguro)
+            // 3. Aplicar mantenimiento preventivo (local y seguro)
             await betRepository.applyMaintenance();
 
-            // Ejecutamos limpiezas pesadas en paralelo
-            const results = await Promise.allSettled([
-                betRepository.cleanup(today),
-                drawRepository.cleanup(today)
-            ]);
-
-            // Verificar si hubo fallos críticos
-            const failures = results.filter(r => r.status === 'rejected');
-            const betCleanupResult = results[0];
-            const drawCleanupResult = results[1];
-
-            if (failures.length > 0) {
-                log.error('Algunas tareas de limpieza fallaron', { count: failures.length });
-            }
-
-            const betDeleted = betCleanupResult.status === 'fulfilled' ? betCleanupResult.value : 0;
-            const drawDeleted = drawCleanupResult.status === 'fulfilled' ? drawCleanupResult.value : 0;
-
-            // 4. Marcar éxito del día
-            await maintenanceRepository.markDayAsPrepared(today);
-
-            // 5. Sincronizar apuestas pendientes y verificar balance con servidor
+            // 4. Sincronizar apuestas pendientes ANTES de limpiar
             const pendingBets = await betRepository.getPendingBets();
             log.info('[DIAGNOSTIC] Verificacion de sync', {
                 pendingBetsCount: pendingBets.length,
                 today
             });
+
+            let syncedCount = 0;
             if (pendingBets.length > 0) {
                 const online = await (async () => {
                     try {
@@ -119,6 +99,7 @@ export class SystemJanitor {
 
                 if (online) {
                     const syncResult = await betRepository.syncPending();
+                    syncedCount = syncResult.success;
                     log.info('[DIAGNOSTIC] Resultado de syncPending', {
                         success: syncResult.success,
                         failed: syncResult.failed,
@@ -193,15 +174,33 @@ export class SystemJanitor {
                 log.info('[DIAGNOSTIC] No hay apuestas pendientes, omitiendo verificacion de sync');
             }
 
-            // 6. Notificar al usuario del resultado del mantenimiento
+            // 5. Ejecutar limpiezas pesadas en paralelo (después de sincronizar)
+            const results = await Promise.allSettled([
+                betRepository.cleanup(today),
+                drawRepository.cleanup(today)
+            ]);
+
+            const failures = results.filter(r => r.status === 'rejected');
+            const betDeleted = results[0].status === 'fulfilled' ? results[0].value : 0;
+            const drawDeleted = results[1].status === 'fulfilled' ? results[1].value : 0;
+
+            if (failures.length > 0) {
+                log.error('Algunas tareas de limpieza fallaron', { count: failures.length });
+            }
+
+            // 6. Marcar éxito del día
+            await maintenanceRepository.markDayAsPrepared(today);
+
+            // 7. Notificar al usuario del resultado del mantenimiento
             if (failures.length > 0) {
                 await notificationRepository.addNotification({
                     title: '⚠️ Mantenimiento con errores',
-                    message: `Se realizó mantenimiento de sesión. ${betDeleted > 0 ? `${betDeleted} apuesta(s) pendiente(s) limpiada(s).` : ''} ${drawDeleted > 0 ? `${drawDeleted} sorteo(s) antiguo(s) limpiado(s).` : ''} Algunos elementos no pudieron procesarse.`,
+                    message: `Se realizó mantenimiento de sesión. ${syncedCount > 0 ? `${syncedCount} apuesta(s) antigua(s) sincronizada(s) y limpiada(s).` : ''} ${betDeleted - syncedCount > 0 ? `${betDeleted - syncedCount} apuesta(s) pendiente(s) limpiada(s).` : ''} ${drawDeleted > 0 ? `${drawDeleted} sorteo(s) antiguo(s) limpiado(s).` : ''} Algunos elementos no pudieron procesarse.`,
                     type: 'warning',
                     metadata: {
                         action: 'JANITOR_CLEANUP',
                         deletedBets: betDeleted,
+                        syncedBets: syncedCount,
                         deletedDraws: drawDeleted,
                         today,
                         hadErrors: true
@@ -210,11 +209,12 @@ export class SystemJanitor {
             } else {
                 await notificationRepository.addNotification({
                     title: '🔄 Mantenimiento completado',
-                    message: `Sesión diaria iniciada correctamente para el ${today}. ${betDeleted > 0 ? `${betDeleted} apuesta(s) antigua(s) limpiada(s).` : 'No había apuestas pendientes.'} ${drawDeleted > 0 ? `${drawDeleted} sorteo(s) antiguo(s) limpiado(s).` : ''}`,
+                    message: `Sesión diaria iniciada correctamente para el ${today}. ${syncedCount > 0 ? `${syncedCount} apuesta(s) antigua(s) sincronizada(s) y limpiada(s).` : 'No había apuestas pendientes.'} ${drawDeleted > 0 ? `${drawDeleted} sorteo(s) antiguo(s) limpiado(s).` : ''}`,
                     type: 'info',
                     metadata: {
                         procedente: 'JANITOR_CLEANUP',
                         ApuestasEliminadas: betDeleted,
+                        ApuestasSincronizadas: syncedCount,
                         SorteosEliminados: drawDeleted,
                         today,
                         hadErrors: false
