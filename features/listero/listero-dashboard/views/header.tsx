@@ -7,6 +7,7 @@ import { COLORS } from '@/shared/components/constants';
 interface HeaderProps {
   username: string;
   structureName: string;
+  isOnline: boolean;
   showBalance: boolean;
   unreadCount: number;
   pendingRewardsCount?: number;
@@ -19,6 +20,7 @@ interface HeaderProps {
 export default function Header({ 
   username, 
   structureName, 
+  isOnline,
   showBalance, 
   unreadCount,
   pendingRewardsCount = 0,
@@ -58,6 +60,12 @@ export default function Header({
         </Flex>
         <Label type="subheader" style={styles.appName}>MONSTER</Label>
       </Flex>
+
+      <View style={[styles.connectionStrip, isOnline ? styles.connectionStripOnline : styles.connectionStripOffline]}>
+        <Label style={styles.connectionStripText}>
+          {isOnline ? 'Estado: Online' : 'Estado: Offline'}
+        </Label>
+      </View>
 
       {/* Action Icons Row */}
       <Flex justify="end" align="center" gap={12} style={styles.actionRow}>
@@ -178,6 +186,27 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.primaryDark,
     letterSpacing: 0.5,
+  },
+  connectionStrip: {
+    height: 28,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    marginBottom: 10,
+  },
+  connectionStripOnline: {
+    backgroundColor: '#DFF7EA',
+    borderColor: '#4DBB86',
+  },
+  connectionStripOffline: {
+    backgroundColor: '#FFE6E1',
+    borderColor: '#E26D5A',
+  },
+  connectionStripText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.textDark,
   },
   actionRow: {
     marginTop: 2,

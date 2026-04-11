@@ -325,6 +325,12 @@ export const CoreService = {
   initializeOfflineConditionChecker(): void {
     const offlineConditionChecker: IOfflineConditionChecker = {
       canContinueOffline: async () => {
+        const authRepo = getAuthRepo();
+        const offlineProfile = await authRepo.getOfflineProfile();
+        const structureId = offlineProfile?.structure?.id;
+        if (structureId) {
+          return await hasDrawAvailableForStructure(structureId);
+        }
         return await hasDrawAvailable();
       },
       canContinueOfflineForStructure: async (structureId: string | number) => {
@@ -447,7 +453,7 @@ export const CoreService = {
 
     // 1. Sensor Activo (NetInfo): Hardware/Sistema Operativo
     const unsubscribeNetInfo = NetInfo.addEventListener((state) => {
-      const isConnected = !!(state.isConnected && state.isInternetReachable);
+      const isConnected = !!state.isConnected;
 
       log.info(`[CONNECTIVITY-ACTIVO] NetInfo update: ${isConnected ? 'CONNECTED' : 'DISCONNECTED'}`, {
         type: state.type,

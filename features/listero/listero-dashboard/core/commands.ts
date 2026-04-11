@@ -45,7 +45,7 @@ export const fetchUserDataCmd = (): Cmd => {
     });
 };
 
-export const fetchDrawsCmd = (structureId: string | null): Cmd => {
+export const fetchDrawsCmd = (structureId: string | null, forceSync = false): Cmd => {
     if (!structureId || structureId === '0') {
         return Cmd.none;
     }
@@ -53,7 +53,7 @@ export const fetchDrawsCmd = (structureId: string | null): Cmd => {
     return Cmd.task({
         task: async () => {
             try {
-                const fetchPromise = drawRepository.getDraws({ owner_structure: structureId, today: true });
+                const fetchPromise = drawRepository.getDraws({ owner_structure: structureId, today: true, forceSync });
                 const result = await withTimeout(fetchPromise, 10000, 'fetchDraws');
 
                 if (result.isOk()) {

@@ -84,14 +84,18 @@ export const DataHandler = {
     },
 
     handleDrawsReceived: (model: Model, webData: WebData<DrawType[]>): Return<Model, Msg> => {
-        log.info('[DIAGNOSTIC] Dashboard handleDrawsReceived', {
-            state: webData.type,
-            count: webData.type === 'Success' ? webData.data.length : 0,
-            currentDashboardStatus: model.status.type,
+        log.info('[CRITERION_3] DRAWS_RECEIVED: Respuesta del servidor recibida', {
+            responseType: webData.type,
+            drawCount: webData.type === 'Success' ? webData.data.length : 0,
+            previousDrawsState: model.draws.type,
             userStructureId: model.userStructureId
         });
 
         if (webData.type === 'Success' && !Array.isArray(webData.data)) {
+            log.error('[CRITERION_3_FAIL] DRAWS_INVALID_PAYLOAD: El servidor devolvio datos invalidos', {
+                actualType: typeof webData.data,
+                isArray: Array.isArray(webData.data)
+            });
             return singleton({
                 ...model,
                 draws: RemoteData.failure(new Error('Invalid draws payload')),
@@ -105,12 +109,22 @@ export const DataHandler = {
             .when(
                 (data) => checkRateLimit(data) && model.draws.type === 'Success',
                 () => {
-                    log.warn('Rate limited, keeping previous draws data');
+                    log.warn('[CRITERION_3A] RATE_LIMITED: Servidor limito solicitudes, manteniendo datos anteriores', {
+                        hadPreviousData: model.draws.type === 'Success',
+                        previousDrawCount: model.draws.type === 'Success' ? model.draws.data.length : 0
+                    });
                     return singleton({ ...model, isRateLimited: true });
                 }
             )
             // 2. Success Case: Update draws and recalculate derived state
-            .with({ type: 'Success', data: P.select() }, (data) => {
+            .with({ type: 'Success', data: P.select() }, (data: DrawType[]) => {
+                log.info('[CRITERION_3B] DRAWS_SUCCESS: Datos de sorteos recibidos correctamente', {
+                    drawCount: data.length,
+                    firstDrawId: data[0]?.id,
+                    hasPremiumsData: data.some(d => ((d as any).premiums_paid ?? d.premiumsPaid ?? 0) > 0),
+                    premiumsInDraws: data.map(d => ({ id: d.id, premiumsPaid: (d as any).premiums_paid ?? d.premiumsPaid ?? 0, status: d.status }))
+                });
+
                 // Sincronizar el registro de juegos con los datos recibidos del backend
                 GameRegistry.syncWithBackend(data);
 
@@ -125,6 +139,14 @@ export const DataHandler = {
                     model.pendingBets,
                     model.syncedBets
                 );
+
+                log.info('[CRITERION_4] DAILY_TOTALS_CALCULATED: Totales diarios recalculados', {
+                    totalCollected: dailyTotals.totalCollected,
+                    premiumsPaid: dailyTotals.premiumsPaid,
+                    netResult: dailyTotals.netResult,
+                    filteredDrawsCount: filteredDraws.length,
+                    premiumsFromDraws: data.map(d => ({ id: d.id, premiumsPaid: (d as any).premiums_paid || d.premiumsPaid || 0 }))
+                });
 
                 log.debug('Recalculated dashboard state', {
                     totalDraws: data.length,
@@ -153,18 +175,29 @@ export const DataHandler = {
     },
 
     handleRefreshClicked: (model: Model): Return<Model, Msg> => {
-        log.info('Refresh clicked, invalidating dashboard data');
+        log.info('[CRITERION_1] REFRESH_INITIATED: Usuario solicito sincronizacion manual', {
+            userStructureId: model.userStructureId,
+            currentDrawsState: model.draws.type,
+            hasPendingBets: model.pendingBets.length > 0,
+            isRateLimited: model.isRateLimited
+        });
         dashboardService.invalidateDashboard();
 
+        log.info('[CRITERION_2] REFRESH_COMMAND_DISPATCHED: Comandos HTTP encolados', {
+            hasFetchDrawsCmd: true,
+            hasLoadPendingBetsCmd: true,
+            structureId: model.userStructureId
+        });
+
         return ret(model, [
-            fetchDrawsCmd(model.userStructureId),
+            fetchDrawsCmd(model.userStructureId, true),
             loadPendingBetsCmd()
         ] as Cmd);
     },
 
     handleTick: (model: Model): Return<Model, Msg> => {
         const isCurrentlyLoading = model.draws.type === 'Loading';
-        
+
         if (model.userStructureId && !model.isRateLimited && !isCurrentlyLoading) {
             log.debug('Tick triggered fetch');
             return ret(model, [
@@ -172,11 +205,11 @@ export const DataHandler = {
                 loadPendingBetsCmd()
             ] as Cmd);
         }
-        
+
         if (isCurrentlyLoading) {
             log.debug('Tick skipped: fetch already in progress');
         }
-        
+
         return singleton(model);
     },
 

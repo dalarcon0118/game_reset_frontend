@@ -72,20 +72,44 @@ export class DrawRepository implements IDrawRepository {
 
     async getDraws(params: Record<string, any> = {}): Promise<Result<ExtendedDrawType[], Error>> {
         const structureId = params.owner_structure;
+        const forceSync = params.forceSync === true;
 
-        // 1. CACHE-FIRST: Intentar obtener de la caché local (Solo sorteos de HOY)
-        const cached = await this.getValidCachedDraws(structureId);
-        if (cached.isOk() && cached.value.length > 0) {
-            this.log.info('Cache hit: returning valid today draws', { count: cached.value.length });
-            return ok(this.mapDrawsToFrontend(cached.value, structureId));
+        if (!forceSync) {
+            const cached = await this.getValidCachedDraws(structureId);
+            if (cached.isOk() && cached.value.length > 0) {
+                this.log.info('Cache hit: returning valid today draws', { count: cached.value.length });
+                return ok(this.mapDrawsToFrontend(cached.value, structureId));
+            }
         }
 
-        // 2. REMOTE-FALLBACK: Si la caché falla o es vieja, intentar remoto
-        return ResultAsync.fromPromise(isServerReachable(), e => e as Error)
+        const remoteParams = { ...params };
+        delete remoteParams.forceSync;
+
+        const remoteResult = await ResultAsync.fromPromise(isServerReachable(), e => e as Error)
             .andThen(isOnline => isOnline
-                ? this.fetchAndCacheRemote(params, structureId)
-                : err(new Error('No internet connection and no cached draws available')))
-            .map(draws => this.mapDrawsToFrontend(draws, structureId));
+                ? this.fetchAndCacheRemote(remoteParams, structureId)
+                : err(new Error('No internet connection')))
+            .map(draws => this.mapDrawsToFrontend(draws, structureId))
+            .match(
+                (value) => ok<ExtendedDrawType[], Error>(value),
+                (error) => err<ExtendedDrawType[], Error>(error)
+            );
+
+        if (remoteResult.isOk()) {
+            return remoteResult;
+        }
+
+        const cachedFallback = await this.getValidCachedDraws(structureId);
+        if (cachedFallback.isOk() && cachedFallback.value.length > 0) {
+            this.log.warn('Remote failed, falling back to cached draws', {
+                reason: remoteResult.error.message,
+                cachedCount: cachedFallback.value.length,
+                forceSync
+            });
+            return ok(this.mapDrawsToFrontend(cachedFallback.value, structureId));
+        }
+
+        return err(remoteResult.error);
     }
 
     async getDraw(id: string | number): Promise<Result<ExtendedDrawType, Error>> {

@@ -1,9 +1,66 @@
 import { ExtendedDrawType, BackendDraw, PrizeConfig } from './types';
 
+const SERVER_TIME_ZONE = 'America/New_York';
+
+const hasTimeZoneInfo = (value: string) => /([zZ]|[+\-]\d{2}:\d{2})$/.test(value);
+
+const getTimeZoneOffsetMinutes = (date: Date, timeZone: string): number => {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+
+  const parts = formatter.formatToParts(date);
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? 0);
+  const asUtc = Date.UTC(
+    get('year'),
+    get('month') - 1,
+    get('day'),
+    get('hour'),
+    get('minute'),
+    get('second')
+  );
+
+  return (asUtc - date.getTime()) / 60000;
+};
+
+export const parseServerDateTime = (value: string | null | undefined): Date | null => {
+  if (!value) return null;
+
+  const direct = new Date(value);
+  if (hasTimeZoneInfo(value) && !Number.isNaN(direct.getTime())) {
+    return direct;
+  }
+
+  const match = value.match(
+    /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/
+  );
+  if (!match) {
+    return Number.isNaN(direct.getTime()) ? null : direct;
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6] ?? '0');
+  const utcGuess = Date.UTC(year, month - 1, day, hour, minute, second);
+  const offset = getTimeZoneOffsetMinutes(new Date(utcGuess), SERVER_TIME_ZONE);
+  return new Date(utcGuess - offset * 60_000);
+};
+
 const formatLocalTime = (utcTimestamp: string | null | undefined): string => {
   if (!utcTimestamp) return 'N/A';
   try {
-    const date = new Date(utcTimestamp);
+    const date = parseServerDateTime(utcTimestamp);
+    if (!date) return 'N/A';
     if (isNaN(date.getTime())) return 'N/A';
     const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     return date.toLocaleTimeString('es-ES', {
@@ -20,7 +77,8 @@ const formatLocalTime = (utcTimestamp: string | null | undefined): string => {
 const formatLocalDate = (utcTimestamp: string | null | undefined): string => {
   if (!utcTimestamp) return 'N/A';
   try {
-    const date = new Date(utcTimestamp);
+    const date = parseServerDateTime(utcTimestamp);
+    if (!date) return 'N/A';
     if (isNaN(date.getTime())) return 'N/A';
     return date.toLocaleDateString('es-ES');
   } catch {

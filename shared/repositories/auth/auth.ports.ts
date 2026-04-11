@@ -39,6 +39,7 @@ export interface IAuthRepository {
     notifySessionExpired(reason: string): void;
 
     getLastUsername(): Promise<string | null>;
+    getOfflineProfile(): Promise<User | null>;
 
     // Coordination
     resetExitFlag(): void;

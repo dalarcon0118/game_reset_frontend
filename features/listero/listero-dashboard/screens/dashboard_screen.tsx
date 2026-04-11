@@ -28,6 +28,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDashboardLifecycle } from '../core/lifecycle';
 import { PromotionModal } from '../../../../shared/components/promotion/PromotionModal';
 import { pipe as $ } from 'fp-ts/lib/function';
+import { CoreModule } from '@/core/core_module';
 
 export default function DashboardScreen() {
     
@@ -37,6 +38,7 @@ export default function DashboardScreen() {
     const dispatch = useDashboardStore((state) => state.dispatch);
 
     const { user } = useAuth();
+    const isOnline = CoreModule.useStore((state) => state.model.networkConnected);
     const { unreadCount, pendingRewardsCount } = useNotificationStore(
         useShallow((state) => ({
             unreadCount: state.model.unreadCount,
@@ -55,6 +57,7 @@ export default function DashboardScreen() {
             <Header 
                 username={user?.username || 'Usuario'}
                 structureName={user?.structure?.name || 'Mi Estructura'}
+                isOnline={isOnline}
                 showBalance={model.showBalance}
                 unreadCount={unreadCount}
                 pendingRewardsCount={pendingRewardsCount}

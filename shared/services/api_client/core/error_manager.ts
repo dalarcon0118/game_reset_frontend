@@ -1,5 +1,6 @@
 import { ApiClientError, ApiClientErrorData } from '../api_client.errors';
 import { ILogger, RequestOptions } from '../api_client.types';
+import { SERVER_ERROR_PATTERNS } from '../../../repositories/auth/auth.constants';
 
 // Mapa de traducción de errores HTTP a mensajes user-friendly
 const ERROR_TRANSLATION_MAP: Record<number, string> = {
@@ -23,8 +24,14 @@ export class ErrorManager {
 
   /**
    * Traduce un código de error HTTP a un mensaje user-friendly
+   * Preserva mensajes específicos del servidor para ciertos tipos de errores
    */
-  public translateError(status: number, technicalMessage?: string): string {
+  public translateError(status: number, technicalMessage?: string, errorData?: ApiClientErrorData): string {
+    // Para errores 403, verificar si hay un mensaje específico del servidor que deba preservarse
+    if (status === 403 && technicalMessage && this.shouldPreserveServerMessage(technicalMessage, errorData)) {
+      return technicalMessage;
+    }
+
     // Verificar si hay una traducción específica para el código
     const translatedMessage = ERROR_TRANSLATION_MAP[status];
     if (translatedMessage) {
@@ -40,6 +47,22 @@ export class ErrorManager {
 
     // Fallback a mensaje técnico si no hay traducción
     return technicalMessage || 'Ocurrió un error inesperado.';
+  }
+
+  /**
+   * Determina si un mensaje del servidor debe preservarse en lugar de traducirlo
+   */
+  private shouldPreserveServerMessage(technicalMessage: string, errorData?: ApiClientErrorData): boolean {
+    // Preservar mensajes que contengan información específica del servidor
+    const serverSpecificPatterns = [
+      SERVER_ERROR_PATTERNS.DEVICE_LOCKED,
+      SERVER_ERROR_PATTERNS.MISMATCH_DETECTED,
+      SERVER_ERROR_PATTERNS.USER_ID_PREFIX,
+      SERVER_ERROR_PATTERNS.INCOMING_PREFIX,
+      SERVER_ERROR_PATTERNS.STORED_PREFIX
+    ];
+
+    return serverSpecificPatterns.some(pattern => technicalMessage.includes(pattern));
   }
 
   async handleResponseError(
@@ -83,7 +106,7 @@ export class ErrorManager {
       });
     }
 
-    const userFriendlyMessage = this.translateError(response.status, errorData.message);
+    const userFriendlyMessage = this.translateError(response.status, errorData.message, errorData);
     const error = new ApiClientError(
       errorData.message || `HTTP error! status: ${response.status}`,
       response.status,

@@ -4,7 +4,6 @@ import { RequestDeduplicator } from './request-deduplicator';
 import {
   TransportError,
   NetworkError,
-  HttpError,
   TimeoutError,
   AbortError
 } from './errors';
@@ -82,20 +81,12 @@ export class Transport {
 
       log.debug(`Response: ${response.status} ${url}`);
 
-      if (!response.ok) {
-        throw new HttpError(url, method, timeout, response.status);
-      }
-
       if (method === 'GET') {
         this.responseCache.set(requestKey, response);
       }
 
       return response;
     } catch (error: any) {
-      if (error instanceof HttpError) {
-        throw error;
-      }
-
       if (error.name === 'AbortError') {
         const isTimeout = !abortSignal || abortSignal.aborted;
         if (isTimeout) {

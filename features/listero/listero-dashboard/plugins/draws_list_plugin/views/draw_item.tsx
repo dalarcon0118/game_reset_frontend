@@ -8,6 +8,7 @@ import { Draw } from '../core/types';
 import { TotalsByDrawIdMap, DrawFinancialTotals } from '../model';
 import SummaryCard from './summary_card';
 import logger from '@/shared/utils/logger';
+import { parseServerDateTime } from '@/shared/services/draw/mapper';
 const log = logger.withTag('DrawItemComponent');
 // Props del componente - SSOT: Draw y Totals vienen de fuentes separadas
 interface DrawItemProps {
@@ -34,20 +35,29 @@ const DrawItemComponent: React.FC<DrawItemProps> = ({
 
   useEffect(() => {
     if (!draw.betting_end_time) return;
-    const bettingEndTime = new Date(draw.betting_end_time).getTime();
+    const parsedEnd = parseServerDateTime(draw.betting_end_time);
+    if (!parsedEnd) return;
+    const bettingEndTime = parsedEnd.getTime();
     const timeRemaining = bettingEndTime - Date.now();
+    let intervalId: ReturnType<typeof setInterval> | undefined;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
-    if (timeRemaining <= 0) {
-      const intervalId = setInterval(() => setCurrentTime(Date.now()), 1000);
-      return () => clearInterval(intervalId);
+    const tick = () => setCurrentTime(Date.now());
+    const startInterval = () => {
+      tick();
+      intervalId = setInterval(tick, 1000);
+    };
+
+    if (timeRemaining <= 5 * 60 * 1000) {
+      startInterval();
+    } else {
+      timeoutId = setTimeout(startInterval, timeRemaining - 5 * 60 * 1000);
     }
 
-    if (timeRemaining < 5 * 60 * 1000) {
-      const intervalId = setInterval(() => setCurrentTime(Date.now()), 1000);
-      return () => clearInterval(intervalId);
-    }
-
-    return;
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      if (intervalId) clearInterval(intervalId);
+    };
   }, [draw.betting_end_time]);
 
   useEffect(() => {
@@ -59,9 +69,11 @@ const DrawItemComponent: React.FC<DrawItemProps> = ({
   const drawId = draw.id.toString();
   const totals: DrawFinancialTotals | undefined = totalsByDrawId.get(drawId);
 
-  // Valores financieros - vienen de BetRepository, no mezclados con Draw
+  // Valores financieros
+  // totalCollected y netResult vienen de BetRepository (apuestas locales)
+  // premiumsPaid viene del Draw (backend) - refleja premios calculados por el servidor
   const totalCollected = totals?.totalCollected ?? 0;
-  const premiumsPaid = totals?.premiumsPaid ?? 0;
+  const premiumsPaid = draw.premiumsPaid ?? 0;
   const netResult = totals?.netResult ?? 0;
   const betCount = totals?.betCount ?? 0;
 
@@ -78,14 +90,14 @@ const DrawItemComponent: React.FC<DrawItemProps> = ({
   }
 
   const getDrawStatus = () => {
-    if (draw.is_betting_open === true) return DRAW_STATUS.OPEN;
-
     if (!draw.betting_end_time) return draw.status;
 
     const now = new Date(currentTime);
-    const endTime = new Date(draw.betting_end_time);
+    const endTime = parseServerDateTime(draw.betting_end_time);
+    if (!endTime) return draw.status;
 
     if (now >= endTime) return DRAW_STATUS.CLOSED;
+    if (draw.is_betting_open === true) return DRAW_STATUS.OPEN;
     return draw.status;
   };
 
@@ -95,7 +107,9 @@ const DrawItemComponent: React.FC<DrawItemProps> = ({
     if (!draw.betting_end_time || effectiveStatus !== DRAW_STATUS.OPEN) return null;
 
     const now = currentTime;
-    const endTime = new Date(draw.betting_end_time).getTime();
+    const parsedEnd = parseServerDateTime(draw.betting_end_time);
+    if (!parsedEnd) return null;
+    const endTime = parsedEnd.getTime();
     const diffMs = endTime - now;
     const diffMins = Math.floor(diffMs / (1000 * 60));
     const diffSecs = Math.floor((diffMs % (1000 * 60)) / 1000);
@@ -146,7 +160,8 @@ const DrawItemComponent: React.FC<DrawItemProps> = ({
   const formatTime = (dateString: string | null | undefined) => {
     if (!dateString) return 'N/A';
     try {
-      const date = new Date(dateString);
+      const date = parseServerDateTime(dateString);
+      if (!date) return 'N/A';
       if (isNaN(date.getTime())) return 'N/A';
       const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       return date.toLocaleTimeString('es-ES', {
@@ -158,11 +173,6 @@ const DrawItemComponent: React.FC<DrawItemProps> = ({
     } catch {
       return 'N/A';
     }
-  };
-
-  const formatDisplayTime = (displayTime: string | null | undefined) => {
-    if (!displayTime) return 'N/A';
-    return displayTime;
   };
 
   const hasOfflineBets = betCount > 0;
@@ -188,7 +198,7 @@ const DrawItemComponent: React.FC<DrawItemProps> = ({
             <Label type="detail" style={styles.dateText}>{draw.date}</Label>
             <Clock3 size={12} color="#8F9BB3" style={{ marginLeft: 4 }} />
             <Label type="detail" style={styles.dateText}>
-              {formatDisplayTime(draw.betting_start_time_display) || formatTime(draw.betting_start_time)} - {formatDisplayTime(draw.betting_end_time_display) || formatTime(draw.betting_end_time)}
+              {formatTime(draw.betting_start_time)} - {formatTime(draw.betting_end_time)}
             </Label>
           </Flex>
         </View>
@@ -201,7 +211,7 @@ const DrawItemComponent: React.FC<DrawItemProps> = ({
       </Flex>
 
       {/* Financial Row - Compact */}
-      {/* SSOT: Los valores vienen de totalsByDrawId (BetRepository), no del Draw */}
+      {/* SSOT: totalCollected/netResult de BetRepository, premiumsPaid del Draw (backend) */}
       <View style={styles.financialRow}>
         <SummaryCard
           title="Ventas"
