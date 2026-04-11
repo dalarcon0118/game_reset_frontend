@@ -12,6 +12,10 @@ export interface SlotComponentMetadata {
     fullWidth?: boolean;
     /** Estilos adicionales para el contenedor */
     containerStyle?: any;
+    /** Altura mínima a reservar mientras el plugin carga */
+    minHeight?: number;
+    /** Si debe usar skeleton animado mientras carga */
+    useSkeleton?: boolean;
 }
 
 /**
@@ -70,7 +74,7 @@ export interface Plugin<TProps = any> {
      * Ciclo de vida: Destrucción (legacy/alternativo).
      */
     destroy?: () => void;
-    /** 
+    /**
      * Mapa de extensiones de UI por Slot.
      */
     slots: {
@@ -79,6 +83,8 @@ export interface Plugin<TProps = any> {
             layout?: SlotComponentMetadata;
         };
     };
+    /** Versión del plugin */
+    version?: string;
     /** Definición de eventos que este plugin emite (opcional) */
     exports?: {
         events?: string[];

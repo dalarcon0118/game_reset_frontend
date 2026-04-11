@@ -14,17 +14,19 @@ interface AuthStoreState {
  *
  * NOTA: La lógica de trigger de login se maneja en el update (update.ts)
  * siguiendo el patrón de Elm. Las suscripciones solo observan stores externos.
+ *
+ * ⚠️ IMPORTANTE: El selector debe retornar un valor PRIMITIVO, no un objeto nuevo.
+ * Esto evita re-renders innecesarios causados por comparaciones de referencia.
  */
 export const subscriptions = (model: LoginModel): SubDescriptor<LoginMsg> => {
     return Sub.batch([
         // Reset de UI cuando la sesión se cierra (AuthModuleV1 -> LoginModule)
         // Esta suscripción es correcta: observa un store EXTERNO
+        // ⚠️ Selector retorna valor primitivo (state.status) para evitar re-renders
         Sub.watchStore(
             AuthModuleV1.name,
-            (state: AuthModel) => ({
-                status: state.status,
-            }),
-            ({ status }) => {
+            (state: AuthModel) => state.status,  // ✅ Retorna primitivo directamente
+            (status) => {
                 // Si la sesión se cerró y tenemos un PIN en proceso, reseteamos la UI
                 if (status === AuthStatus.UNAUTHENTICATED && model.pin.length > 0) {
                     return RESET_LOGIN_UI();

@@ -62,12 +62,3 @@ export const AUTH_LOGS = {
     PURGE_LEGACY_DATA: 'Datos de identidad de dispositivo heredados eliminados',
     PURGE_LEGACY_ERROR: 'Error al eliminar datos heredados (posiblemente ya no existen)',
 };
-
-// Patrones para identificar mensajes específicos del servidor que deben preservarse
-export const SERVER_ERROR_PATTERNS = {
-    DEVICE_LOCKED: 'DEVICE_LOCKED',
-    MISMATCH_DETECTED: 'Mismatch detected',
-    USER_ID_PREFIX: 'user_id=',
-    INCOMING_PREFIX: 'incoming=',
-    STORED_PREFIX: 'stored=',
-} as const;

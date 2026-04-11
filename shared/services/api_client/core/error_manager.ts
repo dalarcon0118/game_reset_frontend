@@ -1,6 +1,6 @@
 import { ApiClientError, ApiClientErrorData } from '../api_client.errors';
 import { ILogger, RequestOptions } from '../api_client.types';
-import { SERVER_ERROR_PATTERNS } from '../../../repositories/auth/auth.constants';
+import { isServerSpecificErrorMessage } from '../../../utils/server_error_patterns';
 
 // Mapa de traducción de errores HTTP a mensajes user-friendly
 const ERROR_TRANSLATION_MAP: Record<number, string> = {
@@ -53,16 +53,7 @@ export class ErrorManager {
    * Determina si un mensaje del servidor debe preservarse en lugar de traducirlo
    */
   private shouldPreserveServerMessage(technicalMessage: string, errorData?: ApiClientErrorData): boolean {
-    // Preservar mensajes que contengan información específica del servidor
-    const serverSpecificPatterns = [
-      SERVER_ERROR_PATTERNS.DEVICE_LOCKED,
-      SERVER_ERROR_PATTERNS.MISMATCH_DETECTED,
-      SERVER_ERROR_PATTERNS.USER_ID_PREFIX,
-      SERVER_ERROR_PATTERNS.INCOMING_PREFIX,
-      SERVER_ERROR_PATTERNS.STORED_PREFIX
-    ];
-
-    return serverSpecificPatterns.some(pattern => technicalMessage.includes(pattern));
+    return isServerSpecificErrorMessage(technicalMessage);
   }
 
   async handleResponseError(

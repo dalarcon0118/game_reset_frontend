@@ -4,25 +4,11 @@ import { BackendLoginResponseCodec, decodeOrFallback } from '../codecs/codecs';
 import { IAuthApi } from '../auth.ports';
 import { AuthResult, User, AuthErrorType } from '../types/types';
 import { logger } from '../../../utils/logger';
-import { AUTH_LOG_TAGS, AUTH_LOGS, SERVER_ERROR_PATTERNS } from '../auth.constants';
+import { AUTH_LOG_TAGS, AUTH_LOGS } from '../auth.constants';
 import { hashString } from '../../../utils/crypto';
+import { isServerSpecificErrorMessage } from '../../../utils/server_error_patterns';
 
 const log = logger.withTag(AUTH_LOG_TAGS.API_ADAPTER);
-
-/**
- * Determina si un mensaje del servidor contiene información específica que debe preservarse
- */
-const isServerSpecificMessage = (message: string): boolean => {
-    const serverSpecificPatterns = [
-        SERVER_ERROR_PATTERNS.DEVICE_LOCKED,
-        SERVER_ERROR_PATTERNS.MISMATCH_DETECTED,
-        SERVER_ERROR_PATTERNS.USER_ID_PREFIX,
-        SERVER_ERROR_PATTERNS.INCOMING_PREFIX,
-        SERVER_ERROR_PATTERNS.STORED_PREFIX
-    ];
-
-    return serverSpecificPatterns.some(pattern => message.includes(pattern));
-};
 
 export const authApiAdapter: IAuthApi = {
     async login(username: string, pin: string): Promise<AuthResult> {
@@ -90,7 +76,7 @@ export const authApiAdapter: IAuthApi = {
             else if (isDeviceLocked) errorType = AuthErrorType.DEVICE_LOCKED;
 
             // Usar mensaje crudo del servidor para errores específicos como DEVICE_LOCKED
-            const shouldUseRawMessage = isDeviceLocked && error.message && isServerSpecificMessage(error.message);
+            const shouldUseRawMessage = isDeviceLocked && error.message && isServerSpecificErrorMessage(error.message);
             const errorMessage = shouldUseRawMessage ? error.message : (error.message || AUTH_LOGS.LOGIN_AUTH_ERROR);
 
             return {

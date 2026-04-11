@@ -101,10 +101,25 @@ function LoginContent() {
   );
 }
 
+/**
+ * LoginProvider
+ * Provider memoizado para evitar que el store se re-cree en cada render.
+ *
+ * ⚠️ IMPORTANTE: Este componente DEBE ser memoizado para evitar re-renders
+ * innecesarios del Provider y sus hijos.
+ */
+const LoginProvider = React.memo<{ children: React.ReactNode }>(({ children }) => (
+  <LoginModule.Provider>
+    {children}
+  </LoginModule.Provider>
+));
+
+LoginProvider.displayName = 'LoginProvider';
+
 export default function LoginScreen() {
   return (
-    <LoginModule.Provider>
+    <LoginProvider>
       <LoginContent />
-    </LoginModule.Provider>
+    </LoginProvider>
   );
 }

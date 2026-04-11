@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { ActivityIndicator, View, TouchableOpacity } from 'react-native';
+import React from 'react';
+import { View, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { match } from 'ts-pattern';
 import { RemoteData } from '@core/tea-utils';
 import { Label } from '@/shared/components';
@@ -9,8 +9,8 @@ import { DrawsListModule, selectModel, selectDispatch } from './store';
 import { REFRESH_CLICKED, RULES_CLICKED, REWARDS_CLICKED, BETS_LIST_CLICKED, CREATE_BET_CLICKED } from './msg';
 import { styles } from './styles';
 import { logger } from '@/shared/utils/logger';
-
 import { DrawsListPluginConfig } from './model';
+import { DrawsListSkeleton } from '@/shared/components/moti_skeleton';
 
 const log = logger.withTag('DRAWS_LIST_PLUGIN_VIEW');
 
@@ -32,17 +32,11 @@ export const DrawsListComponent: React.FC<DrawsListComponentProps> = ({ context 
   };
 
   const renderNotAsked = () => (
-    <View style={styles.centerContainer}>
-      <ActivityIndicator size="large" color="#00C48C" />
-      <Label style={styles.loadingText}>Iniciando sorteos...</Label>
-    </View>
+    <DrawsListSkeleton loading={true} />
   );
 
   const renderLoading = () => (
-    <View style={styles.centerContainer}>
-      <ActivityIndicator size="large" color="#00C48C" />
-      <Label style={styles.loadingText}>Cargando sorteos...</Label>
-    </View>
+    <DrawsListSkeleton loading={true} />
   );
 
   const renderError = ({ error }: any) => (

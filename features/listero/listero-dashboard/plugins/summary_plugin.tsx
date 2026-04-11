@@ -41,7 +41,9 @@ const SummaryPlugin: Plugin = {
       component: SummaryPluginComponent,
       layout: {
         order: 0,
-        fullWidth: true
+        fullWidth: true,
+        minHeight: 200,
+        useSkeleton: true
       }
     }
   },

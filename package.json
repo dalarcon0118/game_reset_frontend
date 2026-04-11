@@ -1,5 +1,5 @@
 {
-  "name": "Monster Game",
+  "name": "monster-game",
   "main": "expo-router/entry",
   "version": "1.0.0",
   "private": true,
@@ -59,6 +59,7 @@
     "json-logic-js": "^2.0.5",
     "lucide-react-native": "^0.475.0",
     "metro-transform-plugins": "^0.83.3",
+    "moti": "^0.30.0",
     "neverthrow": "^8.2.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",

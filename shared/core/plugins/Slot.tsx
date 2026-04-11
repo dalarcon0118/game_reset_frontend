@@ -5,6 +5,7 @@ import { pluginEventBus } from './plugin.event_bus';
 import { ErrorBoundary } from '../../components/error_boundary';
 import { Flex } from '../../components/flex';
 import { SlotProps } from './plugin.types';
+import { SlotSkeleton } from '../../components/moti_skeleton';
 
 interface Props {
   /** Nombre único del punto de inyección */
@@ -19,6 +20,12 @@ interface Props {
   direction?: 'vertical' | 'horizontal';
   /** Props adicionales para los componentes de plugin */
   pluginProps?: Record<string, any>;
+  /** Si debe mostrar skeleton mientras no hay extensiones */
+  useSkeleton?: boolean;
+  /** Altura por defecto del skeleton si el plugin no la define */
+  defaultSkeletonHeight?: number;
+  /** Si el skeleton debe tener márgenes */
+  skeletonNoMargin?: boolean;
 }
 
 interface SlotItemProps {
@@ -43,6 +50,7 @@ const SlotItem: React.FC<SlotItemProps> = ({
   const containerStyle: ViewStyle = {
     flex: layout?.flex ?? (layout?.fullWidth ? 1 : undefined),
     width: layout?.fullWidth ? '100%' : undefined,
+    minHeight: layout?.minHeight,
     ...(layout?.containerStyle || {})
   };
 
@@ -81,16 +89,24 @@ export const Slot: React.FC<Props> = ({
   hostStore,
   style, 
   direction = 'vertical',
-  pluginProps = {}
+  pluginProps = {},
+  useSkeleton = false,
+  defaultSkeletonHeight = 120,
+  skeletonNoMargin = false
 }) => {
   // Estado local para almacenar las extensiones
   const [extensions, setExtensions] = useState(() => pluginManager.getExtensionsForSlot(name));
+  // Estado para trackear si el slot ha mostrado contenido alguna vez
+  const [hasEverLoaded, setHasEverLoaded] = useState(false);
 
   // Efecto para suscribirse a cambios en el registro de plugins
   useEffect(() => {
     // Función para actualizar extensiones
     const updateExtensions = () => {
       const newExtensions = pluginManager.getExtensionsForSlot(name);
+      if (newExtensions.length > 0) {
+        setHasEverLoaded(true);
+      }
       setExtensions(newExtensions);
     };
 
@@ -108,7 +124,18 @@ export const Slot: React.FC<Props> = ({
     };
   }, [name]);
 
+  // Mostrar skeleton SOLO si se pide explícitamente y no hay extensiones cargadas
   if (extensions.length === 0) {
+    if (useSkeleton) {
+      return (
+        <View style={[styles.container, style]}>
+          <SlotSkeleton 
+            height={defaultSkeletonHeight} 
+            noMargin={skeletonNoMargin} 
+          />
+        </View>
+      );
+    }
     return null;
   }
 

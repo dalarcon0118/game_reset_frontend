@@ -1,18 +1,15 @@
-import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React from 'react';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { Card, Button } from '@ui-kitten/components';
 import { Eye, EyeOff, PiggyBank, Wallet, FileText, TrendingUp } from 'lucide-react-native';
 import { match } from 'ts-pattern';
-import { GET_FINANCIAL_BETS, TOGGLE_BALANCE_VISIBILITY } from './msg';
+import { GET_FINANCIAL_BETS, TOGGLE_BALANCE_VISIBILITY, Msg } from './msg';
 import { SummaryModule, selectModel, selectDispatch } from './store';
 import { RemoteData } from '@core/tea-utils';
 import { formatCurrency } from '@/shared/utils/formatters';
 import { styles } from './styles';
 import { Model } from './model';
-
-// ============================================================================
-// PURE COMPONENTS (Views as Functions: Props -> UI)
-// ============================================================================
+import { DailySummarySkeleton } from '@/shared/components/moti_skeleton';
 
 const ErrorView = ({ message, onRetry }: { message: string; onRetry?: () => void }) => (
   <View style={styles.centered}>
@@ -25,23 +22,9 @@ const ErrorView = ({ message, onRetry }: { message: string; onRetry?: () => void
   </View>
 );
 
-const LoadingView = ({ text }: { text: string }) => (
-  <View style={styles.centered}>
-    <ActivityIndicator size="small" color="#3366FF" />
-    <Text style={[styles.metricLabel, { marginTop: 12 }]}>{text}</Text>
-  </View>
-);
+const LoadingView = () => <DailySummarySkeleton loading={true} />;
 
-const EmptyView = ({ onReload }: { onReload: () => void }) => (
-  <View style={styles.centered}>
-    <Text style={styles.metricLabel}>Datos no cargados</Text>
-    <Button size="small" style={{ marginTop: 8 }} onPress={onReload}>
-      Cargar datos
-    </Button>
-  </View>
-);
-
-const MainMetricCard = ({ icon: Icon, color, bg, label, value, valueColor = undefined, badgeText = undefined }: any) => (
+const MainMetricCard = ({ icon: Icon, color, bg, label, value, valueColor, badgeText }: any) => (
   <View style={styles.mainMetricCard}>
     <View style={styles.mainMetricTopRow}>
       <View style={[styles.iconContainer, { backgroundColor: bg }]}>
@@ -58,7 +41,7 @@ const MainMetricCard = ({ icon: Icon, color, bg, label, value, valueColor = unde
   </View>
 );
 
-const SecondaryMetric = ({ icon: Icon, label, value, valueColor = undefined, badgeText = undefined }: any) => (
+const SecondaryMetric = ({ icon: Icon, label, value, valueColor, badgeText }: any) => (
   <View style={styles.secondaryItem}>
     <View style={styles.secondaryHeader}>
       <Icon size={14} color="#8F9BB3" />
@@ -73,13 +56,10 @@ const SecondaryMetric = ({ icon: Icon, label, value, valueColor = undefined, bad
   </View>
 );
 
-const DashboardContent = ({ model, dispatch }: { model: Model; dispatch: any }) => {
+const DashboardContent = ({ model, dispatch }: { model: Model; dispatch: (msg: Msg) => void }) => {
   const { dailyTotals, showBalance, commissionRate } = model;
   const hide = (val: number) => showBalance ? formatCurrency(val) : '****';
   const toggleVisibility = () => dispatch(TOGGLE_BALANCE_VISIBILITY());
-  useEffect(() => {
-    console.log('-----Render SummaryComponent mounted---');
-  }, []);
 
   return (
     <View style={styles.container}>
@@ -91,14 +71,14 @@ const DashboardContent = ({ model, dispatch }: { model: Model; dispatch: any }) 
       </View>
 
       <View style={styles.mainMetricsContainer}>
-        <MainMetricCard 
-          icon={PiggyBank} color="#00D68F" bg="#E8FBF4" 
+        <MainMetricCard
+          icon={PiggyBank} color="#00D68F" bg="#E8FBF4"
           label="Ganancia Estimada" value={hide(dailyTotals.estimatedCommission)}
           badgeText={`${Math.round(commissionRate * 100)}%`}
         />
-        <MainMetricCard 
-          icon={Wallet} color="#3366FF" bg="#F0F5FF" 
-          label="Total a Entregar" value={hide(dailyTotals.amountToRemit)} valueColor="#3366FF" 
+        <MainMetricCard
+          icon={Wallet} color="#3366FF" bg="#F0F5FF"
+          label="Total a Entregar" value={hide(dailyTotals.amountToRemit)} valueColor="#3366FF"
         />
       </View>
 
@@ -110,35 +90,37 @@ const DashboardContent = ({ model, dispatch }: { model: Model; dispatch: any }) 
   );
 };
 
-// ============================================================================
-// MAIN COMPONENT (State & Orchestration)
-// ============================================================================
-
 export const SummaryComponent: React.FC = () => {
   const model = SummaryModule.useStore(selectModel);
   const dispatch = SummaryModule.useStore(selectDispatch);
   const reload = () => dispatch(GET_FINANCIAL_BETS());
-  useEffect(() => {
-    console.log('-----Render SummaryComponent mounted---');
-  }, []);
-  const renderContent = () => {
-    // Pipeline Declarativo: Evaluamos el contexto y luego el RemoteData
-    if (model.contextError) return <ErrorView message={`Plugin Error: ${model.contextError}`} />;
-    if (!model.context) return <LoadingView text="Inicializando..." />;
 
-    const state = model.financialSummary || RemoteData.notAsked();
+  if (model.contextError) {
+    return (
+      <Card style={styles.card}>
+        <ErrorView message={`Plugin Error: ${model.contextError}`} />
+      </Card>
+    );
+  }
 
-    return match(state)
-      .with({ type: 'NotAsked' }, () => <EmptyView onReload={reload} />)
-      .with({ type: 'Loading' }, () => <LoadingView text="Cargando resumen..." />)
-      .with({ type: 'Failure' }, ({ error }) => <ErrorView message={String(error)} onRetry={reload} />)
-      .with({ type: 'Success' }, () => <DashboardContent model={model} dispatch={dispatch} />)
-      .exhaustive();
-  };
+  if (!model.context) {
+    return <LoadingView />;
+  }
 
-  return (
-    <Card style={styles.card}>
-      {renderContent()}
-    </Card>
-  );
+  const state = model.financialSummary || RemoteData.notAsked();
+
+  return match(state)
+    .with({ type: 'NotAsked' }, () => <LoadingView />)
+    .with({ type: 'Loading' }, () => <LoadingView />)
+    .with({ type: 'Failure' }, ({ error }) => (
+      <Card style={styles.card}>
+        <ErrorView message={String(error)} onRetry={reload} />
+      </Card>
+    ))
+    .with({ type: 'Success' }, () => (
+      <Card style={styles.card}>
+        <DashboardContent model={model} dispatch={dispatch} />
+      </Card>
+    ))
+    .exhaustive();
 };

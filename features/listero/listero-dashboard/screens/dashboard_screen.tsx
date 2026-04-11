@@ -113,6 +113,9 @@ export default function DashboardScreen() {
                         name="dashboard.summary" 
                         contextData={model} 
                         hostStore={storeApi}
+                        useSkeleton={true}
+                        defaultSkeletonHeight={200}
+                        skeletonNoMargin={true}
                     />
                 ) : null}
                 
@@ -122,6 +125,9 @@ export default function DashboardScreen() {
                     name="dashboard.draws_list" 
                     contextData={model} 
                     hostStore={storeApi}
+                    useSkeleton={true}
+                    defaultSkeletonHeight={300}
+                    skeletonNoMargin={true}
                 />
             </ScrollView>
 
