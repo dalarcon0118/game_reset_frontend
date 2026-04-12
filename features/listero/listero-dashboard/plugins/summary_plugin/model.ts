@@ -19,6 +19,7 @@ export interface Model {
   context: SummaryPluginContext | null;
   contextError: string | null;
   trustedNow: number | null;
+  backendPremiums: number;
 }
 
 export const initialModel = (): [Model, Cmd] => {
@@ -37,7 +38,8 @@ export const initialModel = (): [Model, Cmd] => {
       structureId: '',
       context: null,
       contextError: null,
-      trustedNow: null
+      trustedNow: null,
+      backendPremiums: 0
     },
     Cmd.none
   ];

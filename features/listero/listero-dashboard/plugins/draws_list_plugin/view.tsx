@@ -1,4 +1,5 @@
 import React from 'react';
+const { useEffect } = React;
 import { View, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { match } from 'ts-pattern';
 import { RemoteData } from '@core/tea-utils';

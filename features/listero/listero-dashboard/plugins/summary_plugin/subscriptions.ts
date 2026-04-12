@@ -3,6 +3,7 @@ import { Model } from './model';
 import { Msg, GET_FINANCIAL_BETS, DASHBOARD_DATA_SYNCED } from './msg';
 import { dashboardService } from '../../services/dashboard.service';
 import { logger } from '@/shared/utils/logger';
+import { TimerRepository } from '@/shared/repositories/system/time';
 
 const log = logger.withTag('SUMMARY_PLUGIN_SUBS');
 
@@ -20,15 +21,34 @@ export const subscriptions = (model: Model) => {
   const dashboardSyncSub = Sub.watchStore(
     'ListeroDashboard',
     (hostState: any) => {
-      const commission = hostState?.model?.commissionRate;
+      // Resiliencia ante la estructura del estado (Zustand state vs nested model)
+      const hostModel = hostState?.model || hostState;
+
+      // Calculamos el hoy localmente ya que el Dashboard no lo persiste en su modelo
+      const now = Date.now();
+      const trustedNow = TimerRepository.getTrustedNow(now);
+      const trustedDate = new Date(trustedNow);
+      const todayStart = new Date(
+        trustedDate.getFullYear(),
+        trustedDate.getMonth(),
+        trustedDate.getDate()
+      ).getTime();
+
+      const commission = hostModel?.commissionRate;
       if (commission !== undefined) {
-        log.debug('[DIAGNOSTIC] watchStore detected commissionRate in Host:', commission);
+        log.debug('[SUMMARY_PLUGIN_SUBS] Incoming data sync from Host:', {
+          structureId: hostModel?.userStructureId,
+          commissionRate: commission,
+          backendPremiums: hostModel?.dailyTotals?.premiumsPaid
+        });
       }
+
       return {
-        userStructureId: hostState?.model?.userStructureId,
-        commissionRate: hostState?.model?.commissionRate,
-        todayStart: hostState?.model?.todayStart,
-        trustedNow: hostState?.model?.trustedNow
+        userStructureId: hostModel?.userStructureId,
+        commissionRate: hostModel?.commissionRate,
+        todayStart: todayStart,
+        trustedNow: trustedNow,
+        backendPremiums: hostModel?.dailyTotals?.premiumsPaid || 0
       };
     },
     (data) => {

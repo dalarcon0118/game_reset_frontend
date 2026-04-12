@@ -6,7 +6,7 @@ import { AuthResult, User, AuthErrorType } from '../types/types';
 import { logger } from '../../../utils/logger';
 import { AUTH_LOG_TAGS, AUTH_LOGS } from '../auth.constants';
 import { hashString } from '../../../utils/crypto';
-import { isServerSpecificErrorMessage } from '../../../utils/server_error_patterns';
+import { mapAuthErrorToType, mapAuthBackendError } from '../auth.error-mapper';
 
 const log = logger.withTag(AUTH_LOG_TAGS.API_ADAPTER);
 
@@ -58,26 +58,8 @@ export const authApiAdapter: IAuthApi = {
         } catch (error: any) {
             log.warn(AUTH_LOGS.LOGIN_FAILED, { username, error: error.message, status: error.status });
 
-            const isNetworkError =
-                error.status === 0 ||
-                error.message?.toLowerCase().includes('network') ||
-                error.message?.toLowerCase().includes('timeout') ||
-                error.message?.toLowerCase().includes('abort') ||
-                !error.status;
-
-            const isServerError = error.status >= 500;
-            const isInvalidCredentials = error.status === 401;
-            const isDeviceLocked = error.status === 403;
-
-            let errorType = AuthErrorType.UNKNOWN_ERROR;
-            if (isNetworkError) errorType = AuthErrorType.CONNECTION_ERROR;
-            else if (isServerError) errorType = AuthErrorType.SERVER_ERROR;
-            else if (isInvalidCredentials) errorType = AuthErrorType.INVALID_CREDENTIALS;
-            else if (isDeviceLocked) errorType = AuthErrorType.DEVICE_LOCKED;
-
-            // Usar mensaje crudo del servidor para errores específicos como DEVICE_LOCKED
-            const shouldUseRawMessage = isDeviceLocked && error.message && isServerSpecificErrorMessage(error.message);
-            const errorMessage = shouldUseRawMessage ? error.message : (error.message || AUTH_LOGS.LOGIN_AUTH_ERROR);
+            const errorType = mapAuthErrorToType(error.status, error.message);
+            const errorMessage = mapAuthBackendError(error.status, error.message);
 
             return {
                 success: false,
@@ -133,12 +115,13 @@ export const authApiAdapter: IAuthApi = {
             log.warn(AUTH_LOGS.REFRESH_FAILED, { error: error.message, status: error.status });
 
             const isInvalidToken = error.status === 401 || error.status === 403;
+            const errorMessage = mapAuthBackendError(error.status, error.message);
 
             return {
                 success: false,
                 error: {
                     type: isInvalidToken ? AuthErrorType.SESSION_EXPIRED : AuthErrorType.SERVER_ERROR,
-                    message: error.message || AUTH_LOGS.REFRESH_ERROR
+                    message: errorMessage
                 }
             };
         }

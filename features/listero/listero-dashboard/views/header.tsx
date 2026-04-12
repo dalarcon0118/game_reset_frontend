@@ -1,6 +1,6 @@
-import React from 'react';
-import { StyleSheet, View, TouchableOpacity } from 'react-native';
-import { Bell, HelpCircle, Eye, EyeOff, User } from 'lucide-react-native';
+import React, { useEffect, useRef } from 'react';
+import { StyleSheet, View, TouchableOpacity, Animated, Easing } from 'react-native';
+import { Bell, HelpCircle, Eye, EyeOff, User, WifiOff } from 'lucide-react-native';
 import { Label, Flex, Badge } from '@/shared/components';
 import { COLORS } from '@/shared/components/constants';
 
@@ -16,6 +16,47 @@ interface HeaderProps {
   onSettings: () => void;
   onToggleBalance: () => void;
 }
+
+const PulseDot = ({ isOnline }: { isOnline: boolean }) => {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (isOnline) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 0.4,
+            duration: 1500,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 1500,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      pulseAnim.setValue(1);
+    }
+  }, [isOnline]);
+
+  return (
+    <View style={styles.statusDotContainer}>
+      <Animated.View 
+        style={[
+          styles.statusDot, 
+          { 
+            backgroundColor: isOnline ? COLORS.success : COLORS.danger,
+            opacity: pulseAnim 
+          }
+        ]} 
+      />
+    </View>
+  );
+};
 
 export default function Header({ 
   username, 
@@ -40,6 +81,13 @@ export default function Header({
 
   return (
     <View style={styles.container}>
+      {!isOnline && (
+        <Flex align="center" justify="center" gap={6} style={styles.offlineBanner}>
+          <WifiOff size={14} color={COLORS.danger} />
+          <Label style={styles.offlineText}>Sin conexión - Modo lectura</Label>
+        </Flex>
+      )}
+
       {/* Top Row: User Info and MONSTER Logo */}
       <Flex justify="between" align="center" margin={[{ type: 'bottom', value: 12 }]}>
         <Flex align="center" gap={10}>
@@ -48,7 +96,8 @@ export default function Header({
             onPress={onSettings}
             activeOpacity={0.7}
           >
-            <User size={24} color={COLORS.primary} />
+            <User size={28} color={COLORS.primary} />
+            <PulseDot isOnline={isOnline} />
           </TouchableOpacity>
           <View>
             <Flex align="baseline" gap={6}>
@@ -60,12 +109,6 @@ export default function Header({
         </Flex>
         <Label type="subheader" style={styles.appName}>MONSTER</Label>
       </Flex>
-
-      <View style={[styles.connectionStrip, isOnline ? styles.connectionStripOnline : styles.connectionStripOffline]}>
-        <Label style={styles.connectionStripText}>
-          {isOnline ? 'Estado: Online' : 'Estado: Offline'}
-        </Label>
-      </View>
 
       {/* Action Icons Row */}
       <Flex justify="end" align="center" gap={12} style={styles.actionRow}>
@@ -128,9 +171,9 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.border,
   },
   profileIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: COLORS.background,
     justifyContent: 'center',
     alignItems: 'center',
@@ -187,26 +230,39 @@ const styles = StyleSheet.create({
     color: COLORS.primaryDark,
     letterSpacing: 0.5,
   },
-  connectionStrip: {
-    height: 28,
+  statusDotContainer: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 16,
+    height: 16,
     borderRadius: 8,
+    backgroundColor: '#FFF',
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+    elevation: 2,
+  },
+  statusDot: {
+    width: 11,
+    height: 11,
+    borderRadius: 5.5,
+  },
+  offlineBanner: {
+    backgroundColor: '#FFF2F2',
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginBottom: 12,
     borderWidth: 1,
-    marginBottom: 10,
+    borderColor: '#FFDADA',
   },
-  connectionStripOnline: {
-    backgroundColor: '#DFF7EA',
-    borderColor: '#4DBB86',
-  },
-  connectionStripOffline: {
-    backgroundColor: '#FFE6E1',
-    borderColor: '#E26D5A',
-  },
-  connectionStripText: {
+  offlineText: {
     fontSize: 12,
     fontWeight: '600',
-    color: COLORS.textDark,
+    color: COLORS.danger,
   },
   actionRow: {
     marginTop: 2,

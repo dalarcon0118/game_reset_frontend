@@ -62,12 +62,13 @@ const formatLocalTime = (utcTimestamp: string | null | undefined): string => {
     const date = parseServerDateTime(utcTimestamp);
     if (!date) return 'N/A';
     if (isNaN(date.getTime())) return 'N/A';
-    const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    
+    // Al no especificar timeZone, toLocaleTimeString usará automáticamente 
+    // la zona horaria local configurada en el dispositivo (ej. São Paulo).
     return date.toLocaleTimeString('es-ES', {
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,
-      timeZone: userTimeZone
     });
   } catch {
     return 'N/A';

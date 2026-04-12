@@ -54,12 +54,14 @@ export enum ProfileMsgType {
     CHANGE_PASSWORD_SUCCEEDED = 'CHANGE_PASSWORD_SUCCEEDED',
     CHANGE_PASSWORD_FAILED = 'CHANGE_PASSWORD_FAILED',
     RESET_CHANGE_PASSWORD = 'RESET_CHANGE_PASSWORD',
+    LOAD_LOCAL_PROFILE_RESPONSE = 'LOAD_LOCAL_PROFILE_RESPONSE',
 }
 
 export type ProfileMsg =
     | { type: ProfileMsgType.INIT }
     | { type: ProfileMsgType.FETCH_PROFILE_REQUESTED }
     | { type: ProfileMsgType.FETCH_PROFILE_RESPONSE; webData: WebData<UserProfile> }
+    | { type: ProfileMsgType.LOAD_LOCAL_PROFILE_RESPONSE; user: any | null }
     | { type: ProfileMsgType.FETCH_INCIDENTS_REQUESTED }
     | { type: ProfileMsgType.FETCH_INCIDENTS_RESPONSE; webData: WebData<Incident[]> }
     | { type: ProfileMsgType.LOGOUT_REQUESTED }

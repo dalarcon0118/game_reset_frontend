@@ -1,10 +1,12 @@
-import React, { memo, useState, useEffect } from 'react';
+import React from 'react';
+const { memo, useState, useEffect } = React;
 import { StyleSheet, View } from 'react-native';
 import { match } from 'ts-pattern';
 import { Badge, ButtonKit, Card, Flex, Label } from '@/shared/components';
 import { DRAW_STATUS } from '@/types';
 import { AlarmClock, CalendarClock, Clock3, CloudOff } from 'lucide-react-native';
-import { Draw } from '../core/types';
+import { Draw, isBettingOpen, isExpired } from '../core/types';
+import { TimerRepository } from '@/shared/repositories/system/time';
 import { TotalsByDrawIdMap, DrawFinancialTotals } from '../model';
 import SummaryCard from './summary_card';
 import logger from '@/shared/utils/logger';
@@ -31,18 +33,22 @@ const DrawItemComponent: React.FC<DrawItemProps> = ({
    showBalance
 }: DrawItemProps) => {
 
-  const [currentTime, setCurrentTime] = useState(Date.now());
+  const [currentTime, setCurrentTime] = useState(TimerRepository.getTrustedNow(Date.now()));
 
   useEffect(() => {
     if (!draw.betting_end_time) return;
     const parsedEnd = parseServerDateTime(draw.betting_end_time);
     if (!parsedEnd) return;
     const bettingEndTime = parsedEnd.getTime();
-    const timeRemaining = bettingEndTime - Date.now();
+    
+    // Usar tiempo confiable para el cálculo inicial del countdown
+    const nowTrusted = TimerRepository.getTrustedNow(Date.now());
+    const timeRemaining = bettingEndTime - nowTrusted;
+    
     let intervalId: ReturnType<typeof setInterval> | undefined;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
-    const tick = () => setCurrentTime(Date.now());
+    const tick = () => setCurrentTime(TimerRepository.getTrustedNow(Date.now()));
     const startInterval = () => {
       tick();
       intervalId = setInterval(tick, 1000);
@@ -90,14 +96,9 @@ const DrawItemComponent: React.FC<DrawItemProps> = ({
   }
 
   const getDrawStatus = () => {
-    if (!draw.betting_end_time) return draw.status;
-
-    const now = new Date(currentTime);
-    const endTime = parseServerDateTime(draw.betting_end_time);
-    if (!endTime) return draw.status;
-
-    if (now >= endTime) return DRAW_STATUS.CLOSED;
-    if (draw.is_betting_open === true) return DRAW_STATUS.OPEN;
+    // Usar la lógica unificada de types.ts para consistencia con los filtros
+    if (isBettingOpen(draw, currentTime)) return DRAW_STATUS.OPEN;
+    if (isExpired(draw, currentTime)) return DRAW_STATUS.CLOSED;
     return draw.status;
   };
 
@@ -163,12 +164,13 @@ const DrawItemComponent: React.FC<DrawItemProps> = ({
       const date = parseServerDateTime(dateString);
       if (!date) return 'N/A';
       if (isNaN(date.getTime())) return 'N/A';
-      const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      
+      // Usar el comportamiento por defecto de toLocaleTimeString para 
+      // respetar la zona horaria real del dispositivo (ej. São Paulo).
       return date.toLocaleTimeString('es-ES', {
         hour: '2-digit',
         minute: '2-digit',
         hour12: false,
-        timeZone: userTimeZone
       });
     } catch {
       return 'N/A';

@@ -26,7 +26,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ showHeader = true 
         dispatch({ type: ProfileMsgType.FETCH_INCIDENTS_REQUESTED });
     }, [dispatch]);
 
-    const { user } = model;
+    const { user, userData } = model;
 
     const handleLogout = () => {
         dispatch({ type: ProfileMsgType.LOGOUT_REQUESTED });
@@ -56,7 +56,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ showHeader = true 
         />
     );
 
-    if (RemoteData.isLoading(user)) {
+    if (RemoteData.isLoading(user) && !userData.id) {
         return (
             <SafeAreaView style={styles.container} edges={showHeader ? ['top', 'bottom'] : ['bottom']}>
                 {showHeader && renderHeader()}
@@ -85,7 +85,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ showHeader = true 
         );
     }
 
-    const { userData } = model;
+    // userData ya fue extraído arriba
 
     return (
         <SafeAreaView style={styles.container} edges={showHeader ? ['top', 'bottom'] : ['bottom']}>

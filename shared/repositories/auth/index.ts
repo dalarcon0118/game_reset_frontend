@@ -22,6 +22,7 @@ export * from './auth.ports';
 export * from './auth.keys';
 export * from './auth.messages';
 export * from './auth.error-codes';
+export * from './auth.error-mapper';
 
 /**
  * AuthRepository - Orquestador agnóstico de autenticación y autorización.
@@ -523,6 +524,10 @@ class AuthRepositoryImpl implements IAuthRepository {
 
     async getUserIdentity(): Promise<User | null> {
         return await this.getMe();
+    }
+
+    async getOfflineProfile(): Promise<User | null> {
+        return await this.storage.getOfflineProfile();
     }
 
     async hasSession(): Promise<boolean> {

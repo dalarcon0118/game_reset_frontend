@@ -107,7 +107,7 @@ function handleGetFinancialBets(model: Model): Return<Model, Msg.Msg> {
         const { summary } = calculateFinancials(
           {
             totalCollected: rawData.totalCollected,
-            premiumsPaid: 0, // Las apuestas locales no tienen premios pagados aún
+            premiumsPaid: model.backendPremiums, // SSoT de premios desde el Dashboard (Sorteos Backend)
             betCount: rawData.betCount
           },
           model.commissionRate
@@ -127,11 +127,13 @@ function handleGetFinancialBets(model: Model): Return<Model, Msg.Msg> {
 function handleFinancialBetsUpdated(model: Model, webData: WebData<DomainFinancialSummary>): Return<Model, Msg.Msg> {
   if (webData.type === 'Success') {
     // Al recibir el resumen, calculamos los totales diarios inmediatamente
+    // Al recibir el resumen de BetRepository, calculamos los totales finales.
+    // IMPORTANTE: webData.data ya incluye model.backendPremiums porque handleGetFinancialBets lo inyectó.
     const { totals } = calculateFinancials(
       {
         totalCollected: webData.data.totalCollected,
         premiumsPaid: webData.data.premiumsPaid,
-        betCount: 0 // No necesitamos el conteo aquí
+        betCount: 0 
       },
       model.commissionRate
     );
@@ -146,13 +148,14 @@ function handleFinancialBetsUpdated(model: Model, webData: WebData<DomainFinanci
   return ret({ ...model, financialSummary: webData }, Cmd.none);
 }
 
-function handleDashboardDataSynced(model: Model, payload: { userStructureId?: string; todayStart?: number; trustedNow?: number; commissionRate?: number }): Return<Model, Msg.Msg> {
+function handleDashboardDataSynced(model: Model, payload: { userStructureId?: string; todayStart?: number; trustedNow?: number; commissionRate?: number; backendPremiums?: number }): Return<Model, Msg.Msg> {
   const needsUpdate =
     (!model.structureId && payload.userStructureId) ||
     (payload.userStructureId !== undefined && payload.userStructureId !== model.structureId) ||
     (payload.commissionRate !== undefined && payload.commissionRate !== model.commissionRate) ||
     (payload.todayStart && model.context?.state.todayStart !== payload.todayStart) ||
-    (payload.trustedNow && model.trustedNow !== payload.trustedNow);
+    (payload.trustedNow && model.trustedNow !== payload.trustedNow) ||
+    (payload.backendPremiums !== undefined && payload.backendPremiums !== model.backendPremiums);
 
   logger.debug('[DIAGNOSTIC] handleDashboardDataSynced', {
     currentCommission: model.commissionRate,
@@ -170,6 +173,7 @@ function handleDashboardDataSynced(model: Model, payload: { userStructureId?: st
     structureId: payload.userStructureId || model.structureId,
     commissionRate: payload.commissionRate !== undefined ? payload.commissionRate : model.commissionRate,
     trustedNow: payload.trustedNow || model.trustedNow,
+    backendPremiums: payload.backendPremiums !== undefined ? payload.backendPremiums : model.backendPremiums,
     context: model.context ? {
       ...model.context,
       state: {

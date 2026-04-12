@@ -6,6 +6,16 @@ import apiClient from '@/shared/services/api_client';
 import settings from '@/config/settings';
 import { User } from '@/shared/repositories/auth/types/types';
 import { hashString } from '@/shared/utils/crypto';
+import { AuthRepository } from '@/shared/repositories/auth';
+
+// Helper to map User to UserProfile
+const mapUserToProfile = (user: User): UserProfile => ({
+    id: String(user.id),
+    firstName: user.name || user.username,
+    alias: user.username,
+    zone: user.structure?.name || 'N/A',
+    status: 'ACTIVE'
+});
 
 // Fetch real profile data from me endpoint using RemoteDataHttp
 const fetchProfileCmd = () => {
@@ -13,15 +23,17 @@ const fetchProfileCmd = () => {
         () => apiClient.get<User>(settings.api.endpoints.me()),
         (webData) => ({
             type: ProfileMsgType.FETCH_PROFILE_RESPONSE,
-            webData: RemoteData.map((user: User): UserProfile => ({
-                id: String(user.id),
-                firstName: user.name || user.username,
-                alias: user.username,
-                zone: user.structure?.name || 'N/A',
-                status: 'ACTIVE'
-            }), webData)
+            webData: RemoteData.map(mapUserToProfile, webData)
         })
     );
+};
+
+const loadLocalProfileCmd = () => {
+    return Cmd.task({
+        task: () => AuthRepository.getMe(),
+        onSuccess: (user) => ({ type: ProfileMsgType.LOAD_LOCAL_PROFILE_RESPONSE, user }),
+        onFailure: () => ({ type: ProfileMsgType.LOAD_LOCAL_PROFILE_RESPONSE, user: null })
+    });
 };
 
 const fetchIncidentsCmd = () => {
@@ -79,8 +91,23 @@ export const updateProfile = (model: ProfileModel, msg: ProfileMsg): [ProfileMod
 
             return ret(
                 { ...model, user: userState },
-                [fetchProfileCmd() as any]
+                [
+                    loadLocalProfileCmd() as any,
+                    fetchProfileCmd() as any
+                ]
             );
+        })
+        .with({ type: ProfileMsgType.LOAD_LOCAL_PROFILE_RESPONSE }, ({ user }) => {
+            // Solo actualizamos si no tenemos datos exitosos ya (o si queremos forzar el local primero)
+            if (user && !RemoteData.isSuccess(model.user)) {
+                const profile = mapUserToProfile(user);
+                return ret({
+                    ...model,
+                    user: RemoteData.success(profile),
+                    userData: profile
+                }, []);
+            }
+            return ret(model, []);
         })
         .with({ type: ProfileMsgType.FETCH_PROFILE_RESPONSE }, ({ webData }) => {
             return ret({

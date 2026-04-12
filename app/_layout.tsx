@@ -39,13 +39,13 @@ function RootLayoutContent() {
 function RootLayoutInner() {
   const { BackButton } = useAuthNavigation();
   //add an alert with the backend url
-  
+
   // Logger para capturar todas las navegaciones (incluyendo router.push directo)
   useNavigationLogger();
 
   return (
     <View style={{ flex: 1 }}>
-      {__DEV__ && <DevToolbar />}
+      {/*__DEV__ && <DevToolbar />*/}
       <Stack
         screenOptions={{
           headerShown: true,
@@ -58,7 +58,7 @@ function RootLayoutInner() {
         <Stack.Screen name="colector" options={{ headerShown: false }} />
         <Stack.Screen name="banker" options={{ headerShown: false }} />
       </Stack>
-      
+
     </View>
   );
 }
@@ -74,8 +74,8 @@ export function DevToolbar() {
         value={e2eTraceId}
         onChangeText={setE2eTraceId}
       />
-      <TouchableOpacity 
-        onPress={() => logger.error('E2E Telemetry Test Error', { traceId: e2eTraceId || 'e2e-default-trace' })} 
+      <TouchableOpacity
+        onPress={() => logger.error('E2E Telemetry Test Error', { traceId: e2eTraceId || 'e2e-default-trace' })}
         style={[styles.devButton, { backgroundColor: '#c0392b' }]}
         testID="trigger-telemetry-error"
       >
