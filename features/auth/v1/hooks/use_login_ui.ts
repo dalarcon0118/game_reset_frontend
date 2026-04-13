@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useLoginStore } from '../store';
 import {
     USERNAME_UPDATED,
@@ -15,7 +16,7 @@ import {
 export const useLoginUI = () => {
     const { model, dispatch } = useLoginStore();
 
-    return {
+    return useMemo(() => ({
         // Estado
         username: model.username,
         pin: model.pin,
@@ -38,5 +39,5 @@ export const useLoginUI = () => {
 
         // Dispatch directo
         dispatch
-    };
+    }), [model, dispatch]);
 };

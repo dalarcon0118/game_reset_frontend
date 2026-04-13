@@ -12,7 +12,7 @@ interface LoginHeaderProps {
   setIsEditing: (editing: boolean) => void;
 }
 
-export const LoginHeader = ({
+export const LoginHeader = React.memo(({
   username,
   onUsernameUpdate,
   isEditing,
@@ -86,4 +86,4 @@ export const LoginHeader = ({
       )}
     </Flex>
   );
-};
+});

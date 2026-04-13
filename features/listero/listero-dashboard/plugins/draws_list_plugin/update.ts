@@ -139,9 +139,9 @@ function handleSyncState(
     commissionRate: payload.commissionRate
   };
 
-  const drawsDataChanged =
-    (RemoteData.isSuccess(model.draws) && RemoteData.isSuccess(payload.draws) && currentDrawsData !== nextDrawsData) ||
-    model.draws.type !== payload.draws.type;
+  const drawsDataChanged = RemoteData.isSuccess(model.draws) && RemoteData.isSuccess(payload.draws)
+    ? hasDrawsDataChanged(currentDrawsData, nextDrawsData)
+    : model.draws.type !== payload.draws.type;
 
   const filterChanged = model.currentFilter !== payload.filter;
 
@@ -155,20 +155,27 @@ function handleSyncState(
         filter: nextModel.currentFilter as StatusFilter,
         currentTime: trustedNow
       });
-
-      const hasSameFilteredDraws =
-        model.filteredDraws.length === filteredDraws.length &&
-        model.filteredDraws.every((draw, i) => draw.id === (filteredDraws as Draw[])[i]?.id);
-
-      if (!hasSameFilteredDraws) {
-        nextModelWithFilter.filteredDraws = filteredDraws as Draw[];
-      }
+      nextModelWithFilter.filteredDraws = filteredDraws as Draw[];
+      log.debug('handleSyncState: filteredDraws updated', {
+        filterChanged,
+        drawsDataChanged,
+        newFilteredCount: filteredDraws.length
+      });
     }
 
     return ret(nextModelWithFilter, Cmd.none);
   }
 
   return ret(nextModel, Cmd.none);
+}
+
+function hasDrawsDataChanged(currentDraws: any[], nextDraws: any[]): boolean {
+  if (currentDraws.length !== nextDraws.length) return true;
+
+  const currentKeys = currentDraws.map(d => `${d.id}-${d.status}-${d.betting_end_time}`);
+  const nextKeys = nextDraws.map(d => `${d.id}-${d.status}-${d.betting_end_time}`);
+
+  return JSON.stringify(currentKeys) !== JSON.stringify(nextKeys);
 }
 
 function handleFilterDraws(model: Model): Return<Model, Msg.Msg> {

@@ -10,7 +10,7 @@ interface NumericKeypadProps {
   isDisabled: boolean;
 }
 
-export const NumericKeypad = ({
+export const NumericKeypad = React.memo(({
   onPress,
   onDelete,
   isDisabled
@@ -59,4 +59,4 @@ export const NumericKeypad = ({
       </View>
     </View>
   );
-};
+});

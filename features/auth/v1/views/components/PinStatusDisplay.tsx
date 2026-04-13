@@ -10,7 +10,7 @@ interface PinStatusDisplayProps {
   error: string | null;
 }
 
-export const PinStatusDisplay = ({
+export const PinStatusDisplay = React.memo(({
   pinLength,
   isAuthenticating,
   error
@@ -48,4 +48,4 @@ export const PinStatusDisplay = ({
       </Flex>
     </Flex>
   );
-};
+});
