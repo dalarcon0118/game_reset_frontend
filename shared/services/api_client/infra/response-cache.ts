@@ -1,3 +1,5 @@
+import { logger } from '@/shared/utils/logger';
+
 const CACHE_MAX_SIZE = 10;
 const CACHE_TTL_MS = 2000;
 
@@ -10,6 +12,10 @@ export class ResponseCache {
   private cache: Map<string, CachedEntry> = new Map();
 
   get(key: string): Response | null {
+    if (!this.cache) {
+      logger.error('[ResponseCache] Cache map is undefined');
+      return null;
+    }
     const entry = this.cache.get(key);
     if (!entry) return null;
 

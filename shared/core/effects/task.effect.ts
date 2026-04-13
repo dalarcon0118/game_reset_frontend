@@ -29,7 +29,9 @@ export async function handleTask(payload: TaskPayload, dispatch: (cmd: any) => v
 
   try {
     log.debug(`Executing Task: ${taskName}`, { args });
+    log.debug(`[TASK_EFFECT] Calling task function`, { taskType: typeof task, taskName });
     const result = await task(...(args || []));
+    log.debug(`[TASK_EFFECT] Task returned`, { taskName, hasResult: result !== undefined, resultType: typeof result });
     const msg = onSuccess(result);
     if (msg) {
       dispatch(msg);

@@ -136,11 +136,15 @@ export const RemoteDataHttp = {
       // DIAGNOSTIC LOG: Verificar RemoteData en el scope del task
       log.debug('RemoteDataHttp.fetch task executing', {
         hasRemoteData: typeof RemoteData !== 'undefined',
-        label: label || 'REMOTE_DATA_HTTP_FETCH'
+        label: label || 'REMOTE_DATA_HTTP_FETCH',
+        taskType: typeof task,
+        taskName: task.name || 'anonymous'
       });
 
       try {
+        log.debug('RemoteDataHttp.fetch calling task()', { label });
         const result = await task();
+        log.debug('RemoteDataHttp.fetch task completed', { label, hasResult: result !== undefined });
 
         // Check for Result pattern (neverthrow)
         if (result && typeof (result as any).isOk === 'function' && typeof (result as any).isErr === 'function') {

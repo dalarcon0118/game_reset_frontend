@@ -73,16 +73,15 @@ export function update(model: CoreModel, msg: CoreMsg): Return<CoreModel, CoreMs
     // --- Dominio de Red y Conectividad ---
     .with({ type: 'PHYSICAL_CONNECTION_CHANGED' }, ({ payload }) => {
       const result = ConnectivityHandler.handlePhysicalChanged(model, payload);
-      // Al recuperar conexión, verificamos también la sesión
       if (payload && model.sessionStatus === 'AUTHENTICATED') {
-        return ret(result.model, Cmd.batch([result.cmd, CoreService.checkSessionExpirationTask()]));
+        return ret(result.model, Cmd.batch([result.cmd, Cmd.ofMsg({ type: 'CHECK_SESSION_EXPIRATION' } as CoreMsg)]));
       }
       return result;
     })
     .with({ type: 'SERVER_REACHABILITY_CHANGED' }, ({ payload }) => {
       const result = ConnectivityHandler.handleServerChanged(model, payload);
       if (payload && model.sessionStatus === 'AUTHENTICATED') {
-        return ret(result.model, Cmd.batch([result.cmd, CoreService.checkSessionExpirationTask()]));
+        return ret(result.model, Cmd.batch([result.cmd, Cmd.ofMsg({ type: 'CHECK_SESSION_EXPIRATION' } as CoreMsg)]));
       }
       return result;
     })

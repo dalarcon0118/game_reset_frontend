@@ -222,12 +222,23 @@ export class DrawRepository implements IDrawRepository {
             if (isOnline) {
                 try {
                     record = await this.api.getWinningRecord(drawId);
-                } catch (apiError) {
+                    return ok(record);
+                } catch (apiError: any) {
+                    const is404 = apiError?.response?.status === 404 ||
+                        apiError?.status === 404 ||
+                        apiError?.message?.includes('404');
+
+                    if (is404) {
+                        this.log.info('No winning numbers found for draw (404)', { drawId });
+                        return ok(null);
+                    }
+
                     this.log.warn('Failed to fetch winning record from API', { drawId, error: apiError });
+                    return err(apiError instanceof Error ? apiError : new Error(String(apiError)));
                 }
             }
 
-            return ok(record);
+            return ok(null);
         } catch (error: any) {
             this.log.error('Error in getWinningRecord', { drawId, error });
             return err(error instanceof Error ? error : new Error(String(error)));

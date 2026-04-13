@@ -89,6 +89,18 @@ export class ErrorManager {
         status: response.status,
         data: errorData,
       });
+
+      if ((errorData as any).error && typeof (errorData as any).error === 'object') {
+        errorData = {
+          ...errorData,
+          message: (errorData as any).error.message || (errorData as any).error.code || errorData.message
+        };
+      } else if ((errorData as any).error && typeof (errorData as any).error === 'string') {
+        errorData = {
+          ...errorData,
+          message: (errorData as any).error
+        };
+      }
     } catch {
       errorData = { message: response.statusText || `Error ${response.status}` };
       this.log.error(`<<< API ERROR (Could not parse body): ${response.status}`, {

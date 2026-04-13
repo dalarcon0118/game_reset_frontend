@@ -28,8 +28,10 @@ import storageClient from '@core/offline-storage/storage_client';
 
 const log = logger.withTag('CORE_SERVICE');
 const APP_VERSION_KEY = 'APP_VERSION_TRACKER';
+const SESSION_CHECK_COOLDOWN_MS = 1000;
 
 let _authRepo: IAuthRepository | null = null;
+let _lastSessionCheckTime = 0;
 
 /**
  * Inicializa las dependencias del servicio.
@@ -386,8 +388,19 @@ export const CoreService = {
 
   /**
    * Tarea para verificar la expiración de la sesión.
+   * Incluye cooldown para evitar ejecuciones duplicadas.
    */
   checkSessionExpirationTask(): Cmd {
+    const now = Date.now();
+    if (now - _lastSessionCheckTime < SESSION_CHECK_COOLDOWN_MS) {
+      log.debug('CHECK_SESSION_EXPIRATION skipped (cooldown active)', {
+        timeSinceLastCheck: now - _lastSessionCheckTime,
+        cooldownMs: SESSION_CHECK_COOLDOWN_MS
+      });
+      return Cmd.none;
+    }
+    _lastSessionCheckTime = now;
+
     return Cmd.task({
       task: () => this.checkSessionExpirationProximity(),
       onSuccess: () => ({ type: 'NO_OP' } as any),

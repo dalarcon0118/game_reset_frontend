@@ -359,15 +359,19 @@ export class RequestExecutor {
     this.log.debug(`<<< API SUCCESS RESPONSE: ${response.status} ${endpoint}`, { data: responseData });
     let finalData = responseData;
 
-    if (finalData && typeof finalData === 'object' && 'data' in finalData && finalData.data) {
-      const innerData = finalData.data;
-      if (Array.isArray(innerData)) {
-        finalData = innerData;
-      } else if (typeof innerData === 'object' && 'results' in innerData && Array.isArray(innerData.results)) {
-        finalData = innerData.results;
+    if (finalData && typeof finalData === 'object') {
+      if ('data' in finalData) {
+        const innerData = (finalData as any).data;
+        if (Array.isArray(innerData)) {
+          finalData = innerData;
+        } else if (typeof innerData === 'object' && innerData !== null && 'results' in innerData && Array.isArray((innerData as any).results)) {
+          finalData = (innerData as any).results;
+        } else {
+          finalData = innerData;
+        }
+      } else if ('results' in finalData && Array.isArray((finalData as any).results)) {
+        finalData = (finalData as any).results;
       }
-    } else if (finalData && typeof finalData === 'object' && 'results' in finalData && Array.isArray(finalData.results)) {
-      finalData = finalData.results;
     }
 
     if (this.isCacheable(method) && cacheTTL > 0) {

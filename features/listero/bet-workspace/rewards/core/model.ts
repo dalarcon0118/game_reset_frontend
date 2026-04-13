@@ -24,6 +24,8 @@ export interface RewardsModel {
     currentDrawId: string | null;
     /** Título del sorteo */
     drawTitle: string | null;
+    /** Tasa de comisión por defecto para cálculos financieros */
+    defaultCommissionRate?: number;
 }
 
 export const initialRewardsModel: RewardsModel = {

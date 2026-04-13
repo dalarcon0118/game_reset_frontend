@@ -7,6 +7,10 @@ export class RequestDeduplicator {
   private dedupCounter = 0;
 
   getOrCreate(key: string, factory: () => Promise<Response>): Promise<Response> {
+    if (!this.pendingRequests) {
+      log.error('[RequestDeduplicator] pendingRequests map is undefined');
+      this.pendingRequests = new Map();
+    }
     const existing = this.pendingRequests.get(key);
     if (existing) {
       this.dedupCounter++;

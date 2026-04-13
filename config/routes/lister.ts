@@ -42,7 +42,6 @@ export const listerRoutes = {
       screen: '/lister/rewards/[id]',
       options: {
         headerShown: true,
-        headerTitle: 'Premios',
         headerBackTitle: 'Atrás',
         headerBackVisible: true,
         freezeOnBlur: true,

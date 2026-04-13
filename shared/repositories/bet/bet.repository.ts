@@ -184,23 +184,33 @@ export const createBetRepository = (
         getFinancialSummary: async (todayStart: number, structureId?: string, defaultCommissionRate?: number) => {
             log.info(BET_LOGS.FINANCIAL_SUMMARY_CALLED, { todayStart, structureId, defaultCommissionRate });
             const timeoutMs = BET_VALUES.FINANCIAL_SUMMARY_TIMEOUT_MS;
+            let timeoutId: ReturnType<typeof setTimeout> | null = null;
+            let hasResolved = false;
+
             const mainPromise = new Promise<RawBetTotals>((resolve, reject) => {
                 dispatch(Msg.financialSummaryRequested({
                     todayStart,
                     structureId,
                     defaultRate: defaultCommissionRate,
                     resolve: (result) => {
+                        if (hasResolved) return;
+                        hasResolved = true;
+                        if (timeoutId) clearTimeout(timeoutId);
                         log.info(BET_LOGS.FINANCIAL_SUMMARY_RESOLVED, { isOk: result.isOk(), value: result.isOk() ? result.value : null });
-                        result.isOk() ? resolve(result.value) : reject(result.error)
+                        result.isOk() ? resolve(result.value) : reject(result.error);
                     }
                 }));
             });
-            const timeoutPromise = new Promise<RawBetTotals>((_, reject) =>
-                setTimeout(() => {
+
+            const timeoutPromise = new Promise<RawBetTotals>((_, reject) => {
+                timeoutId = setTimeout(() => {
+                    if (hasResolved) return;
+                    hasResolved = true;
                     log.warn(`${BET_LOGS.FINANCIAL_SUMMARY_TIMEOUT} after ${timeoutMs}ms`);
                     reject(new Error('TIMEOUT_FINANCIAL_SUMMARY'));
-                }, timeoutMs)
-            );
+                }, timeoutMs);
+            });
+
             return Promise.race([mainPromise, timeoutPromise]);
         },
 

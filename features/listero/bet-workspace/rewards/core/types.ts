@@ -15,7 +15,7 @@ export interface WinningRecord {
  */
 
 /** Inicializa el módulo con el ID del sorteo */
-export const INIT_MODULE = createMsg<'INIT_MODULE', { drawId: string; title?: string }>('INIT_MODULE');
+export const INIT_MODULE = createMsg<'INIT_MODULE', { drawId: string; title?: string; defaultCommissionRate?: number }>('INIT_MODULE');
 
 /** Carga todos los datos necesarios para el sorteo */
 export const FETCH_ALL_DATA_REQUESTED = createMsg<'FETCH_ALL_DATA_REQUESTED', { drawId: string }>('FETCH_ALL_DATA_REQUESTED');

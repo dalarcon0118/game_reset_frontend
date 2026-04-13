@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl, useColorScheme } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text, Spinner, Layout, Button, TopNavigation, TopNavigationAction } from '@ui-kitten/components';
 import { AlertCircle, Info, ArrowLeft } from 'lucide-react-native';
 import { match } from 'ts-pattern';
@@ -20,6 +21,7 @@ import { UserWinningsSection } from './components/UserWinningsSection';
 interface RewardScreenProps {
     drawId: string;
     title?: string;
+    defaultCommissionRate?: number;
 }
 
 type AppTheme = typeof Colors.light;
@@ -33,6 +35,7 @@ const RewardScreenContent: React.FC<{ drawId: string }> = ({ drawId }) => {
     const dispatch = useRewardsDispatch();
     const colorScheme = useColorScheme() ?? 'light';
     const theme = Colors[colorScheme] as AppTheme;
+    const insets = useSafeAreaInsets();
 
     const handleRefresh = () => {
         if (drawId) {
@@ -65,11 +68,21 @@ const RewardScreenContent: React.FC<{ drawId: string }> = ({ drawId }) => {
         if (!winningData) {
             return (
                 <Layout style={styles.centerContainer}>
-                    <Info size={48} color={theme.textTertiary} />
-                    <Text category="h6" style={styles.emptyText}>No hay resultados para este sorteo</Text>
-                    <Text appearance="hint" style={styles.emptySubtext}>Los resultados se publicarán pronto.</Text>
-                    <Button status="basic" appearance="outline" onPress={handleRefresh} style={{ marginTop: 20 }}>
-                        Actualizar
+                    <View style={styles.iconCircle}>
+                        <Info size={40} color={theme.primary} />
+                    </View>
+                    <Text category="h5" style={styles.emptyText}>Resultados Pendientes</Text>
+                    <Text appearance="hint" style={styles.emptySubtext}>
+                        Este sorteo aún no ha sido premiado. Por favor, vuelve a intentarlo más tarde o pulsa el botón para actualizar.
+                    </Text>
+                    <Button 
+                        status="primary" 
+                        size="large"
+                        onPress={handleRefresh} 
+                        style={styles.refreshButton}
+                        accessoryLeft={(props) => <Info {...props} size={20} />}
+                    >
+                        Actualizar Ahora
                     </Button>
                 </Layout>
             );
@@ -96,6 +109,12 @@ const RewardScreenContent: React.FC<{ drawId: string }> = ({ drawId }) => {
 
     const renderContent = () => {
         return match(rewardsStatus)
+            .with({ type: 'NotAsked' }, () => (
+                <Layout style={styles.centerContainer}>
+                    <Spinner size="large" />
+                    <Text category="s1" style={[styles.loadingText, { color: theme.textSecondary }]}>Inicializando...</Text>
+                </Layout>
+            ))
             .with({ type: 'Loading' }, () => (
                 <Layout style={styles.centerContainer}>
                     <Spinner size="large" />
@@ -133,11 +152,13 @@ const RewardScreenContent: React.FC<{ drawId: string }> = ({ drawId }) => {
 
     return (
         <Layout style={{ flex: 1 }}>
-            <TopNavigation 
-                title={model.drawTitle || "Premios del Sorteo"} 
-                alignment="center"
-                accessoryLeft={renderBackAction}
-            />
+            <View style={{ paddingTop: insets.top, backgroundColor: theme.background }}>
+                <TopNavigation 
+                    title={model.drawTitle || "Premios del Sorteo"} 
+                    alignment="center"
+                    accessoryLeft={renderBackAction}
+                />
+            </View>
             {renderContent()}
         </Layout>
     );
@@ -147,9 +168,9 @@ const RewardScreenContent: React.FC<{ drawId: string }> = ({ drawId }) => {
  * 🏗️ REWARD SCREEN (Root)
  * Componente que provee el contexto de RewardsModule.
  */
-export const RewardScreen: React.FC<RewardScreenProps> = ({ drawId, title }) => {
+export const RewardScreen: React.FC<RewardScreenProps> = ({ drawId, title, defaultCommissionRate }) => {
     return (
-        <RewardsProvider initialParams={{ drawId, title }}>
+        <RewardsProvider initialParams={{ drawId, title, defaultCommissionRate }}>
             <RewardScreenContent drawId={drawId} />
         </RewardsProvider>
     );
@@ -177,12 +198,29 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     emptyText: {
-        marginTop: 16,
+        marginTop: 24,
+        fontWeight: 'bold',
         textAlign: 'center',
     },
     emptySubtext: {
-        marginTop: 8,
+        marginTop: 12,
         textAlign: 'center',
+        lineHeight: 20,
+        paddingHorizontal: 20,
+    },
+    iconCircle: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: 'rgba(51, 102, 255, 0.1)', // Sutil azul basado en theme.primary
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    refreshButton: {
+        marginTop: 32,
+        borderRadius: 12,
+        paddingHorizontal: 24,
     },
 });
 

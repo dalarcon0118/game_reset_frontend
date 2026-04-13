@@ -22,11 +22,12 @@ export const makeUpdate = (
      * Delegan la construcción de comandos y estados.
      */
     const Handlers = {
-        init: (drawId: string, title?: string): Return<RewardsModel, RewardsMsg> => {
+        init: (drawId: string, title?: string, defaultCommissionRate?: number): Return<RewardsModel, RewardsMsg> => {
             const nextModel = {
                 ...model,
                 currentDrawId: drawId,
-                drawTitle: title || null
+                drawTitle: title || null,
+                defaultCommissionRate: defaultCommissionRate
             };
             return ret(nextModel, Cmd.ofMsg(FETCH_ALL_DATA_REQUESTED({ drawId })));
         },
@@ -35,7 +36,7 @@ export const makeUpdate = (
             const nextModel: RewardsModel = {
                 ...model,
                 rewards: { status: RemoteData.loading() as any },
-                rules: { status: RemoteData.loading() as any },
+                rules: { status: RemoteData.notAsked() as any },
                 userWinnings: { status: RemoteData.loading() as any }
             };
 
@@ -43,7 +44,6 @@ export const makeUpdate = (
                 nextModel,
                 Cmd.batch([
                     dataService.fetchDrawRewards(drawId),
-                    dataService.fetchDrawRules(drawId),
                     dataService.fetchUserWinnings(drawId)
                 ])
             );
@@ -81,11 +81,16 @@ export const makeUpdate = (
     };
 
     return match<RewardsMsg, Return<RewardsModel, RewardsMsg>>(msg)
-        .with({ type: 'INIT_MODULE' }, ({ payload }) => Handlers.init(payload.drawId, payload.title))
+        .with({ type: 'INIT_MODULE' }, ({ payload }) => Handlers.init(payload.drawId, payload.title, payload.defaultCommissionRate))
         .with({ type: 'FETCH_ALL_DATA_REQUESTED' }, ({ payload }) => Handlers.fetchAllData(payload.drawId))
         .with({ type: 'FETCH_REWARDS_SUCCEEDED' }, ({ payload }) => Handlers.handleRewardsSuccess(payload))
         .with({ type: 'FETCH_REWARDS_FAILED' }, ({ payload }) => Handlers.handleRewardsFailure(payload.error))
-        .with({ type: 'FETCH_RULES_SUCCEEDED' }, ({ payload }) => Handlers.handleRulesSuccess(payload))
+        .with({ type: 'FETCH_RULES_SUCCEEDED' }, ({ payload }) => {
+            if (payload.type === 'Failure') {
+                return Handlers.handleRulesFailure(payload.error);
+            }
+            return Handlers.handleRulesSuccess(payload);
+        })
         .with({ type: 'FETCH_RULES_FAILED' }, ({ payload }) => Handlers.handleRulesFailure(payload.error))
         .with({ type: 'FETCH_USER_WINNINGS_SUCCEEDED' }, ({ payload }) => Handlers.handleUserWinningsSuccess(payload))
         .with({ type: 'FETCH_USER_WINNINGS_FAILED' }, ({ payload }) => Handlers.handleUserWinningsFailure(payload.error))

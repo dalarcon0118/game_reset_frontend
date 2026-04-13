@@ -1,4 +1,5 @@
 import { CacheEntry } from '../api_client.types';
+import { logger } from '@/shared/utils/logger';
 
 type CacheKeyInput = {
   method?: string;
@@ -23,6 +24,10 @@ export class CacheManager {
   }
 
   get<T>(key: string): T | null {
+    if (!this.cache) {
+      logger.error('[CacheManager] Cache map is undefined');
+      return null;
+    }
     const cached = this.cache.get(key);
     if (!cached) {
       return null;
