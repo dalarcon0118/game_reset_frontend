@@ -1,7 +1,7 @@
 import { Tabs, usePathname } from 'expo-router';
 import { useColorScheme } from 'react-native';
 import Colors from '@/constants/colors';
-import { Home, LayoutPanelLeft, List, FileText, User } from 'lucide-react-native'; // Import List and FileText
+import { Home, Award, Trophy, User } from 'lucide-react-native';
 import { useEffect } from 'react';
 import { logger } from '@/shared/utils/logger';
 
@@ -9,9 +9,8 @@ const log = logger.withTag('LISTER_TABS');
 
 export default function ListerTabLayout() {
   const colorScheme = useColorScheme() ?? 'light';
-  const pathname = usePathname(); // Get the current route path
+  const pathname = usePathname();
 
-  // Log the route path whenever it changes
   useEffect(() => {
     log.debug('Current Route inside lister', { pathname });
   }, [pathname]);
@@ -28,32 +27,48 @@ export default function ListerTabLayout() {
           elevation: 0,
           shadowOpacity: 0,
         },
-        headerShown: false, // Assuming you handle headers within screens or a stack layout
+        headerShown: false,
       }}
     >
        <Tabs.Screen
-        name="dashboard" // Corresponds to app/lister/(tabs)/dashboard.tsx
+        name="dashboard"
         options={{
-          title: 'Panel', // Tab title
+          title: 'Panel',
           tabBarIcon: ({ color, size }) => (
             <Home color={color} size={size} />
           ),
         }}
       />
       
-   
-     
-      <Tabs.Screen
-        name="panel" // Corresponds to app/lister/bets.tsx
+       <Tabs.Screen
+        name="winners"
         options={{
-          title: 'Mi perfil', // Updated Tab title
+          title: 'Resultados',
           tabBarIcon: ({ color, size }) => (
-            <User color={color} size={size} /> // Updated Icon
+            <Trophy color={color} size={size} />
           ),
         }}
       />
-
-      {/* Add more Tabs.Screen for other lister-specific routes here if needed */}
+      
+       <Tabs.Screen
+        name="reward"
+        options={{
+          title: 'Premios',
+          tabBarIcon: ({ color, size }) => (
+            <Award color={color} size={size} />
+          ),
+        }}
+      />
+      
+       <Tabs.Screen
+        name="panel"
+        options={{
+          title: 'Mi perfil',
+          tabBarIcon: ({ color, size }) => (
+            <User color={color} size={size} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }

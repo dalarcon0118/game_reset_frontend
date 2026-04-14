@@ -146,9 +146,12 @@ export const subscriptions = (model: Model) => {
         // o si los datos del host son exitosos pero el plugin aún no tiene datos
         const isFirstSync = lastDrawsHash === null;
         const hostHasData = currentPayload.draws.type === 'Success';
+        const hostIsLoading = currentPayload.draws.type === 'Loading';
         const pluginHasNoData = !lastPayload || lastPayload.draws.type !== 'Success';
 
-        const shouldSync = statusChangedToReady || dataChanged || isFirstSync || (hostHasData && pluginHasNoData);
+        // NO sincronizar si el host está en Loading (primera carga)
+        // Solo sincronizar cuando el host tiene datos reales (Success)
+        const shouldSync = !hostIsLoading && (statusChangedToReady || dataChanged || isFirstSync || (hostHasData && pluginHasNoData));
 
         if (!shouldSync) {
           log.debug('Skipping sync - no relevant changes detected', {

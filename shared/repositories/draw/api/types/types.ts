@@ -78,6 +78,15 @@ export interface BetType {
   name: string;
   description?: string;
   code?: string;
+  rewards?: Reward[];
+}
+
+export interface Reward {
+  payout: number;
+  name: string;
+  category?: string;
+  is_pool?: boolean;
+  pool_divisor?: string;
 }
 
 export interface DrawRule {

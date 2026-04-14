@@ -1,10 +1,11 @@
 import { DrawType } from '@/types';
 
-export interface PrizeConfig {
-  version: number;
-  main_amount: number | null;
-  currency: string;
-  secondary_amounts: { label: string; description: string; amount: number }[];
+export interface Reward {
+  payout: number;
+  name: string;
+  category?: string;
+  is_pool?: boolean;
+  pool_divisor?: string;
 }
 
 export interface BackendDraw {
@@ -39,7 +40,6 @@ export interface BackendDraw {
   };
   is_betting_open: boolean;
   extra_data: any;
-  prize_config?: PrizeConfig;
 }
 
 export interface ExtendedDrawType extends DrawType {
@@ -58,7 +58,6 @@ export interface ExtendedDrawType extends DrawType {
     description: string | null;
     code: string;
   };
-  prize_config?: PrizeConfig;
   betting_start_time_display?: string;
   betting_end_time_display?: string;
 }
@@ -86,6 +85,7 @@ export interface BetType {
   name: string;
   description?: string;
   code?: string;
+  rewards?: Reward[];
 }
 
 export interface DrawRule {

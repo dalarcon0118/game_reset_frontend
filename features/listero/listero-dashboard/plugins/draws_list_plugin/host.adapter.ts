@@ -70,24 +70,17 @@ export function extractHostState(state: any, config: DrawsListPluginConfig): Hos
       validatedDraws = RemoteData.success(result.right);
       log.info('DRAWS_VALIDATION_SUCCESS', { count: result.right.length });
 
-      // DEBUG: Log validated draws (optional, kept for parity with original)
       if (result.right.length > 0) {
         const validatedFirst = result.right[0];
         log.debug('VALIDATED_DRAWS_DEBUG', { id: validatedFirst.id, keys: Object.keys(validatedFirst) });
       }
     } else {
       const errorMsg = PathReporter.report(result).join(' | ');
-      log.error('DRAWS_VALIDATION_FAILED - Converting to Failure state!', {
+      log.warn('DRAWS_VALIDATION_FAILED - Using raw data (lenient mode)', {
         error: errorMsg,
         rawDataKeys: rawDraws.data ? Object.keys(rawDraws.data[0] || {}) : 'no data'
       });
-      // STRICT SAFETY: If validation fails, we return a Failure state instead of passing raw data.
-      // This ensures downstream components only receive valid Draw objects.
-      validatedDraws = RemoteData.failure({
-        code: 'VALIDATION_ERROR',
-        message: 'Invalid data structure received from host',
-        details: errorMsg
-      });
+      validatedDraws = rawDraws;
     }
   }
 

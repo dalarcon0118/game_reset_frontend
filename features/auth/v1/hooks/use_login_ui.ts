@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useRef, useCallback } from 'react';
 import { useLoginStore } from '../store';
 import {
     USERNAME_UPDATED,
@@ -15,29 +15,51 @@ import {
  */
 export const useLoginUI = () => {
     const { model, dispatch } = useLoginStore();
+    const dispatchRef = useRef(dispatch);
+    dispatchRef.current = dispatch;
+
+    const updateUsername = useCallback((username: string) => {
+        dispatchRef.current(USERNAME_UPDATED({ username }));
+    }, []);
+
+    const updatePin = useCallback((pin: string) => {
+        dispatchRef.current(PIN_UPDATED({ pin }));
+    }, []);
+
+    const appendPin = useCallback((val: string) => {
+        const currentPin = model.pin;
+        if (currentPin.length < 6) {
+            dispatchRef.current(PIN_UPDATED({ pin: currentPin + val }));
+        }
+    }, [model.pin]);
+
+    const removeLastPin = useCallback(() => {
+        const currentPin = model.pin;
+        dispatchRef.current(PIN_UPDATED({ pin: currentPin.slice(0, -1) }));
+    }, [model.pin]);
+
+    const toggleEditUsername = useCallback((isEditing: boolean) => {
+        dispatchRef.current(EDIT_USERNAME_TOGGLED({ isEditing }));
+    }, []);
+
+    const hydrateUI = useCallback(() => {
+        dispatchRef.current(HYDRATION_STARTED());
+    }, []);
+
+    const resetUI = useCallback(() => {
+        dispatchRef.current(RESET_LOGIN_UI());
+    }, []);
 
     return useMemo(() => ({
-        // Estado
         username: model.username,
         pin: model.pin,
         isEditingUsername: model.isEditingUsername,
-
-        // Acciones
-        updateUsername: (username: string) => dispatch(USERNAME_UPDATED({ username })),
-        updatePin: (pin: string) => dispatch(PIN_UPDATED({ pin })),
-        appendPin: (val: string) => {
-            if (model.pin.length < 6) {
-                dispatch(PIN_UPDATED({ pin: model.pin + val }));
-            }
-        },
-        removeLastPin: () => {
-            dispatch(PIN_UPDATED({ pin: model.pin.slice(0, -1) }));
-        },
-        toggleEditUsername: (isEditing: boolean) => dispatch(EDIT_USERNAME_TOGGLED({ isEditing })),
-        hydrateUI: () => dispatch(HYDRATION_STARTED()),
-        resetUI: () => dispatch(RESET_LOGIN_UI()),
-
-        // Dispatch directo
-        dispatch
-    }), [model, dispatch]);
+        updateUsername,
+        updatePin,
+        appendPin,
+        removeLastPin,
+        toggleEditUsername,
+        hydrateUI,
+        resetUI
+    }), [model.username, model.pin, model.isEditingUsername]);
 };

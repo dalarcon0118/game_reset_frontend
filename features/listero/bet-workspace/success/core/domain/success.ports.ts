@@ -4,7 +4,7 @@ import { BetType } from '@/types';
 export interface VoucherSourceData {
     draw: ExtendedDrawType | null;
     bets: BetType[];
-    betTypes?: any[]; // Cached bet types for dynamic hydration
+    rewards?: any[]; // Enriched by Repository from BetType
 }
 
 export interface VoucherPort {

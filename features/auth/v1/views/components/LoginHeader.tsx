@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, TouchableOpacity, Alert } from 'react-native';
 import { Text, Input, Button } from '@ui-kitten/components';
 import { Lock, Edit2 } from 'lucide-react-native';
 import { Flex } from '@/shared/components';
@@ -24,12 +24,26 @@ export const LoginHeader = React.memo(({
     setTempUsername(username);
   }, [username]);
 
+  const sanitizeUsername = useCallback((text: string): string => {
+    return text.replace(/\s+/g, '').trim();
+  }, []);
+
+  const handleUsernameChange = useCallback((text: string) => {
+    const sanitized = sanitizeUsername(text);
+    setTempUsername(sanitized);
+  }, [sanitizeUsername]);
+
   const handleSubmit = () => {
-    if (tempUsername.trim()) {
-      onUsernameUpdate(tempUsername.trim());
-    } else {
-        setIsEditing(false);
+    const trimmed = tempUsername.trim();
+    if (!trimmed) {
+      Alert.alert('Usuario inválido', 'El nombre de usuario no puede estar vacío.');
+      return;
     }
+    if (trimmed.length < 3) {
+      Alert.alert('Usuario inválido', 'El nombre de usuario debe tener al menos 3 caracteres.');
+      return;
+    }
+    onUsernameUpdate(trimmed);
   };
 
   return (
@@ -43,7 +57,7 @@ export const LoginHeader = React.memo(({
         <View style={{ width: 250, alignItems: 'center' }}>
           <Input
             value={tempUsername}
-            onChangeText={setTempUsername}
+            onChangeText={handleUsernameChange}
             placeholder="Usuario"
             autoCapitalize="none"
             status="control"

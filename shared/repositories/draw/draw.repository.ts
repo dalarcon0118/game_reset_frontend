@@ -116,13 +116,7 @@ export class DrawRepository implements IDrawRepository {
         // 1. CACHE-FIRST: Intentar obtener de la caché local
         const cachedDraw = await this.offlineAdapter.getById(id);
         if (cachedDraw) {
-            this.log.info('Cache hit: returning cached draw', {
-                id,
-                hasPrizeConfig: !!(cachedDraw as any).prize_config,
-                prizeConfig: (cachedDraw as any).prize_config,
-                cachedExtraData: (cachedDraw as any).extra_data,
-                cachedAllKeys: Object.keys(cachedDraw)
-            });
+            this.log.info('Cache hit: returning cached draw', { id });
             return ok<ExtendedDrawType, Error>(mapBackendDrawToFrontend(cachedDraw));
         }
 
@@ -131,13 +125,6 @@ export class DrawRepository implements IDrawRepository {
         // 2. REMOTE-FALLBACK
         const result = await ResultAsync.fromPromise(this.api.getOne(id), e => e as Error)
             .andThen((draw: BackendDraw) => {
-                this.log.info('📡 [DEBUG] Remote draw received:', {
-                    drawId: draw.id,
-                    hasPrizeConfig: !!(draw as any).prize_config,
-                    prizeConfig: (draw as any).prize_config,
-                    remoteExtraData: (draw as any).extra_data,
-                    remoteAllKeys: Object.keys(draw)
-                });
                 this.offlineAdapter.saveDraws([draw]); // Background save
                 return ok<ExtendedDrawType, Error>(mapBackendDrawToFrontend(draw));
             })

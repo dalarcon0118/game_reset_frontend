@@ -3,6 +3,7 @@ import { drawRepository } from '@/shared/repositories/draw';
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
 import { SharingService } from '@/shared/services/sharing';
 import { logger } from '@/shared/utils/logger';
+import { SuccessImpl } from '../../core/domain/success.impl';
 
 const log = logger.withTag('VOUCHER_ADAPTER');
 
@@ -31,16 +32,12 @@ export const VoucherAdapter: VoucherPort = {
         }
 
         if (drawRes && drawRes.isOk() && drawRes.value) {
-            log.info('📊 [DEBUG] Draw data received in adapter:', {
+            log.info('📊 Draw data received in adapter:', {
                 drawId: drawRes.value.id,
-                drawName: drawRes.value.name,
-                hasPrizeConfig: !!(drawRes.value as any).prize_config,
-                prizeConfig: (drawRes.value as any).prize_config,
-                extraData: drawRes.value.extra_data,
-                allKeys: Object.keys(drawRes.value)
+                drawName: drawRes.value.name
             });
         } else {
-            log.warn('⚠️ [DEBUG] No draw data available');
+            log.warn('⚠️ No draw data available');
         }
 
         if (betsRes.isErr()) {
@@ -82,10 +79,14 @@ export const VoucherAdapter: VoucherPort = {
             });
         }
 
+        // Enrich bets with rewards from BetType (SSOT)
+        const betTypes = betTypesRes && betTypesRes.isOk() ? betTypesRes.value : [];
+        const enrichedRewards = SuccessImpl.enrichBetsWithRewards(bets, betTypes);
+
         return {
             draw: drawRes && drawRes.isOk() ? drawRes.value : null,
             bets,
-            betTypes: betTypesRes && betTypesRes.isOk() ? betTypesRes.value : []
+            rewards: enrichedRewards
         };
     },
 

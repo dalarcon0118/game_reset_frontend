@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useRef, useCallback } from 'react';
 import { AuthModuleV1 } from '../adapters/auth_provider';
 import { AuthStatus } from '@/shared/auth/v1/model';
 import {
@@ -11,37 +11,38 @@ import {
  * Fachada estable para consumir el estado de autenticación en la UI.
  * Abstrae los detalles de TEA y proporciona una API imperativa/reactiva simple.
  *
- * ⚠️ IMPORTANTE: Usa useMemo para evitar re-renders innecesarios.
+ * IMPORTANTE: Usa useMemo para evitar re-renders innecesarios.
  * No retornar nuevos objetos en cada llamada.
  */
 export const useAuthV1 = () => {
     const { model, dispatch } = AuthModuleV1.useStore();
+    const dispatchRef = useRef(dispatch);
+    dispatchRef.current = dispatch;
 
-    // Memoizar valores derivados para evitar re-renders
-    const isAuthenticated = model.status === AuthStatus.AUTHENTICATED || model.status === AuthStatus.AUTHENTICATED_OFFLINE;
-    const isAuthenticating = model.status === AuthStatus.AUTHENTICATING || model.status === AuthStatus.REFRESHING;
-    const isHydrating = model.status === AuthStatus.BOOTSTRAPPING;
-    const isLoading = model.status === AuthStatus.AUTHENTICATING || model.status === AuthStatus.REFRESHING || model.status === AuthStatus.BOOTSTRAPPING;
+    const status = model.status;
+    const isAuthenticating = status === AuthStatus.AUTHENTICATING || status === AuthStatus.REFRESHING;
 
-    return React.useMemo(() => ({
-        // Estado
+    const login = useCallback((username: string, pin: string) => {
+        dispatchRef.current(LOGIN_REQUESTED({ username, pin }));
+    }, []);
+
+    const logout = useCallback(() => {
+        dispatchRef.current(LOGOUT_REQUESTED());
+    }, []);
+
+    const hasRole = useCallback((role: string): boolean => model.user?.role === role, [model.user]);
+
+    return useMemo(() => ({
         user: model.user,
         status: model.status,
-        isAuthenticated,
+        isAuthenticated: status === AuthStatus.AUTHENTICATED || status === AuthStatus.AUTHENTICATED_OFFLINE,
         isAuthenticating,
-        isHydrating,
-        isLoading,
+        isHydrating: status === AuthStatus.BOOTSTRAPPING,
+        isLoading: isAuthenticating || status === AuthStatus.BOOTSTRAPPING,
         isOffline: model.isOffline,
         error: model.error,
-
-        // Acciones
-        login: (username: string, pin: string) => dispatch(LOGIN_REQUESTED({ username, pin })),
-        logout: () => dispatch(LOGOUT_REQUESTED()),
-
-        // Utilidades de autorización
-        hasRole: (role: string): boolean => model.user?.role === role,
-
-        // Dispatch directo para casos avanzados
-        dispatch
-    }), [model.user, model.status, model.isOffline, model.error, dispatch, isAuthenticated, isAuthenticating, isHydrating, isLoading]);
+        login,
+        logout,
+        hasRole
+    }), [model.user, status, model.isOffline, model.error, isAuthenticating]);
 };

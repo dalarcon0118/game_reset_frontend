@@ -14,7 +14,7 @@ export const SuccessImpl = {
      * Main transformation from raw source data to domain DTO
      */
     toVoucherData: (source: VoucherSourceData, receiptCode?: string): VoucherData => {
-        const { draw, bets: rawBets, betTypes } = source;
+        const { draw, bets: rawBets, rewards } = source;
 
         // 1. Normalize and process bets
         const normalizedBets = SuccessImpl.normalizeBets(rawBets);
@@ -25,7 +25,7 @@ export const SuccessImpl = {
             : normalizedBets;
 
         // 3. Calculate core values
-        const formattedBets = SuccessImpl.processRawBets(filteredBets, betTypes);
+        const formattedBets = SuccessImpl.processRawBets(filteredBets, []);
         const totalAmount = SuccessImpl.calculateTotalAmount(formattedBets);
         const isBolita = SuccessImpl.isBolitaLayout(formattedBets);
         const groupedBets = isBolita ? SuccessImpl.groupBetsForBolita(formattedBets) : null;
@@ -110,7 +110,7 @@ export const SuccessImpl = {
             log.info('🔐 [QR_AUDIT_URL] Generated HASH ONLY URL:', { auditUrl });
         }
 
-        const metadata = SuccessImpl.calculateMetadata(draw, firstFingerprint, auditUrl);
+        const metadata = SuccessImpl.calculateMetadata(draw, firstFingerprint, auditUrl, rewards);
 
         return {
             drawId: draw?.id || null,
@@ -232,9 +232,14 @@ export const SuccessImpl = {
     },
 
     /**
-     * Calculates voucher metadata based on draw info.
+     * Calculates voucher metadata based on rewards (enriched by Repository).
      */
-    calculateMetadata: (draw: any | null, fingerprintHash?: string, auditUrl?: string): VoucherMetadata => {
+    calculateMetadata: (
+        draw: any | null,
+        fingerprintHash?: string,
+        auditUrl?: string,
+        rewards?: any[]
+    ): VoucherMetadata => {
         const now = new Date();
         const issueDate = now.toLocaleDateString(UI_CONSTANTS.DEFAULT_LOCALE, {
             day: '2-digit', month: '2-digit', year: 'numeric',
@@ -248,47 +253,32 @@ export const SuccessImpl = {
             })
             : 'Pendiente';
 
-        const prizeConfig = draw?.prize_config;
-
-        console.log('[SUCCESS_DEBUG] calculateMetadata called with:', {
-            drawId: draw?.id,
-            drawName: draw?.name,
-            hasPrizeConfig: !!prizeConfig,
-            prizeConfigValue: prizeConfig,
-            drawAllKeys: draw ? Object.keys(draw) : [],
-            extraData: draw?.extra_data
-        });
+        // rewards ya vienen del BetType correcto (enriquecido por Repository)
+        const validRewards = rewards || [];
 
         let totalPrize = 'Según Reglas';
         const prizeRules: PrizeRule[] = [];
 
-        if (prizeConfig) {
-            const { main_amount, currency = 'DOP', secondary_amounts = [] } = prizeConfig;
-
-            if (main_amount) {
+        if (validRewards.length > 0) {
+            const principal = validRewards.find((r: any) => r.category === 'principal');
+            if (principal) {
                 try {
                     totalPrize = new Intl.NumberFormat('es-DO', {
-                        style: 'currency', currency, minimumFractionDigits: 2
-                    }).format(main_amount);
+                        style: 'currency', currency: 'DOP', minimumFractionDigits: 2
+                    }).format(principal.payout);
                 } catch (e) {
-                    totalPrize = `${currency} ${main_amount}`;
+                    totalPrize = `DOP ${principal.payout}`;
                 }
             }
 
-            if (Array.isArray(secondary_amounts)) {
-                secondary_amounts.forEach((rule: any) => {
-                    if (rule.label && rule.description) {
-                        prizeRules.push({
-                            label: String(rule.label),
-                            description: String(rule.description),
-                            amount: rule.amount
-                        });
-                    }
+            validRewards.forEach((r: any) => {
+                prizeRules.push({
+                    label: r.name,
+                    description: r.is_pool ? 'Premio pool' : 'Premio fijo',
+                    amount: r.payout
                 });
-            }
+            });
         }
-
-        console.log('[SUCCESS_DEBUG] calculateMetadata result:', { totalPrize, prizeRules });
 
         return {
             issueDate,
@@ -337,5 +327,21 @@ export const SuccessImpl = {
             if (Array.isArray(val)) all.push(...val);
         });
         return all;
+    },
+
+    /**
+     * Enriches bets with rewards from BetType (Repository layer responsibility).
+     * Finds the BetType matching the first bet's typeCode and returns its rewards.
+     */
+    enrichBetsWithRewards: (bets: any[], betTypes: any[]): any[] => {
+        if (!bets?.length || !betTypes?.length) return [];
+        
+        const firstBet = bets[0];
+        const betTypeCode = firstBet?.type || firstBet?.betTypeCode;
+        
+        if (!betTypeCode) return [];
+        
+        const matchingBetType = betTypes.find(bt => bt.code === betTypeCode);
+        return matchingBetType?.rewards || [];
     }
 };

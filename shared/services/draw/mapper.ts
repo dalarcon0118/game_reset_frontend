@@ -1,4 +1,4 @@
-import { ExtendedDrawType, BackendDraw, PrizeConfig } from './types';
+import { ExtendedDrawType, BackendDraw } from './types';
 
 const SERVER_TIME_ZONE = 'America/New_York';
 
@@ -149,7 +149,6 @@ export const mapBackendDrawToFrontend = (backendDraw: BackendDraw): ExtendedDraw
     date: formatLocalDate(backendDraw.draw_datetime),
     time: formatLocalTime(backendDraw.draw_datetime),
     betting_start_time_display: formatLocalTime(backendDraw.betting_start_time),
-    betting_end_time_display: formatLocalTime(backendDraw.betting_end_time),
-    prize_config: backendDraw.prize_config
+    betting_end_time_display: formatLocalTime(backendDraw.betting_end_time)
   };
 };

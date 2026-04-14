@@ -37,6 +37,7 @@ export interface AuthSession {
 export enum AuthErrorType {
     INVALID_CREDENTIALS = 'INVALID_CREDENTIALS',
     DEVICE_LOCKED = 'DEVICE_LOCKED',
+    DEVICE_ID_REQUIRED = 'DEVICE_ID_REQUIRED', // Nuevo: device_id faltante (posible error de red)
     CONNECTION_ERROR = 'CONNECTION_ERROR',
     SESSION_EXPIRED = 'SESSION_EXPIRED',
     SERVER_ERROR = 'SERVER_ERROR',

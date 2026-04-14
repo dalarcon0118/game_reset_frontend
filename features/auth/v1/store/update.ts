@@ -43,11 +43,11 @@ export function update(model: LoginModel, msg: LoginMsg): Return<LoginModel, Log
             });
         })
 
-        .with(USERNAME_UPDATED.type(), ({ payload }) => {
+.with(USERNAME_UPDATED.type(), ({ payload }) => {
             return singleton({
                 ...model,
-                username: payload.username,
-                isEditingUsername: false // Cerramos edición al guardar
+                username: payload.username.trim(),
+                isEditingUsername: false
             });
         })
 

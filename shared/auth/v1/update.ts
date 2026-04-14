@@ -137,9 +137,18 @@ export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMs
         })
 
         .with(LOGIN_FAILED.type(), ({ payload }) => {
-            const status = payload.type === AuthErrorType.DEVICE_LOCKED
-                ? AuthStatus.DEVICE_LOCKED
-                : AuthStatus.UNAUTHENTICATED;
+            // Distinguir entre DEVICE_LOCKED (mismatch real) y DEVICE_ID_REQUIRED (error de red)
+            let status: AuthStatus;
+            if (payload.type === AuthErrorType.DEVICE_LOCKED) {
+                status = AuthStatus.DEVICE_LOCKED;
+            } else if (payload.type === AuthErrorType.DEVICE_ID_REQUIRED) {
+                // DEVICE_ID_REQUIRED: No es cambio de dispositivo, es error de red/transporte
+                // Mostramos CONNECTION_ERROR en lugar de DEVICE_LOCKED
+                status = AuthStatus.CONNECTION_ERROR;
+                logger.warn('[AUTH] DEVICE_ID_REQUIRED detected - treating as connection error, not device mismatch');
+            } else {
+                status = AuthStatus.UNAUTHENTICATED;
+            }
 
             return singleton({
                 ...model,

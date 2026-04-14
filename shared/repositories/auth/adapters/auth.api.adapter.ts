@@ -7,6 +7,7 @@ import { logger } from '../../../utils/logger';
 import { AUTH_LOG_TAGS, AUTH_LOGS } from '../auth.constants';
 import { hashString } from '../../../utils/crypto';
 import { mapAuthErrorToType, mapAuthBackendError } from '../auth.error-mapper';
+import { getClientMetadata } from '../../../utils/client_metadata';
 
 const log = logger.withTag(AUTH_LOG_TAGS.API_ADAPTER);
 
@@ -15,10 +16,14 @@ export const authApiAdapter: IAuthApi = {
         try {
             log.info(AUTH_LOGS.LOGIN_ATTEMPT, { username });
 
+            const clientMetadata = getClientMetadata();
+            log.info('[AUTH_API] Client metadata for login:', clientMetadata);
+
             const hashedPin = await hashString(pin);
             const response = await apiClient.post<any>(
                 settings.api.endpoints.login(),
-                { username, password: hashedPin }
+                { username, password: hashedPin },
+                { headers: { 'X-Client-Metadata': JSON.stringify(clientMetadata) } }
             );
 
             const validated = decodeOrFallback(BackendLoginResponseCodec, response, 'login');
