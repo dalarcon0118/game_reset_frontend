@@ -12,6 +12,7 @@ import { BetPushStrategy } from '@shared/repositories/bet/sync/bet.push.strategy
 import { DlqPushStrategy } from '@shared/repositories/dlq/sync/dlq.push.strategy';
 import { DrawsPullStrategy } from '@shared/repositories/draw/sync/draws.pull.strategy';
 import { TelemetryPushStrategy } from '@shared/repositories/system/telemetry/sync/telemetry.push.strategy';
+import { telemetryRepository } from '@shared/repositories/system/telemetry';
 import { NotificationSyncStrategy } from '@shared/repositories/notification/sync/notification.sync.strategy';
 import { TimerRepository } from '@shared/repositories/system/time';
 import { maintenanceRepository } from '@shared/repositories/system/maintenance/maintenance.repository';
@@ -707,6 +708,21 @@ export const CoreService = {
         return { type: 'NO_OP' } as any;
       },
       label: 'INITIALIZE_SYNC_WORKER'
+    });
+  },
+
+  initializeTelemetryTask(): Cmd {
+    return Cmd.task({
+      task: async () => {
+        await telemetryRepository.initialize();
+        log.info('[TELEMETRY] Initialized successfully');
+      },
+      onSuccess: () => ({ type: 'NO_OP' } as any),
+      onFailure: (err) => {
+        log.error('Failed to initialize telemetry', err);
+        return { type: 'NO_OP' } as any;
+      },
+      label: 'INITIALIZE_TELEMETRY'
     });
   },
 

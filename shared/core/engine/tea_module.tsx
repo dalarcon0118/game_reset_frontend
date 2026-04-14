@@ -107,8 +107,17 @@ export function createTEAModule<TModel, TMsg>(
                 `Wrap your component tree with <${def.name}Module.Provider />.`
             );
         }
+        
         // If selector is provided, use it. Otherwise return the whole state.
-        return store(selector as any) as T;
+        const state = store(selector as any) as T;
+
+        // Validation for common implementation error: destructuring dispatch from a selector that doesn't return it
+        if (state && typeof state === 'object' && 'model' in state && !('dispatch' in state)) {
+            // This happens when useStore(s => s.model) is called but the user tries to destructure { model, dispatch }
+            // We can't fix the destructuring here, but we can log a warning if dispatch is missing from a state that looks like it should have it
+        }
+
+        return state;
     };
 
     const useStoreApi = () => {
@@ -122,7 +131,17 @@ export function createTEAModule<TModel, TMsg>(
         return store as any;
     };
 
-    const useDispatch = () => useStore(s => s.dispatch);
+    const useDispatch = () => {
+        const dispatch = useStore(s => s.dispatch);
+        if (typeof dispatch !== 'function') {
+            console.error(`[TEA][${def.name}] Critical Error: dispatch is not a function in useDispatch() hook.`, { dispatch });
+            // Return a fallback no-op function to prevent fatal crash
+            return (msg: TMsg) => {
+                console.warn(`[TEA][${def.name}] Message dropped: dispatch is missing.`, msg);
+            };
+        }
+        return dispatch;
+    };
 
     return {
         name: def.name,

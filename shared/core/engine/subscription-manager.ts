@@ -68,10 +68,18 @@ export class SubscriptionManager<TMsg> {
     constructor(private options: SubscriptionManagerOptions<TMsg>) { }
 
     /**
-     * Obtiene el dispatch de forma dinámica
+     * Obtiene el dispatch de forma dinámica con validación de seguridad.
      */
     private getDispatch(): (msg: TMsg) => void {
-        return this.options.getDispatch();
+        const dispatch = this.options.getDispatch();
+        if (typeof dispatch !== 'function') {
+            log.error('Critical: dispatch is not a function in SubscriptionManager.', { dispatch });
+            // Fallback no-op to prevent fatal crash
+            return (msg: TMsg) => {
+                log.warn('Message dropped in SubscriptionManager: dispatch is missing.', msg);
+            };
+        }
+        return dispatch;
     }
 
     /**

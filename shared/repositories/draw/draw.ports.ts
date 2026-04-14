@@ -1,7 +1,7 @@
 import { BackendDraw, DrawClosureConfirmation, BetType, DrawRule } from './api/types/types';
 import { Result } from 'neverthrow';
 import { ExtendedDrawType } from '@/shared/services/draw/types';
-import { WinningRecord } from '@/features/listero/bet-workspace/rewards/core/types';
+import { WinningRecord } from '@/shared/services/winning/types';
 
 export type Draw = BackendDraw;
 export { DrawClosureConfirmation, BetType, DrawRule };

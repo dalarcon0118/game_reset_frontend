@@ -1,5 +1,4 @@
 import React from 'react';
-const { useEffect } = React;
 import { View, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { match } from 'ts-pattern';
 import { RemoteData } from '@core/tea-utils';
@@ -12,6 +11,7 @@ import { styles } from './styles';
 import { logger } from '@/shared/utils/logger';
 import { DrawsListPluginConfig } from './model';
 import { DrawsListSkeleton } from '@/shared/components/moti_skeleton';
+const { useEffect } = React;
 
 const log = logger.withTag('DRAWS_LIST_PLUGIN_VIEW');
 
@@ -59,6 +59,7 @@ export const DrawsListComponent: React.FC<DrawsListComponentProps> = ({ context 
       <View>
         {filteredDraws.length > 0 ? (
           filteredDraws.map((draw) => {
+            log.debug('Rendering DrawItem', { draw });
             return (
               <DrawItem
                 key={draw.id}
@@ -74,7 +75,10 @@ export const DrawsListComponent: React.FC<DrawsListComponentProps> = ({ context 
           })
         ) : (
           <View style={styles.centerContainer}>
-            <Label style={styles.emptyText}>No hay sorteos disponibles</Label>
+            {(() => {
+              log.debug('No draws available');
+              return <Label style={styles.emptyText}>No hay sorteos disponibles</Label>;
+            })()}
           </View>
         )}
       </View>

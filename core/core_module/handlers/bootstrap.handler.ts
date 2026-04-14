@@ -28,9 +28,13 @@ export const BootstrapHandler = {
           CoreService.maintenanceTask('INITIAL_MAINTENANCE'),
           CoreService.initializeSyncWorkerTask(),
           CoreService.syncPendingBetsOnStartupTask(),
-          CoreService.syncTimeAnchorTask()
+          CoreService.syncTimeAnchorTask(),
+          CoreService.initializeTelemetryTask()
         ])
-        : (nextModel.isSystemReady ? CoreService.notifySystemReady(new Date().toISOString().split('T')[0]) : Cmd.none)
+        : (nextModel.isSystemReady ? Cmd.batch([
+          CoreService.notifySystemReady(new Date().toISOString().split('T')[0]),
+          CoreService.initializeTelemetryTask()
+        ]) : Cmd.none)
     );
   },
 

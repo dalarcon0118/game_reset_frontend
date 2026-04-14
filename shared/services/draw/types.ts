@@ -94,3 +94,35 @@ export interface DrawRule {
   description?: string;
   value?: any;
 }
+
+export interface BetTypeReward {
+  name: string;
+  payout: number;
+  category?: string;
+  is_pool?: boolean;
+  pool_divisor?: string;
+}
+
+export interface BetTypeInfo {
+  id: number;
+  code: string;
+  name: string;
+  description?: string;
+  rewards: BetTypeReward[];
+}
+
+export interface DrawTypeWithBetTypes {
+  id: number;
+  name: string;
+  code: string | null;
+  description: string | null;
+  bet_types: BetTypeInfo[];
+}
+
+export interface BetTypeWithRewardsResponse {
+  structure_id: number;
+  structure_name: string;
+  bank_id: number;
+  bank_name: string;
+  draw_types: DrawTypeWithBetTypes[];
+}

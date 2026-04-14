@@ -8,7 +8,6 @@ import { LoteriaState } from '@/features/listero/bet-loteria/loteria/loteria.typ
 import { ListState } from './list/core/types';
 import { ManagementState } from './management/core/types';
 import { VoucherModel as SuccessState } from '@/features/listero/bet-workspace/success/core/domain/success.types';
-import { RewardsModel as RewardsCache } from '@/features/listero/bet-workspace/rewards/core/model';
 import { WebData } from '@core/tea-utils';
 import { ListData as LocalListData, BetSummary as LocalBetSummary } from './core/types';
 
@@ -16,6 +15,13 @@ export type { CreateSession, EditSession };
 
 export type BetSummary = LocalBetSummary;
 export type ListData = LocalListData;
+
+export interface RewardsModel {
+  status: { type: 'NotAsked' };
+  drawId: string | null;
+  rewards: any;
+  userWinnings: any;
+}
 
 export interface Model extends UiState {
     // Core data
@@ -33,10 +39,10 @@ export interface Model extends UiState {
     rulesSession: RulesModel;
     loteriaSession: LoteriaState;
     listSession: ListState;
-    entrySession: ListData; // Nueva sesión para apuestas en proceso de anotación
+    entrySession: ListData;
     managementSession: ManagementState;
     successSession: SuccessState;
 
     // Cache
-    rewards: RewardsCache;
+    rewards: RewardsModel;
 }

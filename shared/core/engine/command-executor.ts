@@ -42,10 +42,20 @@ export class CommandExecutor<TMsg> {
     ) { }
 
     /**
-     * Obtiene el dispatch de forma dinámica
+     * Obtiene el dispatch de forma dinámica con validación defensiva.
      */
     private dispatch(msg: TMsg): void {
-        this.getDispatch()(msg);
+        const dispatchFn = this.getDispatch();
+        if (typeof dispatchFn !== 'function') {
+            log.error('CRITICAL: dispatch is not a function in CommandExecutor.', {
+                type: typeof dispatchFn,
+                dispatch: dispatchFn,
+                msg
+            });
+            // Fallback no-op to prevent fatal crash
+            return;
+        }
+        dispatchFn(msg);
     }
 
     /**

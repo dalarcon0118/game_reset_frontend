@@ -2,6 +2,7 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { logger } from '../shared/utils/logger';
+const __DEV__ = process.env.NODE_ENV !== 'production';
 
 const log = logger.withTag('SETTINGS');
 
@@ -82,6 +83,7 @@ export const settings = {
       structures: () => '/structures/',
       bets: () => '/bets/',
       draws: () => '/draw/draws/',
+      betTypes: () => '/draw/bet-types/',
       incidents: () => '/incidents/',
       closureConfirmations: () => '/draw/draw-closure-confirmations/',
       dlq: {

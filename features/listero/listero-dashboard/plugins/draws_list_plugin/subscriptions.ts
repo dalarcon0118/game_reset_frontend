@@ -135,52 +135,38 @@ export const subscriptions = (model: Model) => {
           isEqual: currentHash === lastDrawsHash
         });
 
-        // 🛡️ SOLUCIÓN AL PROBLEMA DE TIMING:
-        // Solo forzamos la sincronización si el estado CAMBIÓ a READY
-        // o si los datos realmente han cambiado.
+        // 🛡️ Lógica de sincronización simplificada:
+        // El plugin propaga el estado del host. Si el plugin NO tiene datos,
+        // siempre sincronizamos (primera carga). De lo contrario, solo si cambiaron.
+        
         const hostStatus = state.status?.type;
-        const statusChangedToReady = hostStatus === 'READY' && lastHostStatus !== 'READY';
-        const dataChanged = currentHash !== lastDrawsHash;
-
-        // También forzamos sync si es la primera vez (lastDrawsHash es null)
-        // o si los datos del host son exitosos pero el plugin aún no tiene datos
-        const isFirstSync = lastDrawsHash === null;
         const hostHasData = currentPayload.draws.type === 'Success';
         const hostIsLoading = currentPayload.draws.type === 'Loading';
         const pluginHasNoData = !lastPayload || lastPayload.draws.type !== 'Success';
-
-        // NO sincronizar si el host está en Loading (primera carga)
-        // Solo sincronizar cuando el host tiene datos reales (Success)
-        const shouldSync = !hostIsLoading && (statusChangedToReady || dataChanged || isFirstSync || (hostHasData && pluginHasNoData));
-
+        const dataChanged = currentHash !== lastDrawsHash;
+        
+        // SIEMPRE sincronizar si el plugin no tiene datos (primera carga sin cache local)
+        // NO bloquear por hostIsLoading en este caso - el plugin necesita recibir Loading para mostrar estado
+        const shouldSync = pluginHasNoData || (!hostIsLoading && dataChanged);
+        
         if (!shouldSync) {
-          log.debug('Skipping sync - no relevant changes detected', {
+          log.debug('Skipping sync - no relevant changes', {
             hostStatus,
-            lastHostStatus,
-            dataChanged,
-            isFirstSync
+            pluginHasNoData,
+            hostIsLoading,
+            dataChanged
           });
-          lastHostStatus = hostStatus; // Actualizamos el status para la próxima comparación
           return lastPayload;
-        }
-
-        if (statusChangedToReady) {
-          log.info('FORCING SYNC: Dashboard transitioned to READY, updating plugin state');
-        }
-
-        if (isFirstSync) {
-          log.info('First sync: Initializing plugin state');
         }
 
         log.info('Syncing Plugin State', {
           drawsState: currentPayload.draws.type,
           drawsCount: currentPayload.draws.type === 'Success' ? currentPayload.draws.data.length : 0,
-          reason: statusChangedToReady ? 'READY status transition' : (isFirstSync ? 'first sync' : 'data changed')
+          reason: pluginHasNoData ? 'first sync (no local data)' : 'data changed'
         });
 
         lastDrawsHash = currentHash;
         lastPayload = currentPayload;
-        lastHostStatus = hostStatus;
         return currentPayload;
       },
       (payload) => SYNC_STATE(payload),

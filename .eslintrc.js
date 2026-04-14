@@ -13,7 +13,6 @@ module.exports = {
     'app/(admin)/**',
     'features/listero/bet-loteria/loteria.feature.ts',
     'features/listero/bet-loteria/loteria/loteria.registry.ts',
-    'features/listero/bet-workspace/rewards/use_rewards.ts',
     'shared/components/bets/centenas_column.tsx',
     'shared/components/dataview/**',
     'shared/context/auth_context.tsx',

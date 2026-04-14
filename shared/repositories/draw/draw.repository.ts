@@ -1,5 +1,5 @@
 import { ExtendedDrawType, DrawClosureConfirmation } from '@/shared/services/draw/types';
-import { WinningRecord } from '@/features/listero/bet-workspace/rewards/core/types';
+import { WinningRecord } from '@/shared/services/winning/types';
 import { DrawApi } from './api/api';
 import { BackendDraw, BetType, DrawRule } from './api/types/types';
 import { mapBackendDrawToFrontend } from '@/shared/services/draw/mapper';
@@ -19,12 +19,10 @@ const HAS_DRAW_STORAGE_KEY = 'has_draw_available';
 
 const isTodayDraw = (draw: BackendDraw) => {
     const today = toLocalISODate(Date.now());
-    // Convertimos la fecha del sorteo a local para comparar peras con peras
     const drawLocalDate = toLocalISODate(new Date(draw.draw_datetime).getTime());
     return drawLocalDate === today;
 };
 
-// Simple logger interface for type safety
 interface SafeLogger {
     debug: (message: string, ...args: any[]) => void;
     info: (message: string, ...args: any[]) => void;
@@ -44,15 +42,12 @@ export class DrawRepository implements IDrawRepository {
         private api: typeof DrawApi,
         loggerInstance?: SafeLogger
     ) {
-        // Safe logger initialization - always use a valid logger instance
         if (loggerInstance) {
             this.log = loggerInstance;
         } else {
-            // Use the safe logger from the module
             try {
                 this.log = logger.withTag('DrawRepository') as SafeLogger;
             } catch (e) {
-                // Final fallback to console
                 this.log = {
                     debug: console.debug.bind(console),
                     info: console.info.bind(console),
@@ -66,19 +61,15 @@ export class DrawRepository implements IDrawRepository {
         }
     }
 
-    // ============================================================================
-    // REPOSITORIO DE SORTEOS (SENIOR IMPLEMENTATION)
-    // ============================================================================
-
     async getDraws(params: Record<string, any> = {}): Promise<Result<ExtendedDrawType[], Error>> {
         const structureId = params.owner_structure;
         const forceSync = params.forceSync === true;
 
         if (!forceSync) {
-            const cached = await this.getValidCachedDraws(structureId);
-            if (cached.isOk() && cached.value.length > 0) {
-                this.log.info('Cache hit: returning valid today draws', { count: cached.value.length });
-                return ok(this.mapDrawsToFrontend(cached.value, structureId));
+            const cached = await this.getCachedDraws(structureId);
+            if (cached && cached.length > 0) {
+                this.log.info('Cache hit: returning valid today draws', { count: cached.length });
+                return ok(this.mapDrawsToFrontend(cached, structureId));
             }
         }
 
@@ -99,21 +90,20 @@ export class DrawRepository implements IDrawRepository {
             return remoteResult;
         }
 
-        const cachedFallback = await this.getValidCachedDraws(structureId);
-        if (cachedFallback.isOk() && cachedFallback.value.length > 0) {
+        const cachedFallback = await this.getCachedDraws(structureId);
+        if (cachedFallback && cachedFallback.length > 0) {
             this.log.warn('Remote failed, falling back to cached draws', {
-                reason: remoteResult.error.message,
-                cachedCount: cachedFallback.value.length,
+                reason: remoteResult.isOk() ? 'N/A' : remoteResult.error?.message,
+                cachedCount: cachedFallback.length,
                 forceSync
             });
-            return ok(this.mapDrawsToFrontend(cachedFallback.value, structureId));
+            return ok(this.mapDrawsToFrontend(cachedFallback, structureId));
         }
 
-        return err(remoteResult.error);
+        return remoteResult;
     }
 
     async getDraw(id: string | number): Promise<Result<ExtendedDrawType, Error>> {
-        // 1. CACHE-FIRST: Intentar obtener de la caché local
         const cachedDraw = await this.offlineAdapter.getById(id);
         if (cachedDraw) {
             this.log.info('Cache hit: returning cached draw', { id });
@@ -122,10 +112,9 @@ export class DrawRepository implements IDrawRepository {
 
         this.log.info('Cache miss: fetching draw from remote', { id });
 
-        // 2. REMOTE-FALLBACK
         const result = await ResultAsync.fromPromise(this.api.getOne(id), e => e as Error)
             .andThen((draw: BackendDraw) => {
-                this.offlineAdapter.saveDraws([draw]); // Background save
+                this.offlineAdapter.saveDraws([draw]);
                 return ok<ExtendedDrawType, Error>(mapBackendDrawToFrontend(draw));
             })
             .orElse((apiError: Error) => {
@@ -144,14 +133,12 @@ export class DrawRepository implements IDrawRepository {
         if (!drawId) {
             return ok<BetType[], Error>([]);
         }
-        // 1. DISCO PRIMERO: Retorno inmediato sin chequeos de red ni sesión
         const cachedTypes = await this.offlineAdapter.getBetTypes(drawId);
         if (cachedTypes && cachedTypes.length > 0) {
             this.log.debug('Disco Hit: devolviendo tipos de apuesta instantáneamente', { drawId });
             return ok<BetType[], Error>(cachedTypes);
         }
 
-        // 2. RED SEGUNDO: Solo si no hay caché iniciamos el flujo de red
         this.log.info('No hay caché de tipos de apuesta, iniciando petición de red', { drawId });
         const result = await ResultAsync.fromPromise(isServerReachable(), e => e as Error)
             .andThen(isOnline => isOnline
@@ -165,22 +152,67 @@ export class DrawRepository implements IDrawRepository {
         return result;
     }
 
-    // ============================================================================
-    // MÉTODOS PRIVADOS DE APOYO (ORQUESTACIÓN Y TRANSFORMACIÓN)
-    // ============================================================================
-
-    private async getValidCachedDraws(structureId?: number): Promise<Result<BackendDraw[], Error>> {
+    async hasDrawAvailable(): Promise<boolean> {
+        this.log.debug('[hasDrawAvailable] Checking local cache for any draws');
         try {
-            const draws = await this.getCachedDraws(structureId);
-            const validDraws = draws.filter(isTodayDraw);
-            this.log.debug('getValidCachedDraws evaluation', {
-                totalInCache: draws.length,
-                validForToday: validDraws.length,
-                structureId
-            });
-            return ok<BackendDraw[], Error>(validDraws);
+            const cachedDraws = await this.getCachedDraws();
+            const hasDrawsInCache = cachedDraws.length > 0;
+            this.log.debug('[hasDrawAvailable] Cache check result', { hasDrawsInCache, count: cachedDraws.length });
+
+            if (hasDrawsInCache) {
+                return true;
+            }
+
+            // If no cache, try remote fetch as fallback for first-time login
+            // DEFENSIVA: Sempre usar today=true para evitar traer sorteos históricos
+            const remoteResult = await ResultAsync.fromPromise(
+                this.api.list({ today: true }),
+                (e) => e as Error
+            );
+
+            if (remoteResult.isOk() && remoteResult.value.length > 0) {
+                const remoteValue = remoteResult.value;
+                this.log.debug('[hasDrawAvailable] Remote fetch succeeded, caching results', { count: remoteValue.length });
+                await this.offlineAdapter.saveDraws(remoteValue);
+                return true;
+            }
+
+            this.log.debug('[hasDrawAvailable] No draws available (cache empty, remote unavailable)');
+            return false;
         } catch (error) {
-            return err<BackendDraw[], Error>(error as Error);
+            this.log.error('[hasDrawAvailable] Error checking availability', error);
+            return false;
+        }
+    }
+
+    async hasDrawAvailableForStructure(structureId: string | number): Promise<boolean> {
+        this.log.debug('[hasDrawAvailableForStructure] Checking draws for structure', { structureId });
+        try {
+            const cachedDraws = await this.getCachedDraws(structureId);
+            const hasDrawsInCache = cachedDraws.length > 0;
+            this.log.debug('[hasDrawAvailableForStructure] Cache check result', { structureId, hasDrawsInCache, count: cachedDraws.length });
+
+            if (hasDrawsInCache) {
+                return true;
+            }
+
+            const remoteResult = await ResultAsync.fromPromise(
+                this.api.list({ owner_structure: structureId, today: true }),
+                (e) => e as Error
+            );
+
+            if (remoteResult.isOk() && remoteResult.value.length > 0) {
+                const remoteValue = remoteResult.value;
+                this.log.debug('[hasDrawAvailableForStructure] Remote fetch succeeded, caching results', { structureId, count: remoteValue.length });
+                await this.offlineAdapter.saveDraws(remoteValue, structureId);
+                return true;
+            }
+
+            this.log.debug('[hasDrawAvailableForStructure] No draws available for structure (cache empty, remote unavailable)', { structureId });
+            return false;
+        } catch (error) {
+            this.log.error('[hasDrawAvailableForStructure] Error checking availability', error, { structureId });
+            return false;
         }
     }
 
@@ -233,7 +265,6 @@ export class DrawRepository implements IDrawRepository {
     }
 
     async getFinancialState(drawId: string | number): Promise<Result<DrawFinancialState, Error>> {
-        // Mocked for now, needs real implementation
         return ok({
             drawId: String(drawId),
             lastUpdated: Date.now(),
@@ -242,7 +273,6 @@ export class DrawRepository implements IDrawRepository {
         });
     }
 
-    // Base methods
     async getOne(id: string | number): Promise<BackendDraw> {
         return this.api.getOne(id);
     }
@@ -284,7 +314,6 @@ export class DrawRepository implements IDrawRepository {
 
     private async cacheDraws(draws: BackendDraw[], structureId?: string | number): Promise<void> {
         await this.offlineAdapter.saveDraws(draws, structureId);
-        // Set hasDraw to true when draws are successfully cached
         if (draws.length > 0) {
             await offlineStorage.set(HAS_DRAW_STORAGE_KEY, true);
             this.log.info('hasDraw set to true', { drawCount: draws.length });
@@ -295,42 +324,20 @@ export class DrawRepository implements IDrawRepository {
         return this.offlineAdapter.getAll(structureId);
     }
 
-    // ============================================================================
-    // OPERACIONES DE LIMPIEZA (MANTENIMIENTO)
-    // ============================================================================
-
-    /**
-     * Cleanup method for prepareDailySessionUseCase.
-     * Cleans up old cached draws and lists.
-     * 
-     * @param today - Fecha actual del servidor (YYYY-MM-DD)
-     * @returns Número de keys eliminadas
-     */
     async cleanup(today: string): Promise<number> {
         this.log.info('Starting DrawRepository Selective Cleanup', { today });
 
         try {
             let removed = 0;
-
-            // 1. Limpiar solo la caché de LISTAS.
-            // Esto fuerza a la app a pedir datos frescos al servidor,
-            // pero NO borra los sorteos individuales.
             await this.offlineAdapter.clearLists();
-
-            // 2. Obtener todos los sorteos individuales cacheados
             const allCachedDraws = await this.offlineAdapter.getAll();
-
-            // 3. Filtrar y borrar solo los que sean estrictamente anteriores a 'today'
-            // La fecha de BackendDraw viene en formato YYYY-MM-DD
             const toDelete = allCachedDraws.filter(draw => (draw as any).date && (draw as any).date < today);
-
             const withoutDate = allCachedDraws.filter(draw => !(draw as any).date);
             if (withoutDate.length > 0) {
                 this.log.warn(`Found ${withoutDate.length} draws without date field - these will not be cleaned up`, {
                     drawIds: withoutDate.map(d => d.id)
                 });
             }
-
             this.log.debug(`Found ${toDelete.length} old draws to cleanup out of ${allCachedDraws.length} total`, {
                 today,
                 keeping: allCachedDraws.length - toDelete.length
@@ -341,7 +348,6 @@ export class DrawRepository implements IDrawRepository {
                 removed++;
             }
 
-            // 4. Verificar si quedan sorteos después de la limpieza
             const remainingDraws = await this.offlineAdapter.getAll();
             if (remainingDraws.length === 0) {
                 await offlineStorage.set(HAS_DRAW_STORAGE_KEY, false);
@@ -356,66 +362,6 @@ export class DrawRepository implements IDrawRepository {
         } catch (error: any) {
             this.log.error('DrawRepository cleanup failed', error);
             throw error;
-        }
-    }
-
-    /**
-     * Verifica si hay sorteos disponibles en la base de datos local.
-     * Utilizado por el sistema de autenticación para permitir o denegar login offline.
-     * 
-     * Primero verifica el flag hasDraw (optimización), luego verifica la caché directamente
-     * como fallback para mantener consistencia.
-     */
-    async hasDrawAvailable(): Promise<boolean> {
-        this.log.debug('[hasDrawAvailable] Verificando disponibilidad de sorteos para login offline');
-        try {
-            const hasDrawFlag = await offlineStorage.get<boolean>(HAS_DRAW_STORAGE_KEY);
-            this.log.debug('[hasDrawAvailable] Flag hasDraw storage', { hasDrawFlag });
-
-            if (hasDrawFlag !== true) {
-                this.log.info('[hasDrawAvailable] Flag es false/null - verificando cache como fallback', { hasDrawFlag });
-                const cachedDraws = await this.offlineAdapter.getAll();
-                if (cachedDraws.length > 0) {
-                    this.log.warn('[hasDrawAvailable] Inconsistencia: flag false pero hay sorteos en cache - permitiendo login', { cachedCount: cachedDraws.length });
-                    return true;
-                }
-                return false;
-            }
-
-            const cachedDraws = await this.offlineAdapter.getAll();
-            const hasDrawsInCache = cachedDraws.length > 0;
-            this.log.debug('[hasDrawAvailable] Cache verificada', {
-                cachedDrawsCount: cachedDraws.length,
-                hasDrawsInCache
-            });
-
-            if (!hasDrawsInCache && hasDrawFlag === true) {
-                this.log.warn('[hasDrawAvailable] Inconsistencia detectada: flag true pero cache vacía, corrigiendo flag');
-                await offlineStorage.set(HAS_DRAW_STORAGE_KEY, false);
-            }
-
-            this.log.info('[hasDrawAvailable] Resultado final', { hasDrawsInCache });
-            return hasDrawsInCache;
-        } catch (error) {
-            this.log.error('[hasDrawAvailable] Error al verificar disponibilidad', error);
-            return false;
-        }
-    }
-
-    async hasDrawAvailableForStructure(structureId: string | number): Promise<boolean> {
-        this.log.debug('[hasDrawAvailableForStructure] Verificando sorteos para estructura', { structureId });
-        try {
-            const cachedDraws = await this.offlineAdapter.getAll(structureId);
-            const hasDrawsInCache = cachedDraws.length > 0;
-            this.log.info('[hasDrawAvailableForStructure] Resultado', {
-                structureId,
-                cachedDrawsCount: cachedDraws.length,
-                hasDrawsInCache
-            });
-            return hasDrawsInCache;
-        } catch (error) {
-            this.log.error('[hasDrawAvailableForStructure] Error al verificar disponibilidad', error);
-            return false;
         }
     }
 }

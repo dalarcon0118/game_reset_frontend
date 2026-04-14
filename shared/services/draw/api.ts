@@ -1,6 +1,6 @@
 import { apiClient } from '@/shared/services/api_client/api_client';
 import settings from '@/config/settings';
-import { BackendDraw, DrawClosureConfirmation, BetType, DrawRule } from './types';
+import { BackendDraw, DrawClosureConfirmation, BetType, DrawRule, BetTypeWithRewardsResponse } from './types';
 import {
   BackendDrawCodec,
   BackendDrawArrayCodec,
@@ -58,6 +58,14 @@ export const DrawApi = {
     }
     const endpoint = `${settings.api.endpoints.draws()}${drawId}/bet-types/`;
     return await apiClient.get<BetType[]>(endpoint);
+  },
+
+  getBetTypesWithRewards: async (): Promise<BetTypeWithRewardsResponse> => {
+    log.debug('<<< API CALL: GET bet-types/my-bet-types-with-rewards');
+    const response = await apiClient.get<BetTypeWithRewardsResponse>(
+      `${settings.api.endpoints.betTypes()}my-bet-types-with-rewards/`
+    );
+    return response;
   },
 
   getRulesForDraw: async (drawId: string | number): Promise<DrawRule[]> => {

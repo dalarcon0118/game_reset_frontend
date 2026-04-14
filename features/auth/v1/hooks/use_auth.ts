@@ -15,7 +15,9 @@ import {
  * No retornar nuevos objetos en cada llamada.
  */
 export const useAuthV1 = () => {
-    const { model, dispatch } = AuthModuleV1.useStore();
+    const model = AuthModuleV1.useStore(s => s.model);
+    const dispatch = AuthModuleV1.useDispatch();
+
     const dispatchRef = useRef(dispatch);
     dispatchRef.current = dispatch;
 
@@ -43,6 +45,7 @@ export const useAuthV1 = () => {
         error: model.error,
         login,
         logout,
-        hasRole
+        hasRole,
+        dispatch: dispatchRef.current
     }), [model.user, status, model.isOffline, model.error, isAuthenticating]);
 };

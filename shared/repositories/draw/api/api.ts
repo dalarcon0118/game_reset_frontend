@@ -1,6 +1,6 @@
 import settings from '@/config/settings';
 import { BackendDraw, DrawClosureConfirmation, BetType, DrawRule } from './types/types';
-import { WinningRecord } from '@/features/listero/bet-workspace/rewards/core/types';
+import { WinningRecord } from '@/shared/services/winning/types';
 import {
   BackendDrawCodec,
   BackendDrawArrayCodec,

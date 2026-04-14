@@ -12,7 +12,7 @@ const ERROR_TRANSLATION_MAP: Record<number, string> = {
   429: 'Demasiadas solicitudes. Por favor, espera un momento.',
   500: 'Error interno del servidor. Por favor, intenta más tarde.',
   502: 'Servicio no disponible. Por favor, intenta más tarde.',
-  503: 'Servicio en mantenimiento. Por favor, intenta más tarde.',
+  503: 'Base de datos temporalmente no disponible. Por favor, intenta más tarde.',
   504: 'Tiempo de espera agotado. Por favor, intenta nuevamente.',
 };
 

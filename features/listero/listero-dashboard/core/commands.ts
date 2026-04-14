@@ -72,7 +72,35 @@ export const fetchDrawsCmd = (structureId: string | null, forceSync = false): Cm
                     errorMessage.includes('Network Error');
 
                 if (isOfflineError) {
-                    log.info('Graceful fallback: returning empty list for offline mode');
+                    // CORRECCIÓN: Intentar obtener del cache offline antes de retornar vacío
+                    log.warn('>>> CACHE FALLBACK: Attempting offline cache for draws...');
+                    try {
+                        const cachedDraws = await drawRepository.getDraws({ owner_structure: structureId });
+                        log.warn('>>> CACHE FALLBACK: Raw cached draws:', cachedDraws.isOk(), cachedDraws.value?.length);
+                        
+                        if (cachedDraws.isOk() && cachedDraws.value && cachedDraws.value.length > 0) {
+                            // FILTRAR: Solo sorteos abiertos o pendientes (no cerrados con premios)
+                            const relevantDraws = cachedDraws.value.filter((draw: any) => {
+                                const status = draw.status?.toLowerCase();
+                                return status === 'open' || status === 'scheduled' || status === 'pending';
+                            });
+                            
+                            log.warn('>>> CACHE FALLBACK: Filtered %d -> %d (open/scheduled/pending)', 
+                                cachedDraws.value.length, relevantDraws.length);
+                            
+                            // Si no hay sorteos relevantes, retornar vacío (no mostrar históricos)
+                            if (relevantDraws.length === 0) {
+                                log.warn('>>> CACHE FALLBACK: No relevant draws (all closed), returning empty');
+                                return [];
+                            }
+                            
+                            return relevantDraws;
+                        }
+                    } catch (cacheError) {
+                        log.error('>>> CACHE FALLBACK: ERROR reading cache:', cacheError);
+                    }
+                    
+                    log.warn('>>> CACHE FALLBACK: No cached draws, returning empty list');
                     return [];
                 }
                 
