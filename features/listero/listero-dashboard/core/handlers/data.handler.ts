@@ -181,7 +181,11 @@ export const DataHandler = {
             hasPendingBets: model.pendingBets.length > 0,
             isRateLimited: model.isRateLimited
         });
+        
+        // DIAGNOSTIC: Log antes de invalidar cache
+        log.info('[REFRESH_DIAGNOSTIC] Antes de invalidar dashboard cache');
         dashboardService.invalidateDashboard();
+        log.info('[REFRESH_DIAGNOSTIC] Despues de invalidar dashboard cache');
 
         log.info('[CRITERION_2] REFRESH_COMMAND_DISPATCHED: Comandos HTTP encolados', {
             hasFetchDrawsCmd: true,
@@ -189,10 +193,21 @@ export const DataHandler = {
             structureId: model.userStructureId
         });
 
-        return ret(model, [
+        // DIAGNOSTIC: Verificar que el structureId no sea null o invalido
+        if (!model.userStructureId) {
+            log.error('[REFRESH_DIAGNOSTIC] CRITICAL: userStructureId es null o invalido!');
+        }
+
+        const result = ret(model, [
             fetchDrawsCmd(model.userStructureId, true),
             loadPendingBetsCmd()
         ] as Cmd);
+        
+        log.info('[REFRESH_DIAGNOSTIC] Resultado del refresh:', {
+            hasCommands: (result.cmd as any[] || []).length > 0
+        });
+        
+        return result;
     },
 
     handleTick: (model: Model): Return<Model, Msg> => {

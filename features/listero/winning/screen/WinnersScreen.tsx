@@ -5,10 +5,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Trophy, Info, Clock } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { RemoteData } from '@core/tea-utils';
-import { WinnerCard } from './components/WinnerCard';
-import { ExtendedDrawType } from '@/shared/services/draw/types';
+import { WinnerDayCard } from './components/WinnerDayCard';
+import { DateFilterBar } from './components/DateFilterBar';
+import { WinningDrawGroup, CHANGE_DATE_FILTER } from '../core/types';
 import { WinningBet } from '@/shared/repositories/bet/winnings.types';
-import { useWinningStore } from '../core/store';
+import { useWinningStore, useWinningDispatch } from '../core/store';
 import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('WinnersScreen');
@@ -97,6 +98,7 @@ export const WinnersScreen: React.FC = () => {
   log.debug(`[WinnersScreen] Render #${renderCount.current} START`);
 
   const { model } = useWinningStore();
+  const dispatch = useWinningDispatch();
   
   log.debug(`[WinnersScreen] After useWinningStore`, {
     render: renderCount.current,
@@ -170,21 +172,22 @@ export const WinnersScreen: React.FC = () => {
   );
 
   // 📭 MEJORA 1: Empty state con contexto y acciones
+  // REFACTOR: Mensaje actualizado - ahora se refiere a números winners
   const renderEmpty = () => (
     <View style={styles.centered}>
       <View style={[styles.iconContainer, { backgroundColor: theme.primaryLight || theme.primary + '20' }]}>
         <Clock size={32} color={theme.primary} />
       </View>
       <Text category="h6" style={styles.emptyTitle}>
-        Sin resultados disponibles
+        Sin números winners
       </Text>
       <Text category="p1" appearance="hint" style={styles.emptyDescription}>
-        Los sorteos cerrados con números ganadores aparecerán aquí automáticamente
+        No hay números ganadores para esta fecha
       </Text>
       <View style={[styles.tipBox, { backgroundColor: theme.card, borderColor: theme.border }]}>
         <Trophy size={16} color={theme.textTertiary} style={styles.tipIcon} />
         <Text category="c1" appearance="hint" style={styles.tipText}>
-          Tip: Los resultados se actualizan cuando un sorteo es cerrado
+          Tip: Los números winners aparecen después del sorteo
         </Text>
       </View>
     </View>
@@ -197,26 +200,26 @@ export const WinnersScreen: React.FC = () => {
       notAsked: () => renderLoading(),
       loading: () => renderLoading(),
       failure: (err) => renderError(err),
-      success: (data: ExtendedDrawType[]) => (
+      success: (data: WinningDrawGroup[]) => (
         <>
           {/* Header con contador */}
           {data.length > 0 && (
             <View style={[styles.statsBar, { borderBottomColor: theme.border }]}>
               <Text category="c1" style={{ color: theme.textSecondary }}>
-                {data.length} resultado{data.length !== 1 ? 's' : ''} encontrado{data.length !== 1 ? 's' : ''}
+                {data.length} día{data.length !== 1 ? 's' : ''} con winners
               </Text>
               {pendingRewardsCount > 0 && (
                 <Text category="c1" style={{ color: theme.success }}>
-                  {pendingRewardsCount} pendiente{pendingRewardsCount !== 1 ? 's' : ''}
+                  {pendingRewardsCount} premio{pendingRewardsCount !== 1 ? 's' : ''} pendiente{pendingRewardsCount !== 1 ? 's' : ''}
                 </Text>
               )}
             </View>
           )}
           <FlatList
             data={data}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => item.date}
             renderItem={({ item }) => (
-              <WinnerCard draw={item} winnings={userWinnings} />
+              <WinnerDayCard drawGroup={item} winnings={userWinnings} />
             )}
             contentContainerStyle={styles.list}
             showsVerticalScrollIndicator={false}
@@ -243,6 +246,10 @@ export const WinnersScreen: React.FC = () => {
           <Trophy size={20} color={theme.primary} />
           <Text category="h5" style={{ color: theme.text, marginLeft: 8 }}>Resultados</Text>
         </View>
+        <DateFilterBar
+          selectedDate={model.selectedDate}
+          onDateChange={(date) => dispatch(CHANGE_DATE_FILTER(date))}
+        />
         {renderEmpty()}
       </View>
     );
@@ -263,6 +270,13 @@ export const WinnersScreen: React.FC = () => {
           </View>
         )}
       </View>
+      
+      {/* Date Filter Bar */}
+      <DateFilterBar
+        selectedDate={model.selectedDate}
+        onDateChange={(date) => dispatch(CHANGE_DATE_FILTER(date))}
+      />
+      
       {renderContent()}
     </View>
   );

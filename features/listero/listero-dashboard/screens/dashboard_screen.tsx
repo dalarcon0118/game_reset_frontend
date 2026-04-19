@@ -30,6 +30,9 @@ import { useDashboardLifecycle } from '../core/lifecycle';
 import { PromotionModal } from '../../../../shared/components/promotion/PromotionModal';
 import { pipe as $ } from 'fp-ts/lib/function';
 import { CoreModule } from '@/core/core_module';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('DASHBOARD_SCREEN');
 
 export default function DashboardScreen() {
     
@@ -74,7 +77,14 @@ export default function DashboardScreen() {
                 refreshControl={
                     <RefreshControl
                         refreshing={RemoteData.isLoading(model.draws)}
-                        onRefresh={() => dispatch(REFRESH_CLICKED())}
+                        onRefresh={() => {
+                            log.info('[REFRESH_ONPRESS] RefreshControl pressed! Dispatching REFRESH_CLICKED', {
+                                userStructureId: model.userStructureId,
+                                currentDrawsType: model.draws.type,
+                                dispatchExists: !!dispatch
+                            });
+                            dispatch(REFRESH_CLICKED());
+                        }}
                         colors={['#00C48C']} // Android
                         tintColor="#00C48C" // iOS
                     />
