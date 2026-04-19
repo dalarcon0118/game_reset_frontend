@@ -1,9 +1,14 @@
-import { RewardState } from './types';
+import { RewardModel } from './types';
+import { RemoteData } from '@core/tea-utils';
 
-export type RewardModel = RewardState;
-
-export const initialRewardState: RewardState = {
-  status: 'NotAsked',
-  data: null,
-  error: null,
+/**
+ * 📊 REWARD MODEL
+ * Estado inicial del módulo siguiendo arquitectura TEA.
+ */
+export const initialRewardModel: RewardModel = {
+  betTypes: {
+    status: RemoteData.notAsked()
+  },
+  structureId: null,
+  pendingRewardsCount: 0
 };

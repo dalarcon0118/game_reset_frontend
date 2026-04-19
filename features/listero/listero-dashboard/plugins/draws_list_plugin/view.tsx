@@ -5,8 +5,8 @@ import { RemoteData } from '@core/tea-utils';
 import { Label } from '@/shared/components';
 import { PluginContext } from '@core/plugins/plugin.types';
 import DrawItem from './views/draw_item';
-import { DrawsListModule, selectModel, selectDispatch } from './store';
-import { REFRESH_CLICKED, RULES_CLICKED, REWARDS_CLICKED, BETS_LIST_CLICKED, CREATE_BET_CLICKED } from './msg';
+import { DrawsListModule } from './store';
+import { REFRESH_CLICKED, RULES_CLICKED, REWARDS_CLICKED, BETS_LIST_CLICKED, CREATE_BET_CLICKED, REQUEST_LOCAL_DRAWS } from './msg';
 import { styles } from './styles';
 import { logger } from '@/shared/utils/logger';
 import { DrawsListPluginConfig } from './model';
@@ -21,11 +21,39 @@ interface DrawsListComponentProps {
 }
 
 export const DrawsListComponent: React.FC<DrawsListComponentProps> = ({ context }) => {
-  const model = DrawsListModule.useStore(selectModel);
-  const dispatch = DrawsListModule.useStore(selectDispatch);
+  // 🛡️ MEJORA: Un solo hook para el store completo (como WinnersScreen)
+  const { model, dispatch } = DrawsListModule.useStore();
+
+  const hasRequestedLocalDraws = React.useRef(false);
+  const contextRef = React.useRef(context);
 
   useEffect(() => {
-   console.log('-----Render DrawsListComponent mounted---');
+    contextRef.current = context;
+  }, [context]);
+
+  useEffect(() => {
+    const currentDraws = model.draws;
+    const drawsType = currentDraws.type;
+    const hasData = drawsType === 'Success' && (currentDraws as any).data?.length > 0;
+    const hasStructureId = !!(contextRef.current?.state as any)?.userStructureId;
+
+    log.debug('DrawsListComponent effect check', {
+      drawsType,
+      hasData,
+      hasStructureId,
+      alreadyRequested: hasRequestedLocalDraws.current
+    });
+
+    const needsLocalLoad =
+      !hasData &&
+      hasStructureId &&
+      !hasRequestedLocalDraws.current;
+
+    if (needsLocalLoad) {
+      hasRequestedLocalDraws.current = true;
+      log.info('Triggering defensive local load', { drawsType, hasStructureId });
+      dispatch(REQUEST_LOCAL_DRAWS());
+    }
   }, []);
 
   const handleRefresh = () => {

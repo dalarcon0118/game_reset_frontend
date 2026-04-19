@@ -152,8 +152,8 @@ export class DrawRepository implements IDrawRepository {
         return result;
     }
 
-    async hasDrawAvailable(): Promise<boolean> {
-        this.log.debug('[hasDrawAvailable] Checking local cache for any draws');
+    async hasDrawAvailable(skipRemoteFetch: boolean = false): Promise<boolean> {
+        this.log.debug('[hasDrawAvailable] Checking local cache for any draws', { skipRemoteFetch });
         try {
             const cachedDraws = await this.getCachedDraws();
             const hasDrawsInCache = cachedDraws.length > 0;
@@ -161,6 +161,12 @@ export class DrawRepository implements IDrawRepository {
 
             if (hasDrawsInCache) {
                 return true;
+            }
+
+            // Si skipRemoteFetch es true, no intentamos fetch remoto (modo offline real)
+            if (skipRemoteFetch) {
+                this.log.debug('[hasDrawAvailable] Skipping remote fetch (offline mode)');
+                return false;
             }
 
             // If no cache, try remote fetch as fallback for first-time login
@@ -185,8 +191,8 @@ export class DrawRepository implements IDrawRepository {
         }
     }
 
-    async hasDrawAvailableForStructure(structureId: string | number): Promise<boolean> {
-        this.log.debug('[hasDrawAvailableForStructure] Checking draws for structure', { structureId });
+    async hasDrawAvailableForStructure(structureId: string | number, skipRemoteFetch: boolean = false): Promise<boolean> {
+        this.log.debug('[hasDrawAvailableForStructure] Checking draws for structure', { structureId, skipRemoteFetch });
         try {
             const cachedDraws = await this.getCachedDraws(structureId);
             const hasDrawsInCache = cachedDraws.length > 0;
@@ -194,6 +200,12 @@ export class DrawRepository implements IDrawRepository {
 
             if (hasDrawsInCache) {
                 return true;
+            }
+
+            // Si skipRemoteFetch es true, no intentamos fetch remoto (modo offline real)
+            if (skipRemoteFetch) {
+                this.log.debug('[hasDrawAvailableForStructure] Skipping remote fetch (offline mode)', { structureId });
+                return false;
             }
 
             const remoteResult = await ResultAsync.fromPromise(

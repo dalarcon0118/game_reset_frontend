@@ -7,6 +7,7 @@ import { WebData } from '@core/tea-utils';
 import { WinningBet } from '@/shared/repositories/bet/winnings.types';
 import LayoutConstants from '@/constants/layout';
 import { GroupedReceipt, selectGroupedWinnings } from '../../core/selectors';
+import { useTheme } from '@ui-kitten/components';
 
 /**
  * Helper para extraer el número jugado de una apuesta
@@ -91,6 +92,8 @@ const ReceiptTicket: React.FC<{ receipt: GroupedReceipt; index: number }> = ({ r
  * Maneja el estado de las apuestas ganadoras agrupadas por recibo.
  */
 export const UserWinningsSection: React.FC<WinningsSectionProps> = ({ status }) => {
+  const theme = useTheme();
+
   return match(status)
     .with({ type: 'Success' }, ({ data: winningBets }) => {
       const groupedWinnings = selectGroupedWinnings(winningBets);
@@ -109,14 +112,14 @@ export const UserWinningsSection: React.FC<WinningsSectionProps> = ({ status }) 
       return (
         <View style={styles.winningsSection}>
           <View style={styles.winningsHeader} testID="winnings-header">
-            <DollarSign size={24} color="#00D68F" />
+            <DollarSign size={24} color={theme['color-success-500']} />
             <Text category="h6" style={styles.winningsTitle} testID="winnings-title">TUS PREMIOS</Text>
           </View>
           
-          <Card style={styles.totalSummaryCard}>
+          <Card style={[styles.totalSummaryCard, { backgroundColor: theme['color-success-100'], borderColor: theme['color-success-400'] }]}>
             <View style={styles.summaryContent}>
               <Text category="c2" appearance="hint">Total General Ganado</Text>
-              <Text category="h2" style={styles.totalAmount} testID="total-payout">
+              <Text category="h2" style={[styles.totalAmount, { color: theme['color-success-600'] }]} testID="total-payout">
                 ${totalGeneral.toFixed(2)}
               </Text>
             </View>

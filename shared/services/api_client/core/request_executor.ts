@@ -360,7 +360,22 @@ export class RequestExecutor {
     let finalData = responseData;
 
     if (finalData && typeof finalData === 'object') {
-      if ('data' in finalData) {
+      if ('success' in finalData && finalData.success === false) {
+        const backendError = (finalData as any).error || { message: 'Request failed' };
+        const errorMessage = backendError.message || backendError.detail || 'Unknown error';
+        const errorCode = backendError.code || backendError.error_type || 'SERVER_ERROR';
+        this.log.warn(`[API_CLIENT] Backend error: ${errorCode} - ${errorMessage}`);
+        throw new ApiClientError(
+          errorMessage,
+          response.status,
+          { error_type: errorCode, message: errorMessage, ...backendError },
+          errorMessage
+        );
+      }
+
+      if ('success' in finalData && finalData.success === true && 'data' in finalData) {
+        finalData = (finalData as any).data;
+      } else if ('data' in finalData) {
         const innerData = (finalData as any).data;
         if (Array.isArray(innerData)) {
           finalData = innerData;

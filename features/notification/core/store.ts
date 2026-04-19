@@ -1,7 +1,7 @@
 import { createTEAModule, defineTeaModule } from '@core/engine/tea_module';
 import { Cmd, ret, singleton } from '@core/tea-utils';
 import { Model } from './model';
-import { Msg, FETCH_NOTIFICATIONS_REQUESTED, FETCH_PENDING_REWARDS_COUNT_REQUESTED } from './msg';
+import { Msg, FETCH_NOTIFICATIONS_REQUESTED } from './msg';
 import { update, subscriptions } from './update';
 
 /**
@@ -10,7 +10,6 @@ import { update, subscriptions } from './update';
 export const initialNotificationModel: Model = {
     notifications: { type: 'NotAsked' },
     unreadCount: 0,
-    pendingRewardsCount: 0,
     preferences: {
         enablePushNotifications: true,
         enableEmailNotifications: false,

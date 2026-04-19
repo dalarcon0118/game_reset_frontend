@@ -1,24 +1,18 @@
 import { INotificationRepository } from '@/shared/repositories/notification/notification.ports';
-import { IWinningsRepository } from '@/shared/repositories/bet/winnings.repository';
 import { Cmd, RemoteDataHttp } from '@core/tea-utils';
 import { Msg } from './msg';
 import { AppNotification } from './model';
 import { notificationRepository } from '@/shared/repositories/notification';
-import { winningsRepository } from '@/shared/repositories/bet/winnings.repository';
-/**
- * 🛠️ NOTIFICATION SERVICE
- * Manages the injection of repositories and creation of pure Cmds.
- */
+
 export class NotificationService {
     static instance: any;
     constructor(
-        private notificationRepo: INotificationRepository,
-        private winningsRepo: IWinningsRepository
+        private notificationRepo: INotificationRepository
     ) { }
 
     static getInstance(): NotificationService {
         if (!NotificationService.instance) {
-            NotificationService.instance = new NotificationService(notificationRepository, winningsRepository);
+            NotificationService.instance = new NotificationService(notificationRepository);
         }
         return NotificationService.instance;
     }
@@ -82,23 +76,6 @@ export class NotificationService {
             },
             (webData) => ({ type: 'NOTIFICATIONS_CLEARED', webData })
         );
-    }
-
-    /**
-     * Fetch the count of pending rewards
-     */
-    fetchPendingRewardsCount(): Cmd {
-        return Cmd.task({
-            task: async () => {
-                try {
-                    return await this.winningsRepo.getPendingRewardsCount();
-                } catch (error) {
-                    return 0;
-                }
-            },
-            onSuccess: (count: number) => ({ type: 'FETCH_PENDING_REWARDS_COUNT_SUCCESS', count }),
-            onFailure: () => ({ type: 'FETCH_PENDING_REWARDS_COUNT_SUCCESS', count: 0 } as any)
-        });
     }
 
     /**

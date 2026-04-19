@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text as UIKittenText } from '@ui-kitten/components';
+import { Text as UIKittenText, useTheme } from '@ui-kitten/components';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Trophy } from 'lucide-react-native';
 import LayoutConstants from '@/constants/layout';
@@ -11,30 +11,34 @@ interface HeroSectionProps {
 
 /**
  * 🏆 HERO SECTION
- * Muestra el número ganador principal con un gradiente llamativo.
+ * Muestra el número ganador principal con un gradiente llamativo usando tokens de tema.
  */
-export const HeroSection: React.FC<HeroSectionProps> = ({ winningNumber }) => (
-  <LinearGradient
-    colors={['#FFD700', '#FFA500']}
-    start={{ x: 0, y: 0 }}
-    end={{ x: 1, y: 1 }}
-    style={styles.heroGradient}
-  >
-    <View style={styles.heroContent}>
-      <Trophy size={40} color="#FFFFFF" style={styles.heroIcon} />
-      <UIKittenText 
-        category="h1" 
-        style={styles.heroNumber}
-        testID="winning-number-display"
-      >
-        {winningNumber}
-      </UIKittenText>
-      <UIKittenText category="s1" style={styles.heroLabel}>
-        NÚMERO GANADOR
-      </UIKittenText>
-    </View>
-  </LinearGradient>
-);
+export const HeroSection: React.FC<HeroSectionProps> = ({ winningNumber }) => {
+  const theme = useTheme();
+
+  return (
+    <LinearGradient
+      colors={[theme['color-warning-500'], theme['color-warning-600']]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.heroGradient}
+    >
+      <View style={styles.heroContent}>
+        <Trophy size={48} color={theme['color-basic-100']} style={styles.heroIcon} />
+        <UIKittenText 
+          category="h1" 
+          style={styles.heroNumber}
+          testID="winning-number-display"
+        >
+          {winningNumber}
+        </UIKittenText>
+        <UIKittenText category="s1" style={styles.heroLabel}>
+          NÚMERO GANADOR
+        </UIKittenText>
+      </View>
+    </LinearGradient>
+  );
+};
 
 const styles = StyleSheet.create({
   heroGradient: {

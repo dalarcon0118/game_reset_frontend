@@ -37,6 +37,7 @@ export const makeUpdate = (
                 ...model,
                 rewards: { status: RemoteData.loading() as any },
                 rules: { status: RemoteData.notAsked() as any },
+                betTypes: { status: RemoteData.loading() as any },
                 userWinnings: { status: RemoteData.loading() as any }
             };
 
@@ -44,6 +45,7 @@ export const makeUpdate = (
                 nextModel,
                 Cmd.batch([
                     dataService.fetchDrawRewards(drawId),
+                    dataService.fetchBetTypes(drawId),
                     dataService.fetchUserWinnings(drawId)
                 ])
             );
@@ -63,6 +65,14 @@ export const makeUpdate = (
         handleRulesFailure: (error: any): Return<RewardsModel, RewardsMsg> => {
             uiService.logEvent('fetch_rules_failed', { error });
             return singleton({ ...model, rules: { status: error } });
+        },
+
+        handleBetTypesSuccess: (data: any): Return<RewardsModel, RewardsMsg> =>
+            singleton({ ...model, betTypes: { status: data } }),
+
+        handleBetTypesFailure: (error: any): Return<RewardsModel, RewardsMsg> => {
+            uiService.logEvent('fetch_bet_types_failed', { error });
+            return singleton({ ...model, betTypes: { status: error } });
         },
 
         handleUserWinningsSuccess: (data: any): Return<RewardsModel, RewardsMsg> =>
@@ -92,6 +102,8 @@ export const makeUpdate = (
             return Handlers.handleRulesSuccess(payload);
         })
         .with({ type: 'FETCH_RULES_FAILED' }, ({ payload }) => Handlers.handleRulesFailure(payload.error))
+        .with({ type: 'FETCH_BET_TYPES_SUCCEEDED' }, ({ payload }) => Handlers.handleBetTypesSuccess(payload))
+        .with({ type: 'FETCH_BET_TYPES_FAILED' }, ({ payload }) => Handlers.handleBetTypesFailure(payload.error))
         .with({ type: 'FETCH_USER_WINNINGS_SUCCEEDED' }, ({ payload }) => Handlers.handleUserWinningsSuccess(payload))
         .with({ type: 'FETCH_USER_WINNINGS_FAILED' }, ({ payload }) => Handlers.handleUserWinningsFailure(payload.error))
         .with({ type: 'GO_BACK_CLICKED' }, () => Handlers.goBack())

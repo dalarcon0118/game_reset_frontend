@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useColorScheme } from 'react-native';
-import { Award } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { DrawTypeWithBetTypes } from '@/shared/services/draw/types';
 import { PrizeCard } from './PrizeCard';
@@ -16,15 +15,14 @@ export const DrawTypeSection: React.FC<DrawTypeSectionProps> = ({ drawType }) =>
 
   return (
     <View style={styles.section}>
-      <View style={styles.sectionHeader}>
-        <Award size={18} color={theme.primary} />
-        <Text category="h6" style={[styles.sectionTitle, { color: theme.text }]}>
+      <View style={styles.titleRow}>
+        <Text style={[styles.mainTitle, { color: theme.text }]}>
           {drawType.name}
         </Text>
         {drawType.code && (
-          <Text category="c1" appearance="hint" style={styles.sectionCode}>
-            ({drawType.code})
-          </Text>
+          <View style={styles.tagLabel}>
+            <Text style={styles.tagLabelText}>({drawType.code})</Text>
+          </View>
         )}
       </View>
       <View style={styles.betTypesList}>
@@ -38,21 +36,31 @@ export const DrawTypeSection: React.FC<DrawTypeSectionProps> = ({ drawType }) =>
 
 const styles = StyleSheet.create({
   section: {
-    marginBottom: 24,
+    marginBottom: 32,
   },
-  sectionHeader: {
+  titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    gap: 8,
+    marginBottom: 20,
+    flexWrap: 'wrap',
+    gap: 12,
   },
-  sectionTitle: {
-    fontWeight: '600',
+  mainTitle: {
+    fontWeight: '900',
+    fontSize: 28,
   },
-  sectionCode: {
-    marginLeft: 4,
+  tagLabel: {
+    backgroundColor: '#E8E8E8',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  tagLabelText: {
+    fontSize: 14,
+    color: '#777',
+    fontWeight: '700',
   },
   betTypesList: {
-    gap: 12,
+    gap: 8,
   },
 });

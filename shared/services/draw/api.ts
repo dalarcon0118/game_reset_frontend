@@ -60,10 +60,26 @@ export const DrawApi = {
     return await apiClient.get<BetType[]>(endpoint);
   },
 
-  getBetTypesWithRewards: async (): Promise<BetTypeWithRewardsResponse> => {
-    log.debug('<<< API CALL: GET bet-types/my-bet-types-with-rewards');
+  /**
+   * Obtiene los betTypes con premios, opcionalmente filtrados por structureId.
+   * @param structureId - ID de estructura opcional para filtrar
+   */
+  getBetTypesWithRewards: async (structureId?: number): Promise<BetTypeWithRewardsResponse> => {
+    // Defensive check for apiClient
+    if (!apiClient || !apiClient.request) {
+      const error = new Error('DrawApi Error: apiClient not configured. Call config() first.');
+      log.error('Critical Error: apiClient is not configured in DrawApi.getBetTypesWithRewards', {
+        hasApiClient: !!apiClient,
+        hasRequest: apiClient?.request ? true : false
+      });
+      throw error;
+    }
+
+    const params = structureId ? { structure_id: structureId } : {};
+    log.debug('<<< API CALL: GET bet-types/my-bet-types-with-rewards', { params });
     const response = await apiClient.get<BetTypeWithRewardsResponse>(
-      `${settings.api.endpoints.betTypes()}my-bet-types-with-rewards/`
+      `${settings.api.endpoints.betTypes()}my-bet-types-with-rewards/`,
+      { queryParams: params }
     );
     return response;
   },

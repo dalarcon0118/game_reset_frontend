@@ -71,6 +71,15 @@ export class CommandExecutor<TMsg> {
      */
     flattenCmds(cmd: Cmd): CommandDescriptor[] {
         if (!cmd) return [];
+        
+        // Debug: Log the raw command before flattening
+        if (__DEV__ && typeof cmd === 'object') {
+            const cmdStr = Array.isArray(cmd) 
+                ? `[Array:${cmd.length}]` 
+                : `type:${cmd.type}`;
+            log.debug(`Flattening cmd:`, { cmdStr, rawCmd: cmd });
+        }
+        
         if (Array.isArray(cmd)) {
             return cmd.reduce(
                 (acc, item) => acc.concat(this.flattenCmds(item)),
@@ -90,6 +99,21 @@ export class CommandExecutor<TMsg> {
                 `Invalid command detected: expected object, got ${typeof singleCmd}`,
                 'ENGINE_VALIDATION',
                 { singleCmd }
+            );
+            return;
+        }
+
+        // Validación del tipo de comando (CRÍTICO para debuggear "undefined" errors)
+        if (typeof singleCmd.type !== 'string' || !singleCmd.type) {
+            log.error(
+                `Invalid command type: expected non-empty string, got ${JSON.stringify(singleCmd.type)}`,
+                'ENGINE_VALIDATION',
+                { 
+                    cmdType: singleCmd.type,
+                    cmdTypeof: typeof singleCmd.type,
+                    cmd: singleCmd,
+                    payload: singleCmd.payload
+                }
             );
             return;
         }

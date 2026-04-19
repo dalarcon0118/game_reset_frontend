@@ -11,7 +11,7 @@ import { ErrorBoundary as SharedErrorBoundary } from '../shared/components/error
 import { useAuthNavigation } from '../hooks/useAuthNavigation';
 import { useNavigationLogger } from '../hooks/useNavigationLogger';
 import { routes } from '../config/routes';
-import setings from '../config/settings';
+import setings, { __DEV__TOOL } from '../config/settings';
 import { logger } from '../shared/utils/logger';
 
 // Export ErrorBoundary for Expo Router
@@ -45,7 +45,7 @@ function RootLayoutInner() {
 
   return (
     <View style={{ flex: 1 }}>
-      {__DEV__ && <DevToolbar />}
+      {__DEV__TOOL && <DevToolbar />}
       <Stack
         screenOptions={{
           headerShown: true,

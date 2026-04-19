@@ -110,6 +110,16 @@ export const updateProfile = (model: ProfileModel, msg: ProfileMsg): [ProfileMod
             return ret(model, []);
         })
         .with({ type: ProfileMsgType.FETCH_PROFILE_RESPONSE }, ({ webData }) => {
+            if (RemoteData.isSuccess(webData)) {
+                return ret({
+                    ...model,
+                    user: webData,
+                    userData: (webData as any).data
+                }, []);
+            }
+            if (RemoteData.isFailure(webData) && RemoteData.isSuccess(model.user)) {
+                return ret(model, []);
+            }
             return ret({
                 ...model,
                 user: webData,
@@ -117,6 +127,12 @@ export const updateProfile = (model: ProfileModel, msg: ProfileMsg): [ProfileMod
             }, []);
         })
         .with({ type: ProfileMsgType.FETCH_INCIDENTS_RESPONSE }, ({ webData }) => {
+            if (RemoteData.isSuccess(webData)) {
+                return ret({ ...model, incidents: webData }, []);
+            }
+            if (RemoteData.isFailure(webData) && RemoteData.isSuccess(model.incidents)) {
+                return ret(model, []);
+            }
             return ret({ ...model, incidents: webData }, []);
         })
         .with({ type: ProfileMsgType.FETCH_INCIDENTS_REQUESTED }, () => {

@@ -85,7 +85,12 @@ export const createLoggerMiddleware = <Model, Msg>(storeId?: string): TeaMiddlew
                     traceId: meta.traceId,
                     storeId: storeId || 'GLOBAL'
                 });
-                log.debug(`⚙️ Executing Cmd: ${cmd.type}`, cmd.payload);
+                const cmdType = (cmd && typeof cmd === 'object') ? cmd.type : 'INVALID';
+                const cmdPayload = cmd?.payload;
+                log.debug(`⚙️ Executing Cmd: ${cmdType}`, { 
+                    rawCmd: cmd, // Log completo para debugging
+                    payload: cmdPayload 
+                });
             }
         }
     };

@@ -1,9 +1,8 @@
-import { WinningState } from './types';
+import { WinningModel } from './types';
+import { RemoteData } from '@core/tea-utils';
 
-export type WinningModel = WinningState;
-
-export const initialWinningState: WinningState = {
-  status: 'NotAsked',
-  draws: [],
-  error: null,
+export const initialWinningModel: WinningModel = {
+  draws: RemoteData.notAsked(),
+  userWinnings: RemoteData.notAsked(),
+  pendingRewardsCount: 0,
 };

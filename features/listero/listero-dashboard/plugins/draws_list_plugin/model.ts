@@ -70,6 +70,8 @@ export interface Model {
   commissionRate: number;
   // SSOT: Totales financieros por drawId (desde BetRepository)
   totalsByDrawId: TotalsByDrawIdMap;
+  // Fuente de datos para resolver conflictos entre LOCAL_DRAWS_LOADED y SYNC_STATE
+  dataSource: 'local' | 'backend' | null;
 }
 
 export const initialModel = (params?: { context: PluginContext; config: DrawsListPluginConfig }): [Model, Cmd] => {
@@ -88,6 +90,7 @@ export const initialModel = (params?: { context: PluginContext; config: DrawsLis
       currentFilter: DRAW_FILTER.ALL,
       commissionRate: 0,
       totalsByDrawId: new Map(),
+      dataSource: null,
     },
     Cmd.none
   ];

@@ -1,10 +1,38 @@
-import { BetTypeWithRewardsResponse, DrawTypeWithBetTypes, BetTypeInfo } from '@/shared/services/draw/types';
+import { BetTypeWithRewardsResponse } from '@/shared/services/draw/types';
+import { createMsg } from '@core/tea-utils';
 
-export interface RewardState {
-  status: 'NotAsked' | 'Loading' | 'Success' | 'Failure';
-  data: BetTypeWithRewardsResponse | null;
-  error: string | null;
+/**
+ * 📊 REWARD MODEL
+ * Estado del módulo siguiendo arquitectura TEA con RemoteData.
+ */
+export interface RewardModel {
+  /** Estado de carga de los bet types con premios */
+  betTypes: {
+    status: import('@core/tea-utils').WebData<BetTypeWithRewardsResponse | null>;
+  };
+  /** ID de estructura seleccionado (opcional) */
+  structureId: string | null;
+  /** Cantidad de notificaciones de ganancias pendientes */
+  pendingRewardsCount: number;
 }
 
-export interface RewardDrawType extends DrawTypeWithBetTypes {}
-export interface RewardBetType extends BetTypeInfo {}
+/**
+ * 📨 REWARD MESSAGES
+ * Definición de mensajes usando createMsg para tipos seguros.
+ */
+
+/** Inicializa el módulo con datos opcionales */
+export const INIT_MODULE = createMsg<'INIT_MODULE', { structureId?: string }>('INIT_MODULE');
+
+/** Solicita carga de bet types con premios */
+export const FETCH_BET_TYPES_REQUESTED = createMsg<'FETCH_BET_TYPES_REQUESTED', void>('FETCH_BET_TYPES_REQUESTED');
+
+/** Resultados de carga de bet types (usan WebData para RemoteDataHttp) */
+export const FETCH_BET_TYPES_SUCCEEDED = createMsg<'FETCH_BET_TYPES_SUCCEEDED', import('@core/tea-utils').WebData<BetTypeWithRewardsResponse>>('FETCH_BET_TYPES_SUCCEEDED');
+export const FETCH_BET_TYPES_FAILED = createMsg<'FETCH_BET_TYPES_FAILED', import('@core/tea-utils').WebData<BetTypeWithRewardsResponse>>('FETCH_BET_TYPES_FAILED');
+
+export type RewardMsg =
+  | ReturnType<typeof INIT_MODULE>
+  | ReturnType<typeof FETCH_BET_TYPES_REQUESTED>
+  | ReturnType<typeof FETCH_BET_TYPES_SUCCEEDED>
+  | ReturnType<typeof FETCH_BET_TYPES_FAILED>;

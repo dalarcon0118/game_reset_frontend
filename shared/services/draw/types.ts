@@ -101,6 +101,8 @@ export interface BetTypeReward {
   category?: string;
   is_pool?: boolean;
   pool_divisor?: string;
+  description?: string;
+  level?: number;
 }
 
 export interface BetTypeInfo {

@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { logger } from '../shared/utils/logger';
 const __DEV__ = process.env.NODE_ENV !== 'production';
+export const __DEV__TOOL = false;
 
 const log = logger.withTag('SETTINGS');
 

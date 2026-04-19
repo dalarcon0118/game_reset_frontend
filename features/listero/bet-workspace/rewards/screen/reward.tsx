@@ -2,19 +2,18 @@ import React from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl, useColorScheme } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text, Spinner, Layout, Button, TopNavigation, TopNavigationAction } from '@ui-kitten/components';
-import { AlertCircle, Info, ArrowLeft } from 'lucide-react-native';
+import { AlertCircle, Info, ArrowLeft, ChevronDown } from 'lucide-react-native';
 import { match } from 'ts-pattern';
 
 import { RewardsProvider, useRewardsStore, useRewardsDispatch } from '../core/store';
 import { FETCH_ALL_DATA_REQUESTED, GO_BACK_CLICKED } from '../core/types';
-import LayoutConstants from '@/constants/layout';
+import { mapBetTypesToPrizeCards } from '../core/mappers';
 import Colors from '@/constants/colors';
 import { WinningRecord } from '@/types';
 
 // --- Subcomponents ---
-import { HeroSection } from './components/HeroSection';
-import { WinningCategories } from './components/WinningCategories';
 import { UserWinningsSection } from './components/UserWinningsSection';
+import { PrizeTableCard } from './components/PrizeTableCard';
 
 // --- Types ---
 
@@ -25,6 +24,24 @@ interface RewardScreenProps {
 }
 
 type AppTheme = typeof Colors.light;
+
+/**
+ * 📱 SELECTION BAR COMPONENT
+ * Implementa la barra de selección con el botón azul y el dropdown.
+ */
+const SelectionBar: React.FC = () => {
+    return (
+        <View style={styles.selectionBar}>
+            <View style={styles.selectedPill}>
+                <Text style={styles.selectedPillText}>CUATERNA</Text>
+            </View>
+            <View style={styles.dropdown}>
+                <Text style={styles.dropdownText}>Lotería 5 Dígitos</Text>
+                <ChevronDown size={22} color="#444" />
+            </View>
+        </View>
+    );
+};
 
 /**
  * 📱 REWARD SCREEN CONTENT
@@ -49,21 +66,25 @@ const RewardScreenContent: React.FC<{ drawId: string }> = ({ drawId }) => {
 
     const renderBackAction = () => (
         <TopNavigationAction
-            icon={(props: any) => (
-                <View style={props?.style}>
-                    <ArrowLeft size={24} color={theme.text} />
-                </View>
-            )}
+            icon={() => <ArrowLeft size={24} color="#000" />}
             onPress={handleBack}
         />
     );
 
     const rewardsStatus = model.rewards.status;
+    const betTypesStatus = model.betTypes.status;
     const winningsStatus = model.userWinnings.status;
 
     // Estado global de carga (para el RefreshControl)
-    const isGlobalLoading = rewardsStatus.type === 'Loading' || winningsStatus.type === 'Loading';
+    const isGlobalLoading = 
+        rewardsStatus.type === 'Loading' || 
+        betTypesStatus.type === 'Loading' || 
+        winningsStatus.type === 'Loading';
 
+    /**
+     * 🎯 CONTENIDO PRINCIPAL CON DATOS REALES DEL BACKEND
+     * Ahora usa mapBetTypesToPrizeCards para convertir BetType[] a PrizeTableCardProps[]
+     */
     const renderMainContent = (winningData: WinningRecord | null) => {
         if (!winningData) {
             return (
@@ -73,20 +94,28 @@ const RewardScreenContent: React.FC<{ drawId: string }> = ({ drawId }) => {
                     </View>
                     <Text category="h5" style={styles.emptyText}>Resultados Pendientes</Text>
                     <Text appearance="hint" style={styles.emptySubtext}>
-                        Este sorteo aún no ha sido premiado. Por favor, vuelve a intentarlo más tarde o pulsa el botón para actualizar.
+                        Este sorteo aún no ha sido premiados. Por favor, vuelve a intentarlo más tarde o pulsa el botón para actualizar.
                     </Text>
                     <Button 
                         status="primary" 
                         size="large"
                         onPress={handleRefresh} 
                         style={styles.refreshButton}
-                        accessoryLeft={(props) => <Info {...props} size={20} />}
+                        accessoryLeft={() => <Info size={20} color="#FFF" />}
                     >
                         Actualizar Ahora
                     </Button>
                 </Layout>
             );
         }
+
+        // 🔄 MAPEAR DATOS DEL BACKEND A PROPS DE COMPONENTE
+        // betTypesStatus contiene los BetType con rewards del backend
+        const prizeCards = match(betTypesStatus)
+            .with({ type: 'Success' }, ({ data }) => mapBetTypesToPrizeCards(data))
+            .otherwise(() => []);
+
+        const isBetTypesLoading = betTypesStatus.type === 'Loading';
 
         return (
             <ScrollView 
@@ -100,8 +129,33 @@ const RewardScreenContent: React.FC<{ drawId: string }> = ({ drawId }) => {
                     />
                 }
             >
-                <HeroSection winningNumber={winningData.winning_number} />
-                <WinningCategories winningNumber={winningData.winning_number} />
+                <View style={styles.subHeader}>
+                    <View style={styles.titleRow}>
+                        <Text category="h4" style={styles.mainTitle}>Lotería Diaria (5 Dígitos)</Text>
+                        <View style={styles.tagLabel}>
+                            <Text style={styles.tagLabelText}>(LS_WEEKLY)</Text>
+                        </View>
+                    </View>
+                    <SelectionBar />
+                </View>
+                
+                <View style={styles.prizesList}>
+                    {isBetTypesLoading ? (
+                        <View style={styles.loadingPrizes}>
+                            <Spinner size="medium" />
+                            <Text appearance="hint" style={styles.loadingText}>Cargando premios...</Text>
+                        </View>
+                    ) : prizeCards.length > 0 ? (
+                        prizeCards.map((prize, index) => (
+                            <PrizeTableCard key={`${prize.title}-${index}`} {...prize} />
+                        ))
+                    ) : (
+                        <View style={styles.emptyPrizes}>
+                            <Text appearance="hint">No hay información de premios disponible</Text>
+                        </View>
+                    )}
+                </View>
+                
                 <UserWinningsSection status={winningsStatus} />
             </ScrollView>
         );
@@ -151,12 +205,15 @@ const RewardScreenContent: React.FC<{ drawId: string }> = ({ drawId }) => {
     };
 
     return (
-        <Layout style={{ flex: 1 }}>
-            <View style={{ paddingTop: insets.top, backgroundColor: theme.background }}>
+        <Layout style={{ flex: 1, backgroundColor: '#F8F9FA' }}>
+            <View style={{ paddingTop: insets.top, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#F0F0F0' }}>
                 <TopNavigation 
-                    title={model.drawTitle || "Premios del Sorteo"} 
-                    alignment="center"
+                    title={() => (
+                        <Text category="h4" style={{ fontWeight: '800', color: '#000' }}>Tabla de Premios</Text>
+                    )}
+                    alignment="start"
                     accessoryLeft={renderBackAction}
+                    style={{ paddingHorizontal: 16, height: 60 }}
                 />
             </View>
             {renderContent()}
@@ -179,48 +236,117 @@ export const RewardScreen: React.FC<RewardScreenProps> = ({ drawId, title, defau
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        backgroundColor: '#F8F9FA',
     },
     content: {
-        padding: LayoutConstants.spacing.md,
+        paddingBottom: 40,
+    },
+    subHeader: {
+        paddingHorizontal: 16,
+        paddingTop: 24,
+        paddingBottom: 24,
+        backgroundColor: '#FFFFFF',
+        marginBottom: 8,
+    },
+    titleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    mainTitle: {
+        fontWeight: '900',
+        fontSize: 28,
+        color: '#000000',
+    },
+    tagLabel: {
+        marginLeft: 12,
+        backgroundColor: '#E8E8E8',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 8,
+    },
+    tagLabelText: {
+        fontSize: 14,
+        color: '#777',
+        fontWeight: '700',
+    },
+    selectionBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    selectedPill: {
+        backgroundColor: '#0066CC',
+        paddingHorizontal: 22,
+        paddingVertical: 12,
+        borderRadius: 40,
+    },
+    selectedPillText: {
+        color: '#FFFFFF',
+        fontWeight: '800',
+        fontSize: 16,
+    },
+    dropdown: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        borderWidth: 1.5,
+        borderColor: '#E8E8E8',
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderRadius: 14,
+        backgroundColor: '#FFF',
+    },
+    dropdownText: {
+        fontSize: 17,
+        color: '#000',
+        fontWeight: '600',
+    },
+    prizesList: {
+        paddingTop: 16,
     },
     centerContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+        padding: 24,
+    },
+    emptyText: {
+        marginTop: 16,
+        fontWeight: 'bold',
+    },
+    emptySubtext: {
+        textAlign: 'center',
+        marginTop: 8,
+        marginBottom: 24,
+    },
+    refreshButton: {
+        width: '100%',
+    },
+    iconCircle: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: 'rgba(51, 102, 255, 0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    loadingPrizes: {
         padding: 40,
+        alignItems: 'center',
     },
     loadingText: {
         marginTop: 16,
     },
     errorText: {
         marginTop: 16,
-        marginBottom: 16,
-        textAlign: 'center',
-    },
-    emptyText: {
-        marginTop: 24,
-        fontWeight: 'bold',
-        textAlign: 'center',
-    },
-    emptySubtext: {
-        marginTop: 12,
-        textAlign: 'center',
-        lineHeight: 20,
-        paddingHorizontal: 20,
-    },
-    iconCircle: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        backgroundColor: 'rgba(51, 102, 255, 0.1)', // Sutil azul basado en theme.primary
-        justifyContent: 'center',
-        alignItems: 'center',
         marginBottom: 8,
     },
-    refreshButton: {
-        marginTop: 32,
-        borderRadius: 12,
-        paddingHorizontal: 24,
+    emptyPrizes: {
+        padding: 40,
+        alignItems: 'center',
     },
 });
 

@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { ScrollView, TouchableOpacity, View } from 'react-native';
 import { Label } from '@/shared/components';
 import { PluginContext } from '@core/plugins/plugin.types';
-import { FiltersPluginModule, selectModel, selectDispatch } from './store';
+import { FiltersPluginModule } from './store';
 import { Msg, INIT_CONTEXT, SELECT_FILTER } from './msg';
 import { styles } from './styles';
 import { FiltersPluginConfig } from './model';
@@ -13,8 +13,8 @@ interface FiltersComponentProps {
 }
 
 export const FiltersComponent: React.FC<FiltersComponentProps> = ({ context, config }) => {
-  const model = FiltersPluginModule.useStore(selectModel);
-  const dispatch = FiltersPluginModule.useStore(selectDispatch);
+  // 🛡️ MEJORA: Un solo hook para el store completo (como WinnersScreen)
+  const { model, dispatch } = FiltersPluginModule.useStore();
   
   const initializedRef = useRef(false);
 

@@ -3,6 +3,12 @@ import { DrawApi } from '../api/api';
 import { Result, ok, err } from 'neverthrow';
 import { ExtendedDrawType } from '@/shared/services/draw/types';
 import { mapBackendDrawToFrontend } from '@/shared/services/draw/mapper';
+import { mapAxiosErrorToDrawError, StructuredDrawError } from '../mappers/draw.error-mapper';
+
+/**
+ * Resultado de una operación que puede incluir un error estructurado de draw.
+ */
+export type DrawOperationResult<T> = Result<T, StructuredDrawError>;
 
 /**
  * @deprecated Use DrawRepository from draw.repository.ts for offline support and full IDrawRepository implementation
@@ -13,7 +19,9 @@ export class DrawApiAdapter implements IDrawRepository {
       const backendDraws = await DrawApi.list(params);
       return ok(backendDraws.map(mapBackendDrawToFrontend));
     } catch (error: any) {
-      return err(error instanceof Error ? error : new Error(String(error)));
+      // Verificar si es un error estructurado del backend
+      const drawError = mapAxiosErrorToDrawError(error);
+      return err(new Error(drawError.message));
     }
   }
 
@@ -22,7 +30,8 @@ export class DrawApiAdapter implements IDrawRepository {
       const draw = await DrawApi.getOne(id);
       return ok(mapBackendDrawToFrontend(draw));
     } catch (error: any) {
-      return err(error instanceof Error ? error : new Error(String(error)));
+      const drawError = mapAxiosErrorToDrawError(error);
+      return err(new Error(drawError.message));
     }
   }
 
@@ -31,7 +40,8 @@ export class DrawApiAdapter implements IDrawRepository {
       const types = await DrawApi.getBetTypes(drawId);
       return ok(types);
     } catch (error: any) {
-      return err(error instanceof Error ? error : new Error(String(error)));
+      const drawError = mapAxiosErrorToDrawError(error);
+      return err(new Error(drawError.message));
     }
   }
 
@@ -83,3 +93,7 @@ export class DrawApiAdapter implements IDrawRepository {
     return await DrawApi.confirmClosure(confirmationId, status, notes);
   }
 }
+
+// Re-exportar el error mapper para uso directo
+export { mapAxiosErrorToDrawError, createDrawError, extractDrawErrorFromResponse } from '../mappers/draw.error-mapper';
+export type { StructuredDrawError } from '../mappers/draw.error-mapper';

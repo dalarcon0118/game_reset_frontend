@@ -1,8 +1,9 @@
-import React, { createContext, useContext, ReactNode, useEffect, useRef } from 'react';
+import React, { createContext, useContext, ReactNode, useEffect, useRef, useState } from 'react';
 import { createElmStore } from './engine';
 import { UseBoundStore, StoreApi } from 'zustand';
 import { storeRegistry } from './store_registry';
 import { Cmd } from '../tea-utils';
+import { debugTeaModule, debugEngine } from './debug_tea';
 
 /**
  * TEA Module Definition
@@ -62,8 +63,18 @@ export function createTEAModule<TModel, TMsg>(
         store?: UseBoundStore<StoreApi<{ model: TModel; dispatch: (msg: TMsg) => void }>>;
     }> = ({ children, initialParams, store: providedStore }) => {
         const storeRef = useRef<UseBoundStore<StoreApi<{ model: TModel; dispatch: (msg: TMsg) => void }>> | null>(providedStore || null);
+        const renderCount = useRef(0);
+        renderCount.current++;
+
+        debugTeaModule('Provider render', { 
+            name: def.name, 
+            renderCount: renderCount.current,
+            hasStore: !!storeRef.current,
+            hasProvidedStore: !!providedStore 
+        });
 
         if (!storeRef.current) {
+            debugTeaModule('Creating new store', { name: def.name });
             const store = createElmStore({
                 initial: () => {
                     if (typeof def.initial === 'function') {
@@ -81,15 +92,19 @@ export function createTEAModule<TModel, TMsg>(
 
             storeRegistry.register(def.name, store);
             storeRef.current = store as any;
+            debugTeaModule('Store created and registered', { name: def.name });
         }
 
         const store = storeRef.current as any;
 
         useEffect(() => {
+            debugTeaModule('Provider mounted', { name: def.name });
             return () => {
+                debugTeaModule('Provider unmounting', { name: def.name, hasProvidedStore: !!providedStore });
                 if (!providedStore) {
                     store?.getState().cleanup?.();
                     storeRegistry.unregister(def.name);
+                    debugTeaModule('Store cleaned up', { name: def.name });
                 }
             };
         }, [store, providedStore]);
@@ -101,6 +116,15 @@ export function createTEAModule<TModel, TMsg>(
         selector?: (state: { model: TModel; dispatch: (msg: TMsg) => void }) => T
     ): T => {
         const store = useContext(Context);
+        const callCount = useRef(0);
+        const lastRenderTime = useRef<number>(0);
+        const renderCountByStore = useRef<number>(0);
+        
+        callCount.current++;
+        const now = Date.now();
+        const timeSinceLastRender = now - lastRenderTime.current;
+        lastRenderTime.current = now;
+
         if (!store) {
             throw new Error(
                 `TEA Architecture Violation: ${def.name}Store accessed without its Provider. ` +
@@ -108,16 +132,42 @@ export function createTEAModule<TModel, TMsg>(
             );
         }
         
-        // If selector is provided, use it. Otherwise return the whole state.
-        const state = store(selector as any) as T;
+        // AUDIT: Detectar renders rápidos que indican loop
+        const isRapidRender = timeSinceLastRender < 50 && callCount.current > 5;
+        
+        debugTeaModule(`useStore call #${callCount.current}`, { 
+            name: def.name,
+            hasSelector: !!selector,
+            timeSinceLastRender,
+            isRapidRender,
+            callCount: callCount.current
+        });
 
-        // Validation for common implementation error: destructuring dispatch from a selector that doesn't return it
-        if (state && typeof state === 'object' && 'model' in state && !('dispatch' in state)) {
-            // This happens when useStore(s => s.model) is called but the user tries to destructure { model, dispatch }
-            // We can't fix the destructuring here, but we can log a warning if dispatch is missing from a state that looks like it should have it
+        // GUARD: Detener loop si hay más de 50 renders en menos de 1 segundo
+        if (timeSinceLastRender < 20 && callCount.current > 50) {
+            console.error(`[TEA][${def.name}] RENDER LOOP DETECTED: ${callCount.current} renders in rapid succession`);
+            console.error(`[TEA][${def.name}] Time since last render: ${timeSinceLastRender}ms`);
+            console.error(`[TEA][${def.name}] Selector: ${selector?.toString()?.substring(0, 200)}`);
+            debugTeaModule('RENDER_LOOP_DETECTED', { 
+                callCount: callCount.current, 
+                timeSinceLastRender,
+                selector: selector?.toString()?.substring(0, 200)
+            });
+            // Retornar estado actual sin causar más re-renders
+            return store.getState() as T;
         }
 
-        return state;
+        // Usar Zustand nativo que internamente usa useSyncExternalStore
+        // Esto suscribe correctamente al store y solo causa re-renders cuando cambia el estado
+        const result = selector ? store(selector as any) as T : store();
+
+        debugTeaModule(`useStore result #${callCount.current}`, { 
+            name: def.name,
+            resultType: typeof result,
+            hasModel: result && typeof result === 'object' && 'model' in result
+        });
+
+        return result;
     };
 
     const useStoreApi = () => {

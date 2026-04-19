@@ -2,6 +2,7 @@ import { IRewardsUIService } from './adapters';
 import { WinningRecord } from './types';
 import { UnifiedRulesResponse } from '@/shared/services/rules';
 import { WinningBet } from '@/shared/repositories/bet/winnings.types';
+import { BetType } from '@/shared/repositories/draw/api/types/types';
 import { winningsRepository } from '@/shared/repositories/bet/winnings.repository';
 import { rulesRepository } from '@/shared/repositories/rules';
 import { drawRepository } from '@/shared/repositories/draw';
@@ -10,6 +11,7 @@ import { WebData } from '@/shared/core/tea-utils/remote.data';
 import {
     FETCH_REWARDS_SUCCEEDED,
     FETCH_RULES_SUCCEEDED,
+    FETCH_BET_TYPES_SUCCEEDED,
     FETCH_USER_WINNINGS_SUCCEEDED,
     RewardsMsg
 } from './types';
@@ -21,6 +23,7 @@ const log = logger.withTag('REWARDS_SERVICE');
 export interface IRewardsDataService {
     fetchDrawRewards(drawId: string): Cmd;
     fetchDrawRules(drawId: string): Cmd;
+    fetchBetTypes(drawId: string): Cmd;
     fetchUserWinnings(drawId: string): Cmd;
 }
 
@@ -46,6 +49,25 @@ export class RewardsDataService implements IRewardsDataService {
         return RemoteDataHttp.fetch<UnifiedRulesResponse | null, RewardsMsg>(
             () => rulesRepository.getAllRulesForDraw(drawId),
             (webData: WebData<UnifiedRulesResponse | null>) => FETCH_RULES_SUCCEEDED(webData)
+        );
+    }
+
+    /**
+     * 🎰 FETCH BET TYPES CON PREMIOS
+     * Obtiene los tipos de apuesta con su información de premios desde el backend.
+     * Esta es la fuente de datos legítima para PrizeTableCard.
+     */
+    fetchBetTypes(drawId: string): Cmd {
+        return RemoteDataHttp.fetch<BetType[], RewardsMsg>(
+            async () => {
+                const result = await drawRepository.getBetTypes(drawId);
+                if (result.isOk()) {
+                    // Filtrar solo tipos de apuesta que tienen premios
+                    return result.value.filter(bt => bt.rewards && bt.rewards.length > 0);
+                }
+                return [];
+            },
+            (webData: WebData<BetType[]>) => FETCH_BET_TYPES_SUCCEEDED(webData)
         );
     }
 

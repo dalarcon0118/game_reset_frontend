@@ -8,6 +8,7 @@ import { apiClient } from '@shared/services/api_client';
 import { AuthRepository } from '@shared/repositories/auth';
 import { deviceRepository } from '@shared/repositories/system/device';
 import { setAuthRepository, CoreService } from './core_module/service';
+import { appStateService } from './core_module/app_state.service';
 import { offlineStorage } from '@/shared/core/offline-storage/storage';
 import { TimerRepository } from '@/shared/repositories/system/time';
 import { RepositoriesModule } from '@/shared/repositories';
@@ -51,9 +52,9 @@ const bootstrapInfrastructure = () => {
     }
 };
 
-RepositoriesModule.init();
-// 2. Ejecutar bootstrap de infraestructura
 bootstrapInfrastructure();
+// 2. Inicializar Repositorios DESPUÉS de que apiClient esté configurado
+RepositoriesModule.init();
 
 // 3. Registro de Middlewares Globales
 MiddlewareRegistry.register(createLoggerMiddleware());
@@ -69,4 +70,6 @@ offlineStorage.configure({
         iso: () => new Date(TimerRepository.getTrustedNow(Date.now())).toISOString()
     }
 });
+
+appStateService.start();
 console.log('[BOOTSTRAP] 🚀 Infraestructura base configurada (Synchronous)');

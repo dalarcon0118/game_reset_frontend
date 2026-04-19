@@ -6,10 +6,12 @@ import { ITimeRepository } from '../system/time';
 /**
  * Interfaz para verificar condiciones antes de permitir login offline.
  * Inyectada por CoreModule para mantener AuthRepository desacoplado.
+ * 
+ * @param skipRemoteFetch - Si es true, no intenta hacer fetch al servidor (modo offline real)
  */
 export interface IOfflineConditionChecker {
-    canContinueOffline(): Promise<boolean>;
-    canContinueOfflineForStructure(structureId: string | number): Promise<boolean>;
+    canContinueOffline(skipRemoteFetch?: boolean): Promise<boolean>;
+    canContinueOfflineForStructure(structureId: string | number, skipRemoteFetch?: boolean): Promise<boolean>;
 }
 
 export interface IAuthApi {

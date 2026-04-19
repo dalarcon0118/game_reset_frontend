@@ -6,6 +6,8 @@ import { Draw } from './core/types';
 import { FinancialSummary } from '@/types';
 
 export const INIT_CONTEXT = createMsg<'INIT_CONTEXT', { context: PluginContext; config: DrawsListPluginConfig }>('INIT_CONTEXT');
+export const REQUEST_LOCAL_DRAWS = createMsg<'REQUEST_LOCAL_DRAWS', void>('REQUEST_LOCAL_DRAWS');
+export const LOCAL_DRAWS_LOADED = createMsg<'LOCAL_DRAWS_LOADED', { draws: Draw[]; filteredDraws: Draw[] }>('LOCAL_DRAWS_LOADED');
 export const SYNC_STATE = createMsg<'SYNC_STATE', {
   draws: WebData<Draw[]>;
   filter: string;
@@ -40,6 +42,8 @@ export const BATCH_OFFLINE_UPDATE = createMsg<'BATCH_OFFLINE_UPDATE', {
 
 export type Msg =
   | typeof INIT_CONTEXT._type
+  | typeof REQUEST_LOCAL_DRAWS._type
+  | typeof LOCAL_DRAWS_LOADED._type
   | typeof SYNC_STATE._type
   | typeof FILTER_DRAWS._type
   | typeof REFRESH_CLICKED._type

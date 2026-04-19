@@ -104,7 +104,44 @@ export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMs
                                 type: result.data.error.type
                             });
                         }
-                        return LOGIN_FAILED({ error: 'Error de conexión', type: AuthErrorType.CONNECTION_ERROR });
+                        
+                        // Extraer mensaje detallado del error cuando es Failure
+                        // El ApiClientError puede contener mensajes específicos del backend
+                        let detailedErrorMessage = 'Error de conexión';
+                        
+                        if (result.error) {
+                            // Verificar si es un ApiClientError con mensaje de usuario
+                            if (result.error.userMessage) {
+                                detailedErrorMessage = result.error.userMessage;
+                            } else if (result.error.message) {
+                                // Extraer mensaje del detalle del backend si existe
+                                const errorData = result.error.data;
+                                if (errorData && errorData.detail) {
+                                    detailedErrorMessage = errorData.detail;
+                                } else if (result.error.message !== 'HTTP error! status: 503') {
+                                    // Solo usar el mensaje si no es el genérico
+                                    detailedErrorMessage = result.error.message;
+                                }
+                            }
+                        }
+                        
+                        // Detectar errores específicos del servidor (503, 500, etc)
+                        const errorStatus = result.error?.status || 0;
+                        if (errorStatus >= 500) {
+                            const errorData = result.error?.data;
+                            if (errorData?.detail) {
+                                detailedErrorMessage = errorData.detail;
+                            } else if (errorStatus === 503) {
+                                detailedErrorMessage = 'El servidor no está disponible. Por favor, intenta más tarde.';
+                            } else if (errorStatus === 500) {
+                                detailedErrorMessage = 'Error interno del servidor. Por favor, intenta más tarde.';
+                            }
+                        }
+                        
+                        return LOGIN_FAILED({ 
+                            error: detailedErrorMessage, 
+                            type: AuthErrorType.CONNECTION_ERROR 
+                        });
                     },
                     'AUTH_LOGIN'
                 )
@@ -137,8 +174,9 @@ export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMs
         })
 
         .with(LOGIN_FAILED.type(), ({ payload }) => {
-            // Distinguir entre DEVICE_LOCKED (mismatch real) y DEVICE_ID_REQUIRED (error de red)
+            // Distinguir entre diferentes tipos de errores para mostrar UI apropiada
             let status: AuthStatus;
+            
             if (payload.type === AuthErrorType.DEVICE_LOCKED) {
                 status = AuthStatus.DEVICE_LOCKED;
             } else if (payload.type === AuthErrorType.DEVICE_ID_REQUIRED) {
@@ -146,6 +184,14 @@ export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMs
                 // Mostramos CONNECTION_ERROR en lugar de DEVICE_LOCKED
                 status = AuthStatus.CONNECTION_ERROR;
                 logger.warn('[AUTH] DEVICE_ID_REQUIRED detected - treating as connection error, not device mismatch');
+            } else if (payload.type === AuthErrorType.CONNECTION_ERROR || payload.type === AuthErrorType.OFFLINE_NOT_ALLOWED) {
+                // Errores de conexión: el servidor no está reachable
+                status = AuthStatus.CONNECTION_ERROR;
+                logger.warn('[AUTH] Connection error detected - treating as CONNECTION_ERROR');
+            } else if (payload.type === AuthErrorType.ACCOUNT_DISABLED || payload.type === AuthErrorType.ACCOUNT_LOCKED) {
+                // Cuenta deshabilitada o bloqueada
+                status = AuthStatus.UNAUTHENTICATED;
+                logger.warn('[AUTH] Account disabled/locked detected');
             } else {
                 status = AuthStatus.UNAUTHENTICATED;
             }

@@ -1,6 +1,7 @@
 import { WinningRecord } from '@/types';
 import { UnifiedRulesResponse } from '@/shared/services/rules';
 import { WinningBet } from '@/shared/repositories/bet/winnings.types';
+import { BetType } from '@/shared/repositories/draw/api/types/types';
 import { WebData, RemoteData } from '@core/tea-utils';
 
 /**
@@ -15,6 +16,10 @@ export interface RewardsModel {
     /** Reglas del sorteo */
     rules: {
         status: WebData<UnifiedRulesResponse | null>;
+    };
+    /** Tipos de apuesta con información de premios (del backend) */
+    betTypes: {
+        status: WebData<BetType[]>;
     };
     /** Apuestas ganadoras del usuario */
     userWinnings: {
@@ -33,6 +38,9 @@ export const initialRewardsModel: RewardsModel = {
         status: RemoteData.notAsked(),
     },
     rules: {
+        status: RemoteData.notAsked(),
+    },
+    betTypes: {
         status: RemoteData.notAsked(),
     },
     userWinnings: {

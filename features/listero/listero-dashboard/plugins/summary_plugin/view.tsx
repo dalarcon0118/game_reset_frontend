@@ -4,7 +4,7 @@ import { Card, Button } from '@ui-kitten/components';
 import { Eye, EyeOff, PiggyBank, Wallet, FileText, TrendingUp } from 'lucide-react-native';
 import { match } from 'ts-pattern';
 import { GET_FINANCIAL_BETS, TOGGLE_BALANCE_VISIBILITY, Msg } from './msg';
-import { SummaryModule, selectModel, selectDispatch } from './store';
+import { SummaryModule } from './store';
 import { RemoteData } from '@core/tea-utils';
 import { formatCurrency } from '@/shared/utils/formatters';
 import { styles } from './styles';
@@ -91,8 +91,9 @@ const DashboardContent = ({ model, dispatch }: { model: Model; dispatch: (msg: M
 };
 
 export const SummaryComponent: React.FC = () => {
-  const model = SummaryModule.useStore(selectModel);
-  const dispatch = SummaryModule.useStore(selectDispatch);
+  // 🛡️ MEJORA: Un solo hook para el store completo (como WinnersScreen)
+  const { model, dispatch } = SummaryModule.useStore();
+
   const reload = () => dispatch(GET_FINANCIAL_BETS());
 
   if (model.contextError) {

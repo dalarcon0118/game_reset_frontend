@@ -9,6 +9,7 @@ import { logger } from '../../utils/logger';
 import { setAuthRepository } from '../../services/api_client';
 import { SessionPolicy } from '@/shared/auth/session/session.policy';
 import { TokenState } from '@/shared/auth/session/session.types';
+import { telemetryRepository } from '../system/telemetry';
 
 import { IDeviceSecretRepository, ITimeAnchorRepository } from '../crypto/crypto.ports';
 import { TimerRepository, ITimeRepository } from '../system/time';
@@ -328,6 +329,10 @@ class AuthRepositoryImpl implements IAuthRepository {
                     await this.storage.saveSession(onlineResult.data);
                     await this.storage.saveOfflineCredentials(username, pin, onlineResult.data.user);
 
+                    telemetryRepository.captureAuthLoginSuccess(username, false).catch(err => {
+                        log.warn('[AUTH_TELEMETRY] Failed to capture login success', err);
+                    });
+
                     // FASE 1 Zero Trust: Propagar el secreto y el anchor al módulo criptográfico
                     if (onlineResult.data.dailySecret && this.deviceSecretRepo) {
                         log.info('[AUTH_REPO] Saving dailySecret to DeviceSecretRepository', {
@@ -367,11 +372,15 @@ class AuthRepositoryImpl implements IAuthRepository {
 
                     log.warn('Online login failed, evaluating fallback policy', {
                         type: error.type,
-                        message: error.message
+                        message: error.message,
+                        backendCode: error.backendCode
                     });
 
-                    // Si es un error de seguridad o de servidor (500), NO permitimos fallback offline.
-                    // Esto asegura que si el servidor está "vivo" pero con errores, no entremos en modo offline.
+                    // ERRORES QUE SIEMPRE BLOQUEAN OFFLINE (el servidor respondió con error HTTP):
+                    // - Credenciales inválidas: el servidor está activo pero el usuario no es válido
+                    // - Dispositivo bloqueado: el servidor está activo pero el dispositivo no coincide
+                    // - Sesión expirada: el servidor está activo pero el token es inválido
+                    // - Errores de servidor (5xx): el servidor está activo pero tiene problemas internos
                     const shouldBlockOffline =
                         error.type === AuthErrorType.INVALID_CREDENTIALS ||
                         error.type === AuthErrorType.DEVICE_LOCKED ||
@@ -379,7 +388,39 @@ class AuthRepositoryImpl implements IAuthRepository {
                         error.type === AuthErrorType.SERVER_ERROR;
 
                     if (shouldBlockOffline) {
-                        log.error('Blocking offline fallback: definitive server response or security error', {
+                        log.error('Blocking offline fallback: server responded with definitive error', {
+                            type: error.type,
+                            message: error.message,
+                            backendCode: error.backendCode
+                        });
+                        telemetryRepository.captureAuthError(
+                            error.type,
+                            error.message,
+                            {
+                                feature: 'AUTH',
+                                errorType: error.type,
+                                backendCode: error.backendCode,
+                                username,
+                                offlineAttempt: false,
+                                offlineSuccess: false
+                            }
+                        ).catch(err => {
+                            log.warn('[AUTH_TELEMETRY] Failed to capture auth error', err);
+                        });
+                        return onlineResult;
+                    }
+
+                    // ERROR DE CONEXIÓN (network error, status=0):
+                    // El servidor NO respondió, lo que significa que está offline o inalcanzable.
+                    // En este caso, intentamos el modo offline si hay datos locales.
+                    if (error.type === AuthErrorType.CONNECTION_ERROR) {
+                        log.info('Connection error detected - server unreachable. Attempting offline mode...', {
+                            isNetworkOnline: this.isNetworkOnline
+                        });
+                        // Continuar a la lógica de offline que verifica cache local
+                    } else {
+                        // Cualquier otro error no manejado también bloquea offline
+                        log.error('Blocking offline fallback: unhandled error type', {
                             type: error.type,
                             message: error.message
                         });
@@ -394,7 +435,8 @@ class AuthRepositoryImpl implements IAuthRepository {
             // Antes de permitir fallback offline, verificamos integridad de tiempo.
             log.info('Connectivity issue or OFFLINE state detected, validating time integrity for survival mode', {
                 username,
-                isNetworkOnline: this.isNetworkOnline
+                isNetworkOnline: this.isNetworkOnline,
+                shouldAttemptOnline
             });
 
             const timeIntegrity = this.timeRepo.validateIntegrity(Date.now());
@@ -402,6 +444,21 @@ class AuthRepositoryImpl implements IAuthRepository {
                 log.error('Time integrity violation! Survival mode denied', {
                     status: timeIntegrity.status,
                     reason: (timeIntegrity as any).reason
+                });
+                telemetryRepository.captureAuthError(
+                    'TIME_INTEGRITY_VIOLATION',
+                    AUTH_MESSAGES.TIME_INTEGRITY_VIOLATION,
+                    {
+                        feature: 'AUTH',
+                        errorType: 'TIME_INTEGRITY_VIOLATION',
+                        username,
+                        offlineAttempt: true,
+                        offlineSuccess: false,
+                        extra: { timeIntegrityStatus: timeIntegrity.status }
+                    },
+                    'CRITICAL'
+                ).catch(err => {
+                    log.warn('[AUTH_TELEMETRY] Failed to capture time integrity error', err);
                 });
                 return {
                     success: false,
@@ -425,9 +482,23 @@ class AuthRepositoryImpl implements IAuthRepository {
                 };
             }
 
-            const canContinueOffline = await this.offlineConditionChecker.canContinueOffline();
+            // Si shouldAttemptOnline es false (sensor dice offline) o tuvimos CONNECTION_ERROR,
+            // entonces sabemos que el servidor no está reachable y NO debemos intentar fetch remoto
+            const skipRemoteFetch = !shouldAttemptOnline;
+
+            log.info('Checking offline conditions for survival mode', { 
+                username, 
+                skipRemoteFetch,
+                isNetworkOnline: this.isNetworkOnline,
+                shouldAttemptOnline
+            });
+
+            const canContinueOffline = await this.offlineConditionChecker.canContinueOffline(skipRemoteFetch);
             if (!canContinueOffline) {
-                log.warn('Offline login blocked - no draws available');
+                log.warn('Offline login blocked - no draws available in cache');
+                telemetryRepository.captureAuthOfflineFallback(username, false, 'NO_DRAWS_AVAILABLE').catch(err => {
+                    log.warn('[AUTH_TELEMETRY] Failed to capture offline fallback failure', err);
+                });
                 return {
                     success: false,
                     error: {
@@ -439,7 +510,7 @@ class AuthRepositoryImpl implements IAuthRepository {
 
             // 5. Intentar validación offline como modo de supervivencia
             log.info('Proceeding to survival mode (offline validation)', { username });
-            return await this.performOfflineValidation(username, pin);
+            return await this.performOfflineValidation(username, pin, skipRemoteFetch);
 
         } catch (error: any) {
             log.error('CRITICAL: Unexpected error during login orchestration', error);
@@ -453,15 +524,21 @@ class AuthRepositoryImpl implements IAuthRepository {
         }
     }
 
-    private async performOfflineValidation(username: string, pin: string): Promise<AuthResult> {
+    private async performOfflineValidation(username: string, pin: string, skipRemoteFetch: boolean = false): Promise<AuthResult> {
         const offlineResult = await this.storage.validateOffline(username, pin);
         if (!offlineResult.success || !offlineResult.data) {
+            telemetryRepository.captureAuthOfflineFallback(username, false, 'INVALID_CREDENTIALS').catch(err => {
+                log.warn('[AUTH_TELEMETRY] Failed to capture offline validation failure', err);
+            });
             return offlineResult;
         }
 
         const userStructureId = offlineResult.data.user.structure?.id;
         if (!userStructureId) {
             log.warn('performOfflineValidation: Usuario sin estructura - denegando login offline', { username });
+            telemetryRepository.captureAuthOfflineFallback(username, false, 'NO_STRUCTURE').catch(err => {
+                log.warn('[AUTH_TELEMETRY] Failed to capture offline validation failure', err);
+            });
             return {
                 success: false,
                 error: {
@@ -471,11 +548,28 @@ class AuthRepositoryImpl implements IAuthRepository {
             };
         }
 
-        const canContinueOffline = await this.offlineConditionChecker.canContinueOfflineForStructure(userStructureId);
+        const structureId = Number(userStructureId);
+        
+        if (!this.offlineConditionChecker) {
+            log.error('performOfflineValidation: Offline condition checker not configured');
+            return {
+                success: false,
+                error: {
+                    type: AuthErrorType.OFFLINE_NOT_ALLOWED,
+                    message: AUTH_MESSAGES.OFFLINE_CONDITION_CHECKER_MISSING
+                }
+            };
+        }
+
+        const canContinueOffline = await this.offlineConditionChecker.canContinueOfflineForStructure(structureId, skipRemoteFetch);
         if (!canContinueOffline) {
             log.warn('performOfflineValidation: No hay sorteos para la estructura - denegando login offline', {
                 username,
-                structureId: userStructureId
+                structureId,
+                skipRemoteFetch
+            });
+            telemetryRepository.captureAuthOfflineFallback(username, false, 'NO_DRAWS_FOR_STRUCTURE').catch(err => {
+                log.warn('[AUTH_TELEMETRY] Failed to capture offline validation failure', err);
             });
             return {
                 success: false,
@@ -494,6 +588,11 @@ class AuthRepositoryImpl implements IAuthRepository {
             isOffline: true
         });
         this.notifySessionListeners(offlineResult.data.user);
+        
+        telemetryRepository.captureAuthLoginSuccess(username, true).catch(err => {
+            log.warn('[AUTH_TELEMETRY] Failed to capture offline login success', err);
+        });
+        
         return offlineResult;
     }
 
@@ -505,8 +604,15 @@ class AuthRepositoryImpl implements IAuthRepository {
         this.isLoggingOut = true;
         try {
             log.info('Performing logout');
-            // Intentamos notificar al servidor, pero no esperamos si falla
-            this.api.logout().catch(err => log.warn('Remote logout failed', err));
+            // Notificar al servidor ANTES de limpiar la sesión
+            // IMPORTANTE: El token debe existir cuando se envía la request de logout
+            // para que el backend pueda identificar al usuario en los logs
+            try {
+                await this.api.logout();
+                log.info('Remote logout successful');
+            } catch (err) {
+                log.warn('Remote logout failed, continuing with local logout', err);
+            }
 
             await this.storage.clearSession();
             this.notifySessionListeners(null);

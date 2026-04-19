@@ -18,7 +18,9 @@ export const DeviceLockedView: React.FC<DeviceLockedViewProps> = ({ error }) => 
     const { dispatch } = useAuthV1();
 
     useEffect(() => {
+        alert('Error al obtener ID de dispositivo');
         deviceRepository.getUniqueId().then(setDeviceId).catch(err => {
+            
             log.error('Failed to get device ID for display', err);
             setDeviceId('Error al obtener ID');
         });

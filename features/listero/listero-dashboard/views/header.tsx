@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { StyleSheet, View, TouchableOpacity, Animated, Easing } from 'react-native';
-import { Bell, HelpCircle, Eye, EyeOff, User, WifiOff } from 'lucide-react-native';
+import { Bell, HelpCircle, Eye, EyeOff, User, WifiOff, Gift } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 import { Label, Flex, Badge } from '@/shared/components';
 import { COLORS } from '@/shared/components/constants';
 
@@ -71,6 +72,8 @@ export default function Header({
   onToggleBalance
 }: HeaderProps) {
   
+  const router = useRouter();
+  
   const formatBadgeCount = (count: number): string | null => {
     if (count <= 0) return null;
     return count > 99 ? '99+' : count.toString();
@@ -112,6 +115,14 @@ export default function Header({
 
       {/* Action Icons Row */}
       <Flex justify="end" align="center" gap={12} style={styles.actionRow}>
+        <TouchableOpacity 
+          onPress={() => router.push('/lister/winners')} 
+          style={styles.iconButton}
+          activeOpacity={0.7}
+        >
+          <Gift size={20} color={COLORS.textDark} />
+        </TouchableOpacity>
+
         <TouchableOpacity 
           onPress={onHelp} 
           style={styles.iconButton}

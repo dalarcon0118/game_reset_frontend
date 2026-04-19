@@ -175,6 +175,14 @@ export const createElmStore = <TModel, TMsg>(
                     cmdToRun = cmd;
                     set({ model: nextModel });
 
+                    // Debug: Log what the update function returned
+                    if (__DEV__ && cmd) {
+                        const cmdDebug = Array.isArray(cmd) 
+                            ? cmd.map(c => ({ type: c.type, hasPayload: !!c.payload }))
+                            : { type: cmd.type, hasPayload: !!cmd.payload };
+                        log.debug(`Update returned cmd:`, cmdDebug);
+                    }
+
                     // Middlewares: After Update
                     middlewareChain.afterUpdate(prevModel, msg, nextModel, cmd || null, meta);
 

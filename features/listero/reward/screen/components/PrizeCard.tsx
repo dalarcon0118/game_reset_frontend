@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { ChevronDown, ChevronUp } from 'lucide-react-native';
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import { useColorScheme } from 'react-native';
+import { Trophy, Star, Award } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { BetTypeInfo } from '@/shared/services/draw/types';
 
@@ -11,138 +11,158 @@ interface PrizeCardProps {
 
 export const PrizeCard: React.FC<PrizeCardProps> = ({ betType }) => {
   const colorScheme = useColorScheme() ?? 'light';
-  const [expanded, setExpanded] = useState(false);
   const theme = Colors[colorScheme];
 
-  return (
-    <TouchableOpacity 
-      style={[styles.card, { backgroundColor: theme.card }]}
-      onPress={() => setExpanded(!expanded)}
-      activeOpacity={0.8}
-    >
-      <View style={styles.cardHeader}>
-        <View style={styles.betTypeHeader}>
-          <View style={[styles.codeBadge, { backgroundColor: theme.primary }]}>
-            <Text style={styles.codeText}>{betType.code}</Text>
-          </View>
-          <View style={styles.betTypeInfo}>
-            <Text category="s1" style={{ color: theme.text }}>{betType.name}</Text>
-            {betType.description && (
-              <Text category="c1" appearance="hint" style={styles.description}>
-                {betType.description}
-              </Text>
-            )}
-          </View>
-        </View>
-        <View style={styles.expandIcon}>
-          {expanded ? (
-            <ChevronUp size={20} color={theme.text} />
-          ) : (
-            <ChevronDown size={20} color={theme.text} />
-          )}
+  // If no rewards, show base bet type info
+  if (!betType.rewards || betType.rewards.length === 0) {
+    return (
+      <View style={[styles.cardContainer, { backgroundColor: theme.card }]}>
+        <View style={styles.cardContent}>
+            <View style={styles.headerRow}>
+                <Award size={28} color={theme.primary} />
+                <Text style={[styles.titleText, { color: theme.text }]}>{betType.name}</Text>
+            </View>
+            <Text style={{color: theme.textSecondary, marginBottom: 8}}>Sin premios configurados</Text>
         </View>
       </View>
+    );
+  }
 
-      {expanded && (
-        <View style={[styles.rewardsContainer, { borderTopColor: theme.border }]}>
-          {betType.rewards && betType.rewards.length > 0 ? (
-            betType.rewards.map((reward, index) => (
-              <View 
-                key={index} 
-                style={[styles.rewardItem, { backgroundColor: theme.background }]}
-              >
-                <View style={styles.rewardInfo}>
-                  <Text category="p1" style={{ color: theme.text }}>
-                    {reward.name}
-                  </Text>
-                  {reward.category && (
-                    <Text category="c1" appearance="hint" style={styles.rewardCategory}>
-                      {reward.category}
-                    </Text>
-                  )}
+  const getIconForReward = (name: string) => {
+      const lower = name.toLowerCase();
+      if (lower.includes('principal') || lower.includes('jackpot') || lower.includes('mayor')) {
+          return <Trophy size={28} color="#D4AF37" />;
+      }
+      if (lower.includes('centena') || lower.includes('5 dígitos') || lower.includes('cinco')) {
+          return <Star size={28} color="#FFD700" fill="#FFD700" />;
+      }
+      return <Award size={28} color={theme.primary} />;
+  };
+
+  return (
+    <View style={styles.groupContainer}>
+        {betType.rewards.map((reward, index) => {
+            const formatPayout = `${reward.payout.toLocaleString('en-US')}x`;
+            const isPool = reward.is_pool;
+            const poolText = reward.pool_divisor === 'bank' ? 'Pool Banco' : 'Pool';
+
+            return (
+                <View key={index} style={[styles.cardContainer, { backgroundColor: theme.card }]}>
+                    <View style={styles.cardContent}>
+                        <View style={styles.leftColumn}>
+                            <View style={styles.headerRow}>
+                                <View style={styles.iconWrapper}>
+                                    {getIconForReward(reward.name || betType.name)}
+                                </View>
+                                <Text style={[styles.titleText, { color: theme.text }]}>{reward.name || betType.name}</Text>
+                            </View>
+                            
+                            <View style={styles.tagsContainer}>
+                                {isPool ? (
+                                    <View style={[styles.tagPill, { backgroundColor: '#FFD700' }]}>
+                                        <Text style={[styles.tagLabelText, { color: '#000000' }]}>{poolText}</Text>
+                                    </View>
+                                ) : (
+                                    <View style={[styles.tagPill, { backgroundColor: '#28A745' }]}>
+                                        <Text style={[styles.tagLabelText, { color: '#FFFFFF' }]}>[Fijo]</Text>
+                                    </View>
+                                )}
+                                
+                                {reward.category && (
+                                    <View style={[styles.tagPill, { backgroundColor: '#E0E0E0' }]}>
+                                        <Text style={[styles.tagLabelText, { color: '#000000', textTransform: 'capitalize' }]}>{reward.category}</Text>
+                                    </View>
+                                )}
+                            </View>
+                            {reward.description && (
+                                <View style={styles.descriptionContainer}>
+                                    <Text style={[styles.descriptionText, { color: theme.textSecondary }]}>{reward.description}</Text>
+                                </View>
+                            )}
+                        </View>
+
+                        <View style={styles.rightColumn}>
+                            <Text style={[styles.multiplierText, { color: theme.text }]}>{formatPayout}</Text>
+                        </View>
+                    </View>
                 </View>
-                <View style={[styles.payoutBadge, { backgroundColor: theme.primary + '20' }]}>
-                  <Text category="s1" style={{ color: theme.primary, fontWeight: 'bold' }}>
-                    {reward.payout}x
-                  </Text>
-                </View>
-              </View>
-            ))
-          ) : (
-            <View style={styles.noRewards}>
-              <Text category="p2" appearance="hint">
-                Sin premios configurados
-              </Text>
-            </View>
-          )}
-        </View>
-      )}
-    </TouchableOpacity>
+            );
+        })}
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  card: {
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-  },
-  betTypeHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    gap: 12,
-  },
-  codeBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  codeText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  betTypeInfo: {
-    flex: 1,
-  },
-  description: {
-    marginTop: 2,
-  },
-  expandIcon: {
-    padding: 4,
-  },
-  rewardsContainer: {
-    borderTopWidth: 1,
-    padding: 12,
-    gap: 8,
-  },
-  rewardItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 12,
-    borderRadius: 8,
-  },
-  rewardInfo: {
-    flex: 1,
-  },
-  rewardCategory: {
-    marginTop: 2,
-    textTransform: 'capitalize',
-  },
-  payoutBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  noRewards: {
-    padding: 16,
-    alignItems: 'center',
-  },
+    groupContainer: {
+        gap: 0,
+    },
+    cardContainer: {
+        borderRadius: 16,
+        marginBottom: 16,
+        padding: 24,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+    },
+    cardContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    leftColumn: {
+        flex: 1,
+        justifyContent: 'center',
+    },
+    rightColumn: {
+        justifyContent: 'center',
+        alignItems: 'flex-end',
+        paddingLeft: 16,
+    },
+    headerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    iconWrapper: {
+        marginRight: 10,
+        width: 32,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    titleText: {
+        fontWeight: '800',
+        fontSize: 20,
+    },
+    tagsContainer: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 8,
+        flexWrap: 'wrap',
+    },
+    tagPill: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 6,
+    },
+    tagLabelText: {
+        fontWeight: '700',
+        fontSize: 14,
+    },
+    multiplierText: {
+        fontWeight: '800',
+        fontSize: 28,
+        letterSpacing: -0.5,
+    },
+    descriptionContainer: {
+        marginTop: 12,
+        paddingTop: 8,
+        borderTopWidth: 1,
+        borderTopColor: '#F0F0F0',
+    },
+    descriptionText: {
+        fontSize: 13,
+        lineHeight: 18,
+    },
 });

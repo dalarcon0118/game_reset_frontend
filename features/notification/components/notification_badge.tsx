@@ -7,7 +7,6 @@ interface NotificationBadgeProps {
   showZero?: boolean;
   size?: 'tiny' | 'small' | 'medium' | 'large';
   status?: 'basic' | 'primary' | 'success' | 'info' | 'warning' | 'danger';
-  includeRewardsCount?: boolean;
 }
 
 export const NotificationBadge: React.FC<NotificationBadgeProps> = ({
@@ -15,19 +14,16 @@ export const NotificationBadge: React.FC<NotificationBadgeProps> = ({
   showZero = false,
   size = 'small',
   status = 'danger',
-  includeRewardsCount = true,
 }) => {
   const model = useNotificationStore((state) => state.model);
   
   const unreadCount = model.unreadCount;
-  const pendingRewardsCount = includeRewardsCount ? model.pendingRewardsCount : 0;
-  const totalCount = unreadCount + pendingRewardsCount;
   
-  if (!showZero && totalCount === 0) {
+  if (!showZero && unreadCount === 0) {
     return null;
   }
   
-  const displayCount = totalCount > maxCount ? `${maxCount}+` : totalCount.toString();
+  const displayCount = unreadCount > maxCount ? `${maxCount}+` : unreadCount.toString();
   
   const getBadgeSize = () => {
     switch (size) {

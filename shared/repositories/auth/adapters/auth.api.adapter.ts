@@ -6,7 +6,7 @@ import { AuthResult, User, AuthErrorType } from '../types/types';
 import { logger } from '../../../utils/logger';
 import { AUTH_LOG_TAGS, AUTH_LOGS } from '../auth.constants';
 import { hashString } from '../../../utils/crypto';
-import { mapAuthErrorToType, mapAuthBackendError } from '../auth.error-mapper';
+import { mapAuthErrorToType, mapAuthBackendError, extractBackendErrorCode } from '../auth.error-mapper';
 import { getClientMetadata } from '../../../utils/client_metadata';
 
 const log = logger.withTag(AUTH_LOG_TAGS.API_ADAPTER);
@@ -61,16 +61,45 @@ export const authApiAdapter: IAuthApi = {
             };
 
         } catch (error: any) {
-            log.warn(AUTH_LOGS.LOGIN_FAILED, { username, error: error.message, status: error.status });
+            // ⚡ Usar log.error() para que registerErrorObserver capture el error de login
+            // El sistema de telemetría centralizado escuchará este error automáticamente
+            log.error(AUTH_LOGS.LOGIN_FAILED, error, { username, status: error.status, errorData: error.data });
 
-            const errorType = mapAuthErrorToType(error.status, error.message);
-            const errorMessage = mapAuthBackendError(error.status, error.message);
+            // Extraer información del error - el backend puede devolver dos formatos:
+            // 1. { success: false, error: { code, message, details } } - patrón Result
+            // 2. { detail: "...", error_code: "..." } - patrón de excepciones
+            const errorData = error.data || {};
+            
+            // El backend devuelve el código en error.code (patrón Result)
+            const backendCode = errorData.error?.code || extractBackendErrorCode(errorData);
+            
+            // Extraer mensaje del backend - priorizar según el formato recibido
+            // Para el patrón Result: { error: { message: "..." } }
+            // Para el patrón de excepción: { detail: "..." }
+            const backendMessage = 
+                errorData.error?.message || 
+                errorData.detail ||
+                errorData.message || 
+                error.message;
+            
+            log.info('[AUTH_API] Backend error extracted:', { 
+                backendCode, 
+                backendMessage,
+                fullError: errorData.error,
+                detail: errorData.detail
+            });
+
+            const errorType = mapAuthErrorToType(error.status, backendMessage, backendCode);
+            const errorMessage = mapAuthBackendError(error.status, backendMessage, backendCode);
+
+            log.info('[AUTH_API] Error mapped:', { errorType, errorMessage, backendCode });
 
             return {
                 success: false,
                 error: {
                     type: errorType,
-                    message: errorMessage
+                    message: backendMessage || errorMessage,  // Preferir mensaje del backend
+                    backendCode: backendCode || undefined
                 }
             };
         }
@@ -117,16 +146,18 @@ export const authApiAdapter: IAuthApi = {
                 }
             };
         } catch (error: any) {
-            log.warn(AUTH_LOGS.REFRESH_FAILED, { error: error.message, status: error.status });
+            log.warn(AUTH_LOGS.REFRESH_FAILED, { error: error.message, status: error.status, errorData: error.data });
 
+            const backendCode = extractBackendErrorCode(error.data);
             const isInvalidToken = error.status === 401 || error.status === 403;
-            const errorMessage = mapAuthBackendError(error.status, error.message);
+            const errorMessage = mapAuthBackendError(error.status, error.message, backendCode);
 
             return {
                 success: false,
                 error: {
                     type: isInvalidToken ? AuthErrorType.SESSION_EXPIRED : AuthErrorType.SERVER_ERROR,
-                    message: errorMessage
+                    message: errorMessage,
+                    backendCode: backendCode || undefined
                 }
             };
         }

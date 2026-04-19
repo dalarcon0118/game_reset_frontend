@@ -50,6 +50,17 @@ export const CoreEffectsModule: EffectModule = {
          * El resultado se mapea a un Msg vía onSuccess/onFailure.
          */
         EFFECT: async (payload: { effectType: string; payload: any; onSuccess: (r: any) => any; onFailure: (e: any) => any; label?: string }, dispatch: (msg: any) => void) => {
+            if (!payload || typeof payload.effectType !== 'string' || !payload.effectType) {
+                console.error(`[EFFECT] ❌ Invalid effectType in payload`, {
+                    effectType: payload?.effectType,
+                    payloadType: typeof payload,
+                    fullPayload: payload
+                });
+                const msg = payload?.onFailure?.(new Error(`Invalid effectType: ${payload?.effectType}`));
+                if (msg) dispatch(msg);
+                return;
+            }
+            
             const { effectType, payload: effectPayload, onSuccess, onFailure, label } = payload;
             const handler = EffectRegistry.get(effectType);
 
@@ -91,6 +102,20 @@ export const effectHandlers = new Proxy(
     {
         get: (_, prop) => {
             const key = String(prop);
+            
+            // Validación defensiva: capturar keys inválidas
+            if (key === 'undefined' || key === 'null' || key === '') {
+                const errorMsg = `[EFFECT_HANDLER] ❌ Invalid handler key: "${key}" (type: ${typeof prop})`;
+                console.error(errorMsg, {
+                    prop,
+                    propType: typeof prop,
+                    stack: new Error().stack
+                });
+                return async (payload: any, dispatch: (msg: any) => void) => {
+                    return Promise.reject(new Error(errorMsg));
+                };
+            }
+
             // Retornamos una función que al ejecutarse busque el handler en el registry
             return async (payload: any, dispatch: (msg: any) => void) => {
                 const handler = EffectRegistry.get(key);

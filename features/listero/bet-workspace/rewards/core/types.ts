@@ -2,6 +2,7 @@ import { createMsg } from '@/shared/core/tea-utils';
 import { WebData } from '@/shared/core/tea-utils/remote.data';
 import { UnifiedRulesResponse } from '@/shared/services/rules';
 import { WinningBet } from '@/shared/repositories/bet/winnings.types';
+import { BetType, Reward } from '@/shared/repositories/draw/api/types/types';
 
 export interface WinningRecord {
     id: number;
@@ -28,6 +29,10 @@ export const FETCH_REWARDS_FAILED = createMsg<'FETCH_REWARDS_FAILED', { error: a
 export const FETCH_RULES_SUCCEEDED = createMsg<'FETCH_RULES_SUCCEEDED', WebData<UnifiedRulesResponse | null>>('FETCH_RULES_SUCCEEDED');
 export const FETCH_RULES_FAILED = createMsg<'FETCH_RULES_FAILED', { error: any }>('FETCH_RULES_FAILED');
 
+/** Resultados de carga de tipos de apuesta con premios */
+export const FETCH_BET_TYPES_SUCCEEDED = createMsg<'FETCH_BET_TYPES_SUCCEEDED', WebData<BetType[]>>('FETCH_BET_TYPES_SUCCEEDED');
+export const FETCH_BET_TYPES_FAILED = createMsg<'FETCH_BET_TYPES_FAILED', { error: any }>('FETCH_BET_TYPES_FAILED');
+
 /** Resultados de carga de apuestas ganadoras del usuario */
 export const FETCH_USER_WINNINGS_SUCCEEDED = createMsg<'FETCH_USER_WINNINGS_SUCCEEDED', WebData<WinningBet[]>>('FETCH_USER_WINNINGS_SUCCEEDED');
 export const FETCH_USER_WINNINGS_FAILED = createMsg<'FETCH_USER_WINNINGS_FAILED', { error: any }>('FETCH_USER_WINNINGS_FAILED');
@@ -42,6 +47,8 @@ export type RewardsMsg =
     | ReturnType<typeof FETCH_REWARDS_FAILED>
     | ReturnType<typeof FETCH_RULES_SUCCEEDED>
     | ReturnType<typeof FETCH_RULES_FAILED>
+    | ReturnType<typeof FETCH_BET_TYPES_SUCCEEDED>
+    | ReturnType<typeof FETCH_BET_TYPES_FAILED>
     | ReturnType<typeof FETCH_USER_WINNINGS_SUCCEEDED>
     | ReturnType<typeof FETCH_USER_WINNINGS_FAILED>
     | ReturnType<typeof GO_BACK_CLICKED>;

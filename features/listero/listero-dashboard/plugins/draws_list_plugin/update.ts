@@ -9,6 +9,7 @@ import { StatusFilter, Draw } from './core/types';
 import { logger } from '@/shared/utils/logger';
 import { GameRegistry, GameIntent } from '@/shared/core/registry/game_registry';
 import { TimerRepository } from '@/shared/repositories/system/time';
+import { drawRepository } from '@/shared/repositories/draw';
 
 const log = logger.withTag('DRAWS_LIST_PLUGIN');
 
@@ -51,6 +52,10 @@ export const update = (model: Model, msg: Msg.Msg): Return<Model, Msg.Msg> => {
   return match<Msg.Msg, Return<Model, Msg.Msg>>(msg)
     .with(Msg.INIT_CONTEXT.type(), (m) =>
       handleInitContext(model, m.payload))
+    .with(Msg.REQUEST_LOCAL_DRAWS.type(), () =>
+      handleRequestLocalDrawsCmd(model))
+    .with(Msg.LOCAL_DRAWS_LOADED.type(), (m) =>
+      handleLocalDrawsLoaded(model, m.payload))
     .with(Msg.SYNC_STATE.type(), (m) =>
       handleSyncState(model, m.payload))
     .with(Msg.FILTER_DRAWS.type(), () =>
@@ -80,6 +85,95 @@ function handleInitContext(
   payload: { context: Model['context']; config: DrawsListPluginConfig }
 ): Return<Model, Msg.Msg> {
   return ret({ ...model, context: payload.context, config: payload.config }, Cmd.none);
+}
+
+function handleRequestLocalDrawsCmd(model: Model): Return<Model, Msg.Msg> {
+  if (model.draws.type === 'Success' && model.draws.data.length > 0) {
+    log.debug('handleRequestLocalDraws: already has data, skipping');
+    return ret(model, Cmd.none);
+  }
+
+  const structureId = (model.context?.state as any)?.userStructureId;
+  if (!structureId) {
+    log.debug('handleRequestLocalDraws: no structureId available');
+    return ret(model, Cmd.none);
+  }
+
+  return ret(
+    { ...model, draws: RemoteData.loading() },
+    Cmd.task({
+      label: 'REQUEST_LOCAL_DRAWS',
+      task: async () => {
+        log.info('handleRequestLocalDraws: loading from drawRepository', { structureId });
+        const result = await drawRepository.getDraws({ owner_structure: structureId });
+
+        if (result.isOk() && result.value.length > 0) {
+          const draws = result.value;
+          const trustedNow = TimerRepository.getTrustedNow(Date.now());
+          const filteredDraws = filterDrawsUseCase.execute({
+            draws,
+            filter: model.currentFilter as StatusFilter,
+            currentTime: trustedNow
+          });
+
+          log.info('handleRequestLocalDraws: loaded from cache/repository', { count: draws.length });
+
+          return Msg.LOCAL_DRAWS_LOADED({
+            draws,
+            filteredDraws
+          });
+        }
+
+        log.debug('handleRequestLocalDraws: no data available');
+        return Msg.LOCAL_DRAWS_LOADED({ draws: [], filteredDraws: [] });
+      },
+      onSuccess: (msg) => msg,
+      onFailure: () => Msg.LOCAL_DRAWS_LOADED({ draws: [], filteredDraws: [] })
+    })
+  );
+}
+
+function handleLocalDrawsLoaded(
+  model: Model,
+  payload: { draws: Draw[]; filteredDraws: Draw[] }
+): Return<Model, Msg.Msg> {
+  // Si los datos vienen del backend, NO sobrescribirlos con datos locales
+  if (model.dataSource === 'backend' && model.draws.type === 'Success') {
+    log.debug('handleLocalDrawsLoaded: ⏭️ Skipping - backend data already loaded', {
+      backendDrawsCount: (model.draws as any).data?.length
+    });
+    return ret(model, Cmd.none);
+  }
+
+  if (payload.draws.length > 0) {
+    log.info('handleLocalDrawsLoaded: ✅ Draws loaded from local/repository', {
+      totalDraws: payload.draws.length,
+      filteredDraws: payload.filteredDraws.length
+    });
+    return ret(
+      {
+        ...model,
+        draws: RemoteData.success(payload.draws),
+        filteredDraws: payload.filteredDraws,
+        dataSource: 'local'
+      },
+      Cmd.none
+    );
+  }
+
+  log.debug('handleLocalDrawsLoaded: ⚠️ No draws available from local/repository', {
+    previousState: model.draws.type,
+    previousFilteredCount: model.filteredDraws.length
+  });
+
+  return ret(
+    {
+      ...model,
+      filteredDraws: [],
+      dataSource: model.dataSource ?? 'local'
+    },
+    Cmd.none
+  );
 }
 
 function handleSyncState(
@@ -136,7 +230,8 @@ function handleSyncState(
     draws: payload.draws,
     currentFilter: payload.filter,
     summary: payload.summary,
-    commissionRate: payload.commissionRate
+    commissionRate: payload.commissionRate,
+    dataSource: payload.draws.type === 'Success' ? 'backend' : model.dataSource
   };
 
   const drawsDataChanged = RemoteData.isSuccess(model.draws) && RemoteData.isSuccess(payload.draws)

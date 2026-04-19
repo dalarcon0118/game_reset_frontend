@@ -45,6 +45,12 @@ export const setAuthRepository = (repo: IAuthRepository) => {
   _authRepo.setDeviceSecretRepository(DeviceSecretRepository);
   _authRepo.setTimeAnchorRepository(TimeAnchorRepository);
   _authRepo.setTimeRepository(TimerRepository);
+  
+  // ✅ FIX: Inyectar networkChecker para verificar conectividad real antes de offline fallback
+  // Esto evita que errores 500 del servidor causen fallback a modo offline
+  // cuando el servidor SÍ está alcanzable pero tiene problemas internos
+  _authRepo.setNetworkChecker(() => isServerReachable());
+  
   log.info('AuthRepository dependencies injected from CoreService');
 };
 
@@ -327,17 +333,17 @@ export const CoreService = {
    */
   initializeOfflineConditionChecker(): void {
     const offlineConditionChecker: IOfflineConditionChecker = {
-      canContinueOffline: async () => {
+      canContinueOffline: async (skipRemoteFetch: boolean = false) => {
         const authRepo = getAuthRepo();
         const offlineProfile = await authRepo.getOfflineProfile();
         const structureId = offlineProfile?.structure?.id;
         if (structureId) {
-          return await hasDrawAvailableForStructure(structureId);
+          return await hasDrawAvailableForStructure(structureId, skipRemoteFetch);
         }
-        return await hasDrawAvailable();
+        return await hasDrawAvailable(skipRemoteFetch);
       },
-      canContinueOfflineForStructure: async (structureId: string | number) => {
-        return await hasDrawAvailableForStructure(structureId);
+      canContinueOfflineForStructure: async (structureId: string | number, skipRemoteFetch: boolean = false) => {
+        return await hasDrawAvailableForStructure(structureId, skipRemoteFetch);
       }
     };
     getAuthRepo().setOfflineConditionChecker(offlineConditionChecker);

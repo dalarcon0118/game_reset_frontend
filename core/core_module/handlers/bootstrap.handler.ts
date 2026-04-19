@@ -7,7 +7,15 @@ import { updateModel } from './utils';
 
 export const BootstrapHandler = {
   handleStarted: (model: CoreModel): Return<CoreModel, CoreMsg> => {
-    return ret(updateModel(model, { bootstrapStatus: 'INITIALIZING' as const }), CoreService.checkAndCleanSessionTask());
+    // ⚡ Inicializar telemetría PRIMERO para capturar errores de login
+    // El observer debe estar registrado ANTES de que el usuario intente hacer login
+    return ret(
+      updateModel(model, { bootstrapStatus: 'INITIALIZING' as const }),
+      Cmd.batch([
+        CoreService.initializeTelemetryTask(),
+        CoreService.checkAndCleanSessionTask()
+      ])
+    );
   },
 
   handleCompleted: (model: CoreModel, payload: any): Return<CoreModel, CoreMsg> => {
@@ -28,12 +36,10 @@ export const BootstrapHandler = {
           CoreService.maintenanceTask('INITIAL_MAINTENANCE'),
           CoreService.initializeSyncWorkerTask(),
           CoreService.syncPendingBetsOnStartupTask(),
-          CoreService.syncTimeAnchorTask(),
-          CoreService.initializeTelemetryTask()
+          CoreService.syncTimeAnchorTask()
         ])
         : (nextModel.isSystemReady ? Cmd.batch([
-          CoreService.notifySystemReady(new Date().toISOString().split('T')[0]),
-          CoreService.initializeTelemetryTask()
+          CoreService.notifySystemReady(new Date().toISOString().split('T')[0])
         ]) : Cmd.none)
     );
   },

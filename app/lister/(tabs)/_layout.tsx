@@ -1,7 +1,7 @@
 import { Tabs, usePathname } from 'expo-router';
 import { useColorScheme } from 'react-native';
 import Colors from '@/constants/colors';
-import { Home, Award, Trophy, User } from 'lucide-react-native';
+import { Home, Trophy, User, Gift } from 'lucide-react-native';
 import { useEffect } from 'react';
 import { logger } from '@/shared/utils/logger';
 
@@ -49,23 +49,23 @@ export default function ListerTabLayout() {
           ),
         }}
       />
-      
-       <Tabs.Screen
-        name="reward"
-        options={{
-          title: 'Premios',
-          tabBarIcon: ({ color, size }) => (
-            <Award color={color} size={size} />
-          ),
-        }}
-      />
-      
+       
        <Tabs.Screen
         name="panel"
         options={{
           title: 'Mi perfil',
           tabBarIcon: ({ color, size }) => (
             <User color={color} size={size} />
+          ),
+        }}
+      />
+       
+       <Tabs.Screen
+        name="reward"
+        options={{
+          title: 'Premios',
+          tabBarIcon: ({ color, size }) => (
+            <Gift color={color} size={size} />
           ),
         }}
       />

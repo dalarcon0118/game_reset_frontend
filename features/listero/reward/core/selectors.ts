@@ -1,12 +1,12 @@
-import { RewardState } from './types';
+import { RewardModel } from './types';
 
 export const RewardSelectors = {
-  selectStatus: (state: RewardState) => state.status,
-  selectData: (state: RewardState) => state.data,
-  selectError: (state: RewardState) => state.error,
-  selectDrawTypes: (state: RewardState) => state.data?.draw_types || [],
-  selectBankName: (state: RewardState) => state.data?.bank_name || '',
-  selectIsLoading: (state: RewardState) => state.status === 'Loading',
-  selectHasError: (state: RewardState) => state.status === 'Failure',
-  selectHasData: (state: RewardState) => state.status === 'Success' && state.data !== null,
+  selectBetTypesStatus: (model: RewardModel) => model.betTypes.status,
+  selectStructureId: (model: RewardModel) => model.structureId,
+  selectIsLoading: (model: RewardModel) => model.betTypes.status._tag === 'Loading',
+  selectHasError: (model: RewardModel) => model.betTypes.status._tag === 'Failure',
+  selectHasData: (model: RewardModel) => {
+    const status = model.betTypes.status;
+    return status._tag === 'Success' && status.data !== null && (status.data.draw_types?.length ?? 0) > 0;
+  },
 };

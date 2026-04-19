@@ -58,10 +58,7 @@ export const isExpired = (draw: Draw, currentTime?: number) => {
   const timerRepo = RepositoriesModule.getSync<ITimeRepository>('TimerRepository');
   const now = currentTime ?? timerRepo.getTrustedNow(Date.now());
 
-  // Si is_betting_open es true explícitamente, no está expirado
-  if (draw.is_betting_open === true) return false;
-
-  // Si el estado es cerrado o premiado, está expirado
+  // Si el estado es cerrado o premiados, está expirado
   if (draw.status === DRAW_STATUS.CLOSED || 
       draw.status === DRAW_STATUS.COMPLETED || 
       draw.status === DRAW_STATUS.REWARDED) {
@@ -78,16 +75,13 @@ export const isExpired = (draw: Draw, currentTime?: number) => {
 };
 
 export const isBettingOpen = (draw: Draw, currentTime?: number) => {
-  // 1. Prioridad absoluta: Flag explícito de "abierto"
-  if (draw.is_betting_open === true) return true;
-  
-  // 2. Si ya está expirado por tiempo o estado definitivo, no está abierto
-  if (isExpired(draw, currentTime)) return false;
-
   const timerRepo = RepositoriesModule.getSync<ITimeRepository>('TimerRepository');
   const now = currentTime ?? timerRepo.getTrustedNow(Date.now());
 
-  // 3. Verificación de ventana de tiempo
+  // Si ya está expirado por tiempo o estado definitivo, no está abierto
+  if (isExpired(draw, now)) return false;
+
+  // Verificación de ventana de tiempo usando TimerRepository (anti-fraude)
   const hasStartTime = !!draw.betting_start_time;
   const hasEndTime = !!draw.betting_end_time;
 
@@ -102,8 +96,7 @@ export const isBettingOpen = (draw: Draw, currentTime?: number) => {
     return now < endTime;
   }
 
-  // 4. Fallback al estado del backend
-  return draw.status === DRAW_STATUS.OPEN;
+  return false; // Si no hay horarios definidos, no está abierto
 };
 
 export const isScheduled = (draw: Draw, currentTime?: number) => {

@@ -13,6 +13,7 @@ import Header from '../views/header';
 import { useDashboardStore, useListeroDashboardStoreApi } from '../store';
 import { useNotificationStore, NotificationModule } from '@/features/notification';
 import { FETCH_NOTIFICATIONS_REQUESTED } from '@/features/notification/core/msg';
+import { useRewardStore } from '@/features/listero/reward/core/store';
 import { 
     REFRESH_CLICKED, 
     PROMOTION_MSG,
@@ -39,12 +40,12 @@ export default function DashboardScreen() {
 
     const { user } = useAuth();
     const isOnline = CoreModule.useStore((state) => state.model.networkConnected);
-    const { unreadCount, pendingRewardsCount } = useNotificationStore(
+    const { unreadCount } = useNotificationStore(
         useShallow((state) => ({
-            unreadCount: state.model.unreadCount,
-            pendingRewardsCount: state.model.pendingRewardsCount
+            unreadCount: state.model.unreadCount
         }))
     );
+    const pendingRewardsCount = useRewardStore((state) => state.model.pendingRewardsCount);
     const notificationDispatch = NotificationModule.useDispatch();
 
     // Manage Dashboard Lifecycle (Initialization & Cleanup)

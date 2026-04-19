@@ -1,7 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 import * as Crypto from 'expo-crypto';
 import { Platform } from 'react-native';
-import { IDeviceRepository } from './device.ports';
+import { IDeviceRepository, setDeviceIdBackup, getDeviceIdBackup } from './device.ports';
 import { logger } from '../../../utils/logger';
 import storageClient from '../../../core/offline-storage/storage_client';
 
@@ -17,25 +17,109 @@ const DEVICE_SECURE_OPTIONS: SecureStore.SecureStoreOptions = {
  * DeviceRepositoryImpl - Gestiona la identidad física persistente del dispositivo.
  * Utiliza SecureStore para garantizar que el ID sobreviva a reinicios y, en iOS,
  * a reinstalaciones parciales (Keychain).
+ * 
+ * SECUENCIA DE FALLBACK OPTIMIZADA:
+ * 1. Cache en memoria (más rápido) - this.cachedId
+ * 2. Memory Backup (síncrono, instantáneo) - _deviceIdBackup global
+ * 3. SecureStorage + AsyncStorage (con reintentos)
+ * 4. Generar nuevo UUID (último recurso solo si todo falla)
  */
 class DeviceRepositoryImpl implements IDeviceRepository {
     private cachedId: string | null = null;
+    private readonly MAX_STORAGE_RETRIES = 3;
+    private readonly RETRY_DELAY_MS = 100;
 
     async getUniqueId(): Promise<string> {
-        if (this.cachedId) return this.cachedId;
+        // 1. Cache en memoria (más rápido)
+        if (this.cachedId) {
+            log.debug('[DeviceRepository] ✅ Returning cached device ID');
+            return this.cachedId;
+        }
 
-        // 1. Intentar recuperar de cualquier fuente (Secure o AsyncStorage)
-        let deviceId = await this.getStoredId();
+        // 2. Memory Backup (síncrono, instantáneo - sin await!)
+        const memoryBackup = getDeviceIdBackup();
+        if (memoryBackup) {
+            log.info('[DeviceRepository] 🔄 Using memory backup for device ID (instant)');
+            this.cachedId = memoryBackup;
+            return memoryBackup;
+        }
+
+        // 3. Storage con reintentos (caso típico: app fría o storage corrupto)
+        log.debug('[DeviceRepository] 🔍 Checking storage for device ID...');
+        let deviceId = await this.getStoredIdWithRetry();
 
         if (!deviceId) {
-            log.info('No device identity found. Generating new permanent UUID...');
+            log.warn('[DeviceRepository] ⚠️ No device identity found in storage. This should be rare!');
+            log.warn('[DeviceRepository] 🔧 Generating new device ID as last resort');
             deviceId = Crypto.randomUUID();
-            // 2. Persistencia en ambas fuentes para resiliencia
             await this.storeId(deviceId);
         }
 
+        // Guardar en todos los niveles para máxima resiliencia
         this.cachedId = deviceId;
+        setDeviceIdBackup(deviceId); // Backup de memoria para acceso instantáneo
+        
+        log.info('[DeviceRepository] ✅ Device ID ready', { 
+            cachedId: this.cachedId,
+            source: deviceId ? 'storage' : 'generated'
+        });
         return deviceId;
+    }
+
+    /**
+     * Obtiene el device ID de forma síncrona desde el memory backup.
+     * NO genera nuevo ID, solo retorna el backup si existe.
+     * Útil para situaciones donde se necesita el ID inmediatamente sin await.
+     */
+    getUniqueIdSync(): string | null {
+        // 1. Primero cache en memoria (síncrono)
+        if (this.cachedId) {
+            return this.cachedId;
+        }
+        // 2. Segundo, memory backup global
+        return getDeviceIdBackup();
+    }
+
+    private async getStoredIdWithRetry(): Promise<string | null> {
+        for (let attempt = 0; attempt < this.MAX_STORAGE_RETRIES; attempt++) {
+            const deviceId = await this.getStoredId();
+            if (deviceId) {
+                if (attempt > 0) {
+                    log.info(`[DeviceRepository] Device ID recovered after ${attempt + 1} attempt(s)`);
+                }
+                return deviceId;
+            }
+            
+            if (attempt < this.MAX_STORAGE_RETRIES - 1) {
+                const delay = this.RETRY_DELAY_MS * (attempt + 1);
+                log.debug(`[DeviceRepository] Storage read attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
+                await this.sleep(delay);
+            }
+        }
+        
+        log.warn('[DeviceRepository] All storage read attempts failed');
+        return null;
+    }
+
+    private sleep(ms: number): Promise<void> {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    /**
+     * Fuerza la invalidación del cache en memoria.
+     * Útil cuando se detecta que el cache puede estar corrupto tras volver del segundo plano.
+     */
+    invalidateCache(): void {
+        log.debug('[DeviceRepository] Cache invalidated');
+        this.cachedId = null;
+    }
+
+    /**
+     * Obtiene el ID actual sin usar cache (lectura directa del storage).
+     * Útil para diagnóstico o verificación de consistencia.
+     */
+    async getUniqueIdDirect(): Promise<string | null> {
+        return this.getStoredId();
     }
 
     async resetIdentity(): Promise<void> {
@@ -47,6 +131,8 @@ class DeviceRepositoryImpl implements IDeviceRepository {
                 await storageClient.remove(DEVICE_IDENTITY_KEY);
             }
             this.cachedId = null;
+            // ⚠️ IMPORTANTE: También limpiar el memory backup global
+            setDeviceIdBackup('');
             log.warn('Device identity has been reset across all stores');
         } catch (error) {
             log.error('Failed to reset device identity', error);

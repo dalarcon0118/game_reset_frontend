@@ -5,6 +5,7 @@ import Colors from '@/constants/colors';
 import DashboardScreenComponent from '@/features/listero/listero-dashboard/views';
 import { ListeroDashboardProvider } from '@/features/listero/listero-dashboard/core/store_context';
 import { CoreModule } from '@/core/core_module';
+import { RewardModule } from '@/features/listero/reward/core/store';
 
 export default function ListeroDashboardTab() {
   const colorScheme = useColorScheme() ?? 'light';
@@ -17,13 +18,15 @@ export default function ListeroDashboardTab() {
 
   return (
     <ListeroDashboardProvider initialParams={initialParams}>
-      <SafeAreaView style={[
-        styles.container,
-        { backgroundColor: Colors[colorScheme].background }
-      ]}>
-        <DashboardScreenComponent/>
+      <RewardModule.Provider>
+        <SafeAreaView style={[
+          styles.container,
+          { backgroundColor: Colors[colorScheme].background }
+        ]}>
+          <DashboardScreenComponent/>
 
-      </SafeAreaView>
+        </SafeAreaView>
+      </RewardModule.Provider>
     </ListeroDashboardProvider>
   );
 }

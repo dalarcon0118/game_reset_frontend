@@ -1,5 +1,5 @@
 import { createTEAModule, defineTeaModule } from '@core/engine/tea_module';
-import { Sub, Cmd, ret } from '@core/tea-utils';
+import { Sub, Cmd, ret, RemoteData } from '@core/tea-utils';
 import { RewardsModel, initialRewardsModel } from './model';
 import { RewardsMsg, INIT_MODULE } from './types';
 import { makeUpdate } from './update';
@@ -35,10 +35,11 @@ const rewardsDefinition = defineTeaModule<RewardsModel, RewardsMsg>({
     name: 'RewardsModule',
     initial: (params?: any) => {
         const p = params as RewardsModuleParams;
-        const model = {
+        const model: RewardsModel = {
             ...initialRewardsModel,
             currentDrawId: p?.drawId || '',
-            drawTitle: p?.title || null
+            drawTitle: p?.title || null,
+            betTypes: { status: RemoteData.notAsked() }
         };
 
         const drawId = p?.drawId;

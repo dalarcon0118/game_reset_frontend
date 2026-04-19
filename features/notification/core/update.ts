@@ -70,7 +70,6 @@ export const subscriptions = (model: Model) => {
                 if (user) {
                     log.info(`User authenticated (ID: ${user.id}), fetching notifications...`);
                     dispatch({ type: 'REFRESH_NOTIFICATIONS' });
-                    dispatch({ type: 'FETCH_PENDING_REWARDS_COUNT_REQUESTED' });
                 } else {
                     log.info('User logged out, resetting notification state');
                     dispatch({ type: 'RESET_STATE' });
@@ -435,14 +434,6 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
 
         .with({ type: 'NAVIGATE_BACK' }, () => {
             return ret({ ...model, selectedNotification: null }, Cmd.back());
-        })
-
-        .with({ type: 'FETCH_PENDING_REWARDS_COUNT_REQUESTED' }, () => {
-            return ret(model, NotificationService.getInstance().fetchPendingRewardsCount());
-        })
-
-        .with({ type: 'FETCH_PENDING_REWARDS_COUNT_SUCCESS' }, ({ count }) => {
-            return singleton({ ...model, pendingRewardsCount: count });
         })
 
         .with({ type: 'ADD_SYSTEM_NOTIFICATION' }, ({ payload }) => {

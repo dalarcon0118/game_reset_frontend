@@ -24,8 +24,6 @@ export type Msg =
     | { type: 'ALL_MARKED_READ'; webData: WebData<void> }
     | { type: 'NOTIFICATIONS_CLEARED'; webData: WebData<void> }
     | { type: 'NOTIFICATION_DELETED'; webData: WebData<void>; notificationId: string }
-    | { type: 'FETCH_PENDING_REWARDS_COUNT_REQUESTED' }
-    | { type: 'FETCH_PENDING_REWARDS_COUNT_SUCCESS'; count: number }
     | { type: 'ADD_SYSTEM_NOTIFICATION'; payload: { title: string; message: string; type: 'warning' | 'success' | 'info' } }
     | { type: 'SYNC_FROM_BACKEND_REQUESTED' };
 
@@ -84,10 +82,5 @@ export const NAVIGATE_BACK = (): Msg => ({ type: 'NAVIGATE_BACK' });
 export const NOTIFICATION_ERROR = (error: string): Msg => ({
     type: 'NOTIFICATION_ERROR',
     error
-});
-export const FETCH_PENDING_REWARDS_COUNT_REQUESTED = (): Msg => ({ type: 'FETCH_PENDING_REWARDS_COUNT_REQUESTED' });
-export const FETCH_PENDING_REWARDS_COUNT_SUCCESS = (count: number): Msg => ({
-    type: 'FETCH_PENDING_REWARDS_COUNT_SUCCESS',
-    count
 });
 export const SYNC_FROM_BACKEND_REQUESTED = (): Msg => ({ type: 'SYNC_FROM_BACKEND_REQUESTED' });
