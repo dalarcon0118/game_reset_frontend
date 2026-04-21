@@ -86,9 +86,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.dalarcon0118.boltexponativewind'
-    defaultConfig {
-        applicationId 'com.dalarcon0118.boltexponativewind'
+    namespace 'com.game_reset'
+    defaultConfig { 
+        applicationId 'com.game_reset'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

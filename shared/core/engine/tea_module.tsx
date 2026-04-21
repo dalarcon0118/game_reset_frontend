@@ -1,5 +1,5 @@
 import React, { createContext, useContext, ReactNode, useEffect, useRef, useState } from 'react';
-import { createElmStore } from './engine';
+import { createElmStore, UpdateResult } from './engine';
 import { UseBoundStore, StoreApi } from 'zustand';
 import { storeRegistry } from './store_registry';
 import { Cmd } from '../tea-utils';
@@ -11,8 +11,8 @@ import { debugTeaModule, debugEngine } from './debug_tea';
  */
 export interface TeaModuleDef<TModel, TMsg> {
     name: string;
-    initial: (params?: any) => [TModel, any];
-    update: (model: TModel, msg: TMsg) => [TModel, any];
+    initial: (params?: any) => UpdateResult<TModel, TMsg>;
+    update: (model: TModel, msg: TMsg) => UpdateResult<TModel, TMsg>;
     subscriptions?: (model: TModel) => any;
     effectHandlers?: Record<string, (payload: any, dispatch: (msg: TMsg) => void) => Promise<any>>;
     middlewares?: import('../tea-utils/middleware.types').TeaMiddleware<TModel, TMsg>[];

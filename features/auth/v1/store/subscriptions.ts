@@ -27,7 +27,7 @@ export const subscriptions = (model: LoginModel): SubDescriptor<LoginMsg> => {
             AuthModuleV1.name,
             (state: AuthModel) => state.status,  // ✅ Retorna primitivo directamente
             (status) => {
-                // Si la sesión se cerró y tenemos un PIN en proceso, reseteamos la UI
+                // Si la sesión se fechou y tenemos un PIN en proceso, reseteamos la UI
                 if (status === AuthStatus.UNAUTHENTICATED && model.pin.length > 0) {
                     return RESET_LOGIN_UI();
                 }

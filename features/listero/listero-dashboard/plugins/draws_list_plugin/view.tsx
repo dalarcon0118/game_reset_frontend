@@ -117,10 +117,12 @@ export const DrawsListComponent: React.FC<DrawsListComponentProps> = ({ context 
     <View style={styles.content}>
       {(() => {
         const state = model?.draws?.type || 'NotAsked';
-        log.debug('Rendering DrawsList state:', { 
+        log.info('Rendering DrawsList state:', { 
           state, 
+          drawsDataLength: (model?.draws as any)?.data?.length || 0,
           filteredCount: model?.filteredDraws?.length || 0,
-          hasHostStore: !!context?.hostStore
+          hasHostStore: !!context?.hostStore,
+          firstFilteredDraw: model?.filteredDraws?.[0] ? { id: model.filteredDraws[0].id, status: model.filteredDraws[0].status } : null
         });
         
         return match(model?.draws || RemoteData.notAsked())

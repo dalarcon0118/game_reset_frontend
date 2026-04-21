@@ -1,4 +1,4 @@
-package com.dalarcon0118.boltexponativewind
+package com.game_reset
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build

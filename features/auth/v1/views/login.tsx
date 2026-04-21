@@ -4,20 +4,16 @@ import { Text } from '@ui-kitten/components';
 import { Flex } from '@/shared/components';
 import { useAuthV1 } from '../hooks/use_auth';
 import { useLoginUI } from '../hooks/use_login_ui';
+import { LoginModule } from '../store';
 import { AuthStatus } from '@/shared/auth/v1/model';
 import { SESSION_EXPIRED as SESSION_EXPIRED_MSG } from '@/shared/auth/v1/msg';
-import { logger } from '@/shared/utils/logger';
-import { LoginModule } from '../store';
 import { styles } from './login.styles';
 
-// Componentes modulares
 import { LoginHeader } from './components/LoginHeader';
 import { PinStatusDisplay } from './components/PinStatusDisplay';
 import { NumericKeypad } from './components/NumericKeypad';
 import { DeviceLockedView } from './components/DeviceLockedView';
 import { ConnectionErrorView } from './components/ConnectionErrorView';
-
-const log = logger.withTag('LOGIN_VIEW');
 
 /**
  * LoginContent
@@ -45,10 +41,6 @@ function LoginContent() {
 
   const isInputDisabled = isAuthenticating || isEditingUsername;
 
-  React.useEffect(() => {
-    log.debug('LoginContent username', username || "Invitado");
-  }, [username]);
-
   if (status === AuthStatus.DEVICE_LOCKED) {
     return <DeviceLockedView error={error} />;
   }
@@ -60,11 +52,12 @@ function LoginContent() {
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+        keyboardVerticalOffset={Platform.OS === 'android' ? 0 : 90}
         style={{ flex: 1 }}
       >
         <ScrollView
-          contentContainerStyle={{ flexGrow: 1 }}
+          contentContainerStyle={{ flex: 1, justifyContent: 'center' }}
           keyboardShouldPersistTaps="handled"
         >
           <Flex flex={1} vertical justify="center" gap={30} align="center" padding="xl">
@@ -116,10 +109,13 @@ const LoginProvider = React.memo<{ children: React.ReactNode }>(({ children }) =
 
 LoginProvider.displayName = 'LoginProvider';
 
+const StableLoginContent = React.memo(LoginContent);
+StableLoginContent.displayName = 'StableLoginContent';
+
 export default function LoginScreen() {
   return (
     <LoginProvider>
-      <LoginContent />
+      <StableLoginContent />
     </LoginProvider>
   );
 }

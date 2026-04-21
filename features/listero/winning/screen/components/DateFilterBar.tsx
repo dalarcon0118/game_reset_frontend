@@ -4,12 +4,11 @@ import { useColorScheme } from 'react-native';
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 
-type DateFilter = 'today' | 'yesterday' | 'week' | 'custom';
+import { DateFilter } from '../../core/types';
 
 interface DateFilterBarProps {
   selectedDate: string; // YYYY-MM-DD
-  onDateChange: (date: string) => void;
-  onFilterChange?: (filter: DateFilter) => void;
+  onDateChange: (date: string, filterType: DateFilter) => void;
 }
 
 /**
@@ -23,14 +22,12 @@ interface DateFilterBarProps {
  */
 export const DateFilterBar: React.FC<DateFilterBarProps> = ({
   selectedDate,
-  onDateChange,
-  onFilterChange
+  onDateChange
 }) => {
   const colorScheme = useColorScheme() ?? 'light';
   const theme = Colors[colorScheme];
 
-  const [activeFilter, setActiveFilter] = useState<DateFilter>('today');
-  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<DateFilter>('all');
 
   // Calcular fechas
   const getDateForFilter = (filter: DateFilter): string => {
@@ -56,14 +53,7 @@ export const DateFilterBar: React.FC<DateFilterBarProps> = ({
   const handleFilterPress = (filter: DateFilter) => {
     setActiveFilter(filter);
     const newDate = getDateForFilter(filter);
-    onDateChange(newDate);
-    onFilterChange?.(filter);
-  };
-
-  const navigateDate = (direction: 'prev' | 'next') => {
-    const current = new Date(selectedDate);
-    current.setDate(current.getDate() + (direction === 'next' ? 1 : -1));
-    onDateChange(current.toISOString().split('T')[0]);
+    onDateChange(newDate, filter);
   };
 
   // Formatear fecha para mostrar
@@ -156,52 +146,21 @@ export const DateFilterBar: React.FC<DateFilterBarProps> = ({
           style={[
             styles.filterButton,
             { 
-              backgroundColor: activeFilter === 'custom' ? theme.primary : theme.primary + '20',
+              backgroundColor: activeFilter === 'all' ? theme.primary : theme.primary + '20',
             }
           ]}
-          onPress={() => {
-            setShowDatePicker(!showDatePicker);
-            setActiveFilter('custom');
-          }}
+          onPress={() => handleFilterPress('all')}
         >
-          <Calendar size={14} color={activeFilter === 'custom' ? '#FFFFFF' : theme.primary} />
           <Text 
             style={[
               styles.filterText,
-              { color: activeFilter === 'custom' ? '#FFFFFF' : theme.primary, marginLeft: 4 }
+              { color: activeFilter === 'all' ? '#FFFFFF' : theme.primary }
             ]}
           >
-            {formatDisplayDate(selectedDate)}
+            Todos
           </Text>
         </TouchableOpacity>
       </ScrollView>
-
-      {/* Date navigation arrows when custom */}
-      {activeFilter === 'custom' && (
-        <View style={styles.navigationContainer}>
-          <TouchableOpacity
-            style={[styles.navButton, { backgroundColor: theme.background }]}
-            onPress={() => navigateDate('prev')}
-          >
-            <ChevronLeft size={20} color={theme.text} />
-          </TouchableOpacity>
-          
-          <Text style={[styles.currentDateText, { color: theme.text }]}>
-            {formatDisplayDate(selectedDate)}
-          </Text>
-          
-          <TouchableOpacity
-            style={[styles.navButton, { backgroundColor: theme.background }]}
-            onPress={() => navigateDate('next')}
-            disabled={isToday(selectedDate)}
-          >
-            <ChevronRight 
-              size={20} 
-              color={isToday(selectedDate) ? theme.textTertiary : theme.text} 
-            />
-          </TouchableOpacity>
-        </View>
-      )}
     </View>
   );
 };

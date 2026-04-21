@@ -12,6 +12,9 @@ export interface WinningBet {
     is_winner: boolean;
     payout_amount: number;
     receipt_code: string;
+    // Campos añadidos para la nueva vista de Mis Ganadores
+    prize_label?: string;
+    
     draw_details?: {
         id: number;
         name: string;
@@ -26,6 +29,15 @@ export interface WinningBet {
         id: number;
         name: string;
     };
+}
+
+export interface UserWinningBet {
+    winning_number: string;
+    prize_type: string;
+    payment_amount: number;
+    receipt_code: string;
+    bet_time: string;
+    bet_type: string;
 }
 
 export interface PendingRewardsCount {

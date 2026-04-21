@@ -203,6 +203,12 @@ export const STORAGE_TTL = {
    * o hasta el cleanup diario
    */
   BET: undefined as undefined,
+
+  /**
+   * Premios/Ganadores (Winnings): 30 minutos
+   * Los datos de premios se actualizan frecuentemente y no necesitan persistencia larga
+   */
+  WINNINGS: 30 * 60 * 1000,
 };
 
 /**

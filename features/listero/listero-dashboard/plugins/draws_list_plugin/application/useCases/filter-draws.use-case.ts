@@ -31,12 +31,14 @@ export class FilterDrawsUseCase {
       if (filter === DRAW_FILTER.OPEN && !open) {
         const startStr = draw.betting_start_time ? new Date(draw.betting_start_time).toLocaleString() : 'N/A';
         const endStr = draw.betting_end_time ? new Date(draw.betting_end_time).toLocaleString() : 'N/A';
-        log.debug(`Draw ${draw.id} filtered out from OPEN`, {
+        log.info(`Draw ${draw.id} filtered out from OPEN`, {
           status: draw.status,
           is_betting_open: draw.is_betting_open,
           now: new Date(now).toLocaleString(),
           start: startStr,
-          end: endStr
+          end: endStr,
+          openResult: open,
+          expiredResult: expired
         });
       }
 

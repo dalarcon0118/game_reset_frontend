@@ -125,7 +125,19 @@ export const filterDraws = (draws: DrawType[], filter: StatusFilter, now: number
         }
 
         else if (filter === DRAW_FILTER.OPEN) {
-            passes = draw.status === DRAW_STATUS.OPEN && !expired;
+            // Verificar por HORAS: betting_start_time < now < betting_end_time
+            // IGNORAR draw.status del backend
+            const hasStartTime = !!draw.betting_start_time;
+            const hasEndTime = !!draw.betting_end_time;
+            
+            if (hasStartTime && hasEndTime) {
+                const startTime = new Date(draw.betting_start_time).getTime();
+                const endTime = new Date(draw.betting_end_time).getTime();
+                passes = now >= startTime && now < endTime;
+            } else if (hasEndTime) {
+                const endTime = new Date(draw.betting_end_time).getTime();
+                passes = now < endTime;
+            }
         }
 
         else if (filter === DRAW_FILTER.CLOSED) {
@@ -139,7 +151,10 @@ export const filterDraws = (draws: DrawType[], filter: StatusFilter, now: number
         }
 
         else if (filter === DRAW_FILTER.CLOSING_SOON) {
-            passes = (draw.status === DRAW_STATUS.OPEN || draw.is_betting_open === true) && isClosingSoon(draw.betting_end_time, now);
+            const isOpen = draw.betting_start_time && draw.betting_end_time 
+                && now >= new Date(draw.betting_start_time).getTime() 
+                && now < new Date(draw.betting_end_time).getTime();
+            passes = isOpen && isClosingSoon(draw.betting_end_time, now);
         }
 
         else if (filter === DRAW_FILTER.REWARDED) {
@@ -150,8 +165,16 @@ export const filterDraws = (draws: DrawType[], filter: StatusFilter, now: number
     });
 
     return filtered.sort((a, b) => {
-        const aOpen = a.status === DRAW_STATUS.OPEN || a.is_betting_open === true;
-        const bOpen = b.status === DRAW_STATUS.OPEN || b.is_betting_open === true;
+        // Calcular isOpen basándose SOLO en horas, ignorando el flag is_betting_open del backend
+        const isOpenByTime = (draw: DrawType) => {
+            if (!draw.betting_start_time || !draw.betting_end_time) return false;
+            const start = new Date(draw.betting_start_time).getTime();
+            const end = new Date(draw.betting_end_time).getTime();
+            return now >= start && now < end;
+        };
+        
+        const aOpen = isOpenByTime(a);
+        const bOpen = isOpenByTime(b);
 
         if (aOpen && !bOpen) return -1;
         if (!aOpen && bOpen) return 1;

@@ -10,6 +10,7 @@ export interface RequestOptions extends RequestInit {
   abortSignal?: AbortSignal;
   timeoutProfile?: 'FAST' | 'NORMAL' | 'SLOW';
   queryParams?: Record<string, any>; // Optional query parameters
+  skipCache?: boolean; // New flag to skip cache
 }
 
 export interface CacheEntry {

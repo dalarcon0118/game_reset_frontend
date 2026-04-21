@@ -165,7 +165,7 @@ export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMs
                         Cmd.sendMsg(PIN_CHANGE_REQUIRED()),
                         Cmd.navigate({ pathname: '/lister/change_password' })
                     ])
-                    : Cmd.none
+                    : Cmd.navigate({ pathname: '/lister/dashboard', method: 'replace' })
             );
         })
 

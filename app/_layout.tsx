@@ -100,7 +100,7 @@ export function DevToolbar() {
 const styles = StyleSheet.create({
   devBar: {
     position: 'absolute',
-    top: 50,
+    top: 0,
     left: 10,
     right: 10,
     borderRadius: 12,

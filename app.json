@@ -16,7 +16,7 @@
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.dalarcon0118.boltexponativewind"
+      "package": "com.game_reset"
     },
     "web": {
       "bundler": "metro",

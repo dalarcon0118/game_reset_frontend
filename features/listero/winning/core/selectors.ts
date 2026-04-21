@@ -11,6 +11,7 @@ import { useWinningStore } from './store';
 import { RemoteData } from '@core/tea-utils';
 import { WinningBet } from '@/shared/repositories/bet/winnings.types';
 import { WinningModel } from './types';
+import { shallow } from 'zustand/shallow';
 
 // Tipo para el estado completo del store
 interface WinningStoreState {
@@ -68,7 +69,7 @@ export const useWinningUserWinnings = () => {
   const selector = useCallback(
     (state: WinningStoreState): WinningBet[] => {
       const w = state.model.userWinnings;
-      return RemoteData.isSuccess(w) ? w.data : [];
+      return w.type === 'Success' ? w.data : [];
     },
     []
   );
@@ -84,4 +85,25 @@ export const useWinningPendingRewardsCount = () => {
     []
   );
   return useWinningStore(selector);
+};
+
+/**
+ * Hook memoizado: Selecciona betTypeFilter del modelo
+ */
+export const useWinningBetTypeFilter = () => {
+  const selector = useCallback(
+    (state: WinningStoreState) => state.model.betTypeFilter,
+    []
+  );
+  return useWinningStore(selector);
+};
+
+/**
+ * Hook memoizado: Selecciona datos filtrados
+ */
+export const useWinningFilteredData = () => {
+  return useWinningStore(
+    (state: WinningStoreState) => state.model.filteredData,
+    shallow
+  );
 };

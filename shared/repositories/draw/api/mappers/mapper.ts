@@ -33,7 +33,7 @@ export const mapStatus = (
   bettingEnd: string | null,
   isBettingOpen?: boolean
 ): 'open' | 'pending' | 'closed' | 'scheduled' | 'rewarded' => {
-  // Estados finales del backend
+  // Estados finales del backend (ignore el flag is_betting_open)
   if (backendStatus === 'completed' || backendStatus === 'cancelled') {
     return 'closed';
   }
@@ -42,16 +42,13 @@ export const mapStatus = (
     return 'rewarded';
   }
 
-  if (isBettingOpen === true) {
-    return 'open';
-  }
-
+  // Calcular basándose SOLO en las horas, ignorando el flag is_betting_open del backend
   if (bettingStart && bettingEnd) {
     const now = new Date();
     const start = new Date(bettingStart);
     const end = new Date(bettingEnd);
 
-    if (now >= start && now <= end) {
+    if (now >= start && now < end) {
       return 'open';
     } else if (now < start) {
       return 'scheduled';

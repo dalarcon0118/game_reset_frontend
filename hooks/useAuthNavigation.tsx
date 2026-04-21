@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useMemo } from 'react';
+import React, { useEffect, useCallback, useMemo, useRef } from 'react';
 import { usePathname, useRouter, useNavigationContainerRef } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useAuthV1 } from '../features/auth/v1';
@@ -17,6 +17,9 @@ export function useAuthNavigation() {
   const navigationPolicy = CoreModule.useStore(state => state.model.navigationPolicy);
   const pathname = usePathname();
   const router = useRouter();
+  
+  // Debounce para evitar múltiples redirects
+  const redirectInProgress = useRef(false);
   ////const notificationDispatch = useNotificationStore(selectNotificationDispatch);
   const rootNavigation = useNavigationContainerRef();
 
@@ -65,14 +68,16 @@ export function useAuthNavigation() {
         // Decide where the user should go based on role policy
         const targetPath = navigationPolicy.getHomeRoute(user);
         
-        if (targetPath) {
+        if (targetPath && !redirectInProgress.current) {
+          redirectInProgress.current = true;
           logger.info(`Redirecting authenticated user to dashboard: ${targetPath}`, 'RootLayout');
           router.replace(targetPath as any);
         }
       } else {
         // Enforce role-based access control for protected routes
         // If the user tries to access a route not allowed for their role, redirect home
-        if (!navigationPolicy.canAccess(user, pathname)) {
+        if (!navigationPolicy.canAccess(user, pathname) && !redirectInProgress.current) {
+          redirectInProgress.current = true;
           const targetPath = navigationPolicy.getHomeRoute(user);
           logger.warn(`Access denied for user ${user.role} to ${pathname}. Redirecting to ${targetPath}`, 'RootLayout');
           router.replace(targetPath as any);
@@ -82,9 +87,10 @@ export function useAuthNavigation() {
       // User is NOT authenticated
       
       // Redirect to login if on protected route
-      if (!isPublicRoute) {
-         logger.info('User not authenticated on protected route, redirecting to login', 'RootLayout', { pathname });
-         router.replace('/login');
+      if (!isPublicRoute && !redirectInProgress.current) {
+        redirectInProgress.current = true;
+        logger.info('User not authenticated on protected route, redirecting to login', 'RootLayout', { pathname });
+        router.replace('/login');
       }
     }
   }, [isLoading, isAuthenticated, user, pathname, router, navigationPolicy]);

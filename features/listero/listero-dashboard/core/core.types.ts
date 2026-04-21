@@ -36,16 +36,13 @@ export const isExpired = (draw: DrawType, now: number) => {
         }
     }
 
-    // 2. Estados definitively cerrados por el servidor
+    // 2. Estados definitivamente cerrados por el servidor
     if (
         draw.status === DRAW_STATUS.CLOSED ||
         draw.status === DRAW_STATUS.COMPLETED ||
         draw.status === DRAW_STATUS.REWARDED
     ) return true;
 
-    // 3. Si is_betting_open es explicitamente true, no ha expirado
-    if (draw.is_betting_open === true) return false;
-
-    // 4. Por tiempo ya se verificó arriba
+    // 3. Por tiempo ya se verificó arriba
     return false;
 };

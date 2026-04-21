@@ -1,5 +1,4 @@
-package com.dalarcon0118.boltexponativewind
-
+package com.game_reset
 import android.app.Application
 import android.content.res.Configuration
 

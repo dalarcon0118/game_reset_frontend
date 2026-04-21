@@ -183,11 +183,14 @@ function handleSyncState(
   const currentDrawsData = (model.draws as any).data || [];
   const nextDrawsData = (payload.draws as any).data || [];
 
-  log.debug('handleSyncState (Input from Host):', {
+  log.info('handleSyncState (Input from Host):', {
     hostState: payload.draws.type,
     localState: model.draws.type,
     hostDrawsCount: nextDrawsData.length,
-    localDrawsCount: currentDrawsData.length
+    localDrawsCount: currentDrawsData.length,
+    filter: payload.filter,
+    currentFilter: model.currentFilter,
+    firstDrawFromHost: nextDrawsData[0] ? { id: nextDrawsData[0].id, status: nextDrawsData[0].status } : null
   });
 
   // 🛡️ PROTECCIÓN CONTRA RE-MONTAJE:

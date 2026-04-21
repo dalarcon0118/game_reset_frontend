@@ -133,7 +133,7 @@ export class RequestExecutor {
   }
 
   private getCachedResponse<T>(context: RequestContext): T | null {
-    if (!this.isCacheable(context.fetchOptions.method)) {
+    if (!this.isCacheable(context.fetchOptions.method) || context.options.skipCache) {
       return null;
     }
     const cached = this.cacheManager.get<T>(context.cacheKey);

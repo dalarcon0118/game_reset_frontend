@@ -27,7 +27,7 @@
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="myapp"/>
-        <data android:scheme="com.dalarcon0118.boltexponativewind"/>
+        <data android:scheme="com.game_reset"/>
       </intent-filter>
     </activity>
   </application>

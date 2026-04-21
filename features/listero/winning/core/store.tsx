@@ -1,5 +1,5 @@
 import { createTEAModule, defineTeaModule } from '@core/engine/tea_module';
-import { Cmd, ret } from '@core/tea-utils';
+import { Cmd, ret, Return } from '@core/tea-utils';
 import { WinningModel, WinningMsg, INIT_MODULE } from './types';
 import { initialWinningModel } from './model';
 import { update, subscriptions } from './update';
@@ -10,10 +10,8 @@ import { update, subscriptions } from './update';
  */
 export const winningDefinition = defineTeaModule<WinningModel, WinningMsg>({
   name: 'Winning',
-  initial: (): [WinningModel, Cmd] => {
-    // Estilo Elm: Init retorna [model, Cmd]
-    // El Cmd dispatch INIT_MODULE que dispara FETCH_ALL_WINNING_DATA
-    return ret(initialWinningModel, Cmd.ofMsg(INIT_MODULE()));
+  initial: (params?: { structureId?: string }): Return<WinningModel, WinningMsg> => {
+    return ret(initialWinningModel, Cmd.ofMsg(INIT_MODULE(params?.structureId)));
   },
   update,
   subscriptions

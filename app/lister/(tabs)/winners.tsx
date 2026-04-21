@@ -1,10 +1,13 @@
 import React from 'react';
-import { WinnersScreen, WinningProvider } from '@/features/listero/winning';
+import { TodosProvider, MisGanadoresProvider } from '@/features/listero/winning';
+import { WinnersScreen } from '@/features/listero/winning';
 
 export default function WinnersPage() {
   return (
-    <WinningProvider>
-      <WinnersScreen />
-    </WinningProvider>
+    <TodosProvider>
+      <MisGanadoresProvider>
+        <WinnersScreen />
+      </MisGanadoresProvider>
+    </TodosProvider>
   );
 }

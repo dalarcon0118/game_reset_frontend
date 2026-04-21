@@ -51,8 +51,16 @@ export function extractHostState(state: any, config: DrawsListPluginConfig): Hos
   // DEBUG: Log raw draws data to validate financial fields (only if needed)
   if (RemoteData.isSuccess(rawDraws) && (rawDraws as any).data && (rawDraws as any).data.length > 0) {
     const firstDraw = (rawDraws as any).data[0];
-    // Optional: Keep this debug log if it's still critical, otherwise we can remove it or lower level
-    log.debug('RAW_DRAWS_DEBUG', { id: firstDraw.id, keys: Object.keys(firstDraw) });
+    log.info('RAW_DRAWS_FROM_HOST', { 
+      id: firstDraw.id, 
+      name: firstDraw.name,
+      status: firstDraw.status,
+      is_betting_open: firstDraw.is_betting_open,
+      betting_start_time: firstDraw.betting_start_time,
+      betting_end_time: firstDraw.betting_end_time,
+      keys: Object.keys(firstDraw),
+      totalCount: (rawDraws as any).data.length
+    });
   }
 
   // Validate draws data using io-ts

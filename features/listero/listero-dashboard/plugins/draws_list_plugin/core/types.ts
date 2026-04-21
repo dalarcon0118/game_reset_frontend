@@ -58,14 +58,8 @@ export const isExpired = (draw: Draw, currentTime?: number) => {
   const timerRepo = RepositoriesModule.getSync<ITimeRepository>('TimerRepository');
   const now = currentTime ?? timerRepo.getTrustedNow(Date.now());
 
-  // Si el estado es cerrado o premiados, está expirado
-  if (draw.status === DRAW_STATUS.CLOSED || 
-      draw.status === DRAW_STATUS.COMPLETED || 
-      draw.status === DRAW_STATUS.REWARDED) {
-    return true;
-  }
-
-  // Verificación basada en tiempo: expirado si pasó la hora de cierre
+  // VERIFICACIÓN BASADA EN HORAS ÚNICAMENTE
+  // Un sorteo está expirado si ya pasó la hora de cierre
   if (draw.betting_end_time) {
     const endTime = new Date(draw.betting_end_time).getTime();
     if (now >= endTime) return true;
@@ -78,10 +72,9 @@ export const isBettingOpen = (draw: Draw, currentTime?: number) => {
   const timerRepo = RepositoriesModule.getSync<ITimeRepository>('TimerRepository');
   const now = currentTime ?? timerRepo.getTrustedNow(Date.now());
 
-  // Si ya está expirado por tiempo o estado definitivo, no está abierto
-  if (isExpired(draw, now)) return false;
-
-  // Verificación de ventana de tiempo usando TimerRepository (anti-fraude)
+  // VERIFICACIÓN BASADA EN HORAS ÚNICAMENTE
+  // Ignoramos el status del backend - solo las horas definen si está abierto
+  // betting_start_time < now < betting_end_time
   const hasStartTime = !!draw.betting_start_time;
   const hasEndTime = !!draw.betting_end_time;
 

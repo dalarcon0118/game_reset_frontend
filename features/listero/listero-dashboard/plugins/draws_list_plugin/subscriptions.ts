@@ -114,10 +114,12 @@ export const subscriptions = (model: Model) => {
         const currentPayload = extractHostState(state, model.config);
 
         // DEBUG: Log store state changes
-        log.debug('Host Store watched', {
+        log.info('Host Store watched', {
           drawsType: currentPayload.draws?.type,
           drawsCount: currentPayload.draws?.type === 'Success' ? currentPayload.draws?.data?.length : 0,
-          status: state.status?.type
+          status: state.status?.type,
+          lastPayloadExists: !!lastPayload,
+          lastPayloadDrawsType: lastPayload?.draws?.type
         });
 
         // Calculate hash for change detection
