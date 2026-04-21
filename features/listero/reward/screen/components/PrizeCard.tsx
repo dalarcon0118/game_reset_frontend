@@ -94,22 +94,26 @@ export const PrizeCard: React.FC<PrizeCardProps> = ({ betType }) => {
 
 const styles = StyleSheet.create({
     groupContainer: {
-        gap: 0,
+        gap: 16, // Consistent spacing between cards in a group
     },
     cardContainer: {
-        borderRadius: 16,
-        marginBottom: 16,
+        borderRadius: 20, // Slightly more rounded for modern look
+        marginBottom: 24, // Increased spacing for better separation
         padding: 24,
-        elevation: 2,
+        minHeight: 120, // Consistent reference frame - minimum height for all cards
+        elevation: 3, // Slightly increased elevation for better depth
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08, // Reduced opacity for less visual noise
+        shadowRadius: 12, // Softer shadow
+        borderWidth: 1,
+        borderColor: 'rgba(0, 0, 0, 0.04)', // Subtle border for definition
     },
     cardContent: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
+        flex: 1, // Ensure content fills available space
     },
     leftColumn: {
         flex: 1,
@@ -118,51 +122,60 @@ const styles = StyleSheet.create({
     rightColumn: {
         justifyContent: 'center',
         alignItems: 'flex-end',
-        paddingLeft: 16,
+        paddingLeft: 24, // Increased padding for better separation
     },
     headerRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 12,
+        marginBottom: 16, // Increased spacing for better hierarchy
     },
     iconWrapper: {
-        marginRight: 10,
-        width: 32,
+        marginRight: 12, // Consistent spacing
+        width: 40, // Slightly larger for better proportion
+        height: 40,
         alignItems: 'center',
         justifyContent: 'center',
+        borderRadius: 8,
+        backgroundColor: 'rgba(0, 0, 0, 0.02)', // Subtle background for reference frame
     },
     titleText: {
         fontWeight: '800',
         fontSize: 20,
+        flex: 1, // Allow title to expand
+        marginLeft: 4, // Small spacing after icon
     },
     tagsContainer: {
         flexDirection: 'row',
         alignItems: 'flex-start',
         gap: 8,
         flexWrap: 'wrap',
+        marginTop: 8, // Consistent spacing after header
     },
     tagPill: {
         paddingHorizontal: 12,
         paddingVertical: 6,
-        borderRadius: 6,
+        borderRadius: 8, // Slightly more rounded
+        minHeight: 28, // Consistent height for all tags
+        justifyContent: 'center',
     },
     tagLabelText: {
         fontWeight: '700',
-        fontSize: 14,
+        fontSize: 12, // Slightly smaller for less visual weight
     },
     multiplierText: {
         fontWeight: '800',
         fontSize: 28,
         letterSpacing: -0.5,
+        textAlign: 'right', // Ensure right alignment
     },
     descriptionContainer: {
-        marginTop: 12,
-        paddingTop: 8,
+        marginTop: 16, // Increased spacing for better separation
+        paddingTop: 12,
         borderTopWidth: 1,
-        borderTopColor: '#F0F0F0',
+        borderTopColor: 'rgba(0, 0, 0, 0.06)', // Subtle border
     },
     descriptionText: {
-        fontSize: 13,
-        lineHeight: 18,
+        fontSize: 14, // Slightly larger for better readability
+        lineHeight: 20,
     },
 });
