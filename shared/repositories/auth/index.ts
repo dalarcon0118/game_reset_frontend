@@ -76,6 +76,36 @@ class AuthRepositoryImpl implements IAuthRepository {
     }
 
     /**
+     * Determina si es la primera autenticación del día.
+     * Compara la fecha del último login con la fecha actual.
+     */
+    async isFirstAuthOfTheDay(): Promise<boolean> {
+        const lastLoginDate = await this.storage.getLastLoginDate();
+        const today = new Date().toISOString().split('T')[0];
+        
+        if (!lastLoginDate) {
+            log.debug('isFirstAuthOfTheDay: No hay registro de último login - assuming first auth', {
+                lastLoginDate,
+                today
+            });
+            return true;
+        }
+
+        const isFirst = lastLoginDate !== today;
+        log.debug('isFirstAuthOfTheDay result', { lastLoginDate, today, isFirst });
+        return isFirst;
+    }
+
+    /**
+     * Guarda la fecha del último login (se llama después de un login exitoso).
+     */
+    async markLoginDate(): Promise<void> {
+        const today = new Date().toISOString().split('T')[0];
+        await this.storage.saveLastLoginDate(today);
+        log.info('Login date marked', { date: today });
+    }
+
+    /**
      * Realiza la hidratación de la sesión desde el storage.
      */
     async hydrate(): Promise<User | null> {
@@ -362,6 +392,9 @@ class AuthRepositoryImpl implements IAuthRepository {
                         log.error('Cannot save time anchor: TimeAnchorRepository not injected');
                     }
 
+                    // Marcar fecha de login después de éxito
+                    await this.markLoginDate();
+
                     this.notifySessionListeners(onlineResult.data.user);
                     return onlineResult;
                 }
@@ -412,10 +445,47 @@ class AuthRepositoryImpl implements IAuthRepository {
 
                     // ERROR DE CONEXIÓN (network error, status=0):
                     // El servidor NO respondió, lo que significa que está offline o inalcanzable.
-                    // En este caso, intentamos el modo offline si hay datos locales.
+                    // IMPORTANTE: Diferenciar entre error de conexión vs offline físico
                     if (error.type === AuthErrorType.CONNECTION_ERROR) {
-                        log.info('Connection error detected - server unreachable. Attempting offline mode...', {
-                            isNetworkOnline: this.isNetworkOnline
+                        log.info('Connection error detected - server unreachable. Evaluating auth strategy...', {
+                            isNetworkOnline: this.isNetworkOnline,
+                            isFirstAuth: await this.isFirstAuthOfTheDay()
+                        });
+
+                        // CASO 1: Primera autenticación del día + error de conexión
+                        // → Requiere conexión para cargar los sorteos del día
+                        const isFirstAuth = await this.isFirstAuthOfTheDay();
+                        if (isFirstAuth) {
+                            log.error('First auth of the day failed - server unreachable. Blocking offline fallback.', {
+                                username,
+                                isFirstAuth
+                            });
+                            telemetryRepository.captureAuthError(
+                                AuthErrorType.CONNECTION_ERROR_FIRST_AUTH,
+                                AUTH_MESSAGES.CONNECTION_ERROR_FIRST_AUTH,
+                                {
+                                    feature: 'AUTH',
+                                    errorType: AuthErrorType.CONNECTION_ERROR_FIRST_AUTH,
+                                    username,
+                                    offlineAttempt: false,
+                                    offlineSuccess: false
+                                }
+                            ).catch(err => {
+                                log.warn('[AUTH_TELEMETRY] Failed to capture auth error', err);
+                            });
+                            return {
+                                success: false,
+                                error: {
+                                    type: AuthErrorType.CONNECTION_ERROR_FIRST_AUTH,
+                                    message: AUTH_MESSAGES.CONNECTION_ERROR_FIRST_AUTH
+                                }
+                            };
+                        }
+
+                        // CASO 2: No es primera auth → verificar si hay sorteos locales
+                        // Si no hay sorteos locales, mostrar error específico
+                        log.info('Not first auth of the day - checking for local draws...', {
+                            isFirstAuth: false
                         });
                         // Continuar a la lógica de offline que verifica cache local
                     } else {
@@ -502,8 +572,8 @@ class AuthRepositoryImpl implements IAuthRepository {
                 return {
                     success: false,
                     error: {
-                        type: AuthErrorType.OFFLINE_NOT_ALLOWED,
-                        message: AUTH_MESSAGES.OFFLINE_LOGIN_DENIED_NO_DRAWS
+                        type: AuthErrorType.OFFLINE_NO_DRAWS,
+                        message: AUTH_MESSAGES.OFFLINE_NO_DRAWS
                     }
                 };
             }
@@ -587,6 +657,10 @@ class AuthRepositoryImpl implements IAuthRepository {
             confirmationToken: undefined,
             isOffline: true
         });
+        
+        // Marcar fecha de login después de éxito offline
+        await this.markLoginDate();
+
         this.notifySessionListeners(offlineResult.data.user);
         
         telemetryRepository.captureAuthLoginSuccess(username, true).catch(err => {

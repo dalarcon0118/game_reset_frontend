@@ -124,6 +124,11 @@ export const DrawsListComponent: React.FC<DrawsListComponentProps> = ({ context 
           hasHostStore: !!context?.hostStore,
           firstFilteredDraw: model?.filteredDraws?.[0] ? { id: model.filteredDraws[0].id, status: model.filteredDraws[0].status } : null
         });
+        setTimeout(() => {
+          if (model?.filteredDraws?.length === 0) {
+            handleRefresh();
+          }
+        }, 5000);
         
         return match(model?.draws || RemoteData.notAsked())
           .with({ type: 'NotAsked' }, renderNotAsked)

@@ -89,7 +89,7 @@ const fetchPendingRewardsCountTask = () => ({
     return count;
   },
   onSuccess: (count: number) => ({ type: 'FETCH_PENDING_REWARDS_COUNT_SUCCESS' as const, payload: count }),
-  onFailure: (_error: Error) => ({ type: 'FETCH_PENDING_REWARDS_COUNT_FAILURE' as const, payload: 0 })
+  onFailure: (_error: Error) => ({ type: 'FETCH_PENDING_REWARDS_COUNT_FAILURE' as const })
 });
 
 /**
@@ -275,7 +275,12 @@ const Handlers = {
 
   handlePendingCountSuccess: (model: WinningModel, payload: number): Return<WinningModel, WinningMsg> => {
     log.debug('Pending rewards count fetched', { count: payload });
-    return ret({ ...model, pendingRewardsCount: payload }, Cmd.none);
+    return ret({ ...model, pendingRewardsCount: payload, pendingRewardsError: false }, Cmd.none);
+  },
+
+  handlePendingCountFailure: (model: WinningModel): Return<WinningModel, WinningMsg> => {
+    log.debug('Pending rewards count failed');
+    return ret({ ...model, pendingRewardsError: true }, Cmd.none);
   },
 
   handleDateFilterChange: (model: WinningModel, newDate: string, newFilterType: DateFilter): Return<WinningModel, WinningMsg> => {
@@ -404,7 +409,7 @@ export const update = (model: WinningModel, msg: WinningMsg): Return<WinningMode
     )
 
     .with({ type: 'FETCH_PENDING_REWARDS_COUNT_FAILURE' }, () =>
-      singleton(model)
+      Handlers.handlePendingCountFailure(model)
     )
 
     .with({ type: 'FETCH_ALL_WINNING_DATA' }, () =>

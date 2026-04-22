@@ -16,6 +16,8 @@ export type DateFilter = 'today' | 'yesterday' | 'week' | 'all';
 export interface MisGanadoresModel {
   draws: WinningStatus;
   userWinnings: WinningsStatus;
+  pendingRewardsCount: number;
+  pendingRewardsError: boolean;
   selectedDate: string;
   dateFilterType: DateFilter;
   structureId: string | null;
@@ -34,7 +36,7 @@ export type MisGanadoresMsg =
   | { type: 'FETCH_USER_WINNINGS_FAILURE'; payload: string }
   | { type: 'FETCH_PENDING_REWARDS_COUNT' }
   | { type: 'FETCH_PENDING_REWARDS_COUNT_SUCCESS'; payload: number }
-  | { type: 'FETCH_PENDING_REWARDS_COUNT_FAILURE'; payload: number }
+  | { type: 'FETCH_PENDING_REWARDS_COUNT_FAILURE' }
   | { type: 'CHANGE_DATE_FILTER'; payload: { date: string; filterType: DateFilter } }
   | { type: 'CHANGE_BET_TYPE_FILTER'; payload: string }
   | { type: 'REFRESH' }

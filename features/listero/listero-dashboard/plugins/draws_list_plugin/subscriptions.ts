@@ -28,7 +28,7 @@ export const resetSyncState = () => {
  * Función helper para obtener los datos financieros de las apuestas y transformarlos al formato del plugin
  * Ahora usa cálculo on-demand desde BetRepository en lugar del Ledger
  */
-async function fetchBetTotalsByDrawId(commissionRate: number, structureId?: string): Promise<DrawTotalsUpdate[]> {
+async function fetchBetTotalsByDrawId(structureId?: string): Promise<DrawTotalsUpdate[]> {
   // Obtener hora confiable del servidor
   const trustedNow = await TimerRepository.getTrustedNow(Date.now());
   const trustedDate = new Date(trustedNow);
@@ -41,12 +41,12 @@ async function fetchBetTotalsByDrawId(commissionRate: number, structureId?: stri
   log.debug('Financial totals input', {
     trustedNow,
     todayStart,
-    commissionRate,
     structureId
   });
 
   // Obtener totales por drawId desde BetRepository (cálculo on-demand)
-  const totalsByDrawId = await betRepository.getTotalsByDrawId(todayStart, structureId, commissionRate);
+  // commissionRate se obtiene internamente desde AuthRepository
+  const totalsByDrawId = await betRepository.getTotalsByDrawId(todayStart, structureId);
 
   const entries = Object.entries(totalsByDrawId);
   log.debug('Financial totals intermediate', {
@@ -76,13 +76,14 @@ async function recomputeAndDispatchFinancialTotals(
   try {
     const hostState = hostStore.getState();
     const hostModel = hostState.model || hostState;
-    const commissionRate = hostModel.commissionRate || 0;
     const structureId = hostModel.userStructureId || undefined;
-    const updates = await fetchBetTotalsByDrawId(commissionRate, structureId);
+
+    const updates = await fetchBetTotalsByDrawId(structureId);
     const timestamp = await TimerRepository.getTrustedNow(Date.now());
     dispatch(BATCH_OFFLINE_UPDATE({ updates, timestamp }));
   } catch (error) {
     log.error('Failed to recalculate financial totals', error);
+    throw error;
   }
 }
 
@@ -140,17 +141,17 @@ export const subscriptions = (model: Model) => {
         // 🛡️ Lógica de sincronización simplificada:
         // El plugin propaga el estado del host. Si el plugin NO tiene datos,
         // siempre sincronizamos (primera carga). De lo contrario, solo si cambiaron.
-        
+
         const hostStatus = state.status?.type;
         const hostHasData = currentPayload.draws.type === 'Success';
         const hostIsLoading = currentPayload.draws.type === 'Loading';
         const pluginHasNoData = !lastPayload || lastPayload.draws.type !== 'Success';
         const dataChanged = currentHash !== lastDrawsHash;
-        
+
         // SIEMPRE sincronizar si el plugin no tiene datos (primera carga sin cache local)
         // NO bloquear por hostIsLoading en este caso - el plugin necesita recibir Loading para mostrar estado
         const shouldSync = pluginHasNoData || (!hostIsLoading && dataChanged);
-        
+
         if (!shouldSync) {
           log.debug('Skipping sync - no relevant changes', {
             hostStatus,

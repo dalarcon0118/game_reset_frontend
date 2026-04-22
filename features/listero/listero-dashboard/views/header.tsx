@@ -1,291 +1,197 @@
-import React, { useEffect, useRef } from 'react';
-import { StyleSheet, View, TouchableOpacity, Animated, Easing } from 'react-native';
-import { Bell, HelpCircle, Eye, EyeOff, User, WifiOff, Gift } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
-import { Label, Flex, Badge } from '@/shared/components';
-import { COLORS } from '@/shared/components/constants';
+import React from 'react';
+import { View, Text, StyleSheet, useColorScheme } from 'react-native';
+import { TouchableOpacity } from 'react-native';
+import { Text as KittenText } from '@ui-kitten/components';
+import { Menu, Bell, User, Circle, Wifi, WifiOff } from 'lucide-react-native';
+import Colors from '@/constants/colors';
+
+const COLORS = Colors.light;
 
 interface HeaderProps {
-  username: string;
-  structureName: string;
-  isOnline: boolean;
-  showBalance: boolean;
-  unreadCount: number;
-  pendingRewardsCount?: number;
-  onHelp: () => void;
-  onNotifications: () => void;
-  onSettings: () => void;
-  onToggleBalance: () => void;
+    username?: string;
+    structureName?: string;
+    isOnline?: boolean;
+    showBalance?: boolean;
+    unreadCount?: number;
+    onMenuPress?: () => void;
+    onNotificationPress?: () => void;
+    onHelpPress?: () => void;
+    onSettingsPress?: () => void;
+    onRewardsCountPress?: () => void;
+    rewardsCount?: number;
+    rewardsError?: boolean;
 }
 
-const PulseDot = ({ isOnline }: { isOnline: boolean }) => {
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    if (isOnline) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 0.4,
-            duration: 1500,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 1500,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    } else {
-      pulseAnim.setValue(1);
-    }
-  }, [isOnline]);
-
-  return (
-    <View style={styles.statusDotContainer}>
-      <Animated.View 
-        style={[
-          styles.statusDot, 
-          { 
-            backgroundColor: isOnline ? COLORS.success : COLORS.danger,
-            opacity: pulseAnim 
-          }
-        ]} 
-      />
-    </View>
-  );
+export const Header: React.FC<HeaderProps> = ({ 
+    username,
+    structureName,
+    isOnline = true,
+    showBalance = true,
+    unreadCount = 0,
+    onMenuPress, 
+    onNotificationPress, 
+    onHelpPress,
+    onSettingsPress,
+    onRewardsCountPress,
+    rewardsCount = 0,
+    rewardsError = false 
+}) => {
+    const colorScheme = useColorScheme() ?? 'light';
+    const theme = Colors[colorScheme];
+    
+    return (
+        <View style={[styles.container, { 
+            backgroundColor: theme.background, 
+            borderBottomColor: theme.border 
+        }]}>
+            <View style={styles.leftSection}>
+                <TouchableOpacity onPress={onMenuPress} style={styles.menuButton}>
+                    <Menu size={24} color={theme.text} />
+                </TouchableOpacity>
+                
+                <View style={styles.userInfo}>
+                    <KittenText style={[styles.username, { color: theme.text }]} numberOfLines={1}>
+                        {username}
+                    </KittenText>
+                    <View style={styles.structureRow}>
+                        <KittenText style={[styles.structureName, { color: theme.textSecondary }]} numberOfLines={1}>
+                            {structureName}
+                        </KittenText>
+                        {isOnline && (
+                            <Wifi size={12} color={theme.success} style={styles.onlineIcon} />
+                        )}
+                    </View>
+                </View>
+            </View>
+            
+            <View style={styles.rightContainer}>
+                {(rewardsCount > 0 || rewardsError) && (
+                    <TouchableOpacity 
+                        onPress={onRewardsCountPress} 
+                        style={[
+                            styles.rewardsBadge, 
+                            { backgroundColor: rewardsError ? theme.error + '20' : theme.primary + '15' }
+                        ]}
+                    >
+                        <Text style={[
+                            styles.rewardsText, 
+                            { color: rewardsError ? theme.error : theme.primary }
+                        ]}>
+                            {rewardsError ? '↻' : `${rewardsCount} premios`}
+                        </Text>
+                    </TouchableOpacity>
+                )}
+                <View style={[styles.bellButton, { backgroundColor: theme.backgroundSecondary }]}>
+                    <TouchableOpacity onPress={onNotificationPress}>
+                        <View style={styles.bellContent}>
+                            <Bell size={22} color={theme.primary} />
+                            {unreadCount > 0 && (
+                                <View style={[styles.badge, { backgroundColor: theme.error }]}>
+                                    <Text style={styles.badgeText}>
+                                        {unreadCount > 9 ? '9+' : unreadCount}
+                                    </Text>
+                                </View>
+                            )}
+                        </View>
+                    </TouchableOpacity>
+                </View>
+                
+                <View style={[styles.profileIcon, { 
+                    backgroundColor: theme.backgroundSecondary, 
+                    borderColor: theme.border 
+                }]}>
+                    <TouchableOpacity onPress={onSettingsPress}>
+                        <User size={22} color={theme.primary} />
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </View>
+    );
 };
 
-export default function Header({ 
-  username, 
-  structureName, 
-  isOnline,
-  showBalance, 
-  unreadCount,
-  pendingRewardsCount = 0,
-  onHelp,
-  onNotifications,
-  onSettings,
-  onToggleBalance
-}: HeaderProps) {
-  
-  const router = useRouter();
-  
-  const formatBadgeCount = (count: number): string | null => {
-    if (count <= 0) return null;
-    return count > 99 ? '99+' : count.toString();
-  };
-
-  const notificationBadge = formatBadgeCount(unreadCount);
-  const rewardsBadge = formatBadgeCount(pendingRewardsCount);
-
-  return (
-    <View style={styles.container}>
-      {!isOnline && (
-        <Flex align="center" justify="center" gap={6} style={styles.offlineBanner}>
-          <WifiOff size={14} color={COLORS.danger} />
-          <Label style={styles.offlineText}>Sin conexión - Modo lectura</Label>
-        </Flex>
-      )}
-
-      {/* Top Row: User Info and MONSTER Logo */}
-      <Flex justify="between" align="center" margin={[{ type: 'bottom', value: 12 }]}>
-        <Flex align="center" gap={10}>
-          <TouchableOpacity 
-            style={styles.profileIcon}
-            onPress={onSettings}
-            activeOpacity={0.7}
-          >
-            <User size={28} color={COLORS.primary} />
-            <PulseDot isOnline={isOnline} />
-          </TouchableOpacity>
-          <View>
-            <Flex align="baseline" gap={6}>
-              <Label type="detail" style={styles.welcomeText}>Hola,</Label>
-              <Label type="header" style={styles.userName}>{username}</Label>
-            </Flex>
-            <Label type="subheader" style={styles.structureName}>{structureName}</Label>
-          </View>
-        </Flex>
-        <Label type="subheader" style={styles.appName}>MONSTER</Label>
-      </Flex>
-
-      {/* Action Icons Row */}
-      <Flex justify="end" align="center" gap={12} style={styles.actionRow}>
-        <TouchableOpacity 
-          onPress={() => router.push('/lister/winners')} 
-          style={styles.iconButton}
-          activeOpacity={0.7}
-        >
-          <Gift size={20} color={COLORS.textDark} />
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          onPress={onHelp} 
-          style={styles.iconButton}
-          activeOpacity={0.7}
-        >
-          <HelpCircle size={20} color={COLORS.textDark} />
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          onPress={onNotifications} 
-          style={styles.iconButton}
-          activeOpacity={0.7}
-        >
-          <View>
-            <Bell size={20} color={COLORS.textDark} />
-            {notificationBadge && (
-              <Badge 
-                content={notificationBadge}
-                color={COLORS.danger}
-                textColor="#FFF"
-                style={styles.notificationBadge}
-              />
-            )}
-            {rewardsBadge && (
-              <Badge 
-                content={rewardsBadge}
-                color={COLORS.success}
-                textColor="#FFF"
-                style={styles.rewardsBadge}
-              />
-            )}
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          onPress={onToggleBalance} 
-          style={styles.iconButton}
-          activeOpacity={0.7}
-        >
-          {showBalance ? (
-            <Eye size={20} color={COLORS.textDark} />
-          ) : (
-            <EyeOff size={20} color={COLORS.textDark} />
-          )}
-        </TouchableOpacity>
-      </Flex>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    backgroundColor: '#FFF',
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  profileIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: COLORS.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  notificationBadge: {
-    position: 'absolute',
-    top: -8,
-    right: -10,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    paddingHorizontal: 4,
-    paddingVertical: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#FFF',
-    zIndex: 2,
-  },
-  rewardsBadge: {
-    position: 'absolute',
-    bottom: -6,
-    left: -10,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    paddingHorizontal: 3,
-    paddingVertical: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#FFF',
-    zIndex: 1,
-  },
-  welcomeText: {
-    fontSize: 12,
-    color: COLORS.textLight,
-  },
-  userName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.textDark,
-  },
-  structureName: {
-    fontSize: 13,
-    color: COLORS.textLight,
-    marginTop: 2,
-  },
-  appName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.primaryDark,
-    letterSpacing: 0.5,
-  },
-  statusDotContainer: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#FFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1,
-    elevation: 2,
-  },
-  statusDot: {
-    width: 11,
-    height: 11,
-    borderRadius: 5.5,
-  },
-  offlineBanner: {
-    backgroundColor: '#FFF2F2',
-    paddingVertical: 6,
-    borderRadius: 8,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#FFDADA',
-  },
-  offlineText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.danger,
-  },
-  actionRow: {
-    marginTop: 2,
-  },
-  iconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: '#FFF',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  }
+    container: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 14,
+    },
+    leftSection: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    menuButton: {
+        padding: 4,
+        marginRight: 12,
+    },
+    userInfo: {
+        flex: 1,
+    },
+    username: {
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    structureRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    structureName: {
+        fontSize: 12,
+        marginRight: 4,
+    },
+    onlineIcon: {
+        marginLeft: 2,
+    },
+    rightContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    bellButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    bellContent: {
+        position: 'relative',
+    },
+    badge: {
+        position: 'absolute',
+        top: -4,
+        right: -8,
+        minWidth: 18,
+        height: 18,
+        borderRadius: 9,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 4,
+    },
+    badgeText: {
+        color: 'white',
+        fontSize: 10,
+        fontWeight: '700',
+    },
+    profileIcon: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+    },
+    rewardsBadge: {
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 12,
+    },
+    rewardsText: {
+        fontSize: 12,
+        fontWeight: '600',
+    },
 });
+
+export default Header;

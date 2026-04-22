@@ -27,4 +27,5 @@ export interface Model {
     currentUser: DashboardUser | null;
     isRateLimited: boolean;
     promotion: PromotionState;
+    needsPasswordChange: boolean;
 }

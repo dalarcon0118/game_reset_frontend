@@ -28,4 +28,10 @@ export const AuthOfflineKeys = {
      */
     lastUsername: () =>
         OfflineStorageKeyManager.generateKey(AUTH_KEYS.STORAGE_ENTITY, 'user', AUTH_KEYS.LAST_USERNAME, AUTH_KEYS.DATA_TYPE),
+
+    /**
+     * Llave para la fecha del último login (usado para determinar primera auth del día)
+     */
+    lastLoginDate: () =>
+        OfflineStorageKeyManager.generateKey(AUTH_KEYS.STORAGE_ENTITY, 'user', AUTH_KEYS.LAST_LOGIN_DATE, AUTH_KEYS.DATA_TYPE),
 };

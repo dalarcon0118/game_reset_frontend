@@ -25,6 +25,7 @@ import { syncWorker } from '@core/offline-storage/instance';
 
 // Notifications
 import { notificationRepository } from '@/shared/repositories/notification';
+import { AuthRepository } from '@/shared/repositories/auth';
 
 /**
  * BetRepository — Fachada TEA.
@@ -214,12 +215,20 @@ export const createBetRepository = (
             return Promise.race([mainPromise, timeoutPromise]);
         },
 
-        getTotalsByDrawId: async (todayStart: number, structureId?: string, defaultCommissionRate?: number) => {
+        getTotalsByDrawId: async (todayStart: number, structureId?: string, _defaultCommissionRate?: number) => {
+            const user = await AuthRepository.hydrate();
+            const commissionRate = user?.structure?.commission_rate ?? 0;
+            if (commissionRate === 0) {
+                log.warn('[BetRepository] commissionRate is 0, calculations will be incorrect', {
+                    hasUser: !!user,
+                    structureCommissionRate: user?.structure?.commission_rate
+                });
+            }
             return new Promise<Record<string, RawBetTotals>>((resolve, reject) => {
                 dispatch(Msg.totalsByDrawRequested({
                     todayStart,
                     structureId,
-                    defaultRate: defaultCommissionRate,
+                    defaultRate: commissionRate,
                     resolve: (result) => result.isOk() ? resolve(result.value) : reject(result.error)
                 }));
             });

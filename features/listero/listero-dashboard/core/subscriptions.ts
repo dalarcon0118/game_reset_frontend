@@ -79,6 +79,15 @@ export const subscriptions = (model: Model): SubDescriptor<Msg> => {
         'listero-dashboard-auth-user-sync'
     );
 
+    // 7b. Sincronización con el estado needs_pin_change del AuthStore
+    // Evita cargar promociones si el usuario necesita cambiar su password
+    const authNeedsPasswordChangeSub = Sub.watchStore(
+        'Auth',
+        (state: any) => state?.model?.needs_pin_change,
+        (needsChange) => ({ type: 'NEEDS_PASSWORD_CHANGE', needsChange: needsChange ?? false }),
+        'listero-dashboard-auth-needs-pin-change'
+    );
+
     // 8. Periodic data refresh (TICK) — only when dashboard is READY
     /*const tickSub = model.status.type === 'READY' && model.userStructureId
         ? Sub.every(30000, TICK(), 'listero-dashboard-tick')
@@ -87,5 +96,5 @@ export const subscriptions = (model: Model): SubDescriptor<Msg> => {
     // 9. SSE subscription for real-time financial updates — only when authenticated
 
 
-    return Sub.batch([filterSub, rulesSub, rewardsSub, refreshSub, systemReadySub, coreReadySub, authUserSub]);
+    return Sub.batch([filterSub, rulesSub, rewardsSub, refreshSub, systemReadySub, coreReadySub, authUserSub, authNeedsPasswordChangeSub]);
 };

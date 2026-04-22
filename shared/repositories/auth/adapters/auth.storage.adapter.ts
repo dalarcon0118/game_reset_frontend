@@ -191,6 +191,12 @@ export const authStorageAdapter: IAuthStorage = {
     async getOfflineProfile(): Promise<User | null> {
         return await offlineStorage.get<User>(AuthOfflineKeys.offlineProfile());
     },
+    async saveLastLoginDate(date: string): Promise<void> {
+        await offlineStorage.set(AuthOfflineKeys.lastLoginDate(), date);
+    },
+    async getLastLoginDate(): Promise<string | null> {
+        return await offlineStorage.get<string>(AuthOfflineKeys.lastLoginDate());
+    },
     async purgeLegacyData(): Promise<void> {
         try {
             await deleteSecureItem(AUTH_KEYS.LEGACY_DEVICE_ID);

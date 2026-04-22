@@ -77,89 +77,45 @@ export const DateFilterBar: React.FC<DateFilterBarProps> = ({
     return dateStr === yesterday.toISOString().split('T')[0];
   };
 
+  // Color para texto activo: blanco en light, oscuro en dark
+  const activeTextColor = colorScheme === 'dark' ? theme.background : '#FFFFFF';
+  // Color para fondo inactivo
+  const inactiveBgColor = theme.primaryLight;
+
+  const renderFilterButton = (filter: DateFilter, label: string) => {
+    const isActive = activeFilter === filter;
+    return (
+      <TouchableOpacity
+        key={filter}
+        style={[
+          styles.filterButton,
+          { backgroundColor: isActive ? theme.primary : inactiveBgColor }
+        ]}
+        onPress={() => handleFilterPress(filter)}
+      >
+        <Text 
+          style={[
+            styles.filterText,
+            { color: isActive ? activeTextColor : theme.primary }
+          ]}
+        >
+          {label}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-      {/* Filter buttons */}
       <ScrollView 
         horizontal 
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.filtersContainer}
       >
-        <TouchableOpacity
-          style={[
-            styles.filterButton,
-            { 
-              backgroundColor: activeFilter === 'today' ? theme.primary : theme.primary + '20',
-            }
-          ]}
-          onPress={() => handleFilterPress('today')}
-        >
-          <Text 
-            style={[
-              styles.filterText,
-              { color: activeFilter === 'today' ? '#FFFFFF' : theme.primary }
-            ]}
-          >
-            Hoy
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.filterButton,
-            { 
-              backgroundColor: activeFilter === 'yesterday' ? theme.primary : theme.primary + '20',
-            }
-          ]}
-          onPress={() => handleFilterPress('yesterday')}
-        >
-          <Text 
-            style={[
-              styles.filterText,
-              { color: activeFilter === 'yesterday' ? '#FFFFFF' : theme.primary }
-            ]}
-          >
-            Ayer
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.filterButton,
-            { 
-              backgroundColor: activeFilter === 'week' ? theme.primary : theme.primary + '20',
-            }
-          ]}
-          onPress={() => handleFilterPress('week')}
-        >
-          <Text 
-            style={[
-              styles.filterText,
-              { color: activeFilter === 'week' ? '#FFFFFF' : theme.primary }
-            ]}
-          >
-            Semana
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.filterButton,
-            { 
-              backgroundColor: activeFilter === 'all' ? theme.primary : theme.primary + '20',
-            }
-          ]}
-          onPress={() => handleFilterPress('all')}
-        >
-          <Text 
-            style={[
-              styles.filterText,
-              { color: activeFilter === 'all' ? '#FFFFFF' : theme.primary }
-            ]}
-          >
-            Todos
-          </Text>
-        </TouchableOpacity>
+        {renderFilterButton('today', 'Hoy')}
+        {renderFilterButton('yesterday', 'Ayer')}
+        {renderFilterButton('week', 'Semana')}
+        {renderFilterButton('all', 'Todos')}
       </ScrollView>
     </View>
   );

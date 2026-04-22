@@ -170,6 +170,7 @@ export interface IBetRepository {
     isReady(): Promise<boolean>;
 
     // Agregaciones crudas (SSOT) - No incluyen lógica de negocio
+    // commissionRate se obtiene internamente desde AuthRepository
     getFinancialSummary(todayStart: number, structureId?: string): Promise<RawBetTotals>;
     getTotalsByDrawId(todayStart: number, structureId?: string): Promise<Record<string, RawBetTotals>>;
 

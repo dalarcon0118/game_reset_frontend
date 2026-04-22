@@ -1,11 +1,12 @@
 import { useColorScheme } from 'react-native';
+import { useTheme as useKittenTheme, Theme } from '@ui-kitten/components';
 import Colors from '../../constants/colors';
 
 export const useTheme = () => {
     const colorScheme = useColorScheme() ?? 'light';
+    const kittenTheme = useKittenTheme() as Theme;
     const colors = Colors[colorScheme];
 
-    // Define spacing constants consistent with the project's design system
     const spacing = {
         xs: 4,
         sm: 8,
@@ -15,15 +16,36 @@ export const useTheme = () => {
         xxl: 32,
     };
 
-    // Map some additional color names that might be expected by components
-    const extendedColors = {
-        ...colors,
-        surface: colors.card, // using card as surface
+    const isDark = colorScheme === 'dark';
+
+    const ui = {
+        background: kittenTheme['background-basic-color-1'],
+        surface: kittenTheme['background-basic-color-2'],
+        surfaceAlt: kittenTheme['background-basic-color-3'],
+        text: kittenTheme['text-basic-color'],
+        textSecondary: kittenTheme['text-hint-color'],
+        border: kittenTheme['color-basic-400'],
+        borderLight: kittenTheme['color-basic-300'],
+        primary: kittenTheme['color-primary-500'],
+        primaryLight: kittenTheme['color-primary-100'],
+        primaryDark: kittenTheme['color-primary-600'],
+        success: kittenTheme['color-success-500'],
+        successLight: kittenTheme['color-success-100'],
+        warning: kittenTheme['color-warning-500'],
+        warningLight: kittenTheme['color-warning-100'],
+        danger: kittenTheme['color-danger-500'],
+        dangerLight: kittenTheme['color-danger-100'],
+        info: kittenTheme['color-info-500'],
+        infoLight: kittenTheme['color-info-100'],
     };
 
     return {
-        colors: extendedColors,
+        colors,
+        theme: kittenTheme,
+        ui,
         spacing,
-        isDark: colorScheme === 'dark',
+        isDark,
     };
 };
+
+export type ThemeColors = ReturnType<typeof useTheme>;

@@ -116,6 +116,6 @@ export const getTotalsByDrawIdFlow = async (
         return totalsByDraw;
     } catch (error) {
         log.error('Error aggregating totals by draw ID', error);
-        return {};
+        throw error;
     }
 };

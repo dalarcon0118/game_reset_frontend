@@ -48,6 +48,9 @@ export enum AuthErrorType {
     UNKNOWN_ERROR = 'UNKNOWN_ERROR',
     OFFLINE_NOT_ALLOWED = 'OFFLINE_NOT_ALLOWED',
     RATE_LIMIT_EXCEEDED = 'RATE_LIMIT_EXCEEDED',
+    // Errores específicos para flujo de primera autenticación vs offline
+    CONNECTION_ERROR_FIRST_AUTH = 'CONNECTION_ERROR_FIRST_AUTH', // Error de conexión en primera auth del día
+    OFFLINE_NO_DRAWS = 'OFFLINE_NO_DRAWS', // Offline sin sorteos locales disponibles
     // Nuevos códigos para errores específicos del backend
     DB_CONNECTION_ERROR = 'DB_CONNECTION_ERROR',
     DB_QUERY_ERROR = 'DB_QUERY_ERROR',

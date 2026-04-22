@@ -10,5 +10,6 @@ export const initialRewardModel: RewardModel = {
     status: RemoteData.notAsked()
   },
   structureId: null,
-  pendingRewardsCount: 0
+  pendingRewardsCount: 0,
+  pendingRewardsError: false
 };

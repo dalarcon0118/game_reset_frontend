@@ -1,19 +1,17 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Text, useTheme } from '@ui-kitten/components';
+import { View, StyleSheet, useColorScheme } from 'react-native';
+import { Text } from '@ui-kitten/components';
 import { Calendar, Trophy, Hash } from 'lucide-react-native';
+import Colors from '@/constants/colors';
 import { WinningRecordGroup } from '../../core/types';
 
 interface AllWinnersCardProps {
   recordGroup: WinningRecordGroup;
 }
 
-/**
- * AllWinnersCard: Reutilizando el estilo visual de PrizeTableCard
- * para mostrar los resultados ganadores de forma consistente.
- */
 export const AllWinnersCard: React.FC<AllWinnersCardProps> = ({ recordGroup }) => {
-  const theme = useTheme();
+  const colorScheme = useColorScheme() ?? 'light';
+  const theme = Colors[colorScheme];
 
   const formatDate = (dateStr: string): string => {
     const date = new Date(dateStr);
@@ -27,38 +25,33 @@ export const AllWinnersCard: React.FC<AllWinnersCardProps> = ({ recordGroup }) =
   const totalWinners = recordGroup.entries.length;
 
   return (
-    <View style={styles.cardContainer}>
-      {/* Header con fecha */}
-      <View style={styles.headerRow}>
+    <View style={[styles.card, { backgroundColor: theme.card }]}>
+      <View style={[styles.header, { borderBottomColor: theme.border }]}>
         <View style={styles.dateWrapper}>
-          <Calendar size={18} color={theme['color-primary-500']} />
-          <Text category="s1" style={styles.dateText}>
+          <Calendar size={18} color={theme.primary} />
+          <Text style={[styles.dateText, { color: theme.text }]}>
             {formatDate(recordGroup.date)}
           </Text>
         </View>
-        <View style={styles.countBadge}>
-          <Text category="c1" style={styles.countText}>
+        <View style={[styles.badge, { backgroundColor: theme.backgroundSecondary }]}>
+          <Text style={[styles.badgeText, { color: theme.textSecondary }]}>
             {(recordGroup.entries as any)[0]?.real_winners_count ?? totalWinners} ganadores
           </Text>
         </View>
       </View>
 
-      {/* Lista de ganadores */}
-      <View style={styles.winningsList}>
+      <View style={styles.list}>
         {recordGroup.entries.map((entry, index) => (
-          <View 
-            key={entry.id || index} 
-            style={styles.winningItem}
-          >
-            <View style={styles.betTypeBadge}>
-              <Trophy size={14} color={theme['color-info-600']} />
-              <Text category="c1" style={styles.betTypeCode}>
+          <View key={entry.id || index} style={[styles.item, { borderBottomColor: theme.border }]}>
+            <View style={[styles.badgeRow, { backgroundColor: theme.primaryLight }]}>
+              <Trophy size={14} color={theme.primary} />
+              <Text style={[styles.badgeText, { color: theme.primary }]}>
                 {entry.bet_type_code}
               </Text>
             </View>
             <View style={styles.numberRow}>
-              <Hash size={16} color={theme['color-basic-600']} />
-              <Text category="h6" style={styles.winningNumber}>
+              <Hash size={16} color={theme.textSecondary} />
+              <Text style={[styles.numberText, { color: theme.text }]}>
                 {entry.winning_number}
               </Text>
             </View>
@@ -70,26 +63,24 @@ export const AllWinnersCard: React.FC<AllWinnersCardProps> = ({ recordGroup }) =
 };
 
 const styles = StyleSheet.create({
-  cardContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+  card: {
+    borderRadius: 16,
     marginHorizontal: 16,
     marginBottom: 16,
-    padding: 20,
-    elevation: 4,
+    padding: 16,
+    elevation: 2,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
-    shadowRadius: 8,
+    shadowRadius: 4,
   },
-  headerRow: {
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F5',
   },
   dateWrapper: {
     flexDirection: 'row',
@@ -98,48 +89,41 @@ const styles = StyleSheet.create({
   dateText: {
     fontWeight: '700',
     marginLeft: 8,
-    color: '#000000',
+    fontSize: 16,
   },
-  countBadge: {
-    backgroundColor: '#F0F0F0',
+  badge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
   },
-  countText: {
+  badgeText: {
     fontWeight: '800',
-    color: '#666',
+    fontSize: 12,
   },
-  winningsList: {
-    gap: 12,
+  list: {
+    gap: 8,
   },
-  winningItem: {
+  item: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 8,
+    borderBottomWidth: 1,
   },
-  betTypeBadge: {
+  badgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E3F2FD',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
   },
-  betTypeCode: {
-    fontWeight: '800',
-    color: '#1565C0',
-    marginLeft: 4,
-  },
   numberRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
   },
-  winningNumber: {
+  numberText: {
     fontWeight: '900',
-    color: '#000000',
+    fontSize: 16,
     letterSpacing: 0.5,
   },
 });

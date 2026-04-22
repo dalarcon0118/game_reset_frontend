@@ -11,9 +11,9 @@ import { ensureError } from '@/shared/utils/error';
 import { DataHandler } from './handlers/data.handler';
 import { NavigationHandler } from './handlers/navigation.handler';
 import { FilterHandler } from './handlers/filter.handler';
-import { AuthHandler } from './handlers/auth.handler';
+import { AuthHandler, triggerInitialLoad } from './handlers/auth.handler';
 import * as PromotionUpdate from '../../../../shared/components/promotion/update';
-import { PROMOTION_MSG } from './msg';
+import { PROMOTION_MSG, RETRY_INITIAL_LOAD } from './msg';
 
 const log = logger.withTag('DASHBOARD_UPDATE');
 
@@ -43,6 +43,10 @@ export const update = (model: Model, msg: Msg): Return<Model, Msg> => {
         .with({ type: 'REFRESH_CLICKED' }, () =>
             DataHandler.handleRefreshClicked(model)
         )
+        .with({ type: 'RETRY_INITIAL_LOAD' }, () => {
+            log.warn('[DASHBOARD] RETRY_INITIAL_LOAD triggered - retrying initial data load');
+            return triggerInitialLoad(model);
+        })
         .with({ type: 'TICK' }, () =>
             DataHandler.handleTick(model)
         )
@@ -69,6 +73,12 @@ export const update = (model: Model, msg: Msg): Return<Model, Msg> => {
         .with({ type: 'AUTH_TOKEN_UPDATED' }, ({ token }) => {
             // log.debug('AUTH_TOKEN_UPDATED');
             return AuthHandler.handleAuthTokenUpdated(model, token);
+        })
+        .with({ type: 'NEEDS_PASSWORD_CHANGE' }, ({ needsChange }) => {
+            return ret(
+                { ...model, needsPasswordChange: needsChange },
+                Cmd.none
+            );
         })
         .with({ type: 'SET_USER_STRUCTURE' }, ({ id }) =>
             AuthHandler.handleSetUserStructure(model, id)

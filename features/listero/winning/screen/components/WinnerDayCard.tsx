@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Calendar, Wallet, Hash } from 'lucide-react-native';
+import { View, Text, StyleSheet, useColorScheme } from 'react-native';
+import { Calendar } from 'lucide-react-native';
+import Colors from '@/constants/colors';
 import { WinningDrawGroup } from '../../core/types';
 import { WinningBet } from '@/shared/repositories/bet/winnings.types';
 
@@ -21,78 +22,65 @@ interface WinnerDayCardProps {
   winnings?: WinningBet[];
 }
 
-/**
- * Card para mostrar los números winners de un día específico
- * 
- * REFACTOR: Este componente muestra WinningDrawGroup en lugar de ExtendedDrawType.
- * Los datos vienen de BetRepository.getMyWinnings().
- */
 export const WinnerDayCard: React.FC<WinnerDayCardProps> = ({ drawGroup, winnings = [] }) => {
-  // Formatear fecha
+  const colorScheme = useColorScheme() ?? 'light';
+  const theme = Colors[colorScheme];
+
   const formatDate = (dateStr: string): string => {
     const date = new Date(dateStr);
     return date.toLocaleDateString('es-ES', {
       weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+      day: 'numeric',
+      month: 'long'
     });
   };
 
-  // Formatear hora
-  const formatTime = (dateStr: string): string => {
-    const date = new Date(dateStr);
-    return date.toLocaleTimeString('es-ES', {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  // Calculate total payout
-  const totalPayout = drawGroup.winnings.reduce((sum, w) => sum + w.payout_amount, 0);
+  const totalPayout = drawGroup.winnings.reduce((sum, w) => sum + Number(w.payout_amount), 0);
 
   return (
-    <View style={styles.card}>
-      {/* Header con fecha */}
-      <View style={styles.dateHeader}>
+    <View style={[styles.card, { backgroundColor: theme.card }]}>
+      <View style={[styles.dateHeader, { borderBottomColor: theme.border }]}>
         <View style={styles.dateWrapper}>
-          <Calendar size={18} color="#1565C0" />
-          <Text style={styles.dateText}>
+          <Calendar size={18} color={theme.primary} />
+          <Text style={[styles.dateText, { color: theme.text }]}>
             {formatDate(drawGroup.date)}
           </Text>
         </View>
       </View>
 
-      {/* Sorteo info */}
       <View style={styles.drawInfo}>
-        <Text style={styles.drawNameText}>
+        <Text style={[styles.drawNameText, { color: theme.textSecondary }]}>
           {drawGroup.drawName}
         </Text>
       </View>
 
-      {/* Lista de winning bets */}
       <View style={styles.winningsList}>
         {drawGroup.winnings.map((win, index) => (
-          <View key={win.id || index} style={styles.winningItem}>
+          <View key={win.id || index} style={[styles.winningItem, { borderBottomColor: theme.border }]}>
             <View style={styles.winningItemLeft}>
               {win.bet_type_details?.name && (
-                <View style={styles.betTypeBadge}>
-                  <Text style={styles.betTypeCode}>
+                <View style={[styles.betTypeBadge, { backgroundColor: theme.primaryLight }]}>
+                  <Text style={[styles.betTypeCode, { color: theme.primary }]}>
                     {win.bet_type_details.name}
                   </Text>
                 </View>
               )}
               <View style={styles.betDetails}>
-                <Text style={styles.numbersText}>
+                <Text style={[styles.numbersText, { color: theme.text }]}>
                   {formatNumbersPlayed(win.numbers_played)}
                 </Text>
+                {win.receipt_code && (
+                  <Text style={[styles.receiptText, { color: theme.textSecondary }]}>
+                    {win.receipt_code}
+                  </Text>
+                )}
               </View>
             </View>
             <View style={styles.winningItemRight}>
-              <Text style={styles.payoutText}>
+              <Text style={[styles.payoutText, { color: theme.success }]}>
                 +{Number(win.payout_amount).toLocaleString('es-ES')}
               </Text>
-              <Text style={styles.payoutLabel}>
+              <Text style={[styles.payoutLabel, { color: theme.textSecondary }]}>
                 Premio
               </Text>
             </View>
@@ -100,13 +88,12 @@ export const WinnerDayCard: React.FC<WinnerDayCardProps> = ({ drawGroup, winning
         ))}
       </View>
 
-      {/* Total */}
       {totalPayout > 0 && (
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>
+        <View style={[styles.totalRow, { borderTopColor: theme.border }]}>
+          <Text style={[styles.totalLabel, { color: theme.text }]}>
             Total ganado:
           </Text>
-          <Text style={styles.totalText}>
+          <Text style={[styles.totalText, { color: theme.success }]}>
             {totalPayout.toLocaleString('es-ES')}
           </Text>
         </View>
@@ -117,25 +104,23 @@ export const WinnerDayCard: React.FC<WinnerDayCardProps> = ({ drawGroup, winning
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 16,
     marginHorizontal: 16,
     marginBottom: 16,
-    padding: 20,
-    elevation: 4,
+    padding: 16,
+    elevation: 2,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
-    shadowRadius: 8,
+    shadowRadius: 4,
   },
   dateHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F5',
   },
   dateWrapper: {
     flexDirection: 'row',
@@ -144,28 +129,17 @@ const styles = StyleSheet.create({
   dateText: {
     fontWeight: '700',
     marginLeft: 8,
-    color: '#000000',
-  },
-  countBadge: {
-    backgroundColor: '#F0F0F0',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  countText: {
-    fontWeight: '800',
-    color: '#666',
+    fontSize: 16,
   },
   drawInfo: {
     marginBottom: 12,
   },
   drawNameText: {
     fontWeight: '600',
-    color: '#333',
     fontSize: 14,
   },
-winningsList: {
-    gap: 12,
+  winningsList: {
+    gap: 8,
   },
   winningItem: {
     flexDirection: 'row',
@@ -173,7 +147,6 @@ winningsList: {
     alignItems: 'center',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
   },
   winningItemLeft: {
     flex: 1,
@@ -183,45 +156,34 @@ winningsList: {
     marginLeft: 12,
   },
   betTypeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E3F2FD',
+    alignSelf: 'flex-start',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
+    marginBottom: 4,
   },
   betTypeCode: {
-    fontWeight: '800',
-    color: '#1565C0',
-    marginLeft: 4,
-    fontSize: 12,
+    fontWeight: '700',
+    fontSize: 11,
   },
   betDetails: {
-    flex: 1,
-    marginLeft: 12,
+    marginTop: 2,
   },
   numbersText: {
     fontWeight: '900',
-    color: '#000000',
     letterSpacing: 0.5,
     fontSize: 16,
   },
   receiptText: {
     fontSize: 12,
-    color: '#666',
     marginTop: 2,
   },
-  payoutInfo: {
-    alignItems: 'flex-end',
-  },
   payoutText: {
-    fontWeight: '900',
-    color: '#22C55E',
+    fontWeight: '800',
     fontSize: 16,
   },
   payoutLabel: {
     fontSize: 10,
-    color: '#666',
   },
   totalRow: {
     flexDirection: 'row',
@@ -230,16 +192,13 @@ winningsList: {
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#F5F5F5',
   },
   totalLabel: {
     fontWeight: '700',
-    color: '#000000',
     fontSize: 14,
   },
   totalText: {
     fontWeight: '900',
-    color: '#22C55E',
     fontSize: 20,
   },
 });

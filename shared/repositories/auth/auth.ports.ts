@@ -84,4 +84,8 @@ export interface IAuthStorage {
     getUserProfile(): Promise<User | null>;
     getOfflineProfile(): Promise<User | null>;
     purgeLegacyData(): Promise<void>;
+
+    // First auth of the day tracking
+    saveLastLoginDate(date: string): Promise<void>;
+    getLastLoginDate(): Promise<string | null>;
 }

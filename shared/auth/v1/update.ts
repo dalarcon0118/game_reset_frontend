@@ -84,7 +84,7 @@ export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMs
 
             return ret(
                 { ...model, status: AuthStatus.AUTHENTICATING, error: null },
-                RemoteDataHttp.fetch(
+RemoteDataHttp.fetch(
                     () => AuthRepository.login(payload.username, payload.pin),
                     (result) => {
                         if (result.type === 'Success') {
@@ -105,30 +105,28 @@ export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMs
                             });
                         }
                         
-                        // Extraer mensaje detallado del error cuando es Failure
-                        // El ApiClientError puede contener mensajes específicos del backend
+                        // HERE: result.type === 'Failure' - la llamada HTTP falló
+                        // Error de red/transporte
                         let detailedErrorMessage = 'Error de conexión';
-                        
-                        if (result.error) {
-                            // Verificar si es un ApiClientError con mensaje de usuario
-                            if (result.error.userMessage) {
-                                detailedErrorMessage = result.error.userMessage;
-                            } else if (result.error.message) {
-                                // Extraer mensaje del detalle del backend si existe
-                                const errorData = result.error.data;
+                        const resultError = (result as any).error;
+
+                        if (resultError) {
+                            if (resultError.userMessage) {
+                                detailedErrorMessage = resultError.userMessage;
+                            } else if (resultError.message) {
+                                const errorData = resultError.data;
                                 if (errorData && errorData.detail) {
                                     detailedErrorMessage = errorData.detail;
-                                } else if (result.error.message !== 'HTTP error! status: 503') {
-                                    // Solo usar el mensaje si no es el genérico
-                                    detailedErrorMessage = result.error.message;
+                                } else if (resultError.message !== 'HTTP error! status: 503') {
+                                    detailedErrorMessage = resultError.message;
                                 }
                             }
                         }
                         
                         // Detectar errores específicos del servidor (503, 500, etc)
-                        const errorStatus = result.error?.status || 0;
+                        const errorStatus = resultError?.status || 0;
                         if (errorStatus >= 500) {
-                            const errorData = result.error?.data;
+                            const errorData = resultError?.data;
                             if (errorData?.detail) {
                                 detailedErrorMessage = errorData.detail;
                             } else if (errorStatus === 503) {
@@ -137,7 +135,7 @@ export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMs
                                 detailedErrorMessage = 'Error interno del servidor. Por favor, intenta más tarde.';
                             }
                         }
-                        
+
                         return LOGIN_FAILED({ 
                             error: detailedErrorMessage, 
                             type: AuthErrorType.CONNECTION_ERROR 
@@ -150,6 +148,14 @@ export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMs
 
         .with(LOGIN_SUCCEEDED.type(), ({ payload }) => {
             const needsPinChange = payload.needs_pin_change || false;
+            
+            logger.info('[AUTH] LOGIN_SUCCEEDED - Navigating to dashboard', {
+                userId: payload.user?.id,
+                username: payload.user?.username,
+                isOffline: payload.isOffline,
+                needsPinChange
+            });
+
             return ret(
                 {
                     ...model,
@@ -184,10 +190,16 @@ export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMs
                 // Mostramos CONNECTION_ERROR en lugar de DEVICE_LOCKED
                 status = AuthStatus.CONNECTION_ERROR;
                 logger.warn('[AUTH] DEVICE_ID_REQUIRED detected - treating as connection error, not device mismatch');
-            } else if (payload.type === AuthErrorType.CONNECTION_ERROR || payload.type === AuthErrorType.OFFLINE_NOT_ALLOWED) {
+            } else if (payload.type === AuthErrorType.CONNECTION_ERROR || 
+                     payload.type === AuthErrorType.OFFLINE_NOT_ALLOWED ||
+                     payload.type === AuthErrorType.CONNECTION_ERROR_FIRST_AUTH ||
+                     payload.type === AuthErrorType.OFFLINE_NO_DRAWS) {
                 // Errores de conexión: el servidor no está reachable
+                // Ahora también incluye errores específicos de primera auth y sin sorteos locales
                 status = AuthStatus.CONNECTION_ERROR;
-                logger.warn('[AUTH] Connection error detected - treating as CONNECTION_ERROR');
+                logger.warn('[AUTH] Connection error detected - treating as CONNECTION_ERROR', { 
+                    errorType: payload.type 
+                });
             } else if (payload.type === AuthErrorType.ACCOUNT_DISABLED || payload.type === AuthErrorType.ACCOUNT_LOCKED) {
                 // Cuenta deshabilitada o bloqueada
                 status = AuthStatus.UNAUTHENTICATED;

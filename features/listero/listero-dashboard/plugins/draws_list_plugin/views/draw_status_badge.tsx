@@ -1,8 +1,9 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, useColorScheme } from 'react-native';
 import { match } from 'ts-pattern';
 import { Badge, Label } from '@/shared/components';
 import { DRAW_STATUS, DrawStatus } from '@/types';
+import Colors from '@/constants/colors';
 import { AlarmClock, CloudOff } from 'lucide-react-native';
 
 interface DrawStatusBadgeProps {
@@ -19,6 +20,9 @@ const DrawStatusBadge: React.FC<DrawStatusBadgeProps> = ({
   closingInfo,
   betCount,
 }) => {
+  const colorScheme = useColorScheme() ?? 'light';
+  const theme = Colors[colorScheme];
+  
   const hasOfflineBets = betCount > 0;
 
   const badgeContent = match(status)
@@ -34,26 +38,28 @@ const DrawStatusBadge: React.FC<DrawStatusBadgeProps> = ({
 
   const badgeColor = match(status)
     .with(DRAW_STATUS.OPEN, () =>
-      closingInfo?.isCritical ? '#FF3D71' : '#00D68F'
+      closingInfo?.isCritical ? theme.error : theme.success
     )
-    .with(DRAW_STATUS.CLOSED, () => '#FF3D71')
-    .with(DRAW_STATUS.SCHEDULED, DRAW_STATUS.PENDING, () => '#8F9BB3')
-    .otherwise(() => '#8F9BB3');
+    .with(DRAW_STATUS.CLOSED, () => theme.error)
+    .with(DRAW_STATUS.SCHEDULED, DRAW_STATUS.PENDING, () => theme.textTertiary)
+    .otherwise(() => theme.textTertiary);
+
+  const textColor = colorScheme === 'dark' ? theme.background : '#FFFFFF';
 
   return (
     <View style={styles.container}>
       <Badge
         color={badgeColor}
-        textColor="#FFFFFF"
+        textColor={textColor}
         content={badgeContent}
       />
       {status === DRAW_STATUS.OPEN && closingInfo?.isCritical && (
-        <AlarmClock size={20} color="#FF3D71" style={styles.alarmIcon} />
+        <AlarmClock size={20} color={theme.error} style={styles.alarmIcon} />
       )}
       {hasOfflineBets && (
-        <View style={styles.offlineBadge}>
-          <CloudOff size={10} color="#fff" />
-          <Label style={styles.offlineBadgeText}>{betCount}</Label>
+        <View style={[styles.offlineBadge, { backgroundColor: theme.warning }]}>
+          <CloudOff size={10} color={textColor} />
+          <Label style={[styles.offlineBadgeText, { color: textColor }]}>{betCount}</Label>
         </View>
       )}
     </View>
@@ -72,14 +78,12 @@ const styles = StyleSheet.create({
   offlineBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FF9800',
     borderRadius: 12,
     paddingHorizontal: 6,
     paddingVertical: 2,
     gap: 2,
   },
   offlineBadgeText: {
-    color: '#fff',
     fontSize: 10,
     fontWeight: 'bold',
   },

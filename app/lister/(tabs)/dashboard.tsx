@@ -6,6 +6,7 @@ import DashboardScreenComponent from '@/features/listero/listero-dashboard/views
 import { ListeroDashboardProvider } from '@/features/listero/listero-dashboard/core/store_context';
 import { CoreModule } from '@/core/core_module';
 import { RewardModule } from '@/features/listero/reward/core/store';
+import { WinningProvider } from '@/features/listero/winning';
 
 export default function ListeroDashboardTab() {
   const colorScheme = useColorScheme() ?? 'light';
@@ -18,15 +19,17 @@ export default function ListeroDashboardTab() {
 
   return (
     <ListeroDashboardProvider initialParams={initialParams}>
-      <RewardModule.Provider>
-        <SafeAreaView style={[
-          styles.container,
-          { backgroundColor: Colors[colorScheme].background }
-        ]}>
-          <DashboardScreenComponent/>
+      <WinningProvider>
+        <RewardModule.Provider>
+          <SafeAreaView style={[
+            styles.container,
+            { backgroundColor: Colors[colorScheme].background }
+          ]}>
+            <DashboardScreenComponent/>
 
-        </SafeAreaView>
-      </RewardModule.Provider>
+          </SafeAreaView>
+        </RewardModule.Provider>
+      </WinningProvider>
     </ListeroDashboardProvider>
   );
 }

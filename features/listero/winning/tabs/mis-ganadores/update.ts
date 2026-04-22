@@ -96,7 +96,7 @@ const fetchPendingRewardsCountTask = () => ({
     return count;
   },
   onSuccess: (count: number) => ({ type: 'FETCH_PENDING_REWARDS_COUNT_SUCCESS' as const, payload: count }),
-  onFailure: (_error: Error) => ({ type: 'FETCH_PENDING_REWARDS_COUNT_FAILURE' as const, payload: 0 })
+  onFailure: (_error: Error) => ({ type: 'FETCH_PENDING_REWARDS_COUNT_FAILURE' as const })
 });
 
 const Handlers = {
@@ -136,8 +136,12 @@ handleUserWinningsSuccess: (model: MisGanadoresModel, payload: WinningBet[]): Re
     return ret({ ...model, userWinnings: RemoteData.failure(payload) }, Cmd.none);
   },
 
-  handlePendingCountSuccess: (model: MisGanadoresModel, _payload: number): Return<MisGanadoresModel, MisGanadoresMsg> => {
-    return ret(model, Cmd.none);
+  handlePendingCountSuccess: (model: MisGanadoresModel, payload: number): Return<MisGanadoresModel, MisGanadoresMsg> => {
+    return ret({ ...model, pendingRewardsCount: payload, pendingRewardsError: false }, Cmd.none);
+  },
+
+  handlePendingCountFailure: (model: MisGanadoresModel): Return<MisGanadoresModel, MisGanadoresMsg> => {
+    return ret({ ...model, pendingRewardsError: true }, Cmd.none);
   },
 
   handleDateFilterChange: (model: MisGanadoresModel, newDate: string, newFilterType: DateFilter): Return<MisGanadoresModel, MisGanadoresMsg> => {
@@ -211,7 +215,7 @@ export const update = (model: MisGanadoresModel, msg: MisGanadoresMsg): Return<M
     )
 
     .with({ type: 'FETCH_PENDING_REWARDS_COUNT_FAILURE' }, () =>
-      singleton(model)
+      Handlers.handlePendingCountFailure(model)
     )
 
     .with({ type: 'CHANGE_DATE_FILTER' }, ({ payload }) =>

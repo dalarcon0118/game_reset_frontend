@@ -23,6 +23,7 @@ export type Msg =
     | { type: 'DRAWS_RECEIVED'; webData: WebData<DrawType[]> }
     | { type: 'PENDING_BETS_LOADED'; bets: BetType[]; syncedBets?: BetType[] }
     | { type: 'REFRESH_CLICKED' }
+    | { type: 'RETRY_INITIAL_LOAD' }
     | { type: 'SET_USER_STRUCTURE'; id: string }
     | { type: 'STATUS_FILTER_CHANGED'; filter: StatusFilter }
     | { type: 'APPLY_STATUS_FILTER'; filter: StatusFilter }
@@ -34,6 +35,7 @@ export type Msg =
     | { type: 'SET_COMMISSION_RATE'; rate: number }
     | { type: 'AUTH_USER_SYNCED'; user: DashboardUser | null }
     | { type: 'AUTH_TOKEN_UPDATED'; token: string }
+    | { type: 'NEEDS_PASSWORD_CHANGE'; needsChange: boolean }
     | { type: 'HELP_CLICKED' }
     | { type: 'TICK' }
     | { type: 'FINANCIAL_UPDATE_RECEIVED'; update: FinancialUpdate }
@@ -49,6 +51,7 @@ export type Msg =
 
 export const FETCH_DATA_REQUESTED = (structureId?: string): Msg => ({ type: 'FETCH_DATA_REQUESTED', structureId });
 export const REFRESH_CLICKED = (): Msg => ({ type: 'REFRESH_CLICKED' });
+export const RETRY_INITIAL_LOAD = (): Msg => ({ type: 'RETRY_INITIAL_LOAD' });
 export const SET_USER_STRUCTURE = (id: string): Msg => ({ type: 'SET_USER_STRUCTURE', id });
 export const STATUS_FILTER_CHANGED = (filter: StatusFilter): Msg => ({ type: 'STATUS_FILTER_CHANGED', filter });
 export const APPLY_STATUS_FILTER = (filter: StatusFilter): Msg => ({ type: 'APPLY_STATUS_FILTER', filter });
@@ -60,6 +63,7 @@ export const NAVIGATE_TO_ERROR = (): Msg => ({ type: 'NAVIGATE_TO_ERROR' });
 export const SET_COMMISSION_RATE = (rate: number): Msg => ({ type: 'SET_COMMISSION_RATE', rate });
 export const AUTH_USER_SYNCED = (user: DashboardUser | null): Msg => ({ type: 'AUTH_USER_SYNCED', user });
 export const AUTH_TOKEN_UPDATED = (token: string): Msg => ({ type: 'AUTH_TOKEN_UPDATED', token });
+export const NEEDS_PASSWORD_CHANGE = (needsChange: boolean): Msg => ({ type: 'NEEDS_PASSWORD_CHANGE', needsChange });
 export const HELP_CLICKED = (): Msg => ({ type: 'HELP_CLICKED' });
 export const TICK = (): Msg => ({ type: 'TICK' });
 export const NOTIFICATIONS_CLICKED = (): Msg => ({ type: 'NOTIFICATIONS_CLICKED' });

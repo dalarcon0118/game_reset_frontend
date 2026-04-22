@@ -18,6 +18,8 @@ export const BetTypeFilterBar: React.FC<BetTypeFilterBarProps> = ({
   const theme = Colors[colorScheme];
 
   const betTypes = ['all', ...configuredBetTypes];
+  const inactiveBgColor = theme.primaryLight;
+  const activeTextColor = colorScheme === 'dark' ? theme.background : '#FFFFFF';
 
   return (
     <View style={[styles.container, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
@@ -26,27 +28,28 @@ export const BetTypeFilterBar: React.FC<BetTypeFilterBarProps> = ({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.filtersContainer}
       >
-        {betTypes.map((betType) => (
-          <TouchableOpacity
-            key={betType}
-            style={[
-              styles.filterButton,
-              { 
-                backgroundColor: selectedBetType === betType ? theme.primary : theme.primary + '20',
-              }
-            ]}
-            onPress={() => onBetTypeChange(betType)}
-          >
-            <Text 
+        {betTypes.map((betType) => {
+          const isSelected = selectedBetType === betType;
+          return (
+            <TouchableOpacity
+              key={betType}
               style={[
-                styles.filterText,
-                { color: selectedBetType === betType ? '#FFFFFF' : theme.primary }
+                styles.filterButton,
+                { backgroundColor: isSelected ? theme.primary : inactiveBgColor }
               ]}
+              onPress={() => onBetTypeChange(betType)}
             >
-              {betType === 'all' ? 'Todos' : betType}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Text 
+                style={[
+                  styles.filterText,
+                  { color: isSelected ? activeTextColor : theme.primary }
+                ]}
+              >
+                {betType === 'all' ? 'Todos' : betType}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
     </View>
   );

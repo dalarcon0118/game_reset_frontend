@@ -1,4 +1,7 @@
 import { BetDomainModel as PendingBet } from '@/shared/repositories/bet/bet.types';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('OfflineCalculator');
 
 export interface OfflineDrawUpdate {
   drawId: string;
@@ -26,11 +29,25 @@ export function calculateOfflineUpdates(pendingBets: PendingBet[]): OfflineDrawU
       // Calculate amounts safely from both structures
       const amount = Number(bet.amount ?? (bet as any).data?.amount) || 0;
       const totalCollected = (bet as any).financialImpact?.totalCollected || amount;
-      const netAmount = (bet as any).financialImpact?.netAmount || (amount * 0.9); // Default 10% commission if missing
+
+      const netAmount = (bet as any).financialImpact?.netAmount;
+      const hasNetAmount = netAmount !== undefined;
+
+      let effectiveNetAmount: number;
+      if (hasNetAmount) {
+        effectiveNetAmount = netAmount;
+      } else {
+        log.warn('[OfflineCalculator] Missing financialImpact.netAmount, using fallback (amount as net - WARNING: commission not deducted)', {
+          betId: bet.id,
+          drawId,
+          amount
+        });
+        effectiveNetAmount = amount;
+      }
 
       drawMap.set(drawId, {
         localTotalCollected: current.localTotalCollected + totalCollected,
-        localNetResult: current.localNetResult + netAmount,
+        localNetResult: current.localNetResult + effectiveNetAmount,
         pendingCount: current.pendingCount + 1,
       });
     });

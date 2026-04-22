@@ -46,7 +46,9 @@ export const fetchUserDataCmd = (): Cmd => {
 };
 
 export const fetchDrawsCmd = (structureId: string | null, forceSync = false): Cmd => {
-    if (!structureId || structureId === '0') {
+    // Si no se proporciona structureId, DrawRepository.getDraws() lo obtendrá automáticamente del AuthRepository
+    // Solo verificamos si es exatamente '0' (inválido)
+    if (structureId === '0') {
         return Cmd.none;
     }
 

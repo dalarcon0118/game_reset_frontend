@@ -1,6 +1,25 @@
 const tintColorLight = '#1D6FF2';
 const tintColorDark = '#4D96FF';
 
+export const prizeColors = {
+  pool: {
+    background: '#FFD700',
+    text: '#000000',
+  },
+  fixed: {
+    background: '#28A745',
+    text: '#FFFFFF',
+  },
+  secondary: {
+    background: '#E0E0E0',
+    text: '#000000',
+  },
+  tertiary: {
+    background: '#E0E0E0',
+    text: '#000000',
+  },
+};
+
 export default {
   light: {
     primary: '#1D6FF2',

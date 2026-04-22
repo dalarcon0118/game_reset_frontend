@@ -168,41 +168,43 @@ export const DailySummarySkeleton: React.FC<DailySummarySkeletonProps> = ({
 }) => {
   const systemColorMode = useColorScheme() ?? 'light';
   const effectiveColorMode = colorMode ?? systemColorMode;
+  const isDark = effectiveColorMode === 'dark';
+  const dailyS = getDailyStyles(isDark);
 
   return (
     <Skeleton.Group show={loading}>
-      <View style={dailyStyles.card}>
-        <View style={dailyStyles.header}>
+      <View style={dailyS.card}>
+        <View style={dailyS.header}>
           <MotiSkeleton height={16} width="40%" radius={4} colorMode={effectiveColorMode} />
           <MotiSkeleton height={22} width={22} radius={4} colorMode={effectiveColorMode} />
         </View>
-        <View style={dailyStyles.mainMetrics}>
-          <View style={dailyStyles.mainMetricCard}>
-            <View style={dailyStyles.mainMetricTopRow}>
+        <View style={dailyS.mainMetrics}>
+          <View style={dailyS.mainMetricCard}>
+            <View style={dailyS.mainMetricTopRow}>
               <MotiSkeleton height={26} width={26} radius={8} colorMode={effectiveColorMode} />
               <MotiSkeleton height={11} width="50%" radius={4} colorMode={effectiveColorMode} />
               <MotiSkeleton height={16} width={32} radius={6} colorMode={effectiveColorMode} />
             </View>
             <MotiSkeleton height={21} width="70%" radius={4} colorMode={effectiveColorMode} />
           </View>
-          <View style={dailyStyles.mainMetricCard}>
-            <View style={dailyStyles.mainMetricTopRow}>
+          <View style={dailyS.mainMetricCard}>
+            <View style={dailyS.mainMetricTopRow}>
               <MotiSkeleton height={26} width={26} radius={8} colorMode={effectiveColorMode} />
               <MotiSkeleton height={11} width="60%" radius={4} colorMode={effectiveColorMode} />
             </View>
             <MotiSkeleton height={21} width="80%" radius={4} colorMode={effectiveColorMode} />
           </View>
         </View>
-        <View style={dailyStyles.secondaryMetrics}>
-          <View style={dailyStyles.secondaryItem}>
-            <View style={dailyStyles.secondaryHeader}>
+        <View style={dailyS.secondaryMetrics}>
+          <View style={dailyS.secondaryItem}>
+            <View style={dailyS.secondaryHeader}>
               <MotiSkeleton height={14} width={14} radius={2} colorMode={effectiveColorMode} />
               <MotiSkeleton height={11} width="60%" radius={4} colorMode={effectiveColorMode} />
             </View>
             <MotiSkeleton height={16} width="80%" radius={4} colorMode={effectiveColorMode} />
           </View>
-          <View style={dailyStyles.secondaryItem}>
-            <View style={dailyStyles.secondaryHeader}>
+          <View style={dailyS.secondaryItem}>
+            <View style={dailyS.secondaryHeader}>
               <MotiSkeleton height={14} width={14} radius={2} colorMode={effectiveColorMode} />
               <MotiSkeleton height={11} width="70%" radius={4} colorMode={effectiveColorMode} />
             </View>
@@ -227,35 +229,37 @@ export const DrawsListSkeleton: React.FC<DrawsListSkeletonProps> = ({
 }) => {
   const systemColorMode = useColorScheme() ?? 'light';
   const effectiveColorMode = colorMode ?? systemColorMode;
+  const isDark = effectiveColorMode === 'dark';
+  const drawsS = getDrawsStyles(isDark);
 
   return (
     <Skeleton.Group show={loading}>
-      <View style={drawsStyles.content}>
+      <View style={drawsS.content}>
         {Array.from({ length: count }).map((_, index) => (
-          <View key={index} style={drawsStyles.drawItemCard}>
-            <View style={drawsStyles.drawHeader}>
+          <View key={index} style={drawsS.drawItemCard}>
+            <View style={drawsS.drawHeader}>
               <MotiSkeleton height={18} width="50%" radius={4} colorMode={effectiveColorMode} />
               <MotiSkeleton height={22} width={60} radius={11} colorMode={effectiveColorMode} />
             </View>
-            <View style={drawsStyles.drawTimes}>
+            <View style={drawsS.drawTimes}>
               <MotiSkeleton height={14} width="30%" radius={4} colorMode={effectiveColorMode} />
               <MotiSkeleton height={14} width="40%" radius={4} colorMode={effectiveColorMode} />
             </View>
-            <View style={drawsStyles.drawStats}>
-              <View style={drawsStyles.statItem}>
+            <View style={drawsS.drawStats}>
+              <View style={drawsS.statItem}>
                 <MotiSkeleton height={11} width="80%" radius={4} colorMode={effectiveColorMode} />
                 <MotiSkeleton height={18} width="90%" radius={4} colorMode={effectiveColorMode} />
               </View>
-              <View style={drawsStyles.statItem}>
+              <View style={drawsS.statItem}>
                 <MotiSkeleton height={11} width="70%" radius={4} colorMode={effectiveColorMode} />
                 <MotiSkeleton height={18} width="60%" radius={4} colorMode={effectiveColorMode} />
               </View>
-              <View style={drawsStyles.statItem}>
+              <View style={drawsS.statItem}>
                 <MotiSkeleton height={11} width="60%" radius={4} colorMode={effectiveColorMode} />
                 <MotiSkeleton height={18} width="50%" radius={4} colorMode={effectiveColorMode} />
               </View>
             </View>
-            <View style={drawsStyles.actionButtons}>
+            <View style={drawsS.actionButtons}>
               <MotiSkeleton height={36} width={80} radius={8} colorMode={effectiveColorMode} />
               <MotiSkeleton height={36} width={80} radius={8} colorMode={effectiveColorMode} />
               <MotiSkeleton height={36} width={36} radius={8} colorMode={effectiveColorMode} />
@@ -278,12 +282,12 @@ const styles = StyleSheet.create({
   },
 });
 
-const dailyStyles = StyleSheet.create({
+const getDailyStyles = (isDark: boolean) => StyleSheet.create({
   card: {
     marginHorizontal: 12,
     marginVertical: 6,
     borderRadius: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
     padding: 12,
   },
   header: {
@@ -299,7 +303,7 @@ const dailyStyles = StyleSheet.create({
   },
   mainMetricCard: {
     flex: 1,
-    backgroundColor: '#F7F9FC',
+    backgroundColor: isDark ? '#374151' : '#F7F9FC',
     borderRadius: 12,
     paddingHorizontal: 8,
     paddingVertical: 8,
@@ -317,7 +321,7 @@ const dailyStyles = StyleSheet.create({
   },
   secondaryItem: {
     flex: 1,
-    backgroundColor: '#FAFBFF',
+    backgroundColor: isDark ? '#374151' : '#FAFBFF',
     borderRadius: 10,
     paddingHorizontal: 7,
     paddingVertical: 6,
@@ -330,13 +334,13 @@ const dailyStyles = StyleSheet.create({
   },
 });
 
-const drawsStyles = StyleSheet.create({
+const getDrawsStyles = (isDark: boolean) => StyleSheet.create({
   content: {
     paddingHorizontal: 20,
     paddingTop: 16,
   },
   drawItemCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,

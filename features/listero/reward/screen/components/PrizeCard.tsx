@@ -31,10 +31,10 @@ export const PrizeCard: React.FC<PrizeCardProps> = ({ betType }) => {
   const getIconForReward = (name: string) => {
       const lower = name.toLowerCase();
       if (lower.includes('principal') || lower.includes('jackpot') || lower.includes('mayor')) {
-          return <Trophy size={28} color="#D4AF37" />;
+          return <Trophy size={28} color={theme.success} />;
       }
       if (lower.includes('centena') || lower.includes('5 dígitos') || lower.includes('cinco')) {
-          return <Star size={28} color="#FFD700" fill="#FFD700" />;
+          return <Star size={28} color={theme.warning} fill={theme.warning} />;
       }
       return <Award size={28} color={theme.primary} />;
   };
@@ -45,6 +45,7 @@ export const PrizeCard: React.FC<PrizeCardProps> = ({ betType }) => {
             const formatPayout = `${reward.payout.toLocaleString('en-US')}x`;
             const isPool = reward.is_pool;
             const poolText = reward.pool_divisor === 'bank' ? 'Pool Banco' : 'Pool';
+            const isDark = colorScheme === 'dark';
 
             return (
                 <View key={index} style={[styles.cardContainer, { backgroundColor: theme.card }]}>
@@ -56,21 +57,21 @@ export const PrizeCard: React.FC<PrizeCardProps> = ({ betType }) => {
                                 </View>
                                 <Text style={[styles.titleText, { color: theme.text }]}>{reward.name || betType.name}</Text>
                             </View>
-                            
+
                             <View style={styles.tagsContainer}>
                                 {isPool ? (
-                                    <View style={[styles.tagPill, { backgroundColor: '#FFD700' }]}>
-                                        <Text style={[styles.tagLabelText, { color: '#000000' }]}>{poolText}</Text>
+                                    <View style={[styles.tagPill, { backgroundColor: theme.warning }]}>
+                                        <Text style={[styles.tagLabelText, { color: theme.text }]}>{poolText}</Text>
                                     </View>
                                 ) : (
-                                    <View style={[styles.tagPill, { backgroundColor: '#28A745' }]}>
-                                        <Text style={[styles.tagLabelText, { color: '#FFFFFF' }]}>[Fijo]</Text>
+                                    <View style={[styles.tagPill, { backgroundColor: theme.success }]}>
+                                        <Text style={[styles.tagLabelText, { color: theme.background }]}>[Fijo]</Text>
                                     </View>
                                 )}
-                                
+
                                 {reward.category && (
-                                    <View style={[styles.tagPill, { backgroundColor: '#E0E0E0' }]}>
-                                        <Text style={[styles.tagLabelText, { color: '#000000', textTransform: 'capitalize' }]}>{reward.category}</Text>
+                                    <View style={[styles.tagPill, { backgroundColor: theme.border }]}>
+                                        <Text style={[styles.tagLabelText, { color: theme.textSecondary, textTransform: 'capitalize' }]}>{reward.category}</Text>
                                     </View>
                                 )}
                             </View>

@@ -15,6 +15,9 @@ export const AUTH_MESSAGES = {
     INVALID_PIN: 'El PIN ingresado es incorrecto.',
     USER_NOT_FOUND: (username: string) => `El usuario "${username}" no existe. Verifica el nombre de usuario.`,
     RATE_LIMIT_EXCEEDED: 'Demasiados intentos. Espera unos minutos e intenta de nuevo.',
+    // Nuevos mensajes para errores específicos de primera autenticación
+    CONNECTION_ERROR_FIRST_AUTH: 'Primera autenticación requiere conexión al servidor para cargar los sorteos del día. Conecta a internet e intenta de nuevo.',
+    OFFLINE_NO_DRAWS: 'No hay sorteos guardados para trabajar sin conexión. Conecta a internet.',
 } as const;
 
 export type AuthMessageKey = keyof typeof AUTH_MESSAGES;

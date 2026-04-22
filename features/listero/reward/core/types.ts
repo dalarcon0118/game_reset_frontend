@@ -14,6 +14,8 @@ export interface RewardModel {
   structureId: string | null;
   /** Cantidad de notificaciones de ganancias pendientes */
   pendingRewardsCount: number;
+  /** Error al obtener pendingRewardsCount */
+  pendingRewardsError: boolean;
 }
 
 /**

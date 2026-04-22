@@ -36,6 +36,7 @@ export interface WinningModel {
   userWinnings: WinningsStatus;
   allWinners: AllWinnersStatus;
   pendingRewardsCount: number;
+  pendingRewardsError: boolean;
   selectedDate: string;
   dateFilterType: DateFilter;
   selectedView: ViewType;
@@ -65,7 +66,7 @@ export type WinningMsg =
    | { type: 'FETCH_ALL_WINNERS_FAILURE'; payload: string }
   | { type: 'FETCH_PENDING_REWARDS_COUNT' }
   | { type: 'FETCH_PENDING_REWARDS_COUNT_SUCCESS'; payload: number }
-  | { type: 'FETCH_PENDING_REWARDS_COUNT_FAILURE'; payload: number }
+  | { type: 'FETCH_PENDING_REWARDS_COUNT_FAILURE' }
   | { type: 'CHANGE_DATE_FILTER'; payload: { date: string; filterType: DateFilter } }
   | { type: 'CHANGE_VIEW'; payload: ViewType }
   | { type: 'CHANGE_BET_TYPE_FILTER'; payload: string }
@@ -75,3 +76,4 @@ export const INIT_MODULE = (structureId?: string): WinningMsg => ({ type: 'INIT_
 export const CHANGE_DATE_FILTER = (date: string, filterType: DateFilter): WinningMsg => ({ type: 'CHANGE_DATE_FILTER', payload: { date, filterType } });
 export const CHANGE_VIEW = (view: ViewType): WinningMsg => ({ type: 'CHANGE_VIEW', payload: view });
 export const CHANGE_BET_TYPE_FILTER = (betType: string): WinningMsg => ({ type: 'CHANGE_BET_TYPE_FILTER', payload: betType });
+export const FETCH_PENDING_REWARDS_COUNT = (): WinningMsg => ({ type: 'FETCH_PENDING_REWARDS_COUNT' });

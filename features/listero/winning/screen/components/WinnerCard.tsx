@@ -23,7 +23,7 @@ export const WinnerCard: React.FC<WinnerCardProps> = ({ draw, winnings = [] }) =
   const drawWinnings = winnings.filter(w => w.draw === drawId);
   
   // Calculate total payout for this draw
-  const totalPayout = drawWinnings.reduce((sum, w) => sum + w.payout_amount, 0);
+  const totalPayout = drawWinnings.reduce((sum, w) => sum + Number(w.payout_amount), 0);
 
   return (
     <View style={[styles.card, { backgroundColor: theme.card }]}>
@@ -60,8 +60,8 @@ export const WinnerCard: React.FC<WinnerCardProps> = ({ draw, winnings = [] }) =
                 </Text>
               </View>
               <View style={styles.winningAmount}>
-                <Text category="s2" style={{ color: theme.success || '#22C55E' }}>
-                  +{win.payout_amount.toLocaleString()}
+                <Text category="s2" style={{ color: theme.success }}>
+                  +{Number(win.payout_amount).toLocaleString()}
                 </Text>
                 <Text category="c2" appearance="hint">
                   Apostado: {win.amount.toLocaleString()}
@@ -73,7 +73,7 @@ export const WinnerCard: React.FC<WinnerCardProps> = ({ draw, winnings = [] }) =
             <Text category="s1" style={{ color: theme.text }}>
               Total ganado:
             </Text>
-            <Text category="s1" style={{ color: theme.success || '#22C55E' }}>
+            <Text category="s1" style={{ color: theme.success }}>
               {totalPayout.toLocaleString()}
             </Text>
           </View>

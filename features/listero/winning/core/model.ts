@@ -6,6 +6,7 @@ export const initialWinningModel: WinningModel = {
   userWinnings: RemoteData.notAsked(),
   allWinners: RemoteData.notAsked(),
   pendingRewardsCount: 0,
+  pendingRewardsError: false,
   selectedDate: new Date().toISOString().split('T')[0],
   dateFilterType: 'all',
   selectedView: 'all',

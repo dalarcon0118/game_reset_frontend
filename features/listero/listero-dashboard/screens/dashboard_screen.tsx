@@ -13,7 +13,8 @@ import Header from '../views/header';
 import { useDashboardStore, useListeroDashboardStoreApi } from '../store';
 import { useNotificationStore, NotificationModule } from '@/features/notification';
 import { FETCH_NOTIFICATIONS_REQUESTED } from '@/features/notification/core/msg';
-import { useRewardStore } from '@/features/listero/reward/core/store';
+import { useWinningStore, useWinningDispatch } from '@/features/listero/winning/core/store';
+import { FETCH_PENDING_REWARDS_COUNT } from '@/features/listero/winning/core/types';
 import { 
     REFRESH_CLICKED, 
     PROMOTION_MSG,
@@ -48,13 +49,23 @@ export default function DashboardScreen() {
             unreadCount: state.model.unreadCount
         }))
     );
-    const pendingRewardsCount = useRewardStore((state) => state.model.pendingRewardsCount);
+    const { pendingRewardsCount, pendingRewardsError } = useWinningStore(
+        useShallow((state) => ({
+            pendingRewardsCount: state.model.pendingRewardsCount,
+            pendingRewardsError: state.model.pendingRewardsError,
+        }))
+    );
     const notificationDispatch = NotificationModule.useDispatch();
 
     // Manage Dashboard Lifecycle (Initialization & Cleanup)
     // Pass the actual store API (Zustand store) to lifecycle
     const storeApi = useListeroDashboardStoreApi();
+    const winningDispatch = useWinningDispatch();
     useDashboardLifecycle(storeApi);
+
+    const handleRetryPendingRewards = () => {
+        winningDispatch(FETCH_PENDING_REWARDS_COUNT());
+    };
 
     return (
         <SafeAreaView style={styles.container}>
@@ -64,10 +75,12 @@ export default function DashboardScreen() {
                 isOnline={isOnline}
                 showBalance={model.showBalance}
                 unreadCount={unreadCount}
-                pendingRewardsCount={pendingRewardsCount}
-                onHelp={() => dispatch(HELP_CLICKED())}
-                onNotifications={() => dispatch(NOTIFICATIONS_CLICKED())}
-                onSettings={() => dispatch(SETTINGS_CLICKED())}
+                rewardsCount={pendingRewardsCount}
+                rewardsError={pendingRewardsError}
+                onRewardsCountPress={handleRetryPendingRewards}
+                onHelpPress={() => dispatch(HELP_CLICKED())}
+                onNotificationPress={() => dispatch(NOTIFICATIONS_CLICKED())}
+                onSettingsPress={() => dispatch(SETTINGS_CLICKED())}
                 onToggleBalance={() => dispatch(TOGGLE_BALANCE())}
             />
             <ScrollView 

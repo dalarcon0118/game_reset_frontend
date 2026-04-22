@@ -40,6 +40,7 @@ const makeModel = (promotion: PromotionState) => (params?: Partial<Model>): Mode
         currentUser: null,
         isRateLimited: false,
         promotion,
+        needsPasswordChange: false,
         ...params,
     };
 };

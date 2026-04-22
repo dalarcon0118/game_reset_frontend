@@ -11,6 +11,7 @@ import { isServerReachable } from '@/shared/utils/network';
 import { offlineStorage } from '@core/offline-storage/instance';
 import { IDrawRepository, DrawFinancialState } from './draw.ports';
 import { STORAGE_TTL } from '@core/offline-storage/types';
+import { AuthRepository } from '@/shared/repositories/auth';
 
 import { toLocalISODate } from '@/shared/utils/formatters';
 
@@ -62,7 +63,15 @@ export class DrawRepository implements IDrawRepository {
     }
 
     async getDraws(params: Record<string, any> = {}): Promise<Result<ExtendedDrawType[], Error>> {
-        const structureId = params.owner_structure;
+        let structureId = params.owner_structure;
+        
+        // Si no se proporciona structureId, obtenerlo directamente del AuthRepository
+        if (!structureId) {
+            const user = await AuthRepository.getMe();
+            structureId = user?.structure?.id?.toString();
+            this.log.debug('Auto-obtained structureId from AuthRepository', { structureId });
+        }
+        
         const forceSync = params.forceSync === true;
 
         if (!forceSync) {

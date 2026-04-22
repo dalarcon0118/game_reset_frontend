@@ -10,7 +10,9 @@ import { adaptAuthUser, DashboardUser } from '../user.dto';
 
 const log = logger.withTag('DASHBOARD_AUTH_HANDLER');
 
-const triggerInitialLoad = (model: Model): Return<Model, Msg> => {
+const INITIAL_LOAD_TIMEOUT_MS = 15000;
+
+export const triggerInitialLoad = (model: Model): Return<Model, Msg> => {
     log.debug('triggerInitialLoad evaluation', {
         status: model.status.type,
         userStructureId: model.userStructureId,
@@ -53,12 +55,22 @@ const triggerInitialLoad = (model: Model): Return<Model, Msg> => {
         draws: RemoteData.loading()
     };
 
+    // Only load promotions if user doesn't need to change password
+    const promotionCmd = model.needsPasswordChange
+        ? Cmd.none
+        : Cmd.map(PROMOTION_MSG, fetchPromotionsCmd());
+
+    // DEFENSIVE: Agregar timeout para retry automático si no hay respuesta
+    // Esto previene que el Dashboard quede sin datos si el primer intento falha silenciosamente
+    const timeoutRetryCmd = Cmd.sleep(INITIAL_LOAD_TIMEOUT_MS, { type: 'RETRY_INITIAL_LOAD' as const });
+
     return ret(
         finalModel,
         Cmd.batch([
             fetchDrawsCmd(model.userStructureId),
             loadPendingBetsCmd(),
-            Cmd.map(PROMOTION_MSG, fetchPromotionsCmd())
+            promotionCmd,
+            timeoutRetryCmd
         ])
     );
 };

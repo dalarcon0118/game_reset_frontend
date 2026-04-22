@@ -8,6 +8,7 @@ export const AUTH_KEYS = {
     OFFLINE_PROFILE: 'offline_profile',
     PIN_HASH: 'pin_hash',
     LAST_USERNAME: 'last_username',
+    LAST_LOGIN_DATE: 'last_login_date',
     DATA_TYPE: 'data',
 
     // Secure Storage Keys

@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Text, Card, useTheme } from '@ui-kitten/components';
+import { View, StyleSheet, useColorScheme } from 'react-native';
+import { Text } from '@ui-kitten/components';
 import { Trophy, Star, Award } from 'lucide-react-native';
+import Colors from '@/constants/colors';
 
 export type PrizeTagType = 'pool' | 'fixed' | 'secondary' | 'tertiary';
 
@@ -19,43 +20,51 @@ export interface PrizeTableCardProps {
 }
 
 export const PrizeTableCard: React.FC<PrizeTableCardProps> = ({ title, multiplier, tags, icon, description }) => {
-    const theme = useTheme();
+    const colorScheme = useColorScheme() ?? 'light';
+    const theme = Colors[colorScheme];
 
-    const getTagStyle = (type: PrizeTagType) => {
-        switch (type) {
-            case 'pool': return { backgroundColor: '#FFD700', color: '#000000' }; // Pool Banco (Yellow)
-            case 'fixed': return { backgroundColor: '#28A745', color: '#FFFFFF' }; // [Fijo] (Green)
-            case 'secondary': return { backgroundColor: '#E0E0E0', color: '#000000' }; // Secondary (Gray)
-            case 'tertiary': return { backgroundColor: '#E0E0E0', color: '#000000' }; // Tertiary (Gray)
-            default: return { backgroundColor: '#F0F0F0', color: '#666666' };
+    const getPrizeColor = (type: PrizeTagType) => {
+        const defaultStyle = { backgroundColor: '#F0F0F0', color: '#666666' };
+        
+        if (type === 'secondary' || type === 'tertiary') {
+            return colorScheme === 'dark' 
+                ? { backgroundColor: theme.backgroundSecondary, color: theme.text }
+                : { backgroundColor: '#E0E0E0', color: '#000000' };
         }
+        
+        if (type === 'pool') return { backgroundColor: '#FFD700', color: '#000000' };
+        if (type === 'fixed') return { backgroundColor: '#28A745', color: '#FFFFFF' };
+        
+        return defaultStyle;
     };
 
     const renderIcon = () => {
+        const iconColor = colorScheme === 'dark' ? theme.text : undefined;
         switch (icon) {
-            case 'trophy': return <Trophy size={28} color="#D4AF37" />; 
-            case 'star': return <Star size={28} color="#FFD700" fill="#FFD700" />; 
-            case 'award': return <Award size={28} color={theme['color-primary-500']} />;
+            case 'trophy': return <Trophy size={28} color={iconColor || '#D4AF37'} />; 
+            case 'star': return <Star size={28} color={iconColor || '#FFD700'} fill={iconColor || '#FFD700'} />; 
+            case 'award': return <Award size={28} color={theme.primary} />;
         }
     };
 
     return (
-        <View style={styles.cardContainer}>
-            <View style={styles.cardContent}>
+        <View style={[styles.card, { backgroundColor: theme.card }]}>
+            <View style={styles.content}>
                 <View style={styles.leftColumn}>
                     <View style={styles.headerRow}>
-                        <View style={styles.iconWrapper}>
+                        <View style={[styles.iconWrapper, { backgroundColor: theme.backgroundSecondary }]}>
                             {renderIcon()}
                         </View>
-                        <Text category="h6" style={styles.titleText}>{title}</Text>
+                        <Text category="h6" style={[styles.titleText, { color: theme.text }]}>{title}</Text>
                     </View>
                     
                     <View style={styles.tagsContainer}>
                         {tags.map((tag, index) => {
-                            const style = getTagStyle(tag.type);
+                            const style = getPrizeColor(tag.type);
+                            const textColor = style.color || style.backgroundColor; // fallback
                             return (
-                                <View key={index} style={[styles.tagPill, { backgroundColor: style.backgroundColor }]}>
-                                    <Text category="c2" style={[styles.tagLabelText, { color: style.color }]}>{tag.text}</Text>
+                                <View key={index} style={[styles.tag, { backgroundColor: style.backgroundColor }]}>
+                                    <Text style={[styles.tagText, { color: textColor }]}>{tag.text}</Text>
                                 </View>
                             );
                         })}
@@ -63,13 +72,13 @@ export const PrizeTableCard: React.FC<PrizeTableCardProps> = ({ title, multiplie
                 </View>
 
                 <View style={styles.rightColumn}>
-                    <Text category="h4" style={styles.multiplierText}>{multiplier}</Text>
+                    <Text category="h4" style={[styles.multiplierText, { color: theme.text }]}>{multiplier}</Text>
                 </View>
             </View>
             
             {description && (
-                <View style={styles.descriptionContainer}>
-                    <Text category="c1" appearance="hint" style={styles.descriptionText}>{description}</Text>
+                <View style={[styles.description, { borderTopColor: theme.border }]}>
+                    <Text category="c1" style={[styles.descriptionText, { color: theme.textSecondary }]}>{description}</Text>
                 </View>
             )}
         </View>
@@ -77,80 +86,69 @@ export const PrizeTableCard: React.FC<PrizeTableCardProps> = ({ title, multiplie
 };
 
 const styles = StyleSheet.create({
-    cardContainer: {
-        backgroundColor: '#FFFFFF',
+    card: {
         borderRadius: 20,
         marginHorizontal: 16,
         marginBottom: 16,
         padding: 24,
-        // Elevation for Android
-        elevation: 8,
-        // Shadows for iOS
+        elevation: 4,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 6 },
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
-        shadowRadius: 10,
+        shadowRadius: 8,
     },
-    cardContent: {
+    content: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
     },
     leftColumn: {
         flex: 1,
-        justifyContent: 'center',
     },
     rightColumn: {
-        justifyContent: 'center',
         alignItems: 'flex-end',
-        paddingLeft: 16,
     },
     headerRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 14,
+        marginBottom: 12,
     },
     iconWrapper: {
         marginRight: 12,
-        width: 32,
+        width: 44,
+        height: 44,
+        borderRadius: 10,
         alignItems: 'center',
         justifyContent: 'center',
     },
     titleText: {
         fontWeight: '800',
-        fontSize: 24,
-        color: '#000000',
+        fontSize: 18,
     },
     tagsContainer: {
         flexDirection: 'row',
-        alignItems: 'flex-start',
-        gap: 6,
         flexWrap: 'wrap',
+        gap: 8,
     },
-    tagPill: {
-        paddingHorizontal: 12,
+    tag: {
+        paddingHorizontal: 10,
         paddingVertical: 4,
         borderRadius: 6,
     },
-    tagLabelText: {
-        fontWeight: '800',
-        fontSize: 13,
+    tagText: {
+        fontWeight: '700',
+        fontSize: 11,
     },
     multiplierText: {
-        fontWeight: '800',
-        fontSize: 32,
-        color: '#000000',
-        letterSpacing: -0.5,
+        fontWeight: '900',
+        fontSize: 24,
     },
-    descriptionContainer: {
+    description: {
         marginTop: 16,
         paddingTop: 12,
         borderTopWidth: 1,
-        borderTopColor: '#F5F5F5',
     },
     descriptionText: {
         fontSize: 14,
-        lineHeight: 20,
-        color: '#666',
     },
 });
