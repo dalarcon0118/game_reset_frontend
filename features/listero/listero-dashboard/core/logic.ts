@@ -1,43 +1,16 @@
-import { DrawType, DRAW_STATUS, BetType } from '@/types';
-import { DailyTotals, isExpired, isClosingSoon, StatusFilter, DRAW_FILTER } from './core.types';
+import { DrawType, BetType } from '@/types';
+import { DailyTotals, StatusFilter } from './core.types';
 import { Model } from './model';
 import { RemoteData, WebData } from '@core/tea-utils';
 import { logger } from '@/shared/utils/logger';
 import { DashboardUser } from './user.dto';
-// Importación de la utilidad centralizada
+import { drawRepository } from '@/shared/repositories/draw';
 import { calculateFinancials } from '@/shared/utils/financial.logic';
 
 const log = logger.withTag('DASHBOARD_LOGIC');
 
-/**
- * Helper to calculate the total amount of a bet (single or bulk)
- */
-export const calculatePayloadAmount = (bet: BetType): number => {
+const calculatePayloadAmount = (bet: BetType): number => {
     return Number(bet.amount) || 0;
-};
-
-/**
- * Calculates financial delta for a set of bets.
- */
-export const calculatePendingDelta = (pendingBets: BetType[], commissionRate: number, now: number): DailyTotals => {
-    const today = new Date(now);
-    const startOfDay = today.setHours(0, 0, 0, 0);
-    const endOfDay = today.setHours(23, 59, 59, 999);
-
-    const rawData = pendingBets.reduce((acc, bet) => {
-        if (bet.timestamp && bet.timestamp >= startOfDay && bet.timestamp < endOfDay) {
-            const amount = calculatePayloadAmount(bet);
-            return {
-                ...acc,
-                totalCollected: acc.totalCollected + amount,
-                betCount: acc.betCount + 1
-            };
-        }
-        return acc;
-    }, { totalCollected: 0, premiumsPaid: 0, betCount: 0 });
-
-    const { totals } = calculateFinancials(rawData, commissionRate);
-    return totals;
 };
 
 /**
@@ -113,85 +86,6 @@ export const calculateTotals = (draws: DrawType[], commissionRate: number): Dail
     return totals;
 };
 
-export const filterDraws = (draws: DrawType[], filter: StatusFilter, now: number): DrawType[] => {
-    const filtered = draws.filter((draw: DrawType) => {
-        const expired = isExpired(draw, now);
-        let passes = false;
-
-        if (filter === DRAW_FILTER.ALL) passes = true;
-
-        else if (filter === DRAW_FILTER.SCHEDULED) {
-            passes = (draw.status === DRAW_STATUS.SCHEDULED || draw.status === DRAW_STATUS.PENDING) && !expired;
-        }
-
-        else if (filter === DRAW_FILTER.OPEN) {
-            // Verificar por HORAS: betting_start_time < now < betting_end_time
-            // IGNORAR draw.status del backend
-            const hasStartTime = !!draw.betting_start_time;
-            const hasEndTime = !!draw.betting_end_time;
-            
-            if (hasStartTime && hasEndTime) {
-                const startTime = new Date(draw.betting_start_time).getTime();
-                const endTime = new Date(draw.betting_end_time).getTime();
-                passes = now >= startTime && now < endTime;
-            } else if (hasEndTime) {
-                const endTime = new Date(draw.betting_end_time).getTime();
-                passes = now < endTime;
-            }
-        }
-
-        else if (filter === DRAW_FILTER.CLOSED) {
-            const isClosedStatus =
-                draw.status === DRAW_STATUS.CLOSED ||
-                draw.status === DRAW_STATUS.COMPLETED ||
-                draw.status === DRAW_STATUS.REWARDED; // Inclusive: todos los cerrados con o sin premio
-
-            passes = (isClosedStatus || expired) &&
-                draw.status !== DRAW_STATUS.CANCELLED;
-        }
-
-        else if (filter === DRAW_FILTER.CLOSING_SOON) {
-            const isOpen = draw.betting_start_time && draw.betting_end_time 
-                && now >= new Date(draw.betting_start_time).getTime() 
-                && now < new Date(draw.betting_end_time).getTime();
-            passes = isOpen && isClosingSoon(draw.betting_end_time, now);
-        }
-
-        else if (filter === DRAW_FILTER.REWARDED) {
-            passes = (draw.status as string) === DRAW_STATUS.REWARDED || draw.is_rewarded === true;
-        }
-
-        return passes;
-    });
-
-    return filtered.sort((a, b) => {
-        // Calcular isOpen basándose SOLO en horas, ignorando el flag is_betting_open del backend
-        const isOpenByTime = (draw: DrawType) => {
-            if (!draw.betting_start_time || !draw.betting_end_time) return false;
-            const start = new Date(draw.betting_start_time).getTime();
-            const end = new Date(draw.betting_end_time).getTime();
-            return now >= start && now < end;
-        };
-        
-        const aOpen = isOpenByTime(a);
-        const bOpen = isOpenByTime(b);
-
-        if (aOpen && !bOpen) return -1;
-        if (!aOpen && bOpen) return 1;
-
-        const aPending = a.status === DRAW_STATUS.PENDING;
-        const bPending = b.status === DRAW_STATUS.PENDING;
-
-        if (aPending && !bPending) return -1;
-        if (!aPending && bPending) return 1;
-
-        const aTime = a.betting_end_time ? new Date(a.betting_end_time).getTime() : Infinity;
-        const bTime = b.betting_end_time ? new Date(b.betting_end_time).getTime() : Infinity;
-
-        return aTime - bTime;
-    });
-};
-
 /**
  * Recalculates derived state (filteredDraws, dailyTotals) based on current model data.
  * Financial state is derived exclusively from the sum of bets.
@@ -228,9 +122,27 @@ export const recalculateDashboardState = (
         premiumsInDraws: enrichedDraws.map(d => ({ id: d.id, premiumsPaid: d.premiumsPaid, totalCollected: d.totalCollected }))
     });
 
-    // 2. Filter enriched draws
+    // 2. Filter enriched draws using SSOT from drawRepository
     log.debug('[CRITERION_4_STEP_2] FILTERING_DRAWS: Filtrando sorteos por criterio', { filter });
-    const filteredDraws = filterDraws(enrichedDraws, filter, now);
+    const filteredDraws = drawRepository.filterDraws(enrichedDraws, filter, now);
+
+    // Fail-fast: Validate SSOT returned valid result (StrictExecutionDSL compliance)
+    if (!Array.isArray(filteredDraws)) {
+        log.error('[SSOT_FAILURE] drawRepository.filterDraws returned invalid result', {
+            inputDrawsCount: enrichedDraws.length,
+            filter,
+            resultType: typeof filteredDraws,
+            now: new Date(now).toISOString()
+        });
+        throw new Error('SSOT_FILTER_FAILURE: drawRepository.filterDraws must return an array');
+    }
+
+    if (filteredDraws.length === 0 && enrichedDraws.length > 0) {
+        log.debug('[SSOT_EMPTY_RESULT] drawRepository.filterDraws returned empty array', {
+            inputDrawsCount: enrichedDraws.length,
+            filter
+        });
+    }
 
     log.info('[CRITERION_4B] DRAWS_FILTERED: Sorteos filtrados', {
         filteredCount: filteredDraws.length,

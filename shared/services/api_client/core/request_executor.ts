@@ -356,7 +356,7 @@ export class RequestExecutor {
       return undefined as T;
     }
     const responseData = await response.json();
-    this.log.debug(`<<< API SUCCESS RESPONSE: ${response.status} ${endpoint}`, { data: responseData });
+    this.log.debug(`<<< API SUCCESS RESPONSE: ${response.status} ${endpoint}`, JSON.stringify(responseData, null, 2));
     let finalData = responseData;
 
     if (finalData && typeof finalData === 'object') {

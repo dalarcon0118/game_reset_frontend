@@ -55,4 +55,11 @@ export interface IDrawRepository {
     status: 'confirmed_success' | 'reported_issue' | 'rejected',
     notes: string
   ): Promise<DrawClosureConfirmation>;
+
+  // ✅ SSOT para filtros de sorteos
+  filterDraws(
+    draws: ExtendedDrawType[], 
+    filter: any, 
+    referenceTime?: number
+  ): ExtendedDrawType[];
 }

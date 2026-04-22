@@ -12,6 +12,7 @@ import { offlineStorage } from '@core/offline-storage/instance';
 import { IDrawRepository, DrawFinancialState } from './draw.ports';
 import { STORAGE_TTL } from '@core/offline-storage/types';
 import { AuthRepository } from '@/shared/repositories/auth';
+import { TimerRepository } from '../system/time/tea.repository';
 
 import { toLocalISODate } from '@/shared/utils/formatters';
 
@@ -384,5 +385,102 @@ export class DrawRepository implements IDrawRepository {
             this.log.error('DrawRepository cleanup failed', error);
             throw error;
         }
+    }
+
+    /**
+     * ✅ SSOT ÚNICA Y EXCLUSIVA para filtros de sorteos
+     * 
+     * Single Source of Truth: Toda la lógica de filtros vive AQUÍ y solo AQUÍ
+     * Usa tiempo SINCRONIZADO con backend exclusivamente vía TimeRepository
+     */
+    public filterDraws(
+        draws: ExtendedDrawType[], 
+        filter: any, // Usar StatusFilter una vez migrados todos
+        referenceTime?: number
+    ): ExtendedDrawType[] {
+        const now = referenceTime ?? TimerRepository.getTrustedNow(Date.now());
+        
+        const filtered = draws.filter(draw => {
+            switch (filter) {
+                case 'all':
+                    return true;
+                    
+                case 'open':
+                    return this.isBettingOpen(draw, now);
+                    
+                case 'closed':
+                    return this.isExpired(draw, now) || 
+                           ['closed', 'completed', 'rewarded'].includes(draw.status);
+                    
+                case 'scheduled':
+                    return this.isScheduled(draw, now);
+                    
+                case 'closing_soon':
+                    return this.isBettingOpen(draw, now) && this.isClosingSoon(draw, now);
+                    
+                case 'rewarded':
+                    return draw.status === 'rewarded' || !!draw.is_rewarded;
+                    
+                default:
+                    return true;
+            }
+        });
+
+        return this.sortDraws(filtered, now);
+    }
+
+    /**
+     * ✅ SSOT para determinar si un sorteo está abierto
+     * Corrige el bug original del operador <
+     */
+    private isBettingOpen(draw: ExtendedDrawType, now: number): boolean {
+        if (!draw.betting_start_time || !draw.betting_end_time) {
+            return false;
+        }
+        
+        const startTime = new Date(draw.betting_start_time).getTime();
+        const endTime = new Date(draw.betting_end_time).getTime();
+        
+        // ✅ Bug corregido: ahora usa <= en vez de <
+        return now >= startTime && now <= endTime;
+    }
+
+    private isExpired(draw: ExtendedDrawType, now: number): boolean {
+        if (!draw.betting_end_time) return false;
+        return now > new Date(draw.betting_end_time).getTime();
+    }
+
+    private isScheduled(draw: ExtendedDrawType, now: number): boolean {
+        if (this.isBettingOpen(draw, now) || this.isExpired(draw, now)) {
+            return false;
+        }
+        
+        if (draw.betting_start_time) {
+            return now < new Date(draw.betting_start_time).getTime();
+        }
+        
+        return ['scheduled', 'pending'].includes(draw.status);
+    }
+
+    private isClosingSoon(draw: ExtendedDrawType, now: number): boolean {
+        if (!draw.betting_end_time) return false;
+        const endTime = new Date(draw.betting_end_time).getTime();
+        const diff = endTime - now;
+        return diff > 0 && diff < 5 * 60 * 1000;
+    }
+
+    private sortDraws(draws: ExtendedDrawType[], now: number): ExtendedDrawType[] {
+        return [...draws].sort((a, b) => {
+            const aOpen = this.isBettingOpen(a, now);
+            const bOpen = this.isBettingOpen(b, now);
+            
+            if (aOpen && !bOpen) return -1;
+            if (!aOpen && bOpen) return 1;
+            
+            const aEnd = a.betting_end_time ? new Date(a.betting_end_time).getTime() : Infinity;
+            const bEnd = b.betting_end_time ? new Date(b.betting_end_time).getTime() : Infinity;
+            
+            return aEnd - bEnd;
+        });
     }
 }
