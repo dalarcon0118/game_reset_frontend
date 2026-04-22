@@ -125,6 +125,7 @@ export const DrawsListComponent: React.FC<DrawsListComponentProps> = ({ context 
           firstFilteredDraw: model?.filteredDraws?.[0] ? { id: model.filteredDraws[0].id, status: model.filteredDraws[0].status } : null
         });
         setTimeout(() => {
+          //force refresh if no filtered draws available
           if (model?.filteredDraws?.length === 0) {
             handleRefresh();
           }
