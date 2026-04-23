@@ -28,7 +28,8 @@ if (typeof global.ReadableStream === 'undefined' && parseInt(process.versions.no
 }
 
 console.log('Starting Expo directly...');
-const child = spawn('npx', ['expo', 'start', '--clear'], {
+const args = ['expo', 'start', '--clear', ...process.argv.slice(2)];
+const child = spawn('npx', args, {
   stdio: 'inherit',
   cwd: __dirname,
   env: {

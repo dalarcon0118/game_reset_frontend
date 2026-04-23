@@ -21,7 +21,10 @@
     "test:feature": "node -e \"const feature = process.env.npm_config_feature; if (!feature) { console.error('Please specify a feature: npm run test:feature --feature=draws'); process.exit(1); } require('child_process').spawnSync('jest', ['tests/features/admin/' + feature], { stdio: 'inherit', shell: true });\"",
     "test:watch": "jest --watch",
     "postinstall": "mkdir -p ../node_modules/expo-router && cp patches/expo-router-fix/_ctx.android.js ../node_modules/expo-router/_ctx.android.js || true",
+    "start:android": "node start-dev.js --android",
     "android": "expo run:android",
+    "start:native-android": "JAVA_HOME=/opt/homebrew/opt/openjdk@17 ANDROID_HOME=~/Library/Android/sdk npx expo run:android",
+    "install:apk": "adb install -r android/app/build/outputs/apk/debug/app-debug.apk",
     "ios": "expo run:ios"
   },
   "dependencies": {
