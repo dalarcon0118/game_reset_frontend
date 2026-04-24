@@ -1,9 +1,10 @@
 import React, { useRef } from 'react';
-import { StyleSheet, ScrollView, SafeAreaView, useColorScheme, useWindowDimensions } from 'react-native';
+import { StyleSheet, ScrollView, useColorScheme, useWindowDimensions } from 'react-native';
 import { Layout } from '@ui-kitten/components';
 import { Stack } from 'expo-router';
 import ViewShot from 'react-native-view-shot';
 import Colors from '@/constants/colors';
+import { ScreenContainer } from '@/shared/components';
 import { SuccessHeader } from '../components/success_header';
 import { SuccessVoucher } from '../components/success_voucher';
 import { SuccessActions } from '../components/success_actions';
@@ -34,7 +35,10 @@ export const SuccessView: React.FC<SuccessViewProps> = ({
     const isSharing = sharingStatus?.type === 'Loading';
 
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: Colors[colorScheme].background }}>
+        <ScreenContainer
+            edges={['top', 'left', 'right', 'bottom']}
+            backgroundColor={Colors[colorScheme].background}
+        >
             <Stack.Screen options={{ title: 'Voucher' }} />
             <Layout style={styles.container} level='1'>
                 <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -65,7 +69,7 @@ export const SuccessView: React.FC<SuccessViewProps> = ({
                     />
                 </ScrollView>
             </Layout>
-        </SafeAreaView>
+        </ScreenContainer>
     );
 };
 

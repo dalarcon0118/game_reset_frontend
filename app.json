@@ -35,6 +35,7 @@
       "router": {
         "origin": false
       },
+      "APP_ENV": "development",
       "eas": {
         "projectId": "30dc4226-76b3-4aef-bf7c-f9e9b5640f23"
       }

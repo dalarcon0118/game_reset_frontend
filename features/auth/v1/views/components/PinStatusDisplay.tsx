@@ -2,18 +2,23 @@ import React from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { Text } from '@ui-kitten/components';
 import { Flex } from '@/shared/components';
-import { THEME, styles } from '../login.styles';
+import { THEME } from '../login.styles';
+import { LoginMetrics } from '../../hooks/use_responsive_login';
 
 interface PinStatusDisplayProps {
   pinLength: number;
   isAuthenticating: boolean;
   error: string | null;
+  metrics: LoginMetrics;
+  styles: any;
 }
 
 export const PinStatusDisplay = React.memo(({
   pinLength,
   isAuthenticating,
-  error
+  error,
+  metrics,
+  styles
 }: PinStatusDisplayProps) => {
   const renderDot = (index: number) => {
     const isFilled = index < pinLength;
@@ -32,7 +37,7 @@ export const PinStatusDisplay = React.memo(({
   };
 
   return (
-    <Flex vertical align="center" gap={40} style={{ width: '100%' }}>
+    <Flex vertical align="center" gap={metrics.pinStatusGap} style={{ width: '100%' }}>
       <View style={styles.statusContainer}>
         {isAuthenticating ? (
           <ActivityIndicator color={THEME.accent} />
@@ -43,7 +48,7 @@ export const PinStatusDisplay = React.memo(({
         )}
       </View>
 
-      <Flex vertical={false} gap={24}>
+      <Flex vertical={false} gap={metrics.dotGap}>
         {[0, 1, 2, 3, 4, 5].map(renderDot)}
       </Flex>
     </Flex>

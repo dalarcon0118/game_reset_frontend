@@ -7,7 +7,6 @@ import { logger } from '@/shared/utils/logger';
 import { updateAuthTokenCmd } from './commands';
 import { ensureError } from '@/shared/utils/error';
 
-// Handlers
 import { DataHandler } from './handlers/data.handler';
 import { NavigationHandler } from './handlers/navigation.handler';
 import { FilterHandler } from './handlers/filter.handler';
@@ -15,7 +14,15 @@ import { AuthHandler, triggerInitialLoad } from './handlers/auth.handler';
 import * as PromotionUpdate from '../../../../shared/components/promotion/update';
 import { PROMOTION_MSG, RETRY_INITIAL_LOAD } from './msg';
 
+import { betRepository } from '@/shared/repositories/bet/bet.repository';
+import { drawRepository } from '@/shared/repositories/draw';
+import { dashboardService } from '../services/dashboard.service';
+import { FilterDrawsUseCase } from '../plugins/draws_list_plugin/application/useCases/filter-draws.use-case';
+import { calculateFinancials } from '../plugins/summary_plugin/domain/logic';
+import { DrawTotalsUpdate } from './msg';
+
 const log = logger.withTag('DASHBOARD_UPDATE');
+const filterDrawsUseCase = new FilterDrawsUseCase();
 
 export const update = (model: Model, msg: Msg): Return<Model, Msg> => {
     // log.debug('Update msg', { type: msg.type });
@@ -137,6 +144,121 @@ export const update = (model: Model, msg: Msg): Return<Model, Msg> => {
         .with({ type: 'NAVIGATE_TO_ERROR' }, () =>
             NavigationHandler.handleNavigateToError(model)
         )
+        // SSOT: Toggle balance visibility (from summary_plugin)
+        .with({ type: 'TOGGLE_BALANCE_VISIBILITY' }, () =>
+            ret({ ...model, showBalance: !model.showBalance }, Cmd.none)
+        )
+        // SSOT: Financial bets (from summary_plugin)
+        .with({ type: 'GET_FINANCIAL_BETS' }, () =>
+            handleGetFinancialBets(model)
+        )
+        .with({ type: 'FINANCIAL_BETS_UPDATED' }, ({ webData }) =>
+            handleFinancialBetsUpdated(model, webData)
+        )
+        // SSOT: Local draws (from draws_list_plugin)
+        .with({ type: 'REQUEST_LOCAL_DRAWS' }, () =>
+            handleRequestLocalDraws(model)
+        )
+        .with({ type: 'LOCAL_DRAWS_LOADED' }, ({ draws, filteredDraws }) =>
+            ret({ ...model, draws: { type: 'Success', data: draws }, filteredDraws }, Cmd.none)
+        )
+        // SSOT: Totals by drawId (from draws_list_plugin)
+        .with({ type: 'BATCH_OFFLINE_UPDATE' }, ({ updates, timestamp }) =>
+            handleBatchOfflineUpdate(model, updates, timestamp)
+        )
+        .with({ type: 'SELECT_FILTER' }, ({ filter }) =>
+            FilterHandler.handleApplyStatusFilter(model, filter)
+        )
         .with({ type: 'NONE' }, () => ret(model, Cmd.none))
         .exhaustive();
 };
+
+// SSOT: Financial Bets Handlers (from summary_plugin)
+function handleGetFinancialBets(model: Model): Return<Model, Msg> {
+    if (!model.userStructureId) return ret(model, Cmd.none);
+
+    const trustedNow = Date.now();
+    const trustedDate = new Date(trustedNow);
+    const todayStart = new Date(
+        trustedDate.getFullYear(),
+        trustedDate.getMonth(),
+        trustedDate.getDate()
+    ).getTime();
+
+    return ret(
+        { ...model, financialSummary: { type: 'Loading' } as any, trustedNow },
+        Cmd.task({
+            task: async () => {
+                if (!model.userStructureId) return { type: 'Failure' as const, error: new Error('No structure ID') };
+                const rawData = await betRepository.getFinancialSummary(todayStart, model.userStructureId);
+                const { totals } = calculateFinancials(
+                    { totalCollected: rawData.totalCollected, premiumsPaid: model.dailyTotals.premiumsPaid, betCount: rawData.betCount },
+                    model.commissionRate
+                );
+                return { type: 'Success' as const, data: rawData, totals };
+            },
+            onSuccess: (result) => ({ type: 'FINANCIAL_BETS_UPDATED', webData: result }),
+            onFailure: (error) => ({ type: 'FINANCIAL_BETS_UPDATED', webData: { type: 'Failure', error } })
+        })
+    );
+}
+
+function handleFinancialBetsUpdated(model: Model, webData: any): Return<Model, Msg> {
+    if (webData.type === 'Success' && webData.totals) {
+        return ret({
+            ...model,
+            financialSummary: webData,
+            dailyTotals: webData.totals
+        }, Cmd.none);
+    }
+    return ret({ ...model, financialSummary: webData }, Cmd.none);
+}
+
+// SSOT: Local Draws Handler (from draws_list_plugin)
+function handleRequestLocalDraws(model: Model): Return<Model, Msg> {
+    if (!model.userStructureId) return ret(model, Cmd.none);
+
+    return ret(
+        { ...model, draws: { type: 'Loading' } as any },
+        Cmd.task({
+            task: async () => {
+                const result = await drawRepository.getDraws({ owner_structure: model.userStructureId });
+                if (result.isOk() && result.value.length > 0) {
+                    const draws = result.value;
+                    const trustedNow = Date.now();
+                    const filteredDraws = filterDrawsUseCase.execute({
+                        draws,
+                        filter: model.appliedFilter as any,
+                        currentTime: trustedNow
+                    });
+                    return { type: 'LOCAL_DRAWS_LOADED', draws, filteredDraws: filteredDraws as any };
+                }
+                return { type: 'LOCAL_DRAWS_LOADED', draws: [], filteredDraws: [] };
+            },
+            onSuccess: (msg) => msg,
+            onFailure: () => ({ type: 'LOCAL_DRAWS_LOADED', draws: [], filteredDraws: [] })
+        })
+    );
+}
+
+// SSOT: Batch Offline Update Handler (from draws_list_plugin)
+function handleBatchOfflineUpdate(model: Model, updates: DrawTotalsUpdate[], timestamp: number): Return<Model, Msg> {
+    const newTotalsByDrawId = new Map(model.totalsByDrawId);
+    
+    updates.forEach(update => {
+        if (update.betCount === 0) {
+            newTotalsByDrawId.delete(update.drawId);
+        } else {
+            newTotalsByDrawId.set(update.drawId, {
+                drawId: update.drawId,
+                totalCollected: update.totalCollected,
+                premiumsPaid: update.premiumsPaid,
+                netResult: update.netResult,
+                betCount: update.betCount,
+                lastUpdated: timestamp
+            });
+        }
+    });
+
+    return ret({ ...model, totalsByDrawId: newTotalsByDrawId }, Cmd.none);
+}

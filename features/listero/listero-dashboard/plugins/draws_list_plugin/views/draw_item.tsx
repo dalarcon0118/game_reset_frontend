@@ -16,8 +16,6 @@ const log = logger.withTag('DrawItemComponent');
 interface DrawItemProps {
   draw: Draw;
   totalsByDrawId: TotalsByDrawIdMap;
-  onRulePress: (id: string | number) => void;
-  onRewardsPress: (id: string, title: string, draw: Draw) => void;
   onBetsListPress: (id: string, title: string, draw: Draw) => void;
   onCreateBetPress: (id: string, title: string, draw: Draw) => void;
   showBalance: boolean;
@@ -26,8 +24,6 @@ interface DrawItemProps {
 const DrawItemComponent: React.FC<DrawItemProps> = ({
   draw,
   totalsByDrawId,
-  onRulePress,
-  onRewardsPress,
   onBetsListPress,
   onCreateBetPress,
   showBalance,
@@ -121,8 +117,6 @@ const DrawItemComponent: React.FC<DrawItemProps> = ({
 
       <DrawActions
         effectiveStatus={effectiveStatus}
-        onRulePress={onRulePress}
-        onRewardsPress={onRewardsPress}
         onBetsListPress={onBetsListPress}
         onCreateBetPress={onCreateBetPress}
         draw={draw}

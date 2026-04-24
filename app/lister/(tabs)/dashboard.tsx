@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
-import {  StyleSheet, SafeAreaView } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { useColorScheme } from 'react-native';
 import Colors from '@/constants/colors';
+import { ScreenContainer } from '@/shared/components';
 import DashboardScreenComponent from '@/features/listero/listero-dashboard/views';
 import { ListeroDashboardProvider } from '@/features/listero/listero-dashboard/core/store_context';
 import { CoreModule } from '@/core/core_module';
@@ -21,13 +22,13 @@ export default function ListeroDashboardTab() {
     <ListeroDashboardProvider initialParams={initialParams}>
       <WinningProvider>
         <RewardModule.Provider>
-          <SafeAreaView style={[
-            styles.container,
-            { backgroundColor: Colors[colorScheme].background }
-          ]}>
+          <ScreenContainer
+            edges={['top', 'left', 'right', 'bottom']}
+            backgroundColor={Colors[colorScheme].background}
+            style={styles.container}
+          >
             <DashboardScreenComponent/>
-
-          </SafeAreaView>
+          </ScreenContainer>
         </RewardModule.Provider>
       </WinningProvider>
     </ListeroDashboardProvider>

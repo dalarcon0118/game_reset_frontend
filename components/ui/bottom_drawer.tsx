@@ -77,7 +77,8 @@ export default function BottomDrawer(props: BottomDrawerProps = {}) {
       onRequestClose={handleDismiss}
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'android' ? 0 : 20}
         style={styles.keyboardAvoidingView}
       >
         {/* Overlay */}

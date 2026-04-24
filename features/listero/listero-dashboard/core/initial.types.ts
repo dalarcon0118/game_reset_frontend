@@ -4,17 +4,13 @@ import { Model } from './model';
 import { Msg, PROMOTION_MSG } from './msg';
 import { PromotionState } from '../../../../shared/components/promotion/model';
 import * as promotionInitialState from '../../../../shared/components/promotion/initial';
-import { ret, singleton } from '@core/tea-utils/return';
+import { ret } from '@core/tea-utils/return';
 
 import { fetchUserDataCmd } from './commands';
 
 const log = logger.withTag('DASHBOARD_INIT');
 
-/**
- * Curried constructor for the dashboard model.
- * This allows clean TEA-style composition using Return.andMapCmd
- */
-const makeModel = (promotion: PromotionState) => (params?: Partial<Model>): Model => {
+const makeModel = (promotion: PromotionState, showBalance: boolean = true) => (params?: Partial<Model>): Model => {
     const isReady = (params as any)?.isSystemReady ?? false;
     const userStructureId = params?.userStructureId || null;
     
@@ -35,12 +31,15 @@ const makeModel = (promotion: PromotionState) => (params?: Partial<Model>): Mode
         statusFilter: 'open',
         appliedFilter: 'open',
         commissionRate: 0,
-        showBalance: true,
+        showBalance,
         authToken: null,
         currentUser: null,
         isRateLimited: false,
         promotion,
         needsPasswordChange: false,
+        financialSummary: RemoteData.notAsked(),
+        totalsByDrawId: new Map(),
+        trustedNow: Date.now(),
         ...params,
     };
 };
@@ -49,8 +48,6 @@ export const initialState = (params?: Partial<Model>): Return<Model, Msg> => {
     const isReady = (params as any)?.isSystemReady ?? false;
     const userStructureId = params?.userStructureId || null;
     
-    // Si ya estamos listos y tenemos el ID (re-montaje), disparamos la carga completa
-    // Si no tenemos el ID, pedimos los datos del usuario primero
     const initialCmd = isReady 
         ? (userStructureId ? Cmd.ofMsg({ type: 'FETCH_DATA_REQUESTED', structureId: userStructureId }) : fetchUserDataCmd())
         : Cmd.none;

@@ -7,8 +7,6 @@ import { Draw } from '../core/types';
 
 interface DrawActionsProps {
   effectiveStatus: DrawStatus;
-  onRulePress: (id: string | number) => void;
-  onRewardsPress: (id: string, title: string, draw: Draw) => void;
   onBetsListPress: (id: string, title: string, draw: Draw) => void;
   onCreateBetPress: (id: string, title: string, draw: Draw) => void;
   draw: Draw;
@@ -16,8 +14,7 @@ interface DrawActionsProps {
 
 const DrawActions: React.FC<DrawActionsProps> = ({
   effectiveStatus,
-  onRulePress,
-  onRewardsPress,
+
   onBetsListPress,
   onCreateBetPress,
   draw,
@@ -40,14 +37,7 @@ const DrawActions: React.FC<DrawActionsProps> = ({
 
   return (
     <Flex gap={8} style={styles.actionsRow}>
-      <ButtonKit
-        appearance="ghost"
-        status="warning"
-        size="small"
-        style={[styles.actionButton, styles.reglamentoButton]}
-        onPress={() => onRulePress(draw.id)}
-        label="Reglas"
-      />
+      
 
       <ButtonKit
         appearance="outline"
@@ -62,7 +52,7 @@ const DrawActions: React.FC<DrawActionsProps> = ({
         label="Ver Lista"
       />
 
-      {effectiveStatus === DRAW_STATUS.CLOSED} 
+      {effectiveStatus === DRAW_STATUS.CLOSED && (
         <ButtonKit
           appearance="filled"
           status="primary"
@@ -71,6 +61,7 @@ const DrawActions: React.FC<DrawActionsProps> = ({
           onPress={() => onRewardsPress(drawId, drawTitle, draw)}
           label="Premios"
         />
+      )}
       
 
       {effectiveStatus !== DRAW_STATUS.CLOSED && (

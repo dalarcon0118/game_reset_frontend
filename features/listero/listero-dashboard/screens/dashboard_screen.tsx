@@ -8,7 +8,7 @@ import {
 import { match } from 'ts-pattern';
 import { useShallow } from 'zustand/shallow';
 import { RemoteData } from '@core/tea-utils';
-import { Label } from '@/shared/components';
+import { Label, ScreenContainer } from '@/shared/components';
 import Header from '../views/header';
 import { useDashboardStore, useListeroDashboardStoreApi } from '../store';
 import { useNotificationStore, NotificationModule } from '@/features/notification';
@@ -25,13 +25,14 @@ import {
 } from '../core/msg';
 import { useAuth } from '@/features/auth';
 import { CLOSE_PROMOTIONS_MODAL, PARTICIPATE_CLICKED } from '../../../../shared/components/promotion/msg';
-import { Slot } from '@core/plugins';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useDashboardLifecycle } from '../core/lifecycle';
 import { PromotionModal } from '../../../../shared/components/promotion/PromotionModal';
-import { pipe as $ } from 'fp-ts/lib/function';
 import { CoreModule } from '@/core/core_module';
 import { logger } from '@/shared/utils/logger';
+import { useDashboardLifecycle } from '../core/lifecycle';
+
+import { DrawsListView } from '../views/components/DrawsListView';
+import { SummaryView } from '../views/components/SummaryView';
+import { FiltersView } from '../views/components/FiltersView';
 
 const log = logger.withTag('DASHBOARD_SCREEN');
 
@@ -68,7 +69,10 @@ export default function DashboardScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <ScreenContainer
+            edges={['top', 'left', 'right']}
+            backgroundColor="#f5f5f5"
+        >
             <Header 
                 username={user?.username || 'Usuario'}
                 structureName={user?.structure?.name || 'Mi Estructura'}
@@ -120,39 +124,14 @@ export default function DashboardScreen() {
                     </View>
                 )}
 
-                <Slot 
-                    name="dashboard.notifications" 
-                    contextData={model} 
-                    hostStore={storeApi}
-                />
-
-                <Slot 
-                    name="dashboard.filters" 
-                    contextData={model} 
-                    hostStore={storeApi}
-                />
+                {/* Pure React Components - SSOT */}
+                <FiltersView />
                 
                 {model.userStructureId ? (
-                    <Slot 
-                        name="dashboard.summary" 
-                        contextData={model} 
-                        hostStore={storeApi}
-                        useSkeleton={true}
-                        defaultSkeletonHeight={200}
-                        skeletonNoMargin={true}
-                    />
+                    <SummaryView />
                 ) : null}
                 
-                <Slot name="dashboard.summary_bottom" />
-                
-                <Slot 
-                    name="dashboard.draws_list" 
-                    contextData={model} 
-                    hostStore={storeApi}
-                    useSkeleton={true}
-                    defaultSkeletonHeight={300}
-                    skeletonNoMargin={true}
-                />
+                <DrawsListView />
             </ScrollView>
 
             <PromotionModal 
@@ -164,7 +143,7 @@ export default function DashboardScreen() {
                     dispatch(PROMOTION_MSG(PARTICIPATE_CLICKED(promotion, activeDraws)));
                 }}
             />
-        </SafeAreaView>
+        </ScreenContainer>
     );
 }
 

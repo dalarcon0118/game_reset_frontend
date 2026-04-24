@@ -1,8 +1,8 @@
 import React from 'react';
-import { StyleSheet, SafeAreaView } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import { COLORS } from '@/shared/components/constants';
-import { Flex } from '@/shared/components/flex';
+import { Flex, ScreenContainer } from '@/shared/components';
 import { useDashboardStore } from '../core';
 import { REFRESH_CLICKED } from '../core/msg';
 import { RemoteData } from '@core/tea-utils';
@@ -21,13 +21,16 @@ export default function DashboardScreen() {
   const children = RemoteData.withDefault([], model.children);
 
   return (
-   <Flex vertical flex={1} background={theme['background-basic-color-1']}>
+    <ScreenContainer
+      edges={['top', 'left', 'right', 'bottom']}
+      backgroundColor={theme['background-basic-color-1']}
+    >
       <DashboardHeader isLoading={isLoading} onRefresh={handleRefresh} />
-      <SafeAreaView style={styles.safeArea}>
+      <Flex vertical flex={1}>
         <DashboardStats />
         <DashboardOperations children={children} isLoading={isLoading} onRefresh={handleRefresh} />
-      </SafeAreaView>
-    </Flex>
+      </Flex>
+    </ScreenContainer>
   );
 }
 

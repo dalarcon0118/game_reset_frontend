@@ -22,6 +22,8 @@ interface HeaderProps {
     rewardsError?: boolean;
 }
 
+export type { HeaderProps };
+
 export const Header: React.FC<HeaderProps> = ({ 
     username,
     structureName,

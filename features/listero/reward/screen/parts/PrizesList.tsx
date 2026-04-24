@@ -1,12 +1,20 @@
-import React from 'react';
-import { View, StyleSheet, FlatList, Text as RNText, useColorScheme } from 'react-native';
+import React, { useCallback } from 'react';
+import { View, StyleSheet, FlatList, Text as RNText, useColorScheme, LayoutChangeEvent } from 'react-native';
 import { Text } from '@ui-kitten/components';
 import Colors from '@/constants/colors';
 import { DrawTypeSection } from '../components/DrawTypeSection';
 
+const ESTIMATED_ITEM_HEIGHT = 200;
+
 export const PrizesList = ({ drawTypes, bankName }: { drawTypes: any[]; bankName: string | null }) => {
   const colorScheme = useColorScheme() ?? 'light';
   const theme = Colors[colorScheme];
+
+  const getItemLayout = useCallback((_data: any, index: number) => ({
+    length: ESTIMATED_ITEM_HEIGHT,
+    offset: ESTIMATED_ITEM_HEIGHT * index,
+    index,
+  }), []);
 
   return (
     <View style={styles.container}>
@@ -23,6 +31,11 @@ export const PrizesList = ({ drawTypes, bankName }: { drawTypes: any[]; bankName
         renderItem={({ item }) => <DrawTypeSection drawType={item} />}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
+        getItemLayout={getItemLayout}
+        initialNumToRender={5}
+        maxToRenderPerBatch={5}
+        windowSize={5}
+        removeClippedSubviews={true}
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={{ color: theme.textSecondary, fontSize: 16, textAlign: 'center' }}>

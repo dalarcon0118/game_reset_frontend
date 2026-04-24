@@ -1,13 +1,14 @@
-import React from 'react';
-import { SafeAreaView, TouchableOpacity, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
+import React, { useMemo } from 'react';
+import { TouchableOpacity, ScrollView, Keyboard, View } from 'react-native';
 import { Text } from '@ui-kitten/components';
-import { Flex } from '@/shared/components';
+import { Flex, ScreenContainer } from '@/shared/components';
 import { useAuthV1 } from '../hooks/use_auth';
 import { useLoginUI } from '../hooks/use_login_ui';
+import { useResponsiveLogin, type LoginMetrics } from '../hooks/use_responsive_login';
 import { LoginModule } from '../store';
 import { AuthStatus } from '@/shared/auth/v1/model';
 import { SESSION_EXPIRED as SESSION_EXPIRED_MSG } from '@/shared/auth/v1/msg';
-import { styles } from './login.styles';
+import { createLoginStyles, THEME } from './login.styles';
 
 import { LoginHeader } from './components/LoginHeader';
 import { PinStatusDisplay } from './components/PinStatusDisplay';
@@ -15,17 +16,11 @@ import { NumericKeypad } from './components/NumericKeypad';
 import { DeviceLockedView } from './components/DeviceLockedView';
 import { ConnectionErrorView } from './components/ConnectionErrorView';
 
-/**
- * LoginContent
- * Orquestador de la vista de Login. Conecta la lógica de negocio (Auth)
- * con la lógica de UI y los componentes visuales.
- */
 function LoginContent() {
   const {
     status,
     isAuthenticating,
     error,
-    login,
     dispatch: authDispatch
   } = useAuthV1();
 
@@ -39,7 +34,17 @@ function LoginContent() {
     toggleEditUsername,
   } = useLoginUI();
 
+  const metrics = useResponsiveLogin();
+  const styles = useMemo(() => createLoginStyles(metrics), [metrics]);
+
   const isInputDisabled = isAuthenticating || isEditingUsername;
+
+  const dismissKeyboard = () => {
+    if (isEditingUsername) {
+      Keyboard.dismiss();
+      toggleEditUsername(false);
+    }
+  };
 
   if (status === AuthStatus.DEVICE_LOCKED) {
     return <DeviceLockedView error={error} />;
@@ -50,47 +55,57 @@ function LoginContent() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
-        keyboardVerticalOffset={Platform.OS === 'android' ? 0 : 90}
-        style={{ flex: 1 }}
-      >
+    <ScreenContainer
+      edges={['top', 'left', 'right']}
+      backgroundColor={THEME.background}
+      style={styles.container}
+    >
+      <View style={styles.headerSection}>
+        <LoginHeader
+          username={username}
+          onUsernameUpdate={updateUsername}
+          isEditing={isEditingUsername}
+          setIsEditing={toggleEditUsername}
+          metrics={metrics}
+          styles={styles}
+        />
+      </View>
+
+      <View style={styles.scrollSection}>
         <ScrollView
-          contentContainerStyle={{ flex: 1, justifyContent: 'center' }}
+          contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
         >
-          <Flex flex={1} vertical justify="center" gap={30} align="center" padding="xl">
-            <LoginHeader
-              username={username}
-              onUsernameUpdate={updateUsername}
-              isEditing={isEditingUsername}
-              setIsEditing={toggleEditUsername}
+          <Flex vertical align="center" gap={metrics.contentGap} style={styles.contentWrapper}>
+            <PinStatusDisplay
+              pinLength={pin.length}
+              isAuthenticating={isAuthenticating}
+              error={error}
+              metrics={metrics}
+              styles={styles}
             />
 
-            <Flex vertical align="center" gap={20} style={{ width: '100%' }}>
-              <PinStatusDisplay
-                pinLength={pin.length}
-                isAuthenticating={isAuthenticating}
-                error={error}
-              />
-
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => authDispatch(SESSION_EXPIRED_MSG({ reason: 'forgot_pin' }))}
-              >
-                <Text style={styles.forgotPin}>¿Olvidaste tu PIN?</Text>
-              </TouchableOpacity>
-            </Flex>
-            <NumericKeypad
-              onPress={appendPin}
-              onDelete={removeLastPin}
-              isDisabled={isInputDisabled}
-            />
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => authDispatch(SESSION_EXPIRED_MSG({ reason: 'forgot_pin' }))}
+            >
+              <Text style={styles.forgotPin}>¿Olvidaste tu PIN?</Text>
+            </TouchableOpacity>
           </Flex>
         </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      </View>
+
+      <View style={styles.bottomSection}>
+        <NumericKeypad
+          onPress={appendPin}
+          onDelete={removeLastPin}
+          isDisabled={isInputDisabled}
+          metrics={metrics}
+          styles={styles}
+        />
+      </View>
+    </ScreenContainer>
   );
 }
 

@@ -36,6 +36,13 @@ jobs:
         env:
           NODE_OPTIONS: '--max-old-space-size=1536'
 
+      - name: 📄 Extract version from Expo
+        id: get-version
+        run: |
+          APP_VERSION=$(node -p "require('./app.json').expo.version")
+          echo "VERSION=$APP_VERSION" >> $GITHUB_OUTPUT
+          echo "Extracted version: $APP_VERSION"
+
       - name: 🔍 Verify dependencies (Pre-build)
         run: node scripts/check-deps.js
 
@@ -75,7 +82,7 @@ jobs:
       - name: 📦 Prepare APK for Release
         run: |
           mkdir -p build-output
-          cp android/app/build/outputs/apk/release/*.apk build-output/game-reset-latest.apk
+          cp android/app/build/outputs/apk/release/*.apk "build-output/game_reset.${{ steps.get-version.outputs.VERSION }}.apk"
 
       - name: 🚀 Create or Update GitHub Release
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
@@ -83,7 +90,7 @@ jobs:
         with:
           tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'latest' }}
           name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'Latest Build (Main Branch)' }}
-          files: build-output/game-reset-latest.apk
+          files: "build-output/game_reset.${{ steps.get-version.outputs.VERSION }}.apk"
           generate_release_notes: true
           draft: false
           prerelease: ${{ !startsWith(github.ref, 'refs/tags/v') }}

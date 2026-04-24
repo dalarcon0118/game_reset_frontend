@@ -1,6 +1,6 @@
 import { Model } from './model';
 import { SubDescriptor, Sub } from '@core/tea-utils';
-import { Msg, TICK, FINANCIAL_UPDATE_RECEIVED, SYSTEM_READY as SYSTEM_READY_MSG } from './msg';
+import { Msg, TICK, SYSTEM_READY as SYSTEM_READY_MSG } from './msg';
 import { adaptAuthUser } from './user.dto';
 import { DASHBOARD_FILTER_CHANGED, SYSTEM_READY, DASHBOARD_RULES_CLICKED, DASHBOARD_REWARDS_CLICKED, DASHBOARD_REFRESH_CLICKED } from '@/config/signals';
 import { settings } from '@/config/settings';

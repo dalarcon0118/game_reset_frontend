@@ -45,12 +45,12 @@ export const setAuthRepository = (repo: IAuthRepository) => {
   _authRepo.setDeviceSecretRepository(DeviceSecretRepository);
   _authRepo.setTimeAnchorRepository(TimeAnchorRepository);
   _authRepo.setTimeRepository(TimerRepository);
-  
+
   // ✅ FIX: Inyectar networkChecker para verificar conectividad real antes de offline fallback
   // Esto evita que errores 500 del servidor causen fallback a modo offline
   // cuando el servidor SÍ está alcanzable pero tiene problemas internos
   _authRepo.setNetworkChecker(() => isServerReachable());
-  
+
   log.info('AuthRepository dependencies injected from CoreService');
 };
 
@@ -472,7 +472,31 @@ export const CoreService = {
     log.debug('Subscribing to hybrid connectivity sensors...');
 
     // 1. Sensor Activo (NetInfo): Hardware/Sistema Operativo
-    const unsubscribeNetInfo = NetInfo.addEventListener((state) => {
+    const unsubscribeNetInfo = NetInfo.addEventListener(async (state) => {
+      // Workaround for Issue #781: NetInfo returns type="unknown" on first callback
+      // This causes isConnected to be null which becomes false
+      if (state.type === 'unknown') {
+        log.warn('[CONNECTIVITY-ACTIVO] NetInfo returned "unknown", refreshing...');
+        await NetInfo.refresh();
+        const refreshedState = await NetInfo.fetch();
+        log.info('[CONNECTIVITY-ACTIVO] NetInfo after refresh:', {
+          type: refreshedState.type,
+          isConnected: refreshedState.isConnected
+        });
+
+        const isConnected = !!refreshedState.isConnected;
+        dispatch({ type: 'PHYSICAL_CONNECTION_CHANGED', payload: isConnected });
+
+        if (isConnected) {
+          isServerReachable().then(reachable => {
+            if (reachable) {
+              dispatch({ type: 'SERVER_REACHABILITY_CHANGED', payload: true });
+            }
+          });
+        }
+        return;
+      }
+
       const isConnected = !!state.isConnected;
 
       log.info(`[CONNECTIVITY-ACTIVO] NetInfo update: ${isConnected ? 'CONNECTED' : 'DISCONNECTED'}`, {

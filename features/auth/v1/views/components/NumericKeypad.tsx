@@ -2,18 +2,23 @@ import React from 'react';
 import { View, TouchableOpacity } from 'react-native';
 import { Text } from '@ui-kitten/components';
 import { Delete } from 'lucide-react-native';
-import { styles, THEME } from '../login.styles';
+import { THEME } from '../login.styles';
+import { LoginMetrics } from '../../hooks/use_responsive_login';
 
 interface NumericKeypadProps {
   onPress: (val: string) => void;
   onDelete: () => void;
   isDisabled: boolean;
+  metrics: LoginMetrics;
+  styles: any;
 }
 
 export const NumericKeypad = React.memo(({
   onPress,
   onDelete,
-  isDisabled
+  isDisabled,
+  metrics,
+  styles
 }: NumericKeypadProps) => {
   const iconColor = isDisabled ? 'rgba(143, 155, 179, 0.5)' : THEME.textSecondary;
 
@@ -54,7 +59,7 @@ export const NumericKeypad = React.memo(({
           activeOpacity={0.5}
           disabled={isDisabled}
         >
-          <Delete size={24} color={iconColor} />
+          <Delete size={metrics.iconSize} color={iconColor} />
         </TouchableOpacity>
       </View>
     </View>

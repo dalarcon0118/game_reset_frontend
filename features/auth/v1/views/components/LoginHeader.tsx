@@ -3,20 +3,25 @@ import { View, TouchableOpacity, Alert } from 'react-native';
 import { Text, Input, Button } from '@ui-kitten/components';
 import { Lock, Edit2 } from 'lucide-react-native';
 import { Flex } from '@/shared/components';
-import { THEME, styles } from '../login.styles';
+import { THEME } from '../login.styles';
+import { LoginMetrics } from '../../hooks/use_responsive_login';
 
 interface LoginHeaderProps {
   username: string;
   onUsernameUpdate: (name: string) => void;
   isEditing: boolean;
   setIsEditing: (editing: boolean) => void;
+  metrics: LoginMetrics;
+  styles: any;
 }
 
 export const LoginHeader = React.memo(({
   username,
   onUsernameUpdate,
   isEditing,
-  setIsEditing
+  setIsEditing,
+  metrics,
+  styles
 }: LoginHeaderProps) => {
   const [tempUsername, setTempUsername] = useState(username);
 
@@ -47,14 +52,14 @@ export const LoginHeader = React.memo(({
   };
 
   return (
-    <Flex vertical align="center" style={{ marginTop: 60 }} gap={10}>
+    <Flex vertical align="center" gap={8}>
       <View style={styles.iconContainer}>
-        <Lock size={32} color={THEME.accent} />
+        <Lock size={metrics.iconSize} color={THEME.accent} />
       </View>
       <Text category="h4" style={{ color: THEME.text }}>Game-Reset</Text>
 
       {isEditing ? (
-        <View style={{ width: 250, alignItems: 'center' }}>
+        <View style={styles.inputContainer}>
           <Input
             value={tempUsername}
             onChangeText={handleUsernameChange}
@@ -63,6 +68,9 @@ export const LoginHeader = React.memo(({
             status="control"
             style={styles.headerInput}
             textStyle={{ color: 'white' }}
+            onFocus={() => console.log('LoginHeader Input: focused')}
+            onBlur={() => console.log('LoginHeader Input: blurred')}
+            autoFocus={true}
           />
           <View style={styles.headerButtons}>
             <Button

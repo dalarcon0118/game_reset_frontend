@@ -1,11 +1,10 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text, Button, Layout } from '@ui-kitten/components';
 import { Flex } from '@/shared/components';
 import { useAuthV1 } from '../../hooks/use_auth';
 import { useLoginUI } from '../../hooks/use_login_ui';
-import { RESET_AUTH_STATE } from '@/shared/auth/v1/msg';
-import { LOGIN_REQUESTED } from '@/shared/auth/v1/msg';
+import { RESET_AUTH_STATE, LOGIN_REQUESTED } from '@/shared/auth/v1/msg';
 
 interface ConnectionErrorViewProps {
     error?: string | null;
@@ -14,17 +13,8 @@ interface ConnectionErrorViewProps {
 export const ConnectionErrorView: React.FC<ConnectionErrorViewProps> = ({ error }) => {
     const { dispatch } = useAuthV1();
     const { username, pin } = useLoginUI();
-    const hasRetried = useRef(false);
 
-    useEffect(() => {
-        if (username && pin.length === 6 && !hasRetried.current) {
-            hasRetried.current = true;
-            const retryTimeout = setTimeout(() => {
-                dispatch(LOGIN_REQUESTED({ username, pin }));
-            }, 1500);
-            return () => clearTimeout(retryTimeout);
-        }
-    }, [username, pin, dispatch]);
+    const stableDispatch = useCallback((msg: any) => dispatch(msg), [dispatch]);
 
     // Detectar si es un error de base de datos para mostrar título específico
     const isDatabaseError = error?.toLowerCase().includes('base de datos') || 
@@ -58,9 +48,9 @@ export const ConnectionErrorView: React.FC<ConnectionErrorViewProps> = ({ error 
                         status="primary"
                         onPress={() => {
                             if (username && pin.length === 6) {
-                                dispatch(LOGIN_REQUESTED({ username, pin }));
+                                stableDispatch(LOGIN_REQUESTED({ username, pin }));
                             } else {
-                                dispatch(RESET_AUTH_STATE());
+                                stableDispatch(RESET_AUTH_STATE());
                             }
                         }}
                         style={styles.button}
@@ -71,7 +61,7 @@ export const ConnectionErrorView: React.FC<ConnectionErrorViewProps> = ({ error 
                     <Button
                         status="basic"
                         appearance="ghost"
-                        onPress={() => dispatch(RESET_AUTH_STATE())}
+                        onPress={() => stableDispatch(RESET_AUTH_STATE())}
                         style={styles.button}
                     >
                         VOLVER AL LOGIN

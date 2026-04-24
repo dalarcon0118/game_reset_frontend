@@ -5,6 +5,28 @@ import { settings } from '@/config/settings';
 const log = logger.withTag('NETWORK_UTILS');
 
 /**
+ * Fetches NetInfo state with a workaround for the "unknown" type bug.
+ * On first fetch, NetInfo may return type: "unknown" which is incorrect.
+ * This function refreshes and retries if that happens.
+ * 
+ * @see https://github.com/react-native-netinfo/react-native-netinfo/issues/781
+ */
+async function fetchNetInfoWithRetry(): Promise<ReturnType<typeof NetInfo.fetch>> {
+    let state = await NetInfo.fetch();
+    
+    // Workaround for Issue #781: NetInfo returns type: "unknown" on first fetch
+    // This happens on Android emulators and some devices
+    if (state.type === 'unknown') {
+        log.debug('NetInfo returned "unknown", refreshing...');
+        await NetInfo.refresh();
+        state = await NetInfo.fetch();
+        log.debug('NetInfo after refresh:', { type: state.type, isConnected: state.isConnected });
+    }
+    
+    return state;
+}
+
+/**
  * Checks if the backend server is reachable.
  * This is more robust than NetInfo.isInternetReachable for local development
  * because it attempts a real connection to the configured API base URL.
@@ -13,7 +35,7 @@ const log = logger.withTag('NETWORK_UTILS');
  */
 export async function isServerReachable(timeoutOverride?: number): Promise<boolean> {
     try {
-        const state = await NetInfo.fetch();
+        const state = await fetchNetInfoWithRetry();
 
         // If there's no basic connection, don't even try
         if (!state.isConnected) {

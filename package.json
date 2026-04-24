@@ -24,6 +24,8 @@
     "start:android": "node start-dev.js --android",
     "android": "expo run:android",
     "start:native-android": "JAVA_HOME=/opt/homebrew/opt/openjdk@17 ANDROID_HOME=~/Library/Android/sdk npx expo run:android",
+    "android:local": "EXPO_PUBLIC_APP_ENV=development JAVA_HOME=/opt/homebrew/opt/openjdk@17 ANDROID_HOME=~/Library/Android/sdk npx expo run:android",
+    "android:staging": "EXPO_PUBLIC_APP_ENV=production JAVA_HOME=/opt/homebrew/opt/openjdk@17 ANDROID_HOME=~/Library/Android/sdk npx expo run:android",
     "install:apk": "adb install -r android/app/build/outputs/apk/debug/app-debug.apk",
     "ios": "expo run:ios"
   },

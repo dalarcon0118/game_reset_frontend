@@ -1,13 +1,8 @@
 import React from 'react';
 import { View, ViewStyle, StyleProp, ScrollView, ScrollViewProps } from 'react-native';
+import { useResponsiveSpacing, SpacingSize, SpacingSide, SpacingConfig, SpacingProp } from '../hooks/use_responsive_spacing';
 
-export type SpacingSize = 's' | 'm' | 'l' | 'xl' | 'xxl';
-export type SpacingSide = 'top' | 'bottom' | 'left' | 'right' | 'vertical' | 'horizontal' | 'all';
-
-export interface SpacingConfig {
-  type: SpacingSide;
-  value: SpacingSize | number;
-}
+export type { SpacingSize, SpacingSide, SpacingConfig, SpacingProp };
 
 export interface BorderConfig {
   radius?: number;
@@ -23,9 +18,8 @@ export interface SizeConfig {
 
 export type SizeProp = number | string | SizeConfig;
 
-export type SpacingProp = SpacingSize | number | SpacingConfig | SpacingConfig[];
-
-const SPACING: Record<SpacingSize, number> = {
+/** Fallback spacing para uso fuera de hooks (valores base sin escalar) */
+const STATIC_SPACING: Record<SpacingSize, number> = {
   s: 4,
   m: 8,
   l: 16,
@@ -70,6 +64,11 @@ export const Flex: React.FC<FlexProps> = ({
   height,
   background,
 }) => {
+  // Spacing escalado según DPI del dispositivo
+  const { spacing: responsiveSpacing, scaleValue } = useResponsiveSpacing();
+
+  const SPACING = responsiveSpacing;
+
   const getJustify = (j?: string) => {
     switch (j) {
       case 'start': return 'flex-start';
@@ -95,7 +94,7 @@ export const Flex: React.FC<FlexProps> = ({
 
   const getSpacingValue = (value: SpacingSize | number): number => {
     if (typeof value === 'string') {
-      return SPACING[value];
+      return SPACING[value] ?? STATIC_SPACING[value];
     }
     return value;
   };
@@ -201,7 +200,7 @@ export const Flex: React.FC<FlexProps> = ({
     justifyContent: getJustify(justify),
     alignItems: getAlign(align),
     flexWrap: wrap === true ? 'wrap' : (wrap as ViewStyle['flexWrap']),
-    gap,
+    gap: gap !== undefined ? scaleValue(gap) : undefined,
   };
 
   const structuralStyles: ViewStyle = {

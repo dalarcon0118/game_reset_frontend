@@ -1,9 +1,10 @@
-import { View, StyleSheet, SafeAreaView } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useColorScheme } from 'react-native';
 import Colors from '@/constants/colors';
 import Layout from '@/constants/layout';
 import StyledText from '@/components/typography/styled_text';
 import Button from '@/components/ui/button';
+import { ScreenContainer } from '@/shared/components';
 import { useAuth } from '../../features/auth';
 import { currentUser, roleDescriptions } from '@/data/mock_data';
 
@@ -12,10 +13,11 @@ export default function SettingsScreen() {
   const { logout, isLoggingOut } = useAuth();
   
   return (
-    <SafeAreaView style={[
-      styles.container, 
-      { backgroundColor: Colors[colorScheme].background }
-    ]}>
+    <ScreenContainer
+      edges={['top', 'left', 'right', 'bottom']}
+      backgroundColor={Colors[colorScheme].background}
+      style={styles.container}
+    >
       <View style={styles.header}>
         <StyledText variant="heading" weight="bold" size="xl">
           Ajustes
@@ -60,7 +62,7 @@ export default function SettingsScreen() {
           disabled={isLoggingOut}
         />
       </View>
-    </SafeAreaView>
+    </ScreenContainer>
   );
 }
 

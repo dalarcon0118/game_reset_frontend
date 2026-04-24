@@ -13,19 +13,21 @@ import { useNavigationLogger } from '../hooks/useNavigationLogger';
 import { routes } from '../config/routes';
 import setings, { __DEV__TOOL } from '../config/settings';
 import { logger } from '../shared/utils/logger';
+import DeviceSimulator, { DEVICE_PRESETS, DeviceConfig } from '@/components/ui/device_simulator';
 
-// Export ErrorBoundary for Expo Router
 export { GlobalErrorBoundary as ErrorBoundary };
 
 export default function RootLayout() {
+
   return (
-    <GlobalErrorBoundary>
-      <AppProviders>
-        <SharedErrorBoundary name="RootLayout">
-          <RootLayoutContent />
-        </SharedErrorBoundary>
-      </AppProviders>
-    </GlobalErrorBoundary>
+      <GlobalErrorBoundary>
+        <AppProviders>
+          <SharedErrorBoundary name="RootLayout">
+            <RootLayoutContent />
+          </SharedErrorBoundary>
+        </AppProviders>
+      </GlobalErrorBoundary>
+    
   );
 }
 
@@ -45,7 +47,9 @@ function RootLayoutInner() {
 
   return (
     <View style={{ flex: 1 }}>
-      {__DEV__TOOL && <DevToolbar />}
+      
+      {//__DEV__TOOL && <DevToolbar />
+      }
       <Stack
         screenOptions={{
           headerShown: true,
