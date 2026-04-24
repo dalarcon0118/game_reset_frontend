@@ -17,13 +17,13 @@ export const FilterHandler = {
         const drawsData = model.draws.type === 'Success' ? model.draws.data : null;
         const now = TimerRepository.getTrustedNow(Date.now());
 
+        // SSOT: Draws already enriched by DrawRepository
         const { filteredDraws, dailyTotals } = recalculateDashboardState(
             drawsData,
-            null, // El sumario ya no se usa directamente aquí o se integra de otra forma
+            null,
             filter,
             model.commissionRate,
-            now,
-            model.pendingBets
+            now
         );
 
         return singleton({
@@ -39,13 +39,13 @@ export const FilterHandler = {
         const drawsData = model.draws.type === 'Success' ? model.draws.data : null;
         const now = TimerRepository.getTrustedNow(Date.now());
 
+        // SSOT: Recalculate totals with new commission rate
         const { filteredDraws, dailyTotals } = recalculateDashboardState(
             drawsData,
             null,
             model.appliedFilter,
             commissionRate,
-            now,
-            model.pendingBets
+            now
         );
 
         return singleton({

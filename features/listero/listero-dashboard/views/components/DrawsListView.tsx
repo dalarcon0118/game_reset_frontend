@@ -3,33 +3,36 @@ import { View, TouchableOpacity } from 'react-native';
 import { match } from 'ts-pattern';
 import { RemoteData } from '@core/tea-utils';
 import { Label } from '@/shared/components';
-import DrawItem from '../../plugins/draws_list_plugin/views/draw_item';
-import { useDashboardStore, useListeroDashboardStoreApi } from '../../store';
+import { useDashboardStore } from '../../store';
 import { REFRESH_CLICKED } from '../../core/msg';
-import { styles } from '../../plugins/draws_list_plugin/styles';
-import { logger } from '@/shared/utils/logger';
-
-const log = logger.withTag('DRAWS_LIST_VIEW');
+import { drawsListStyles as styles } from '../../core/styles';
+import DrawItem from './draw_item';
 
 export const DrawsListView: React.FC = () => {
-  const model = useDashboardStore((state) => state.model);
-  const dispatch = useDashboardStore((state) => state.dispatch);
+  const model = useDashboardStore((s) => s.model);
+  const dispatch = useDashboardStore((s) => s.dispatch);
 
   const handleRefresh = useCallback(() => dispatch(REFRESH_CLICKED()), [dispatch]);
 
-  const handleBetsListPress = useCallback((id: string, title: string, _draw: any) => {
-    dispatch({ type: 'BETS_LIST_CLICKED', drawId: id, title });
+  const handleBetsListPress = useCallback((id: string, title: string, draw: any) => {
+    dispatch({ type: 'BETS_LIST_CLICKED', drawId: id, title, drawType: draw.draw_type_details?.code });
   }, [dispatch]);
 
-  const handleCreateBetPress = useCallback((id: string, title: string, _draw: any) => {
-    dispatch({ type: 'CREATE_BET_CLICKED', drawId: id, title });
+  const handleCreateBetPress = useCallback((id: string, title: string, draw: any) => {
+    dispatch({ type: 'CREATE_BET_CLICKED', drawId: id, title, drawType: draw.draw_type_details?.code });
   }, [dispatch]);
 
-  const renderNotAsked = () => <View style={styles.content}><View style={styles.centerContainer}><Label> Cargando sorteos... </Label></View></View>;
+  const renderNotAsked = () => (
+    <View style={styles.content}>
+      <View style={styles.centerContainer}>
+        <Label>Cargando sorteos...</Label>
+      </View>
+    </View>
+  );
 
-  const renderLoading = () => <View style={styles.content}><View style={styles.centerContainer}><Label> Cargando sorteos... </Label></View></View>;
+  const renderLoading = () => renderNotAsked();
 
-  const renderError = ({ error }: any) => (
+  const renderError = ({ error }: { error: unknown }) => (
     <View style={styles.centerContainer}>
       <Label style={styles.errorText}>Error al cargar sorteos</Label>
       <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
@@ -39,9 +42,7 @@ export const DrawsListView: React.FC = () => {
   );
 
   const renderSuccess = () => {
-    const filteredDraws = (model.filteredDraws || []).filter(
-      (draw) => draw && draw.id != null
-    );
+    const filteredDraws = (model.filteredDraws || []).filter((draw) => draw && draw.id != null);
     return (
       <View style={styles.content}>
         {filteredDraws.length > 0 ? (
@@ -49,7 +50,6 @@ export const DrawsListView: React.FC = () => {
             <DrawItem
               key={draw.id}
               draw={draw}
-              totalsByDrawId={model.totalsByDrawId}
               onBetsListPress={handleBetsListPress}
               onCreateBetPress={handleCreateBetPress}
               showBalance={model.showBalance}

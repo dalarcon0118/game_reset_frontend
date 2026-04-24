@@ -58,12 +58,15 @@ export const SessionHandler = {
         isSessionContextVerified: false,
         isVerifyingSession: false
       }),
-      Cmd.task({
-        task: () => CoreService.logout(),
-        onSuccess: () => ({ type: 'SESSION_STATUS_CHANGED', payload: 'UNAUTHENTICATED' }),
-        onFailure: () => ({ type: 'SESSION_STATUS_CHANGED', payload: 'UNAUTHENTICATED' }),
-        label: 'LOGOUT_ON_EXPIRATION'
-      })
+      Cmd.batch([
+        Cmd.navigate({ pathname: '/login' }),
+        Cmd.task({
+          task: () => CoreService.logout(),
+          onSuccess: () => ({ type: 'SESSION_STATUS_CHANGED', payload: 'UNAUTHENTICATED' }),
+          onFailure: () => ({ type: 'SESSION_STATUS_CHANGED', payload: 'UNAUTHENTICATED' }),
+          label: 'LOGOUT_ON_EXPIRATION'
+        })
+      ])
     );
   }
 };

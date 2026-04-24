@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Dimensions } from 'react-native';
+import { StyleSheet, useWindowDimensions } from 'react-native';
 import { TrendingUp, Coins, BarChart3, Percent } from 'lucide-react-native';
 
 import { COLORS } from '@/shared/components/constants';
@@ -10,9 +10,8 @@ import { useDashboardStore, selectDashboardModel } from '../core';
 import { RemoteData } from '@core/tea-utils';
 import { Model } from '../core/model';
 
-const { width } = Dimensions.get('window');
-
 export function DashboardStats() {
+  const { width } = useWindowDimensions();
   const model = useDashboardStore(selectDashboardModel) as Model;
   const { showBalance } = model;
 

@@ -38,8 +38,8 @@ export type Msg =
     | { type: 'SELECT_FILTER'; filter: StatusFilter }
     | { type: 'RULES_CLICKED'; drawId: string }
     | { type: 'REWARDS_CLICKED'; drawId: string; title: string }
-    | { type: 'BETS_LIST_CLICKED'; drawId: string; title: string }
-    | { type: 'CREATE_BET_CLICKED'; drawId: string; title: string }
+    | { type: 'BETS_LIST_CLICKED'; drawId: string; title: string; drawType?: string }
+    | { type: 'CREATE_BET_CLICKED'; drawId: string; title: string; drawType?: string }
     | { type: 'NAVIGATE_TO_ERROR' }
     | { type: 'SET_COMMISSION_RATE'; rate: number }
     | { type: 'AUTH_USER_SYNCED'; user: DashboardUser | null }
@@ -76,8 +76,8 @@ export const APPLY_STATUS_FILTER = (filter: StatusFilter): Msg => ({ type: 'APPL
 export const SELECT_FILTER = (filter: StatusFilter): Msg => ({ type: 'SELECT_FILTER', filter });
 export const RULES_CLICKED = (drawId: string): Msg => ({ type: 'RULES_CLICKED', drawId });
 export const REWARDS_CLICKED = (drawId: string, title: string): Msg => ({ type: 'REWARDS_CLICKED', drawId, title });
-export const BETS_LIST_CLICKED = (drawId: string, title: string): Msg => ({ type: 'BETS_LIST_CLICKED', drawId, title });
-export const CREATE_BET_CLICKED = (drawId: string, title: string): Msg => ({ type: 'CREATE_BET_CLICKED', drawId, title });
+export const BETS_LIST_CLICKED = (drawId: string, title: string, drawType?: string): Msg => ({ type: 'BETS_LIST_CLICKED', drawId, title, drawType });
+export const CREATE_BET_CLICKED = (drawId: string, title: string, drawType?: string): Msg => ({ type: 'CREATE_BET_CLICKED', drawId, title, drawType });
 export const NAVIGATE_TO_ERROR = (): Msg => ({ type: 'NAVIGATE_TO_ERROR' });
 export const SET_COMMISSION_RATE = (rate: number): Msg => ({ type: 'SET_COMMISSION_RATE', rate });
 export const AUTH_USER_SYNCED = (user: DashboardUser | null): Msg => ({ type: 'AUTH_USER_SYNCED', user });

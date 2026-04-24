@@ -49,7 +49,7 @@ export const DataHandler = {
                 userStructureId: validId,
                 draws: RemoteData.loading()
             },
-            [fetchDrawsCmd(validId), loadPendingBetsCmd()] as Cmd
+            [fetchDrawsCmd(validId, model.commissionRate), loadPendingBetsCmd()] as Cmd
         );
     },
 
@@ -62,14 +62,13 @@ export const DataHandler = {
         const drawsData = model.draws.type === 'Success' ? model.draws.data : null;
         const now = TimerRepository.getTrustedNow(Date.now());
 
+        // SSOT: Draws already enriched by DrawRepository.enrichDrawsWithFinancialData()
         const { filteredDraws, dailyTotals } = recalculateDashboardState(
             drawsData,
             null, // No external summary needed
             model.appliedFilter,
             model.commissionRate,
-            now,
-            safeBets,
-            allSynced
+            now
         );
 
         // CAMBIO CRÍTICO: El dashboard puede estar READY si las apuestas ya cargaron, 
@@ -130,14 +129,13 @@ export const DataHandler = {
 
                 const now = TimerRepository.getTrustedNow(Date.now());
 
+                // SSOT: Draws already enriched by DrawRepository.enrichDrawsWithFinancialData()
                 const { filteredDraws, dailyTotals } = recalculateDashboardState(
                     data,
                     null, // No external summary needed
                     model.appliedFilter,
                     model.commissionRate,
-                    now,
-                    model.pendingBets,
-                    model.syncedBets
+                    now
                 );
 
                 log.info('[CRITERION_4] DAILY_TOTALS_CALCULATED: Totales diarios recalculados', {
@@ -199,7 +197,7 @@ export const DataHandler = {
         }
 
         const result = ret(model, [
-            fetchDrawsCmd(model.userStructureId, true),
+            fetchDrawsCmd(model.userStructureId, model.commissionRate, true),
             loadPendingBetsCmd()
         ] as Cmd);
         
@@ -216,7 +214,7 @@ export const DataHandler = {
         if (model.userStructureId && !model.isRateLimited && !isCurrentlyLoading) {
             log.debug('Tick triggered fetch');
             return ret(model, [
-                fetchDrawsCmd(model.userStructureId),
+                fetchDrawsCmd(model.userStructureId, model.commissionRate),
                 loadPendingBetsCmd()
             ] as Cmd);
         }

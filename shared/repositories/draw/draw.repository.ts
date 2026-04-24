@@ -5,11 +5,12 @@ import { BackendDraw, BetType, DrawRule } from './api/types/types';
 import { mapBackendDrawToFrontend } from '@/shared/services/draw/mapper';
 import { DrawOfflineAdapter } from './adapters/draw.offline.adapter';
 import { BetOfflineAdapter } from '../bet/adapters/bet.offline.adapter';
+import { BetDomainModel } from '../bet/bet.repository';
 import { logger } from '@/shared/utils/logger';
 import { Result, ok, err, ResultAsync } from 'neverthrow';
 import { isServerReachable } from '@/shared/utils/network';
 import { offlineStorage } from '@core/offline-storage/instance';
-import { IDrawRepository, DrawFinancialState } from './draw.ports';
+import { IDrawRepository, DrawFinancialState, createEmptyDrawFinancialData } from './draw.ports';
 import { STORAGE_TTL } from '@core/offline-storage/types';
 import { AuthRepository } from '@/shared/repositories/auth';
 import { TimerRepository } from '../system/time/tea.repository';
@@ -65,6 +66,7 @@ export class DrawRepository implements IDrawRepository {
 
     async getDraws(params: Record<string, any> = {}): Promise<Result<ExtendedDrawType[], Error>> {
         let structureId = params.owner_structure;
+        const commissionRate = params.commissionRate ?? 0;
         
         // Si no se proporciona structureId, obtenerlo directamente del AuthRepository
         if (!structureId) {
@@ -79,18 +81,19 @@ export class DrawRepository implements IDrawRepository {
             const cached = await this.getCachedDraws(structureId);
             if (cached && cached.length > 0) {
                 this.log.info('Cache hit: returning valid today draws', { count: cached.length });
-                return ok(this.mapDrawsToFrontend(cached, structureId));
+                return ok(this.mapDrawsToFrontend(cached, structureId, commissionRate));
             }
         }
 
         const remoteParams = { ...params };
         delete remoteParams.forceSync;
+        delete remoteParams.commissionRate;
 
         const remoteResult = await ResultAsync.fromPromise(isServerReachable(), e => e as Error)
             .andThen(isOnline => isOnline
                 ? this.fetchAndCacheRemote(remoteParams, structureId)
                 : err(new Error('No internet connection')))
-            .map(draws => this.mapDrawsToFrontend(draws, structureId))
+            .map(draws => this.mapDrawsToFrontend(draws, structureId, commissionRate))
             .match(
                 (value) => ok<ExtendedDrawType[], Error>(value),
                 (error) => err<ExtendedDrawType[], Error>(error)
@@ -107,7 +110,7 @@ export class DrawRepository implements IDrawRepository {
                 cachedCount: cachedFallback.length,
                 forceSync
             });
-            return ok(this.mapDrawsToFrontend(cachedFallback, structureId));
+            return ok(this.mapDrawsToFrontend(cachedFallback, structureId, commissionRate));
         }
 
         return remoteResult;
@@ -117,7 +120,13 @@ export class DrawRepository implements IDrawRepository {
         const cachedDraw = await this.offlineAdapter.getById(id);
         if (cachedDraw) {
             this.log.info('Cache hit: returning cached draw', { id });
-            return ok<ExtendedDrawType, Error>(mapBackendDrawToFrontend(cachedDraw));
+            const mapped = mapBackendDrawToFrontend(cachedDraw);
+            const user = await AuthRepository.getMe();
+            const structureId = user?.structure?.id?.toString();
+            if (structureId) {
+                return ok(await this.enrichDrawsWithFinancialData([mapped], structureId));
+            }
+            return ok(mapped);
         }
 
         this.log.info('Cache miss: fetching draw from remote', { id });
@@ -135,6 +144,15 @@ export class DrawRepository implements IDrawRepository {
                             : err<ExtendedDrawType, Error>(new Error(`Offline: No se pudo obtener el sorteo ${id} y no está en caché`));
                     });
             });
+
+        // Apply enrichment to remote result
+        if (result.isOk()) {
+            const user = await AuthRepository.getMe();
+            const structureId = user?.structure?.id?.toString();
+            if (structureId) {
+                return ok(await this.enrichDrawsWithFinancialData([result.value], structureId));
+            }
+        }
 
         return result;
     }
@@ -248,11 +266,18 @@ export class DrawRepository implements IDrawRepository {
             });
     }
 
-    private mapDrawsToFrontend(draws: BackendDraw[], structureId?: number): ExtendedDrawType[] {
-        return draws.map(draw => mapBackendDrawToFrontend({
+    private async mapDrawsToFrontend(draws: BackendDraw[], structureId?: number, commissionRate?: number): Promise<ExtendedDrawType[]> {
+        const mapped = draws.map(draw => mapBackendDrawToFrontend({
             ...draw,
             owner_structure: structureId ? Number(structureId) : draw.owner_structure
         }));
+        
+        // Apply financial enrichment (SSOT) - only if we have structureId
+        if (structureId) {
+            return await this.enrichDrawsWithFinancialData(mapped, String(structureId), commissionRate);
+        }
+        
+        return mapped;
     }
 
     async getWinningRecord(drawId: string | number): Promise<Result<WinningRecord | null, Error>> {
@@ -481,6 +506,137 @@ export class DrawRepository implements IDrawRepository {
             const bEnd = b.betting_end_time ? new Date(b.betting_end_time).getTime() : Infinity;
             
             return aEnd - bEnd;
+        });
+    }
+
+    /**
+     * ✅ SSOT: Calculate financial data for a draw based on local bets.
+     * 
+     * REGLA DE NEGOCIO:
+     * - totalCollected: LOCAL (pending + synced bets) - supersedes backend
+     * - premiumsPaid: BACKEND - only after draw is completed
+     * - netResult: CALCULATED = collected - paid - commission
+     * - commission: collected * commissionRate
+     */
+    private calculateDrawFinancialData(
+        drawId: string,
+        pendingBets: BetDomainModel[],
+        syncedBets: BetDomainModel[],
+        backendPremiumsPaid: number,
+        commissionRate: number
+    ): { totalCollected: number; premiumsPaid: number; netResult: number; betCount: number } {
+        const safeRate = commissionRate > 1 ? commissionRate / 100 : commissionRate;
+        let totalCollected = 0;
+        let betCount = 0;
+
+        // Aggregate pending bets
+        for (const bet of pendingBets) {
+            if (String(bet.drawId) === drawId) {
+                totalCollected += Number(bet.amount) || 0;
+                betCount++;
+            }
+        }
+
+        // Aggregate synced bets
+        for (const bet of syncedBets) {
+            if (String(bet.drawId) === drawId) {
+                totalCollected += Number(bet.amount) || 0;
+                betCount++;
+            }
+        }
+
+        const estimatedCommission = totalCollected * safeRate;
+        const netResult = totalCollected - backendPremiumsPaid - estimatedCommission;
+
+        return {
+            totalCollected,
+            premiumsPaid: backendPremiumsPaid,
+            netResult,
+            betCount
+        };
+    }
+
+    /**
+     * ✅ SSOT: Enriches draws with local financial data.
+     * 
+     * This method combines:
+     * - Local bets (pending + synced) for totalCollected
+     * - Backend premiumsPaid (after draw completion)
+     * - Calculated netResult using the business formula:
+     *   netResult = totalCollected - premiumsPaid - (totalCollected * commissionRate)
+     * 
+     * @param draws - Array of draws to enrich
+     * @param structureId - The structure ID for filtering bets
+     * @param commissionRate - Optional commission rate (if not provided, attempts to get from AuthRepository)
+     */
+    public async enrichDrawsWithFinancialData(
+        draws: ExtendedDrawType[],
+        structureId: string,
+        commissionRate?: number
+    ): Promise<ExtendedDrawType[]> {
+        if (!structureId || structureId === '0') {
+            this.log.warn('[enrichDrawsWithFinancialData] Invalid structureId, returning draws as-is', { structureId });
+            return draws;
+        }
+
+        if (!draws || draws.length === 0) {
+            return draws;
+        }
+
+        // Use provided commissionRate or get from model (passed from dashboard)
+        let rate = commissionRate ?? 0;
+        
+        // If no commissionRate provided, try to get from AuthRepository (async fallback)
+        if (rate === 0) {
+            // This requires synchronous access which we don't have, so we log a warning
+            // The dashboard should pass commissionRate when calling this method
+            this.log.debug('[enrichDrawsWithFinancialData] No commissionRate provided, using 0', {
+                structureId,
+                note: 'Dashboard should pass commissionRate from model'
+            });
+        }
+
+        // Get local bets (async)
+        let pendingBets: BetDomainModel[] = [];
+        let syncedBets: BetDomainModel[] = [];
+
+        try {
+            // Get all bets from storage (async)
+            const allBets = await this.betOfflineAdapter.getAll();
+            pendingBets = allBets.filter(bet => bet.status === 'pending' || bet.status === 'error');
+            syncedBets = allBets.filter(bet => bet.status === 'synced');
+        } catch (error) {
+            this.log.error('[enrichDrawsWithFinancialData] Failed to get local bets', error);
+        }
+
+        this.log.debug('[enrichDrawsWithFinancialData] Retrieved local bets', {
+            pendingCount: pendingBets.length,
+            syncedCount: syncedBets.length,
+            drawsCount: draws.length,
+            commissionRate: rate
+        });
+
+        // Enrich each draw with calculated financial data
+        return draws.map(draw => {
+            const financial = this.calculateDrawFinancialData(
+                draw.id,
+                pendingBets,
+                syncedBets,
+                draw.premiumsPaid || 0,
+                rate
+            );
+
+            return {
+                ...draw,
+                totalCollected: financial.totalCollected,
+                premiumsPaid: financial.premiumsPaid,
+                netResult: financial.netResult,
+                _financial: {
+                    betCount: financial.betCount,
+                    estimatedCommission: financial.totalCollected * (rate / 100),
+                    isEnriched: true
+                }
+            } as ExtendedDrawType;
         });
     }
 }

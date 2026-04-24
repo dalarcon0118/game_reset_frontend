@@ -71,5 +71,8 @@ offlineStorage.configure({
     }
 });
 
-appStateService.start();
+appStateService.start({
+    getAuthRepository: () => AuthRepository,
+    onSessionExpired: (reason: string) => AuthRepository.notifySessionExpired(reason)
+});
 console.log('[BOOTSTRAP] 🚀 Infraestructura base configurada (Synchronous)');

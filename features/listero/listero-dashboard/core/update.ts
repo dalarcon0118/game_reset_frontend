@@ -17,12 +17,11 @@ import { PROMOTION_MSG, RETRY_INITIAL_LOAD } from './msg';
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
 import { drawRepository } from '@/shared/repositories/draw';
 import { dashboardService } from '../services/dashboard.service';
-import { FilterDrawsUseCase } from '../plugins/draws_list_plugin/application/useCases/filter-draws.use-case';
-import { calculateFinancials } from '../plugins/summary_plugin/domain/logic';
+import { calculateFinancials } from './logic/financial';
+import { filterDraws } from './logic/index';
 import { DrawTotalsUpdate } from './msg';
 
 const log = logger.withTag('DASHBOARD_UPDATE');
-const filterDrawsUseCase = new FilterDrawsUseCase();
 
 export const update = (model: Model, msg: Msg): Return<Model, Msg> => {
     // log.debug('Update msg', { type: msg.type });
@@ -126,11 +125,11 @@ export const update = (model: Model, msg: Msg): Return<Model, Msg> => {
         .with({ type: 'REWARDS_CLICKED' }, ({ drawId, title }) =>
             NavigationHandler.handleRewardsClicked(model, drawId, title)
         )
-        .with({ type: 'BETS_LIST_CLICKED' }, ({ drawId, title }) =>
-            NavigationHandler.handleBetsListClicked(model, drawId, title)
+        .with({ type: 'BETS_LIST_CLICKED' }, ({ drawId, title, drawType }) =>
+            NavigationHandler.handleBetsListClicked(model, drawId, title, drawType)
         )
-        .with({ type: 'CREATE_BET_CLICKED' }, ({ drawId, title }) =>
-            NavigationHandler.handleCreateBetClicked(model, drawId, title)
+        .with({ type: 'CREATE_BET_CLICKED' }, ({ drawId, title, drawType }) =>
+            NavigationHandler.handleCreateBetClicked(model, drawId, title, drawType)
         )
         .with({ type: 'HELP_CLICKED' }, () =>
             NavigationHandler.handleHelpClicked(model)
@@ -191,11 +190,11 @@ function handleGetFinancialBets(model: Model): Return<Model, Msg> {
             task: async () => {
                 if (!model.userStructureId) return { type: 'Failure' as const, error: new Error('No structure ID') };
                 const rawData = await betRepository.getFinancialSummary(todayStart, model.userStructureId);
-                const { totals } = calculateFinancials(
+                const result = calculateFinancials(
                     { totalCollected: rawData.totalCollected, premiumsPaid: model.dailyTotals.premiumsPaid, betCount: rawData.betCount },
                     model.commissionRate
                 );
-                return { type: 'Success' as const, data: rawData, totals };
+                return { type: 'Success' as const, data: rawData, totals: result.totals };
             },
             onSuccess: (result) => ({ type: 'FINANCIAL_BETS_UPDATED', webData: result }),
             onFailure: (error) => ({ type: 'FINANCIAL_BETS_UPDATED', webData: { type: 'Failure', error } })
@@ -226,12 +225,12 @@ function handleRequestLocalDraws(model: Model): Return<Model, Msg> {
                 if (result.isOk() && result.value.length > 0) {
                     const draws = result.value;
                     const trustedNow = Date.now();
-                    const filteredDraws = filterDrawsUseCase.execute({
+                    const filteredDraws = filterDraws({
                         draws,
-                        filter: model.appliedFilter as any,
+                        filter: model.appliedFilter,
                         currentTime: trustedNow
                     });
-                    return { type: 'LOCAL_DRAWS_LOADED', draws, filteredDraws: filteredDraws as any };
+                    return { type: 'LOCAL_DRAWS_LOADED', draws, filteredDraws };
                 }
                 return { type: 'LOCAL_DRAWS_LOADED', draws: [], filteredDraws: [] };
             },

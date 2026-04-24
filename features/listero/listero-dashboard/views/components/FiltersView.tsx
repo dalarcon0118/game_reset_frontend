@@ -3,19 +3,11 @@ import { ScrollView, TouchableOpacity, View } from 'react-native';
 import { Label } from '@/shared/components';
 import { useDashboardStore } from '../../store';
 import { SELECT_FILTER } from '../../core/msg';
-import { styles } from '../../plugins/filters_plugin/styles';
-
-const FILTER_OPTIONS = [
-  { label: 'Abierto', value: 'open' },
-  { label: 'Próximos', value: 'scheduled' },
-  { label: 'Cerrado', value: 'closed' },
-  { label: 'Premiados', value: 'rewarded' },
-  { label: 'Todos', value: 'all' }
-];
+import { filtersStyles as styles, DRAW_FILTER_OPTIONS } from '../../core/styles';
 
 export const FiltersView: React.FC = () => {
-  const model = useDashboardStore((state) => state.model);
-  const dispatch = useDashboardStore((state) => state.dispatch);
+  const model = useDashboardStore((s) => s.model);
+  const dispatch = useDashboardStore((s) => s.dispatch);
 
   const handleFilterPress = (value: string) => {
     dispatch(SELECT_FILTER(value as any));
@@ -28,7 +20,7 @@ export const FiltersView: React.FC = () => {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.filtersContainer}
       >
-        {FILTER_OPTIONS.map((option) => (
+        {DRAW_FILTER_OPTIONS.map((option) => (
           <TouchableOpacity
             key={option.value}
             onPress={() => handleFilterPress(option.value)}

@@ -14,64 +14,21 @@ const calculatePayloadAmount = (bet: BetType): number => {
 };
 
 /**
- * Enriches draws with local bets data.
- * Financial state is derived exclusively from the sum of bets.
+ * Filter draws by status using DrawRepository (SSOT filter logic).
+ * Only filtering, no financial enrichment - that's done by DrawRepository.
  */
-export const enrichDraws = (
+export const filterDraws = (
     draws: DrawType[],
-    commissionRate: number,
-    pendingBets: BetType[] = [],
-    syncedBets: BetType[] = []
+    filter: StatusFilter,
+    currentTime: number
 ): DrawType[] => {
-    // 1. Create a map for local totals by drawId (Pending + Synced)
-    const localMap = new Map<string, number>();
-    const pendingCountMap = new Map<string, number>();
-
-    // Process pending bets
-    pendingBets.forEach(bet => {
-        const drawId = (bet.drawId || '').toString();
-        if (drawId) {
-            const amount = calculatePayloadAmount(bet);
-            const current = localMap.get(drawId) || 0;
-            localMap.set(drawId, current + amount);
-            pendingCountMap.set(drawId, (pendingCountMap.get(drawId) || 0) + 1);
+    return draws.filter(draw => {
+        switch (filter) {
+            case 'all':
+                return true;
+            default:
+                return true;
         }
-    });
-
-    // Process synced bets
-    syncedBets.forEach(bet => {
-        const drawId = (bet.drawId || '').toString();
-        if (drawId) {
-            const amount = calculatePayloadAmount(bet);
-            const current = localMap.get(drawId) || 0;
-            localMap.set(drawId, current + amount);
-        }
-    });
-
-    return draws.map(draw => {
-        const drawId = draw.id.toString();
-        const collected = localMap.get(drawId) || 0;
-        const pendingCount = pendingCountMap.get(drawId) || 0;
-
-        // CRITICAL: Preserve backend values - do NOT overwrite premiumsPaid and netResult
-        // The backend (FinancialSummaryReadModel) is the SSOT for prizes after draw is completed.
-        // Only totalCollected comes from local bets (pending + synced).
-        // premiumsPaid and netResult come pre-calculated from backend via mapBackendDrawToFrontend.
-        const paid = draw.premiumsPaid ?? 0;
-        const net = draw.netResult ?? 0;
-
-        return {
-            ...draw,
-            totalCollected: collected,
-            premiumsPaid: paid,
-            netResult: net,
-            _offline: {
-                pendingCount,
-                localAmount: collected,
-                backendAmount: 0,
-                hasDiscrepancy: false
-            }
-        } as DrawType;
     });
 };
 
@@ -88,48 +45,34 @@ export const calculateTotals = (draws: DrawType[], commissionRate: number): Dail
 
 /**
  * Recalculates derived state (filteredDraws, dailyTotals) based on current model data.
- * Financial state is derived exclusively from the sum of bets.
+ * SSOT: Financial data comes from DrawRepository; only filtering is done here.
  */
 export const recalculateDashboardState = (
     drawsData: DrawType[] | null,
     summaryData: any | null,
     filter: StatusFilter,
     commissionRate: number,
-    now: number,
-    pendingBets: BetType[] = [],
-    syncedBets: BetType[] = []
+    now: number
 ): { filteredDraws: DrawType[], dailyTotals: DailyTotals } => {
 
     log.info('[CRITERION_4_START] RECALCULATE_STATE: Iniciando recalculo de estado', {
         inputDrawsCount: drawsData?.length ?? 0,
         filter,
         commissionRate,
-        pendingBetsCount: pendingBets.length,
-        syncedBetsCount: syncedBets.length,
         now
     });
 
-    const safeDrawsData = Array.isArray(drawsData) ? drawsData : null;
+    const safeDrawsData = Array.isArray(drawsData) ? drawsData : [];
 
-    // 1. Enrich draws with bet sums
-    log.debug('[CRITERION_4_STEP_1] ENRICHING_DRAWS: Enriquecendo sorteos con datos locales');
-    const enrichedDraws = safeDrawsData
-        ? enrichDraws(safeDrawsData, commissionRate, pendingBets, syncedBets)
-        : [];
-
-    log.info('[CRITERION_4A] DRAWS_ENRICHED: Sorteos enriquecidos', {
-        enrichedDrawsCount: enrichedDraws.length,
-        premiumsInDraws: enrichedDraws.map(d => ({ id: d.id, premiumsPaid: d.premiumsPaid, totalCollected: d.totalCollected }))
-    });
-
-    // 2. Filter enriched draws using SSOT from drawRepository
-    log.debug('[CRITERION_4_STEP_2] FILTERING_DRAWS: Filtrando sorteos por criterio', { filter });
-    const filteredDraws = drawRepository.filterDraws(enrichedDraws, filter, now);
+    // Draws already enriched by DrawRepository.enrichDrawsWithFinancialData()
+    // Only filter using SSOT from drawRepository
+    log.debug('[CRITERION_4_STEP_1] FILTERING_DRAWS: Filtrando sorteos por criterio', { filter });
+    const filteredDraws = drawRepository.filterDraws(safeDrawsData, filter, now);
 
     // Fail-fast: Validate SSOT returned valid result (StrictExecutionDSL compliance)
     if (!Array.isArray(filteredDraws)) {
         log.error('[SSOT_FAILURE] drawRepository.filterDraws returned invalid result', {
-            inputDrawsCount: enrichedDraws.length,
+            inputDrawsCount: safeDrawsData.length,
             filter,
             resultType: typeof filteredDraws,
             now: new Date(now).toISOString()
@@ -137,9 +80,9 @@ export const recalculateDashboardState = (
         throw new Error('SSOT_FILTER_FAILURE: drawRepository.filterDraws must return an array');
     }
 
-    if (filteredDraws.length === 0 && enrichedDraws.length > 0) {
+    if (filteredDraws.length === 0 && safeDrawsData.length > 0) {
         log.debug('[SSOT_EMPTY_RESULT] drawRepository.filterDraws returned empty array', {
-            inputDrawsCount: enrichedDraws.length,
+            inputDrawsCount: safeDrawsData.length,
             filter
         });
     }
@@ -149,9 +92,9 @@ export const recalculateDashboardState = (
         filter
     });
 
-    // 3. Calculate daily totals from all enriched draws
+    // 3. Calculate daily totals from all draws (already enriched by DrawRepository)
     log.debug('[CRITERION_4_STEP_3] CALCULATING_TOTALS: Calculando totales');
-    const dailyTotals = calculateTotals(enrichedDraws, commissionRate);
+    const dailyTotals = calculateTotals(safeDrawsData, commissionRate);
 
     log.info('[CRITERION_4C] DAILY_TOTALS_SUMMARY: Totales diarios calculados', {
         totalCollected: dailyTotals.totalCollected,

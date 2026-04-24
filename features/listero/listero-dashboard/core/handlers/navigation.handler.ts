@@ -17,16 +17,36 @@ export const NavigationHandler = {
         return ret(model, Cmd.navigate({ pathname: routes.lister.rewards.screen, params: { id: drawId, title } }));
     },
 
-    handleBetsListClicked: (model: Model, drawId: string, title: string): Return<Model, Msg> => {
-        return ret(model, Cmd.navigate({ pathname: routes.lister.bets_list.screen, params: { id: drawId, title } }));
+    handleCreateBetClicked: (model: Model, drawId: string, title: string, drawType?: string): Return<Model, Msg> => {
+        let pathname: string;
+        switch (drawType) {
+            case 'BL':
+                pathname = '/lister/bets/bolita/anotate';
+                break;
+            case 'LS_WEEKLY':
+                pathname = '/lister/bets/loteria/anotate';
+                break;
+            default:
+                pathname = routes.lister.bets_create.screen;
+                break;
+        }
+        return ret(model, Cmd.navigate({ pathname, params: { id: drawId, title } }));
     },
 
-    handleCreateBetClicked: (model: Model, drawId: string, title: string): Return<Model, Msg> => {
-        return ret(model, Cmd.navigate({ pathname: routes.lister.bets_create.screen, params: { id: drawId, title } }));
-    },
-
-    handleNavigateToError: (model: Model): Return<Model, Msg> => {
-        return ret(model, Cmd.navigate({ pathname: '/error' }));
+    handleBetsListClicked: (model: Model, drawId: string, title: string, drawType?: string): Return<Model, Msg> => {
+        let pathname: string;
+        switch (drawType) {
+            case 'BL':
+                pathname = '/lister/bets/bolita/list';
+                break;
+            case 'LS_WEEKLY':
+                pathname = '/lister/bets/loteria/list';
+                break;
+            default:
+                pathname = routes.lister.bets_list.screen;
+                break;
+        }
+        return ret(model, Cmd.navigate({ pathname, params: { id: drawId, title } }));
     },
 
     handleHelpClicked: (model: Model): Return<Model, Msg> => {

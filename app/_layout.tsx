@@ -48,7 +48,7 @@ function RootLayoutInner() {
   return (
     <View style={{ flex: 1 }}>
       
-      {//__DEV__TOOL && <DevToolbar />
+      {__DEV__TOOL && <DevToolbar />
       }
       <Stack
         screenOptions={{

@@ -1,6 +1,93 @@
 import { StyleSheet } from 'react-native';
+import { DRAW_FILTER } from '../core.types';
 
-export const styles = StyleSheet.create({
+export const drawsListStyles = StyleSheet.create({
+  content: {
+    paddingHorizontal: 1,
+    paddingTop: 16,
+  },
+  sectionHeader: {
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#222B45',
+  },
+  drawCount: {
+    color: '#8F9BB3',
+    fontSize: 12,
+  },
+  centerContainer: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    color: '#8F9BB3',
+  },
+  errorText: {
+    color: '#FF3B30',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  retryButton: {
+    marginTop: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: '#00C48C',
+    borderRadius: 8,
+  },
+  retryText: {
+    color: '#FFF',
+    fontWeight: 'bold',
+  },
+  emptyContainer: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: '#8F9BB3',
+    fontStyle: 'italic',
+  },
+});
+
+export const filtersStyles = StyleSheet.create({
+  wrapper: {
+    backgroundColor: '#FFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E4E9F2',
+  },
+  filtersContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    gap: 12,
+  },
+  filterTab: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#F7F9FC',
+    borderWidth: 1,
+    borderColor: '#E4E9F2',
+  },
+  activeFilterTab: {
+    backgroundColor: '#00C48C',
+    borderColor: '#00C48C',
+  },
+  filterLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#8F9BB3',
+  },
+  activeFilterLabel: {
+    color: '#FFFFFF',
+  },
+});
+
+export const summaryStyles = StyleSheet.create({
   card: {
     marginHorizontal: 12,
     marginVertical: 6,
@@ -30,7 +117,6 @@ export const styles = StyleSheet.create({
   eyeIcon: {
     padding: 2,
   },
-  // Main Metrics (Top)
   mainMetricsContainer: {
     flexDirection: 'row',
     gap: 8,
@@ -123,23 +209,17 @@ export const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1A2138',
   },
-  // State colors
-  positiveText: {
-    color: '#00D68F',
-  },
-  negativeText: {
-    color: '#FF3D71',
-  },
-  primaryText: {
-    color: '#3366FF',
-  },
-  centered: {
-    padding: 0,
-    alignItems: 'center',
-  },
-  error: {
-    color: '#FF3D71',
-    textAlign: 'center',
-    marginBottom: 16,
-  },
+  positiveText: { color: '#00D68F' },
+  negativeText: { color: '#FF3D71' },
+  primaryText: { color: '#3366FF' },
+  centered: { padding: 0, alignItems: 'center' },
+  error: { color: '#FF3D71', textAlign: 'center', marginBottom: 16 },
 });
+
+export const DRAW_FILTER_OPTIONS = [
+  { label: 'Abierto', value: DRAW_FILTER.OPEN },
+  { label: 'Próximos', value: DRAW_FILTER.SCHEDULED },
+  { label: 'Cerrado', value: DRAW_FILTER.CLOSED },
+  { label: 'Premiados', value: DRAW_FILTER.REWARDED },
+  { label: 'Todos', value: DRAW_FILTER.ALL },
+] as const;

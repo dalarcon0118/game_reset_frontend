@@ -1,8 +1,7 @@
 import React, { useMemo } from 'react';
-import { StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useColorScheme } from 'react-native';
 import Colors from '@/constants/colors';
-import { ScreenContainer } from '@/shared/components';
 import DashboardScreenComponent from '@/features/listero/listero-dashboard/views';
 import { ListeroDashboardProvider } from '@/features/listero/listero-dashboard/core/store_context';
 import { CoreModule } from '@/core/core_module';
@@ -11,7 +10,7 @@ import { WinningProvider } from '@/features/listero/winning';
 
 export default function ListeroDashboardTab() {
   const colorScheme = useColorScheme() ?? 'light';
-  
+
   // Leemos la verdad del sistema desde el Kernel (CoreModule)
   const isSystemReady = CoreModule.useStore(s => s.model.isSystemReady);
 
@@ -22,13 +21,9 @@ export default function ListeroDashboardTab() {
     <ListeroDashboardProvider initialParams={initialParams}>
       <WinningProvider>
         <RewardModule.Provider>
-          <ScreenContainer
-            edges={['top', 'left', 'right', 'bottom']}
-            backgroundColor={Colors[colorScheme].background}
-            style={styles.container}
-          >
-            <DashboardScreenComponent/>
-          </ScreenContainer>
+          <View style={[styles.container, { backgroundColor: Colors[colorScheme].background }]}>
+            <DashboardScreenComponent />
+          </View>
         </RewardModule.Provider>
       </WinningProvider>
     </ListeroDashboardProvider>
@@ -38,8 +33,5 @@ export default function ListeroDashboardTab() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 50,
   },
 });

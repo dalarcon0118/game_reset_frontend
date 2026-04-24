@@ -45,9 +45,9 @@ export const fetchUserDataCmd = (): Cmd => {
     });
 };
 
-export const fetchDrawsCmd = (structureId: string | null, forceSync = false): Cmd => {
+export const fetchDrawsCmd = (structureId: string | null, commissionRate: number = 0, forceSync = false): Cmd => {
     // Si no se proporciona structureId, DrawRepository.getDraws() lo obtendrá automáticamente del AuthRepository
-    // Solo verificamos si es exatamente '0' (inválido)
+    // Solo verificamos si esavelmente '0' (inválido)
     if (structureId === '0') {
         return Cmd.none;
     }
@@ -55,7 +55,12 @@ export const fetchDrawsCmd = (structureId: string | null, forceSync = false): Cm
     return Cmd.task({
         task: async () => {
             try {
-                const fetchPromise = drawRepository.getDraws({ owner_structure: structureId, today: true, forceSync });
+                const fetchPromise = drawRepository.getDraws({ 
+                    owner_structure: structureId, 
+                    today: true, 
+                    forceSync,
+                    commissionRate // Pass commissionRate for enrichment
+                });
                 const result = await withTimeout(fetchPromise, 10000, 'fetchDraws');
 
                 if (result.isOk()) {

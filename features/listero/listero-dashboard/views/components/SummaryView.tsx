@@ -2,14 +2,12 @@ import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Card } from '@ui-kitten/components';
 import { Eye, EyeOff, PiggyBank, Wallet, FileText, TrendingUp } from 'lucide-react-native';
-import { RemoteData } from '@core/tea-utils';
 import { formatCurrency } from '@/shared/utils/formatters';
 import { useDashboardStore } from '../../store';
 import { TOGGLE_BALANCE_VISIBILITY } from '../../core/msg';
-import { styles as summaryStyles } from '../../plugins/summary_plugin/styles';
-import { DailySummarySkeleton } from '@/shared/components/moti_skeleton';
+import { summaryStyles } from '../../core/styles';
 
-const MainMetricCard = ({ icon: Icon, color, bg, label, value, valueColor, badgeText }: any) => (
+const MainMetricCard = ({ icon: Icon, color, bg, label, value, badgeText }: any) => (
   <View style={summaryStyles.mainMetricCard}>
     <View style={summaryStyles.mainMetricTopRow}>
       <View style={[summaryStyles.iconContainer, { backgroundColor: bg }]}>
@@ -22,28 +20,26 @@ const MainMetricCard = ({ icon: Icon, color, bg, label, value, valueColor, badge
         </View>
       )}
     </View>
-    <Text style={[summaryStyles.metricValue, valueColor && { color: valueColor }]}>{value}</Text>
+    <Text style={summaryStyles.metricValue}>{value}</Text>
   </View>
 );
 
-const SecondaryMetric = ({ icon: Icon, label, value, valueColor }: any) => (
+const SecondaryMetric = ({ icon: Icon, label, value }: any) => (
   <View style={summaryStyles.secondaryItem}>
     <View style={summaryStyles.secondaryHeader}>
       <Icon size={14} color="#8F9BB3" />
-      <Text style={summaryStyles.secondaryLabel} numberOfLines={1} ellipsizeMode="tail">{label}</Text>
+      <Text style={summaryStyles.secondaryLabel} numberOfLines={1}>{label}</Text>
     </View>
-    <Text style={[summaryStyles.secondaryValue, valueColor && { color: valueColor }]} numberOfLines={1}>{value}</Text>
+    <Text style={summaryStyles.secondaryValue} numberOfLines={1}>{value}</Text>
   </View>
 );
 
-const LoadingView = () => <DailySummarySkeleton loading={true} />;
-
 export const SummaryView: React.FC = () => {
-  const model = useDashboardStore((state) => state.model);
-  const dispatch = useDashboardStore((state) => state.dispatch);
-
+  const model = useDashboardStore((s) => s.model);
+  const dispatch = useDashboardStore((s) => s.dispatch);
   const { dailyTotals, showBalance, commissionRate } = model;
-  const hide = (val: number) => showBalance ? formatCurrency(val) : '****';
+
+  const formatValue = (val: number) => showBalance ? formatCurrency(val) : '****';
   const toggleVisibility = () => dispatch(TOGGLE_BALANCE_VISIBILITY());
 
   return (
@@ -55,22 +51,20 @@ export const SummaryView: React.FC = () => {
             {showBalance ? <EyeOff size={22} color="#8F9BB3" /> : <Eye size={22} color="#8F9BB3" />}
           </TouchableOpacity>
         </View>
-
         <View style={summaryStyles.mainMetricsContainer}>
           <MainMetricCard
             icon={PiggyBank} color="#00D68F" bg="#E8FBF4"
-            label="Ganancia Estimada" value={hide(dailyTotals.estimatedCommission)}
+            label="Ganancia Estimada" value={formatValue(dailyTotals.estimatedCommission)}
             badgeText={`${Math.round(commissionRate * 100)}%`}
           />
           <MainMetricCard
             icon={Wallet} color="#3366FF" bg="#F0F5FF"
-            label="Total a Entregar" value={hide(dailyTotals.amountToRemit)} valueColor="#3366FF"
+            label="Total a Entregar" value={formatValue(dailyTotals.amountToRemit)}
           />
         </View>
-
         <View style={summaryStyles.secondaryMetricsRow}>
-          <SecondaryMetric icon={FileText} label="Total Vendido" value={hide(dailyTotals.totalCollected)} />
-          <SecondaryMetric icon={TrendingUp} label="Premios Pagados" value={hide(dailyTotals.premiumsPaid)} valueColor="#FF3D71" />
+          <SecondaryMetric icon={FileText} label="Total Vendido" value={formatValue(dailyTotals.totalCollected)} />
+          <SecondaryMetric icon={TrendingUp} label="Premios Pagados" value={formatValue(dailyTotals.premiumsPaid)} />
         </View>
       </View>
     </Card>

@@ -9,7 +9,11 @@ const BACKGROUND_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutos
 
 interface AppStateServiceDeps {
     getAuthRepository: () => ReturnType<typeof setAuthRepository> extends void ? never : ReturnType<typeof setAuthRepository>;
+    onSessionExpired?: (reason: string) => void;
 }
+
+let _authRepoGetter: (() => any) | null = null;
+let _onSessionExpiredCallback: ((reason: string) => void) | null = null;
 
 class AppStateServiceImpl {
     private backgroundTimestamp: number | null = null;
@@ -22,6 +26,13 @@ class AppStateServiceImpl {
         log.info('[APP_STATE_SERVICE] Starting background timeout monitor', { 
             timeoutMs: BACKGROUND_TIMEOUT_MS 
         });
+
+        if (deps?.getAuthRepository) {
+            _authRepoGetter = deps.getAuthRepository;
+        }
+        if (deps?.onSessionExpired) {
+            _onSessionExpiredCallback = deps.onSessionExpired;
+        }
 
         this.appStateSubscription = AppState.addEventListener('change', this.handleAppStateChange.bind(this));
         
@@ -107,13 +118,10 @@ class AppStateServiceImpl {
 
     private lockSessionDueToTimeout(): void {
         this.isSessionLocked = true;
-        this.wasTimeoutExceeded = true; // Marcar que hubo timeout de background
+        this.wasTimeoutExceeded = true;
         log.info('[APP_STATE_SERVICE] Locking session due to background timeout');
 
         try {
-            // ⚠️ CRÍTICO: Invalida el cache del DeviceRepository para forzar lectura del storage
-            // Esto previene la generación de un nuevo UUID que causaría DEVICE_LOCKED
-            // al re-autenticar después del timeout
             if (deviceRepository && typeof deviceRepository.invalidateCache === 'function') {
                 deviceRepository.invalidateCache();
                 log.info('[APP_STATE_SERVICE] DeviceRepository cache invalidated to prevent UUID mismatch');
@@ -121,21 +129,32 @@ class AppStateServiceImpl {
                 log.warn('[APP_STATE_SERVICE] DeviceRepository or invalidateCache not available');
             }
 
-            const authRepo = this.getAuthRepo();
-            if (authRepo) {
-                authRepo.notifySessionExpired('BACKGROUND_TIMEOUT');
+            if (_onSessionExpiredCallback) {
+                _onSessionExpiredCallback('BACKGROUND_TIMEOUT');
+                log.info('[APP_STATE_SERVICE] Session expired callback invoked');
+                return;
             }
+
+            if (_authRepoGetter) {
+                const authRepo = _authRepoGetter();
+                if (authRepo) {
+                    authRepo.notifySessionExpired('BACKGROUND_TIMEOUT');
+                    log.info('[APP_STATE_SERVICE] Notified AuthRepository session expired');
+                    return;
+                }
+            }
+
+            log.error('[APP_STATE_SERVICE] No auth repo available to notify session expired');
         } catch (error) {
             log.error('[APP_STATE_SERVICE] Failed to notify session expired', { error });
         }
     }
 
     private getAuthRepo() {
-        try {
-            return require('./service').getAuthRepo?.();
-        } catch {
-            return null;
+        if (_authRepoGetter) {
+            return _authRepoGetter();
         }
+        return null;
     }
 
     stop(): void {

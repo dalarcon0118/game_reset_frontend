@@ -31,13 +31,40 @@ export interface DrawFinancialState {
   };
 }
 
+export interface DrawFinancialData {
+    drawId: string;
+    totalCollected: number;
+    premiumsPaid: number;
+    commissionRate: number;
+    estimatedCommission: number;
+    netResult: number;
+    betCount: number;
+}
+
+export const createEmptyDrawFinancialData = (drawId: string): DrawFinancialData => ({
+    drawId,
+    totalCollected: 0,
+    premiumsPaid: 0,
+    commissionRate: 0,
+    estimatedCommission: 0,
+    netResult: 0,
+    betCount: 0
+});
+
 export interface IDrawRepository {
-  // Legacy-compatible methods
-  getDraws(params?: Record<string, any>): Promise<Result<ExtendedDrawType[], Error>>;
-  getDraw(id: string | number): Promise<Result<ExtendedDrawType, Error>>;
-  getBetTypes(drawId: string | number): Promise<Result<BetType[], Error>>;
-  getFinancialState(drawId: string | number): Promise<Result<DrawFinancialState, Error>>;
-  getWinningRecord(drawId: string | number): Promise<Result<WinningRecord | null, Error>>;
+    // Legacy-compatible methods
+    getDraws(params?: Record<string, any>): Promise<Result<ExtendedDrawType[], Error>>;
+    getDraw(id: string | number): Promise<Result<ExtendedDrawType, Error>>;
+    getBetTypes(drawId: string | number): Promise<Result<BetType[], Error>>;
+    getFinancialState(drawId: string | number): Promise<Result<DrawFinancialState, Error>>;
+    getWinningRecord(drawId: string | number): Promise<Result<WinningRecord | null, Error>>;
+
+    // SSOT: Enriquecer draws con datos financieros locales
+    enrichDrawsWithFinancialData(
+        draws: ExtendedDrawType[],
+        structureId: string,
+        commissionRate?: number
+    ): Promise<ExtendedDrawType[]>;
 
   // Base methods
   getOne(id: string | number): Promise<Draw>;

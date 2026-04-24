@@ -67,7 +67,7 @@ export const triggerInitialLoad = (model: Model): Return<Model, Msg> => {
     return ret(
         finalModel,
         Cmd.batch([
-            fetchDrawsCmd(model.userStructureId),
+            fetchDrawsCmd(model.userStructureId, model.commissionRate),
             loadPendingBetsCmd(),
             promotionCmd,
             timeoutRetryCmd
@@ -142,7 +142,7 @@ export const AuthHandler = {
     },
 
     handleSetUserStructure: (model: Model, id: string): Return<Model, Msg> => {
-        return ret({ ...model, userStructureId: id }, [fetchDrawsCmd(id), loadPendingBetsCmd()] as Cmd);
+        return ret({ ...model, userStructureId: id }, [fetchDrawsCmd(id, model.commissionRate), loadPendingBetsCmd()] as Cmd);
     },
 
     handleToggleBalance: (model: Model): Return<Model, Msg> => {

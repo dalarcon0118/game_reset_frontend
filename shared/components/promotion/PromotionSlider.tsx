@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { FlatList, View, StyleSheet, Dimensions, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
+import { FlatList, View, StyleSheet, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { PromotionCard } from './PromotionCard';
 import { Promotion } from './model';
 
@@ -7,8 +7,6 @@ interface PromotionSliderProps {
     promotions: Promotion[];
     onParticipate: (promotion: Promotion) => void;
 }
-
-const { width } = Dimensions.get('window');
 
 export const PromotionSlider: React.FC<PromotionSliderProps> = ({ promotions, onParticipate }) => {
     const [activeIndex, setActiveIndex] = useState(0);

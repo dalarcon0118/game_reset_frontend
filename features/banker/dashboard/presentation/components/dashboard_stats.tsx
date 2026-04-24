@@ -1,5 +1,5 @@
 import React from 'react';
-import { Dimensions } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 import { TrendingUp, Coins, BarChart3, PiggyBank } from 'lucide-react-native';
 import { useTheme } from '@ui-kitten/components';
 
@@ -7,9 +7,8 @@ import { Flex } from '@/shared/components/flex';
 import { GridStatCard } from '../../../common/grid_stat_card';
 import { selectDashboardStats, StatViewModel, useBankerDashboardStore } from '../../core';
 
-const { width } = Dimensions.get('window');
-
 export function DashboardStats() {
+  const { width } = useWindowDimensions();
   const { model } = useBankerDashboardStore();
   const theme = useTheme();
   const stats = selectDashboardStats(model);

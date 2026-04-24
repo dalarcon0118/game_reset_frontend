@@ -46,27 +46,33 @@ export const Header: React.FC<HeaderProps> = ({
             backgroundColor: theme.background, 
             borderBottomColor: theme.border 
         }]}>
-            <View style={styles.leftSection}>
-                <TouchableOpacity onPress={onMenuPress} style={styles.menuButton}>
-                    <Menu size={24} color={theme.text} />
-                </TouchableOpacity>
-                
-                <View style={styles.userInfo}>
-                    <KittenText style={[styles.username, { color: theme.text }]} numberOfLines={1}>
-                        {username}
-                    </KittenText>
-                    <View style={styles.structureRow}>
-                        <KittenText style={[styles.structureName, { color: theme.textSecondary }]} numberOfLines={1}>
-                            {structureName}
+            <View style={styles.topRow}>
+                <View style={styles.leftSection}>
+                    <TouchableOpacity onPress={onMenuPress} style={styles.menuButton}>
+                        <Menu size={24} color={theme.text} />
+                    </TouchableOpacity>
+                    
+                    <View style={styles.userInfo}>
+                        <KittenText style={[styles.username, { color: theme.text }]} numberOfLines={1}>
+                            {username}
                         </KittenText>
-                        {isOnline && (
-                            <Wifi size={12} color={theme.success} style={styles.onlineIcon} />
-                        )}
+                        <View style={styles.structureRow}>
+                            <KittenText style={[styles.structureName, { color: theme.textSecondary }]} numberOfLines={1}>
+                                {structureName}
+                            </KittenText>
+                            {isOnline && (
+                                <Wifi size={12} color={theme.success} style={styles.onlineIcon} />
+                            )}
+                        </View>
                     </View>
                 </View>
+                
+                <Text style={[styles.appName, { color: theme.success }]}>
+                    GAME RESET
+                </Text>
             </View>
             
-            <View style={styles.rightContainer}>
+            <View style={styles.bottomRow}>
                 {(rewardsCount > 0 || rewardsError) && (
                     <TouchableOpacity 
                         onPress={onRewardsCountPress} 
@@ -113,11 +119,15 @@ export const Header: React.FC<HeaderProps> = ({
 
 const styles = StyleSheet.create({
     container: {
+        flexDirection: 'column',
+        paddingHorizontal: 20,
+        paddingVertical: 14,
+        gap: 12,
+    },
+    topRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingVertical: 14,
     },
     leftSection: {
         flexDirection: 'row',
@@ -146,8 +156,9 @@ const styles = StyleSheet.create({
     onlineIcon: {
         marginLeft: 2,
     },
-    rightContainer: {
+    bottomRow: {
         flexDirection: 'row',
+        justifyContent: 'flex-end',
         alignItems: 'center',
         gap: 12,
     },
@@ -193,6 +204,11 @@ const styles = StyleSheet.create({
     rewardsText: {
         fontSize: 12,
         fontWeight: '600',
+    },
+    appName: {
+        fontSize: 14,
+        fontWeight: '700',
+        letterSpacing: 1,
     },
 });
 

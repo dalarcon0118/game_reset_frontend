@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, useWindowDimensions, TouchableOpacity } from 'react-native';
 import { Text, Button } from '@ui-kitten/components';
 import { Promotion } from './model';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,15 +9,18 @@ interface PromotionCardProps {
     onParticipate: (promotion: Promotion) => void;
 }
 
-const { width, height } = Dimensions.get('window');
-
 export const PromotionCard: React.FC<PromotionCardProps> = ({ promotion, onParticipate }) => {
+    const { width, height } = useWindowDimensions();
     const config = promotion.style_config || {};
     const gradientColors = config.gradient || ['#4c669f', '#3b5998', '#192f6a'];
     const textColor = config.text || '#FFFFFF';
 
     return (
-        <View style={styles.cardContainer}>
+        <View style={[styles.cardContainer, {
+            width: width * 0.85,
+            height: height * 0.6,
+            marginHorizontal: width * 0.075,
+        }]}>
             <LinearGradient
                 colors={gradientColors as any}
                 style={styles.gradient}
@@ -55,9 +58,6 @@ export const PromotionCard: React.FC<PromotionCardProps> = ({ promotion, onParti
 
 const styles = StyleSheet.create({
     cardContainer: {
-        width: width * 0.85,
-        height: height * 0.6,
-        marginHorizontal: width * 0.075,
         borderRadius: 24,
         overflow: 'hidden',
         elevation: 10,
