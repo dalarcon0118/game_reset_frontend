@@ -82,7 +82,7 @@ class AuthRepositoryImpl implements IAuthRepository {
     async isFirstAuthOfTheDay(): Promise<boolean> {
         const lastLoginDate = await this.storage.getLastLoginDate();
         const today = new Date().toISOString().split('T')[0];
-        
+
         if (!lastLoginDate) {
             log.debug('isFirstAuthOfTheDay: No hay registro de último login - assuming first auth', {
                 lastLoginDate,
@@ -395,6 +395,20 @@ class AuthRepositoryImpl implements IAuthRepository {
                     // Marcar fecha de login después de éxito
                     await this.markLoginDate();
 
+                    // FIX: After login, fetch fresh user profile to ensure commission_rate is correct
+                    // This prevents race conditions where cached profile with wrong commission_rate
+                    // is used before the fresh profile is fetched
+                    // Note: refreshUserProfile() already calls notifySessionListeners internally
+                    try {
+                        const refreshResult = await this.refreshUserProfile();
+                        if (refreshResult.isOk()) {
+                            // refreshUserProfile already notified via notifySessionListeners
+                            return onlineResult;
+                        }
+                    } catch (refreshError) {
+                        log.warn('[AUTH_REPO] Failed to refresh user profile after login, using onlineResult user', refreshError);
+                    }
+
                     this.notifySessionListeners(onlineResult.data.user);
                     return onlineResult;
                 }
@@ -556,8 +570,8 @@ class AuthRepositoryImpl implements IAuthRepository {
             // entonces sabemos que el servidor no está reachable y NO debemos intentar fetch remoto
             const skipRemoteFetch = !shouldAttemptOnline;
 
-            log.info('Checking offline conditions for survival mode', { 
-                username, 
+            log.info('Checking offline conditions for survival mode', {
+                username,
                 skipRemoteFetch,
                 isNetworkOnline: this.isNetworkOnline,
                 shouldAttemptOnline
@@ -619,7 +633,7 @@ class AuthRepositoryImpl implements IAuthRepository {
         }
 
         const structureId = Number(userStructureId);
-        
+
         if (!this.offlineConditionChecker) {
             log.error('performOfflineValidation: Offline condition checker not configured');
             return {
@@ -657,16 +671,16 @@ class AuthRepositoryImpl implements IAuthRepository {
             confirmationToken: undefined,
             isOffline: true
         });
-        
+
         // Marcar fecha de login después de éxito offline
         await this.markLoginDate();
 
         this.notifySessionListeners(offlineResult.data.user);
-        
+
         telemetryRepository.captureAuthLoginSuccess(username, true).catch(err => {
             log.warn('[AUTH_TELEMETRY] Failed to capture offline login success', err);
         });
-        
+
         return offlineResult;
     }
 

@@ -165,6 +165,10 @@ export const update = (model: Model, msg: Msg): Return<Model, Msg> => {
         .with({ type: 'BATCH_OFFLINE_UPDATE' }, ({ updates, timestamp }) =>
             handleBatchOfflineUpdate(model, updates, timestamp)
         )
+        // SSOT: External bet storage changed (from offlineEventBus via Sub.custom)
+        .with({ type: 'EXTERNAL_BETS_CHANGED' }, () =>
+            DataHandler.handleExternalBetsChanged(model)
+        )
         .with({ type: 'SELECT_FILTER' }, ({ filter }) =>
             FilterHandler.handleApplyStatusFilter(model, filter)
         )

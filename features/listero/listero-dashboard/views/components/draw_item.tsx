@@ -149,15 +149,16 @@ const DrawItemComponent: React.FC<DrawItemProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
-    marginHorizontal: 16,
-    marginVertical: 6,
-    padding: 12,
-    borderRadius: 12,
-  },
-  criticalContainer: {
-    backgroundColor: '#FFF5F8',
-  },
+	container: {
+		marginHorizontal: 16,
+		marginVertical: 6,
+		padding: 12,
+		borderRadius: 12,
+		minHeight: 130,
+	},
+	criticalContainer: {
+		backgroundColor: '#FFF5F8',
+	},
 });
 
 const DrawItemMemoized = memo(DrawItemComponent);

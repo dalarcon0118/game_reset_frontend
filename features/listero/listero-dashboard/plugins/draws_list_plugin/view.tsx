@@ -31,30 +31,29 @@ export const DrawsListComponent: React.FC<DrawsListComponentProps> = ({ context 
     contextRef.current = context;
   }, [context]);
 
-  useEffect(() => {
-    const currentDraws = model.draws;
-    const drawsType = currentDraws.type;
-    const hasData = drawsType === 'Success' && (currentDraws as any).data?.length > 0;
-    const hasStructureId = !!(contextRef.current?.state as any)?.userStructureId;
+	const drawsType = model.draws.type;
+	const hasData = drawsType === 'Success' && (model.draws as any).data?.length > 0;
+	const hasStructureId = !!(contextRef.current?.state as any)?.userStructureId;
 
-    log.debug('DrawsListComponent effect check', {
-      drawsType,
-      hasData,
-      hasStructureId,
-      alreadyRequested: hasRequestedLocalDraws.current
-    });
+	useEffect(() => {
+		log.debug('DrawsListComponent effect check', {
+			drawsType,
+			hasData,
+			hasStructureId,
+			alreadyRequested: hasRequestedLocalDraws.current
+		});
 
-    const needsLocalLoad =
-      !hasData &&
-      hasStructureId &&
-      !hasRequestedLocalDraws.current;
+		const needsLocalLoad =
+			!hasData &&
+			hasStructureId &&
+			!hasRequestedLocalDraws.current;
 
-    if (needsLocalLoad) {
-      hasRequestedLocalDraws.current = true;
-      log.info('Triggering defensive local load', { drawsType, hasStructureId });
-      dispatch(REQUEST_LOCAL_DRAWS());
-    }
-  }, []);
+		if (needsLocalLoad) {
+			hasRequestedLocalDraws.current = true;
+			log.info('Triggering defensive local load', { drawsType, hasStructureId });
+			dispatch(REQUEST_LOCAL_DRAWS());
+		}
+	}, [drawsType, hasData, hasStructureId, dispatch]);
 
   const handleRefresh = () => {
     dispatch(REFRESH_CLICKED());
@@ -111,31 +110,24 @@ export const DrawsListComponent: React.FC<DrawsListComponentProps> = ({ context 
     );
   };
 
-  return (
-    <View style={styles.content}>
-      {(() => {
-        const state = model?.draws?.type || 'NotAsked';
-        log.info('Rendering DrawsList state:', { 
-          state, 
-          drawsDataLength: (model?.draws as any)?.data?.length || 0,
-          filteredCount: model?.filteredDraws?.length || 0,
-          hasHostStore: !!context?.hostStore,
-          firstFilteredDraw: model?.filteredDraws?.[0] ? { id: model.filteredDraws[0].id, status: model.filteredDraws[0].status } : null
-        });
-        setTimeout(() => {
-          //force refresh if no filtered draws available
-          if (model?.filteredDraws?.length === 0) {
-            handleRefresh();
-          }
-        }, 5000);
-        
-        return match(model?.draws || RemoteData.notAsked())
-          .with({ type: 'NotAsked' }, renderNotAsked)
-          .with({ type: 'Loading' }, renderLoading)
-          .with({ type: 'Failure' }, renderError)
-          .with({ type: 'Success' }, renderSuccess)
-          .exhaustive();
-      })()}
-    </View>
-  );
+	const drawsState = model?.draws?.type || 'NotAsked';
+
+	log.info('Rendering DrawsList state:', {
+		state: drawsState,
+		drawsDataLength: (model?.draws as any)?.data?.length || 0,
+		filteredCount: model?.filteredDraws?.length || 0,
+		hasHostStore: !!context?.hostStore,
+		firstFilteredDraw: model?.filteredDraws?.[0] ? { id: model.filteredDraws[0].id, status: model.filteredDraws[0].status } : null
+	});
+
+	return (
+		<View style={styles.content}>
+			{match(model?.draws || RemoteData.notAsked())
+				.with({ type: 'NotAsked' }, renderNotAsked)
+				.with({ type: 'Loading' }, renderLoading)
+				.with({ type: 'Failure' }, renderError)
+				.with({ type: 'Success' }, renderSuccess)
+				.exhaustive()}
+		</View>
+	);
 };

@@ -1,15 +1,16 @@
 import { Model } from '../model';
 import { Msg, FinancialUpdate } from '../msg';
 import { Cmd, RemoteData, WebData, ret, singleton, Return } from '@core/tea-utils';
-import { shouldFetchData, checkRateLimit, recalculateDashboardState, handleSseUpdate } from '../logic';
+import { shouldFetchData, checkRateLimit, handleSseUpdate } from '../logic';
 import { fetchDrawsCmd, loadPendingBetsCmd } from '../commands';
 import { match, P } from 'ts-pattern';
 import { DrawType, BetType } from '@/types';
 import { logger } from '@/shared/utils/logger';
 import { GameRegistry } from '@/shared/core/registry/game_registry';
 import { TimerRepository } from '@/shared/repositories/system/time/tea.repository';
-
 import { dashboardService } from '../../services/dashboard.service';
+import { calculateFinancialProjection, extractDailyTotals } from '../../../../../shared/domain/financial.projection';
+import { drawRepository } from '@/shared/repositories/draw';
 
 const log = logger.withTag('DASHBOARD_DATA_HANDLER');
 
@@ -57,22 +58,42 @@ export const DataHandler = {
         const safeBets = Array.isArray(bets) ? bets : [];
         const allSynced = Array.isArray(syncedBets) ? syncedBets : (Array.isArray(model.syncedBets) ? model.syncedBets : []);
 
-        log.debug('Bets loaded', { pending: safeBets.length, synced: allSynced.length });
+        log.info('[CQRS_FIX] handlePendingBetsLoaded: Calculating financial projection from bets (SSOT)', {
+            pending: safeBets.length,
+            synced: allSynced.length,
+            drawCount: model.draws.type === 'Success' ? model.draws.data.length : 0
+        });
 
-        const drawsData = model.draws.type === 'Success' ? model.draws.data : null;
+        const drawsData = model.draws.type === 'Success' ? model.draws.data : [];
         const now = TimerRepository.getTrustedNow(Date.now());
 
-        // SSOT: Draws already enriched by DrawRepository.enrichDrawsWithFinancialData()
-        const { filteredDraws, dailyTotals } = recalculateDashboardState(
-            drawsData,
-            null, // No external summary needed
-            model.appliedFilter,
+        const premiumsByDraw: Record<string, number> = {};
+        for (const draw of drawsData) {
+            premiumsByDraw[draw.id] = (draw as any).premiumsPaid || 0;
+        }
+
+        const projection = calculateFinancialProjection(
+            safeBets,
+            allSynced,
+            premiumsByDraw,
             model.commissionRate,
-            now
+            model.userStructureId || ''
         );
 
-        // CAMBIO CRÍTICO: El dashboard puede estar READY si las apuestas ya cargaron, 
-        // permitiendo mostrar el resumen financiero local de inmediato.
+        const enrichedDraws = drawsData.map(draw => ({
+            ...draw,
+            ...projection.byDrawId[draw.id]
+        }));
+
+        const filteredDraws = drawRepository.filterDraws(enrichedDraws, model.appliedFilter, now);
+        const dailyTotals = extractDailyTotals(projection, model.commissionRate);
+
+        log.info('[CQRS_FIX] Financial projection calculated', {
+            totalCollected: projection.totalCollected,
+            betCount: projection.betCount,
+            byDrawIds: Object.keys(projection.byDrawId)
+        });
+
         return checkReadyState({
             ...model,
             pendingBets: safeBets,
@@ -80,6 +101,11 @@ export const DataHandler = {
             filteredDraws,
             dailyTotals
         });
+    },
+
+    handleExternalBetsChanged: (model: Model): Return<Model, Msg> => {
+        log.info('[EXTERNAL_BETS_CHANGED] External bet storage changed, reloading pending bets');
+        return ret(model, loadPendingBetsCmd());
     },
 
     handleDrawsReceived: (model: Model, webData: WebData<DrawType[]>): Return<Model, Msg> => {
@@ -124,19 +150,30 @@ export const DataHandler = {
                     premiumsInDraws: data.map(d => ({ id: d.id, premiumsPaid: (d as any).premiums_paid ?? d.premiumsPaid ?? 0, status: d.status }))
                 });
 
-                // Sincronizar el registro de juegos con los datos recibidos del backend
                 GameRegistry.syncWithBackend(data);
 
                 const now = TimerRepository.getTrustedNow(Date.now());
 
-                // SSOT: Draws already enriched by DrawRepository.enrichDrawsWithFinancialData()
-                const { filteredDraws, dailyTotals } = recalculateDashboardState(
-                    data,
-                    null, // No external summary needed
-                    model.appliedFilter,
+                const premiumsByDraw: Record<string, number> = {};
+                for (const draw of data) {
+                    premiumsByDraw[draw.id] = (draw as any).premiumsPaid || 0;
+                }
+
+                const projection = calculateFinancialProjection(
+                    model.pendingBets,
+                    model.syncedBets,
+                    premiumsByDraw,
                     model.commissionRate,
-                    now
+                    model.userStructureId || ''
                 );
+
+                const enrichedDraws = data.map(draw => ({
+                    ...draw,
+                    ...projection.byDrawId[draw.id]
+                }));
+
+                const filteredDraws = drawRepository.filterDraws(enrichedDraws, model.appliedFilter, now);
+                const dailyTotals = extractDailyTotals(projection, model.commissionRate);
 
                 log.info('[CRITERION_4] DAILY_TOTALS_CALCULATED: Totales diarios recalculados', {
                     totalCollected: dailyTotals.totalCollected,
@@ -179,7 +216,7 @@ export const DataHandler = {
             hasPendingBets: model.pendingBets.length > 0,
             isRateLimited: model.isRateLimited
         });
-        
+
         // DIAGNOSTIC: Log antes de invalidar cache
         log.info('[REFRESH_DIAGNOSTIC] Antes de invalidar dashboard cache');
         dashboardService.invalidateDashboard();
@@ -200,11 +237,11 @@ export const DataHandler = {
             fetchDrawsCmd(model.userStructureId, model.commissionRate, true),
             loadPendingBetsCmd()
         ] as Cmd);
-        
+
         log.info('[REFRESH_DIAGNOSTIC] Resultado del refresh:', {
             hasCommands: (result.cmd as any[] || []).length > 0
         });
-        
+
         return result;
     },
 

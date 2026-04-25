@@ -1,48 +1,56 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { DRAW_STATUS, DrawStatus, DrawType } from '@/types';
 
 interface DrawActionsProps {
-  effectiveStatus: DrawStatus;
-  onBetsListPress?: (id: string, title: string, draw: DrawType) => void;
-  onCreateBetPress?: (id: string, title: string, draw: DrawType) => void;
-  draw: DrawType;
+	effectiveStatus: DrawStatus;
+	onBetsListPress?: (id: string, title: string, draw: DrawType) => void;
+	onCreateBetPress?: (id: string, title: string, draw: DrawType) => void;
+	draw: DrawType;
 }
 
 export const DrawActions: React.FC<DrawActionsProps> = ({
-  effectiveStatus,
-  onBetsListPress,
-  onCreateBetPress,
-  draw,
+	effectiveStatus,
+	onBetsListPress,
+	onCreateBetPress,
+	draw,
 }) => {
-  const drawId = String(draw.id);
-  const title = draw.name || 'Sorteo';
+	const drawId = String(draw.id);
+	const title = draw.name || 'Sorteo';
 
-  const canShowList = effectiveStatus !== DRAW_STATUS.SCHEDULED;
-  const canCreateBet = effectiveStatus === DRAW_STATUS.OPEN;
+	const canShowList = effectiveStatus !== DRAW_STATUS.SCHEDULED;
+	const canCreateBet = effectiveStatus === DRAW_STATUS.OPEN;
 
-  if (!canShowList && !canCreateBet) return null;
+	const handleBetsListPress = useCallback(() => {
+		onBetsListPress?.(drawId, title, draw);
+	}, [onBetsListPress, drawId, title, draw]);
 
-  return (
-    <View style={styles.container}>
-      {canShowList && (
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => onBetsListPress?.(drawId, title, draw)}
-        >
-          <Text style={styles.buttonText}>Ver Apuestas</Text>
-        </TouchableOpacity>
-      )}
-      {canCreateBet && (
-        <TouchableOpacity
-          style={[styles.button, styles.primaryButton]}
-          onPress={() => onCreateBetPress?.(drawId, title, draw)}
-        >
-          <Text style={[styles.buttonText, styles.primaryText]}>+ Nueva Apuesta</Text>
-        </TouchableOpacity>
-      )}
-    </View>
-  );
+	const handleCreateBetPress = useCallback(() => {
+		onCreateBetPress?.(drawId, title, draw);
+	}, [onCreateBetPress, drawId, title, draw]);
+
+	if (!canShowList && !canCreateBet) return null;
+
+	return (
+		<View style={styles.container}>
+			{canShowList && (
+				<TouchableOpacity
+					style={styles.button}
+					onPress={handleBetsListPress}
+				>
+					<Text style={styles.buttonText}>Ver Apuestas</Text>
+				</TouchableOpacity>
+			)}
+			{canCreateBet && (
+				<TouchableOpacity
+					style={[styles.button, styles.primaryButton]}
+					onPress={handleCreateBetPress}
+				>
+					<Text style={[styles.buttonText, styles.primaryText]}>+ Nueva Apuesta</Text>
+				</TouchableOpacity>
+			)}
+		</View>
+	);
 };
 
 const styles = StyleSheet.create({

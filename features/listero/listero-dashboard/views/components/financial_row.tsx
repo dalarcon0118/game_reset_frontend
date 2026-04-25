@@ -49,11 +49,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
-  label: {
-    fontSize: 10,
-    color: '#8F9BB3',
-    marginBottom: 2,
-  },
+	label: {
+		fontSize: 12,
+		color: '#8F9BB3',
+		marginBottom: 4,
+	},
   value: {
     fontSize: 14,
     fontWeight: '700',

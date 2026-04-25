@@ -65,7 +65,9 @@ export type Msg =
     | { type: 'REQUEST_LOCAL_DRAWS' }
     | { type: 'LOCAL_DRAWS_LOADED'; draws: DrawType[]; filteredDraws: DrawType[] }
     // SSOT: Totals by drawId (from draws_list_plugin)
-    | { type: 'BATCH_OFFLINE_UPDATE'; updates: DrawTotalsUpdate[]; timestamp: number };
+    | { type: 'BATCH_OFFLINE_UPDATE'; updates: DrawTotalsUpdate[]; timestamp: number }
+    // SSOT: External bet storage changed (from offlineEventBus)
+    | { type: 'EXTERNAL_BETS_CHANGED' };
 
 export const FETCH_DATA_REQUESTED = (structureId?: string): Msg => ({ type: 'FETCH_DATA_REQUESTED', structureId });
 export const REFRESH_CLICKED = (): Msg => ({ type: 'REFRESH_CLICKED' });
@@ -112,8 +114,11 @@ export const REQUEST_LOCAL_DRAWS = (): Msg => ({ type: 'REQUEST_LOCAL_DRAWS' });
 export const LOCAL_DRAWS_LOADED = (draws: DrawType[], filteredDraws: DrawType[]): Msg => ({ type: 'LOCAL_DRAWS_LOADED', draws, filteredDraws });
 
 // SSOT: Totals by drawId (from draws_list_plugin)
-export const BATCH_OFFLINE_UPDATE = (updates: DrawTotalsUpdate[], timestamp: number): Msg => ({ 
-    type: 'BATCH_OFFLINE_UPDATE', 
-    updates, 
-    timestamp 
+export const BATCH_OFFLINE_UPDATE = (updates: DrawTotalsUpdate[], timestamp: number): Msg => ({
+    type: 'BATCH_OFFLINE_UPDATE',
+    updates,
+    timestamp
 });
+
+// SSOT: External bet storage changed (from offlineEventBus)
+export const EXTERNAL_BETS_CHANGED = (): Msg => ({ type: 'EXTERNAL_BETS_CHANGED' });

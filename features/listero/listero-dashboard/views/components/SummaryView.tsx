@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Card } from '@ui-kitten/components';
 import { Eye, EyeOff, PiggyBank, Wallet, FileText, TrendingUp } from 'lucide-react-native';
@@ -8,39 +8,39 @@ import { TOGGLE_BALANCE_VISIBILITY } from '../../core/msg';
 import { summaryStyles } from '../../core/styles';
 
 const MainMetricCard = ({ icon: Icon, color, bg, label, value, badgeText }: any) => (
-  <View style={summaryStyles.mainMetricCard}>
-    <View style={summaryStyles.mainMetricTopRow}>
-      <View style={[summaryStyles.iconContainer, { backgroundColor: bg }]}>
-        <Icon size={20} color={color} />
-      </View>
-      <Text style={summaryStyles.metricLabel}>{label}</Text>
-      {badgeText && (
-        <View style={summaryStyles.percentageBadge}>
-          <Text style={summaryStyles.percentageText}>{badgeText}</Text>
-        </View>
-      )}
-    </View>
-    <Text style={summaryStyles.metricValue}>{value}</Text>
-  </View>
+	<View style={summaryStyles.mainMetricCard}>
+		<View style={summaryStyles.mainMetricTopRow}>
+			<View style={[summaryStyles.iconContainer, { backgroundColor: bg }]}>
+				<Icon size={20} color={color} />
+			</View>
+			<Text style={summaryStyles.metricLabel}>{label}</Text>
+			{badgeText && (
+				<View style={summaryStyles.percentageBadge}>
+					<Text style={summaryStyles.percentageText}>{badgeText}</Text>
+				</View>
+			)}
+		</View>
+		<Text style={summaryStyles.metricValue}>{value}</Text>
+	</View>
 );
 
 const SecondaryMetric = ({ icon: Icon, label, value }: any) => (
-  <View style={summaryStyles.secondaryItem}>
-    <View style={summaryStyles.secondaryHeader}>
-      <Icon size={14} color="#8F9BB3" />
-      <Text style={summaryStyles.secondaryLabel} numberOfLines={1}>{label}</Text>
-    </View>
-    <Text style={summaryStyles.secondaryValue} numberOfLines={1}>{value}</Text>
-  </View>
+	<View style={summaryStyles.secondaryItem}>
+		<View style={summaryStyles.secondaryHeader}>
+			<Icon size={16} color="#8F9BB3" />
+			<Text style={summaryStyles.secondaryLabel} numberOfLines={1}>{label}</Text>
+		</View>
+		<Text style={summaryStyles.secondaryValue} numberOfLines={1}>{value}</Text>
+	</View>
 );
 
 export const SummaryView: React.FC = () => {
-  const model = useDashboardStore((s) => s.model);
-  const dispatch = useDashboardStore((s) => s.dispatch);
-  const { dailyTotals, showBalance, commissionRate } = model;
+	const model = useDashboardStore((s) => s.model);
+	const dispatch = useDashboardStore((s) => s.dispatch);
+	const { dailyTotals, showBalance, commissionRate } = model;
 
-  const formatValue = (val: number) => showBalance ? formatCurrency(val) : '****';
-  const toggleVisibility = () => dispatch(TOGGLE_BALANCE_VISIBILITY());
+	const formatValue = (val: number) => showBalance ? formatCurrency(val) : '****';
+	const toggleVisibility = useCallback(() => dispatch(TOGGLE_BALANCE_VISIBILITY()), [dispatch]);
 
   return (
     <Card style={summaryStyles.card}>

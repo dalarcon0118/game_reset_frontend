@@ -1,9 +1,11 @@
 import { Model } from './model';
 import { SubDescriptor, Sub } from '@core/tea-utils';
-import { Msg, TICK, SYSTEM_READY as SYSTEM_READY_MSG } from './msg';
+import { Msg, TICK, SYSTEM_READY as SYSTEM_READY_MSG, EXTERNAL_BETS_CHANGED } from './msg';
 import { adaptAuthUser } from './user.dto';
 import { DASHBOARD_FILTER_CHANGED, SYSTEM_READY, DASHBOARD_RULES_CLICKED, DASHBOARD_REWARDS_CLICKED, DASHBOARD_REFRESH_CLICKED } from '@/config/signals';
 import { settings } from '@/config/settings';
+import { offlineEventBus } from '@core/offline-storage/instance';
+import { DomainEvent } from '@core/offline-storage/types';
 
 export const subscriptions = (model: Model): SubDescriptor<Msg> => {
     // 1. Escucha señales globales para cambios de filtros
@@ -95,6 +97,30 @@ export const subscriptions = (model: Model): SubDescriptor<Msg> => {
 
     // 9. SSE subscription for real-time financial updates — only when authenticated
 
+    // 10. SSOT: Listen to offlineEventBus for sync completion events (not ENTITY_CHANGED to avoid loops)
+    // SYNC_ITEM_SUCCESS/ERROR indicate external sync completed - safe to reload bets
+    // ENTITY_CHANGED causes infinite loops because getBets flow publishes it internally
+    const betsSyncSub = Sub.custom<Msg>(
+        (dispatch) => {
+            let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+            const DEBOUNCE_MS = 1000;
 
-    return Sub.batch([filterSub, rulesSub, rewardsSub, refreshSub, systemReadySub, coreReadySub, authUserSub, authNeedsPasswordChangeSub]);
+            const unsubscribe = offlineEventBus.subscribe((event: DomainEvent) => {
+                const isBetSync = (event.type === 'SYNC_ITEM_SUCCESS' || event.type === 'SYNC_ITEM_ERROR') && event.entity === 'bet';
+                if (isBetSync) {
+                    if (debounceTimer) clearTimeout(debounceTimer);
+                    debounceTimer = setTimeout(() => {
+                        dispatch(EXTERNAL_BETS_CHANGED());
+                    }, DEBOUNCE_MS);
+                }
+            });
+            return () => {
+                if (debounceTimer) clearTimeout(debounceTimer);
+                unsubscribe();
+            };
+        },
+        'listero-dashboard-bets-sync-listener'
+    );
+
+    return Sub.batch([filterSub, rulesSub, rewardsSub, refreshSub, systemReadySub, coreReadySub, authUserSub, authNeedsPasswordChangeSub, betsSyncSub]);
 };

@@ -2,10 +2,10 @@ import { StyleSheet } from 'react-native';
 import { DRAW_FILTER } from '../core.types';
 
 export const drawsListStyles = StyleSheet.create({
-  content: {
-    paddingHorizontal: 1,
-    paddingTop: 16,
-  },
+	content: {
+		paddingHorizontal: 0,
+		paddingTop: 16,
+	},
   sectionHeader: {
     marginBottom: 16,
   },
@@ -103,12 +103,12 @@ export const summaryStyles = StyleSheet.create({
   container: {
     padding: 0,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
+	header: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		alignItems: 'center',
+		marginBottom: 12,
+	},
   title: {
     fontSize: 16,
     fontWeight: '700',
@@ -117,31 +117,32 @@ export const summaryStyles = StyleSheet.create({
   eyeIcon: {
     padding: 2,
   },
-  mainMetricsContainer: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 10,
-  },
-  mainMetricCard: {
-    flex: 1,
-    backgroundColor: '#F7F9FC',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-  },
+	mainMetricsContainer: {
+		flexDirection: 'row',
+		gap: 8,
+		marginBottom: 12,
+	},
+	mainMetricCard: {
+		flex: 1,
+		backgroundColor: '#F7F9FC',
+		borderRadius: 12,
+		paddingHorizontal: 8,
+		paddingVertical: 8,
+		overflow: 'hidden',
+	},
   mainMetricTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 4,
   },
-  iconContainer: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 6,
-  },
+	iconContainer: {
+		width: 24,
+		height: 24,
+		borderRadius: 8,
+		justifyContent: 'center',
+		alignItems: 'center',
+		marginRight: 8,
+	},
   metricLabel: {
     fontSize: 11,
     color: '#8F9BB3',
@@ -149,11 +150,11 @@ export const summaryStyles = StyleSheet.create({
     marginBottom: 0,
     flexShrink: 1,
   },
-  metricValue: {
-    fontSize: 21,
-    fontWeight: '800',
-    color: '#1A2138',
-  },
+	metricValue: {
+		fontSize: 20,
+		fontWeight: '800',
+		color: '#1A2138',
+	},
   percentageBadge: {
     marginLeft: 'auto',
     paddingHorizontal: 6,
@@ -166,31 +167,31 @@ export const summaryStyles = StyleSheet.create({
     fontWeight: '700',
     color: '#00D68F',
   },
-  secondaryMetricsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 0,
-    gap: 6,
-  },
-  secondaryItem: {
-    flex: 1,
-    backgroundColor: '#FAFBFF',
-    borderRadius: 10,
-    paddingHorizontal: 7,
-    paddingVertical: 6,
-  },
-  secondaryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  secondaryLabel: {
-    fontSize: 11,
-    color: '#8F9BB3',
-    fontWeight: '600',
-    marginLeft: 3,
-    flexShrink: 1,
-  },
+	secondaryMetricsRow: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		marginTop: 0,
+		gap: 8,
+	},
+	secondaryItem: {
+		flex: 1,
+		backgroundColor: '#FAFBFF',
+		borderRadius: 12,
+		paddingHorizontal: 8,
+		paddingVertical: 8,
+	},
+	secondaryHeader: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 4,
+	},
+	secondaryLabel: {
+		fontSize: 12,
+		color: '#8F9BB3',
+		fontWeight: '600',
+		marginLeft: 4,
+		flexShrink: 1,
+	},
   secondaryBadge: {
     marginLeft: 3,
     backgroundColor: '#EEF2FF',
@@ -203,12 +204,12 @@ export const summaryStyles = StyleSheet.create({
     color: '#3366FF',
     fontWeight: '700',
   },
-  secondaryValue: {
-    marginTop: 3,
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1A2138',
-  },
+	secondaryValue: {
+		marginTop: 4,
+		fontSize: 16,
+		fontWeight: '700',
+		color: '#1A2138',
+	},
   positiveText: { color: '#00D68F' },
   negativeText: { color: '#FF3D71' },
   primaryText: { color: '#3366FF' },

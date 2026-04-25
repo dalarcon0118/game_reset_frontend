@@ -20,6 +20,9 @@
       ],
       "@core/*": [
         "shared/core/*"
+      ],
+      "@domain/*": [
+        "shared/domain/*"
       ]
     },
     "jsx": "react-native",

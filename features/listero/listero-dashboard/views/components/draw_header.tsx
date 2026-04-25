@@ -102,12 +102,12 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: 4,
   },
-  title: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1A2138',
-    marginBottom: 2,
-  },
+	title: {
+		fontSize: 16,
+		fontWeight: '700',
+		color: '#1A2138',
+		marginBottom: 4,
+	},
   timesRow: {
     flexDirection: 'row',
     gap: 8,
@@ -120,33 +120,33 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#8F9BB3',
   },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 4,
-  },
+	statusBadge: {
+		paddingHorizontal: 8,
+		paddingVertical: 4,
+		borderRadius: 4,
+	},
   statusText: {
     fontSize: 11,
     fontWeight: '600',
     color: '#FFF',
   },
-  criticalBadge: {
-    backgroundColor: '#FF3D71',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
+	criticalBadge: {
+		backgroundColor: '#FF3D71',
+		paddingHorizontal: 8,
+		paddingVertical: 4,
+		borderRadius: 4,
+	},
   criticalText: {
     fontSize: 10,
     fontWeight: '700',
     color: '#FFF',
   },
-  scheduledBadge: {
-    backgroundColor: '#3366FF',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
+	scheduledBadge: {
+		backgroundColor: '#3366FF',
+		paddingHorizontal: 8,
+		paddingVertical: 4,
+		borderRadius: 4,
+	},
   scheduledText: {
     fontSize: 10,
     fontWeight: '700',

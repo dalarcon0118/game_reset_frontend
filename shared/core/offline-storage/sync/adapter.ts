@@ -129,17 +129,53 @@ export const SyncAdapter = {
     },
 
     /**
-     * Metadatos de sincronización
-     */
-    async getMetadata(): Promise<SyncMetadata> {
-        const key = OfflineStorageKeyManager.generateKey('system', 'sync_metadata', 'global');
-        const meta = await offlineStorage.get<SyncMetadata>(key);
-        return meta || { totalSyncs: 0, totalErrors: 0, workerStatus: 'idle' };
-    },
+ * Metadatos de sincronización
+ */
+async getMetadata(): Promise<SyncMetadata> {
+    const key = OfflineStorageKeyManager.generateKey('system', 'sync_metadata', 'global');
+    const meta = await offlineStorage.get<SyncMetadata>(key);
+    return meta || { totalSyncs: 0, totalErrors: 0, workerStatus: 'idle' };
+},
 
-    async updateMetadata(updates: Partial<SyncMetadata>): Promise<void> {
-        const key = OfflineStorageKeyManager.generateKey('system', 'sync_metadata', 'global');
-        const current = await this.getMetadata();
-        await offlineStorage.set(key, { ...current, ...updates });
+async updateMetadata(updates: Partial<SyncMetadata>): Promise<void> {
+    const key = OfflineStorageKeyManager.generateKey('system', 'sync_metadata', 'global');
+    const current = await this.getMetadata();
+    await offlineStorage.set(key, { ...current, ...updates });
+},
+
+/**
+ * Limpia items de la cola de sincronización que están:
+ * - Exhaustos (fallaron después de MAX_RETRIES)
+ * - Completados/sincronizados antiguos (limpieza de已完成)
+ * - Atascados (pending/failed por demasiado tiempo)
+ */
+async cleanup(retentionDays: number = 7, stuckHours: number = 24): Promise<number> {
+    const queue = await this.getQueue();
+    const now = Date.now();
+    const stuckThreshold = now - (stuckHours * 60 * 60 * 1000);
+    const completedThreshold = now - (retentionDays * 24 * 60 * 60 * 1000);
+
+    const toDelete: string[] = [];
+
+    for (const item of queue) {
+        if (item.status === 'exhausted') {
+            toDelete.push(item.id);
+        } else if (item.status === 'completed' || item.status === 'synced') {
+            if (item.createdAt < completedThreshold) {
+                toDelete.push(item.id);
+            }
+        } else if (item.status === 'pending' || item.status === 'failed') {
+            if (item.createdAt < stuckThreshold) {
+                toDelete.push(item.id);
+            }
+        }
     }
+
+    if (toDelete.length > 0) {
+        log.info(`[SyncAdapter] Cleaning up ${toDelete.length} stuck/orphaned sync queue items`);
+        await this.removeBatchFromQueue(toDelete);
+    }
+
+    return toDelete.length;
+}
 };

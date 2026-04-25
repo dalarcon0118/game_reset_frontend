@@ -4,8 +4,8 @@ import { DrawApi } from './api/api';
 import { BackendDraw, BetType, DrawRule } from './api/types/types';
 import { mapBackendDrawToFrontend } from '@/shared/services/draw/mapper';
 import { DrawOfflineAdapter } from './adapters/draw.offline.adapter';
-import { BetOfflineAdapter } from '../bet/adapters/bet.offline.adapter';
-import { BetDomainModel } from '../bet/bet.repository';
+import { IBetRepository } from '../bet/bet.types';
+import { locator } from '@core/utils/locator';
 import { logger } from '@/shared/utils/logger';
 import { Result, ok, err, ResultAsync } from 'neverthrow';
 import { isServerReachable } from '@/shared/utils/network';
@@ -37,14 +37,25 @@ interface SafeLogger {
 }
 
 export class DrawRepository implements IDrawRepository {
-    private log: SafeLogger;
-    private offlineAdapter = new DrawOfflineAdapter();
-    private betOfflineAdapter = new BetOfflineAdapter();
+  private log: SafeLogger;
+  private offlineAdapter = new DrawOfflineAdapter();
+  private _betRepository: IBetRepository | null = null;
 
-    constructor(
-        private api: typeof DrawApi,
-        loggerInstance?: SafeLogger
-    ) {
+  private get betRepository(): IBetRepository {
+    if (!this._betRepository) {
+      this._betRepository = locator.getSync<IBetRepository>('BetRepository');
+    }
+    return this._betRepository;
+  }
+
+  constructor(
+    private api: typeof DrawApi,
+    betRepository?: IBetRepository,
+    loggerInstance?: SafeLogger
+  ) {
+    if (betRepository) {
+      this._betRepository = betRepository;
+    }
         if (loggerInstance) {
             this.log = loggerInstance;
         } else {
@@ -520,8 +531,8 @@ export class DrawRepository implements IDrawRepository {
      */
     private calculateDrawFinancialData(
         drawId: string,
-        pendingBets: BetDomainModel[],
-        syncedBets: BetDomainModel[],
+        pendingBets: any[],
+        syncedBets: any[],
         backendPremiumsPaid: number,
         commissionRate: number
     ): { totalCollected: number; premiumsPaid: number; netResult: number; betCount: number } {
@@ -597,12 +608,12 @@ export class DrawRepository implements IDrawRepository {
         }
 
         // Get local bets (async)
-        let pendingBets: BetDomainModel[] = [];
-        let syncedBets: BetDomainModel[] = [];
+        let pendingBets: any[] = [];
+        let syncedBets: any[] = [];
 
         try {
-            // Get all bets from storage (async)
-            const allBets = await this.betOfflineAdapter.getAll();
+            // Use BetRepository abstraction (DIP compliant)
+            const allBets = await this.betRepository.getAllRawBets();
             pendingBets = allBets.filter(bet => bet.status === 'pending' || bet.status === 'error');
             syncedBets = allBets.filter(bet => bet.status === 'synced');
         } catch (error) {

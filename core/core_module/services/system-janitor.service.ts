@@ -4,7 +4,8 @@ import { drawRepository } from '@/shared/repositories/draw';
 import { TimerRepository } from '@/shared/repositories/system/time';
 import { notificationRepository } from '@/shared/repositories/notification';
 import { logger } from '@/shared/utils/logger';
-import { offlineEventBus } from '@/shared/core/offline-storage/instance';
+import { offlineEventBus, SyncAdapter } from '@/shared/core/offline-storage/instance';
+import { telemetryRepository } from '@/shared/repositories/system/telemetry';
 
 const log = logger.withTag('SYSTEM_JANITOR');
 
@@ -177,12 +178,16 @@ export class SystemJanitor {
             // 5. Ejecutar limpiezas pesadas en paralelo (después de sincronizar)
             const results = await Promise.allSettled([
                 betRepository.cleanup(today),
-                drawRepository.cleanup(today)
+                drawRepository.cleanup(today),
+                telemetryRepository.cleanup(7),
+                SyncAdapter.cleanup(7, 24)
             ]);
 
             const failures = results.filter(r => r.status === 'rejected');
             const betDeleted = results[0].status === 'fulfilled' ? results[0].value : 0;
             const drawDeleted = results[1].status === 'fulfilled' ? results[1].value : 0;
+            const telemetryDeleted = results[2].status === 'fulfilled' ? results[2].value : 0;
+            const syncQueueDeleted = results[3].status === 'fulfilled' ? results[3].value : 0;
 
             if (failures.length > 0) {
                 log.error('Algunas tareas de limpieza fallaron', { count: failures.length });
@@ -195,13 +200,15 @@ export class SystemJanitor {
             if (failures.length > 0) {
                 await notificationRepository.addNotification({
                     title: '⚠️ Mantenimiento con errores',
-                    message: `Se realizó mantenimiento de sesión. ${syncedCount > 0 ? `${syncedCount} apuesta(s) antigua(s) sincronizada(s) y limpiada(s).` : ''} ${betDeleted - syncedCount > 0 ? `${betDeleted - syncedCount} apuesta(s) pendiente(s) limpiada(s).` : ''} ${drawDeleted > 0 ? `${drawDeleted} sorteo(s) antiguo(s) limpiado(s).` : ''} Algunos elementos no pudieron procesarse.`,
+                    message: `Se realizó mantenimiento de sesión. ${syncedCount > 0 ? `${syncedCount} apuesta(s) antigua(s) sincronizada(s) y limpiada(s).` : ''} ${betDeleted - syncedCount > 0 ? `${betDeleted - syncedCount} apuesta(s) pendiente(s) limpiada(s).` : ''} ${drawDeleted > 0 ? `${drawDeleted} sorteo(s) antiguo(s) limpiado(s).` : ''} ${telemetryDeleted > 0 ? `${telemetryDeleted} evento(s) de telemetría limpiado(s).` : ''} ${syncQueueDeleted > 0 ? `${syncQueueDeleted} item(s) de cola de sync limpiado(s).` : ''} Algunos elementos no pudieron procesarse.`,
                     type: 'warning',
                     metadata: {
                         action: 'JANITOR_CLEANUP',
                         deletedBets: betDeleted,
                         syncedBets: syncedCount,
                         deletedDraws: drawDeleted,
+                        deletedTelemetry: telemetryDeleted,
+                        deletedSyncQueue: syncQueueDeleted,
                         today,
                         hadErrors: true
                     }
@@ -209,20 +216,22 @@ export class SystemJanitor {
             } else {
                 await notificationRepository.addNotification({
                     title: '🔄 Mantenimiento completado',
-                    message: `Sesión diaria iniciada correctamente para el ${today}. ${syncedCount > 0 ? `${syncedCount} apuesta(s) antigua(s) sincronizada(s) y limpiada(s).` : 'No había apuestas pendientes.'} ${drawDeleted > 0 ? `${drawDeleted} sorteo(s) antiguo(s) limpiado(s).` : ''}`,
+                    message: `Sesión diaria iniciada correctamente para el ${today}. ${syncedCount > 0 ? `${syncedCount} apuesta(s) antigua(s) sincronizada(s) y limpiada(s).` : 'No había apuestas pendientes.'} ${drawDeleted > 0 ? `${drawDeleted} sorteo(s) antiguo(s) limpiado(s).` : ''} ${telemetryDeleted > 0 ? `${telemetryDeleted} evento(s) de telemetría limpiado(s).` : ''} ${syncQueueDeleted > 0 ? `${syncQueueDeleted} item(s) de cola de sync limpiado(s).` : ''}`,
                     type: 'info',
                     metadata: {
-                        procedente: 'JANITOR_CLEANUP',
-                        ApuestasEliminadas: betDeleted,
-                        ApuestasSincronizadas: syncedCount,
-                        SorteosEliminados: drawDeleted,
+                        action: 'JANITOR_CLEANUP',
+                        deletedBets: betDeleted,
+                        syncedBets: syncedCount,
+                        deletedDraws: drawDeleted,
+                        deletedTelemetry: telemetryDeleted,
+                        deletedSyncQueue: syncQueueDeleted,
                         today,
                         hadErrors: false
                     }
                 });
             }
 
-            log.info('Mantenimiento completado exitosamente', { today, betDeleted, drawDeleted });
+            log.info('Mantenimiento completado exitosamente', { today, betDeleted, drawDeleted, telemetryDeleted, syncQueueDeleted });
 
             // 5. Notificar al sistema mediante el Bus de Eventos
             this.notifyReady(today);

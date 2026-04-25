@@ -65,6 +65,16 @@ type DynamicCatalogBetType = {
     name?: string | null;
 };
 
+const LOTERIA_KEYWORDS = ['LOTERIA', 'LOTERÍA', 'LOTERIA_5_DIGITOS', 'LOTERIA 5 DIGITOS'];
+
+const isLoteriaCodeOrName = (value: string): boolean => {
+    const upper = value.toUpperCase().replace(/[^A-Z0-9]/g, '_');
+    return LOTERIA_KEYWORDS.some(kw => {
+        const normalizedKw = kw.toUpperCase().replace(/[^A-Z0-9]/g, '_');
+        return upper.includes(normalizedKw) || normalizedKw.includes(upper);
+    });
+};
+
 export const buildDynamicBetTypeMap = (
     betTypes?: DynamicCatalogBetType[] | null
 ): Record<string, string> | null => {
@@ -73,14 +83,29 @@ export const buildDynamicBetTypeMap = (
     const map = betTypes.reduce<Record<string, string | number | null>>((acc, betType) => {
         if (betType.code) {
             acc[String(betType.code)] = betType.id;
+            if (isLoteriaCodeOrName(betType.code)) {
+                acc['LOTERIA'] = betType.id;
+            }
         }
         if (betType.name) {
             acc[String(betType.name)] = betType.id;
+            if (isLoteriaCodeOrName(betType.name)) {
+                acc['LOTERIA'] = betType.id;
+            }
         }
         return acc;
     }, {});
 
     return normalizeDynamicBetTypeIds(map);
+};
+
+const resolveBetTypeIdQuiet = (
+    key: string,
+    dynamicMap: Record<string, string> | null
+): string | null => {
+    if (!dynamicMap) return null;
+    const upperKey = key.toUpperCase();
+    return dynamicMap[upperKey] || null;
 };
 
 export const resolveLoteriaBetTypeId = (
@@ -89,19 +114,17 @@ export const resolveLoteriaBetTypeId = (
     if (!betTypes || betTypes.length === 0) return null;
 
     const dynamicMap = buildDynamicBetTypeMap(betTypes);
-    const normalizedMap = normalizeDynamicBetTypeIds(dynamicMap);
+    const normalizedMap = normalizeDynamicBetTypeIds(dynamicMap ?? undefined);
 
     if (!normalizedMap) return null;
 
-    // Prioridad de resolución
-    const resolved =
-        resolveBetTypeId(BET_TYPE_KEYS.LOTERIA, normalizedMap) ||
-        resolveBetTypeId(BACKEND_BET_CODES.CUATERNA, normalizedMap) ||
-        resolveBetTypeId(BACKEND_BET_CODES.LOTERIA, normalizedMap) ||
-        resolveBetTypeId('CUATERNA', normalizedMap) ||
-        resolveBetTypeId('LOTERIA', normalizedMap);
-
-    return resolved;
+    return (
+        resolveBetTypeIdQuiet(BET_TYPE_KEYS.LOTERIA, normalizedMap) ||
+        resolveBetTypeIdQuiet(BACKEND_BET_CODES.CUATERNA, normalizedMap) ||
+        resolveBetTypeIdQuiet(BACKEND_BET_CODES.LOTERIA, normalizedMap) ||
+        resolveBetTypeIdQuiet('CUATERNA', normalizedMap) ||
+        resolveBetTypeIdQuiet('LOTERIA', normalizedMap)
+    );
 };
 
 /**

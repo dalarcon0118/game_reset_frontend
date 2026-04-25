@@ -46,15 +46,11 @@ const registerRepositories = () => {
     const { TimerRepository } = require('./system/time');
     locator.registerSingleton<ITimeRepository>('TimerRepository', TimerRepository);
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // BetRepository — Factory function (requiere adapters como dependencias)
-    // ─────────────────────────────────────────────────────────────────────────
-    locator.register<IBetRepository>('BetRepository', async () => {
-        const { createBetRepository } = await import('./bet/bet.repository');
-        const { BetOfflineAdapter } = await import('./bet/adapters/bet.offline.adapter');
-        const { BetApiAdapter } = await import('./bet/adapters/bet.api.adapter');
-        return createBetRepository(new BetOfflineAdapter(), new BetApiAdapter());
-    });
+  // ─────────────────────────────────────────────────────────────────────────
+  // BetRepository — Singleton pre-creado en bet/bet.repository.ts
+  // ─────────────────────────────────────────────────────────────────────────
+  const { betRepository } = require('./bet/bet.repository');
+  locator.registerSingleton<IBetRepository>('BetRepository', betRepository);
 
     // ─────────────────────────────────────────────────────────────────────────
     // AuthRepository — Singleton pre-creado en auth/index.ts
