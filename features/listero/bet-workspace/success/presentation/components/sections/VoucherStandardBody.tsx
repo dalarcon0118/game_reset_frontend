@@ -1,5 +1,5 @@
 import React from 'react';
-import { FormattedBet } from '../../core/domain/success.types';
+import { FormattedBet } from '../../../core/domain/success.types';
 import { BetRow } from '../parts/BetRow';
 
 const isLoteriaBet = (betType: string): boolean => {
