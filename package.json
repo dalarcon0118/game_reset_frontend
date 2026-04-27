@@ -15,6 +15,7 @@
     "build:web": "EXPO_ROUTER_APP_ROOT=app expo export --platform web",
     "build:apk": "eas build --profile preview --platform android",
     "build:prod": "eas build --profile production --platform android",
+    "compile": "tsc --noEmit --pretty",
     "lint": "expo lint",
     "test": "jest --verbose",
     "test:all": "jest tests",

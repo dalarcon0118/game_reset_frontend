@@ -2,6 +2,7 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { logger } from '../shared/utils/logger';
+import { getAppVersion } from '../shared/utils/app_version';
 const __DEV__ = process.env.NODE_ENV !== 'production';
 export const __DEV__TOOL = __DEV__;
 
@@ -14,13 +15,13 @@ const getDevelopmentBaseUrl = () => {
   // En emuladores de Android, localhost es el propio emulador. 
   // Para acceder al host (tu máquina), usa 10.0.2.2 o la IP detectada por Expo
 
-  // Intentamos obtener la IP del host desde Expo Constants
-  const debuggerHost = Constants.expoConfig?.hostUri;
+  // @ts-ignore - hostUri exists in Expo Go / dev builds
+  const debuggerHost = Constants.expoConfig?.hostUri || Constants.manifest?.hostUri;
   const host = debuggerHost?.split(':').shift();
 
   if (host) {
     log.debug('Detected Host IP from Expo', { host });
-    return `http://${host}:8000/api`;//`https://uk80ggc4c00og4s0ocogckwo.149.130.221.251.sslip.io/api`;
+    return `http://${host}:8000/api`;
   }
 
   if (Platform.OS === 'android') {
@@ -36,11 +37,18 @@ const API_BASE_URL_PRODUCTION = process.env.EXPO_PUBLIC_API_URL || 'https://uk80
 
 // Determinar si estamos en modo de desarrollo o producción
 // Intentamos obtener APP_ENV de múltiples fuentes para mayor robustez en Expo
-const APP_ENV =
-  process.env.EXPO_PUBLIC_APP_ENV ||
-  process.env.APP_ENV ||
-  Constants.expoConfig?.extra?.APP_ENV ||
-  (process.env.NODE_ENV === 'production' ? 'production' : 'development');
+const getAppEnv = (): string => {
+  // @ts-ignore - extra exists in manifest
+  const manifestExtra = Constants.manifest?.extra?.APP_ENV || Constants.expoConfig?.extra?.APP_ENV;
+  return (
+    process.env.EXPO_PUBLIC_APP_ENV ||
+    process.env.APP_ENV ||
+    manifestExtra ||
+    (process.env.NODE_ENV === 'production' ? 'production' : 'development')
+  );
+};
+
+const APP_ENV = getAppEnv();
 
 log.info('Environment detection', {
   APP_ENV,

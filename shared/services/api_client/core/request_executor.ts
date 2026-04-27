@@ -40,7 +40,28 @@ type AttemptOutcome<T> =
 
 type RetryRequestFn = <T>(endpoint: string, options: RequestOptions) => Promise<T>;
 
+// ── Circuit Breaker (previene cascada 429→retry→429 que causa ANR) ──
+type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
+
+interface CircuitBreakerConfig {
+  failureThreshold: number;   // Fallos consecutivos antes de abrir
+  openDurationMs: number;     // Duración en estado OPEN antes de HALF_OPEN
+  max429Retries: number;      // Max reintentos para 429 (rate-limit)
+}
+
+const DEFAULT_CIRCUIT_CONFIG: CircuitBreakerConfig = {
+  failureThreshold: 3,
+  openDurationMs: 30000,  // 30s cooldown
+  max429Retries: 1,       // No reintentar 429 agresivamente
+};
+
 export class RequestExecutor {
+  // Circuit Breaker state
+  private circuitState: CircuitState = 'CLOSED';
+  private consecutiveFailures = 0;
+  private circuitOpenedAt = 0;
+  private circuitConfig: CircuitBreakerConfig = DEFAULT_CIRCUIT_CONFIG;
+
   constructor(
     private credentialProvider: CredentialProvider,
     private cacheManager: CacheManager,
@@ -56,10 +77,57 @@ export class RequestExecutor {
     private retryRequest: RetryRequestFn
   ) { }
 
+  /** Circuit Breaker: permite la petición o la rechaza rápido */
+  private checkCircuit(): boolean {
+    if (this.circuitState === 'CLOSED') return true;
+    if (this.circuitState === 'OPEN') {
+      const elapsed = Date.now() - this.circuitOpenedAt;
+      if (elapsed >= this.circuitConfig.openDurationMs) {
+        this.log.info('[CIRCUIT_BREAKER] OPEN → HALF_OPEN, attempting probe');
+        this.circuitState = 'HALF_OPEN';
+        return true;
+      }
+      return false; // En cooldown — rechazar rápido
+    }
+    return true; // HALF_OPEN: permitir probe
+  }
+
+  private recordSuccess(): void {
+    if (this.circuitState === 'HALF_OPEN') {
+      this.log.info('[CIRCUIT_BREAKER] Probe succeeded, HALF_OPEN → CLOSED');
+    }
+    this.consecutiveFailures = 0;
+    this.circuitState = 'CLOSED';
+  }
+
+  private recordFailure(status?: number): void {
+    this.consecutiveFailures++;
+    const isRateLimitOrServer = status !== undefined && (status === 429 || status >= 500);
+    if (isRateLimitOrServer && this.consecutiveFailures >= this.circuitConfig.failureThreshold) {
+      this.circuitState = 'OPEN';
+      this.circuitOpenedAt = Date.now();
+      this.log.warn('[CIRCUIT_BREAKER] Opening circuit', {
+        consecutiveFailures: this.consecutiveFailures,
+        lastStatus: status,
+        cooldownMs: this.circuitConfig.openDurationMs,
+      });
+    }
+  }
+
   async run<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
     const context = this.buildRequestContext(endpoint, options);
     const cached = this.getCachedResponse<T>(context);
     if (cached !== null) return cached;
+
+    // ── Circuit Breaker: rechazar rápido si el circuito está OPEN ──
+    if (!this.checkCircuit()) {
+      this.log.warn('[CIRCUIT_BREAKER] Request rejected fast (circuit OPEN)', { endpoint });
+      throw new ApiClientError(
+        'Circuit breaker is OPEN — server is overloaded. Please retry later.',
+        503,
+        { errorType: 'CIRCUIT_OPEN', circuitState: this.circuitState }
+      );
+    }
 
     // CA-03: Time Integrity Middleware
     if (!options.skipTimeIntegrity && this.timeIntegrity) {
@@ -468,6 +536,12 @@ export class RequestExecutor {
   }
 
   private shouldRetryServerError(status: number, attempt: number, retryCount: number): boolean {
+		// 429 (Rate Limit): no reintentar agresivamente — maximo 1 reintento
+		if (status === 429) {
+			const maxRetries = Math.min(this.circuitConfig.max429Retries, retryCount);
+			return attempt < maxRetries;
+		}
+		// 5xx: reintentar normalmente
     return status >= 500 && attempt < retryCount;
   }
 

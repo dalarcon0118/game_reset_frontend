@@ -1,5 +1,5 @@
-import WithRole from "@/features/auth/views/with_role";
-import { useAuth } from '../../features/auth';
+// import WithRole from "@/features/auth/v1/views/with_role";
+import { useAuth } from '@/features/auth';
 import { Redirect } from "expo-router";
 /*
 export default function IndexView() {

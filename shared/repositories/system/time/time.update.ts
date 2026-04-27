@@ -146,6 +146,18 @@ export const TimePolicy = {
             month: 'long',
             day: 'numeric'
         });
+    },
+
+    /**
+     * SSOT: Calcula la medianoche local (inicio del "día de negocio") desde un timestamp.
+     * Usa el timestamp pasado para mantener consistencia entre cálculos en memory.
+     *
+     * @param trustedNow - Timestamp de referencia (preferiblemente de TimerRepository.getTrustedNow)
+     * @returns Timestamp de medianoche local del día correspondiente a trustedNow
+     */
+    getTodayStart(trustedNow: number): number {
+        const d = new Date(trustedNow);
+        return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0).getTime();
     }
 };
 

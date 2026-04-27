@@ -127,6 +127,19 @@ export class OfflineStorageCore {
   }
 
   /**
+   * Obtiene un item SIN validar expiración.
+   * Útil como fallback cuando la red falla y queremos usar cache expirado.
+   */
+  async getIncludingStale<T>(key: StorageKey): Promise<T | null> {
+    const envelope = await this.ports.storage.get<StorageEnvelope<T>>(key);
+    if (!envelope) return null;
+    if (!envelope.metadata) {
+      return (envelope as any).data || envelope as unknown as T;
+    }
+    return envelope.data;
+  }
+
+  /**
    * Obtiene múltiples items validando su existencia y expiración (SSOT)
    */
   async getMulti<T>(keys: StorageKey[]): Promise<(T | null)[]> {

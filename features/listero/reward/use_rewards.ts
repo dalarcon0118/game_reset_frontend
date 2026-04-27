@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { useRewardStore, useRewardDispatch } from './core/store';
 import { FETCH_BET_TYPES_REQUESTED } from './core/types';
 import { BetTypeWithRewardsResponse, DrawTypeWithBetTypes } from '@/shared/services/draw/types';
+import { RemoteData } from '@core/tea-utils';
 
 export interface RewardSelectorsOutput {
   status: 'NotAsked' | 'Loading' | 'Success' | 'Failure';
@@ -19,16 +20,16 @@ export const useRewards = () => {
   const dispatch = useRewardDispatch();
 
   const betTypesStatus = model.betTypes.status;
-  const status = betTypesStatus._tag === 'NotAsked' ? 'NotAsked' as const
-    : betTypesStatus._tag === 'Loading' ? 'Loading' as const
-    : betTypesStatus._tag === 'Success' ? 'Success' as const
+  const status = betTypesStatus.type === 'NotAsked' ? 'NotAsked' as const
+    : betTypesStatus.type === 'Loading' ? 'Loading' as const
+    : betTypesStatus.type === 'Success' ? 'Success' as const
     : 'Failure' as const;
   
-  const data = betTypesStatus._tag === 'Success' ? betTypesStatus.data : null;
-  const error = betTypesStatus._tag === 'Failure' ? betTypesStatus.error : null;
-  const isLoading = betTypesStatus._tag === 'Loading';
-  const hasError = betTypesStatus._tag === 'Failure';
-  const hasData = betTypesStatus._tag === 'Success' && betTypesStatus.data !== null;
+  const data = betTypesStatus.type === 'Success' ? betTypesStatus.data : null;
+  const error = betTypesStatus.type === 'Failure' ? betTypesStatus.error as string : null;
+  const isLoading = betTypesStatus.type === 'Loading';
+  const hasError = betTypesStatus.type === 'Failure';
+  const hasData = betTypesStatus.type === 'Success' && betTypesStatus.data !== null;
   const drawTypes: DrawTypeWithBetTypes[] = data?.draw_types || [];
   const bankName = data?.bank_name || null;
 

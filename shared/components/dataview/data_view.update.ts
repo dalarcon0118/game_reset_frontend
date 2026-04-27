@@ -1,8 +1,8 @@
 import { match } from 'ts-pattern';
 import { Model, Msg } from './data_view.types';
-import { Return, ret, singleton } from '../../core/return';
+import { Return, ret, singleton } from '../../core/tea-utils/return';
 import { RemoteData } from '../../core/tea-utils/remote.data';
-import { RemoteDataHttp } from '../../core/remote.data.http';
+import { RemoteDataHttp } from '../../core/tea-utils/remote.data.http';
 
 export const update = <T, E>(
   msg: Msg<T, E>,

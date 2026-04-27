@@ -9,7 +9,6 @@ import { update, subscriptions } from './update';
  */
 export const initialNotificationModel: Model = {
     notifications: { type: 'NotAsked' },
-    unreadCount: 0,
     preferences: {
         enablePushNotifications: true,
         enableEmailNotifications: false,

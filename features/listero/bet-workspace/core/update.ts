@@ -28,9 +28,9 @@ export type Msg =
 const makeModel = (model: Model) => model;
 
 export const update = (msg: Msg, model: Model): Return<Model, Msg> => {
-    return match(msg as any)
-        .with({ type: 'HOST_SYNCED' }, ({ user }) => {
-            // ✅ Corregido: Acepta userId=0 como usuario autenticado valido
+    return match(msg as Msg)
+        .with({ type: 'HOST_SYNCED' }, (m) => {
+            const user = (m as any).user;
             const isAuthenticated = user !== null && user !== undefined;
 
             return singleton({
@@ -41,50 +41,56 @@ export const update = (msg: Msg, model: Model): Return<Model, Msg> => {
                 }
             });
         })
-        .with({ type: 'CREATE' }, ({ payload }) => {
+        .with({ type: 'CREATE' }, (m) => {
+            const payload = (m as any).payload;
             return singleton(makeModel)
                 .andMapCmd(
                     (subMsg) => ({ type: 'CREATE', payload: subMsg }),
                     updateCreate(model, payload)
                 );
         })
-        .with({ type: 'EDIT' }, ({ payload }) => {
+        .with({ type: 'EDIT' }, (m) => {
+            const payload = (m as any).payload;
             return singleton(makeModel)
                 .andMapCmd(
                     (subMsg) => ({ type: 'EDIT', payload: subMsg }),
                     updateEdit(model, payload)
                 );
         })
-        .with({ type: 'LIST' }, ({ payload }) => {
+        .with({ type: 'LIST' }, (m) => {
+            const payload = (m as any).payload;
             return singleton(makeModel)
                 .andMapCmd(
                     (subMsg) => ({ type: 'LIST', payload: subMsg }),
                     updateList(model, payload)
                 );
         })
-        .with({ type: 'MANAGEMENT' }, ({ payload }) => {
+        .with({ type: 'MANAGEMENT' }, (m) => {
+            const payload = (m as any).payload;
             return singleton(makeModel)
                 .andMapCmd(
                     (subMsg) => ({ type: 'MANAGEMENT', payload: subMsg }),
                     updateManagement(model, payload)
                 );
         })
-        .with({ type: 'RULES' }, ({ payload }) => {
+        .with({ type: 'RULES' }, (m) => {
+            const payload = (m as any).payload;
             return singleton(makeModel)
                 .andMapCmd(
                     (subMsg) => ({ type: 'RULES', payload: subMsg }),
                     updateRules(model, payload)
                 );
         })
-        .with({ type: 'UI' }, ({ payload }) => {
-            const nextModel = match(payload)
-                .with({ type: UiMsgType.SET_ACTIVE_ANNOTATION_TYPE }, ({ annotationType }) => ({
+        .with({ type: 'UI' }, (m) => {
+            const payload = (m as any).payload as UiMsg;
+            const nextModel = match(payload as any)
+                .with({ type: UiMsgType.SET_ACTIVE_ANNOTATION_TYPE }, (p) => ({
                     ...model,
-                    centenaSession: { ...model.centenaSession, activeAnnotationType: annotationType }
+                    centenaSession: { ...model.centenaSession, activeAnnotationType: (p as any).annotationType }
                 }))
-                .with({ type: UiMsgType.SET_ACTIVE_GAME_TYPE }, ({ gameType }) => ({
+                .with({ type: UiMsgType.SET_ACTIVE_GAME_TYPE }, (p) => ({
                     ...model,
-                    centenaSession: { ...model.centenaSession, activeGameType: gameType }
+                    centenaSession: { ...model.centenaSession, activeGameType: (p as any).gameType }
                 }))
                 .with({ type: UiMsgType.CLEAR_ERROR }, () => ({
                     ...model,
@@ -98,10 +104,12 @@ export const update = (msg: Msg, model: Model): Return<Model, Msg> => {
 
             return singleton(nextModel);
         })
-        .with({ type: 'SET_CURRENT_DRAW' }, ({ drawId }) => {
+        .with({ type: 'SET_CURRENT_DRAW' }, (m) => {
+            const drawId = (m as any).drawId;
             return singleton({ ...model, currentDrawId: drawId });
         })
-        .with({ type: 'SET_EDITING' }, ({ isEditing }) => {
+        .with({ type: 'SET_EDITING' }, (m) => {
+            const isEditing = (m as any).isEditing;
             return singleton({ ...model, isEditing });
         })
         .otherwise(() => singleton(model));

@@ -6,6 +6,9 @@
 
 import { BetType } from '@/types';
 import { FinancialProjection, DrawFinancial, BetTypeFinancial, DailyTotals } from './financial.types';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('FINANCIAL_PROJECTION');
 
 const isValidBet = (bet: BetType): boolean => {
     return bet.status === 'pending' || bet.status === 'synced';
@@ -20,14 +23,31 @@ export const calculateFinancialProjection = (
 ): FinancialProjection => {
     const safeRate = commissionRate > 1 ? commissionRate / 100 : commissionRate;
     const now = Date.now();
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toISOString().split('T')[0]; // UTC date for metadata
 
     const allBets = [...pendingBets, ...syncedBets];
     const validBets = allBets.filter(isValidBet);
 
+    log.info('[FINANCIAL_PROJECTION] Calculating projection', {
+        pendingBetsCount: pendingBets.length,
+        syncedBetsCount: syncedBets.length,
+        allBetsCount: allBets.length,
+        validBetsCount: validBets.length,
+        filteredOutCount: allBets.length - validBets.length,
+        commissionRate,
+        safeRate,
+        structureId,
+        today
+    });
+
     if (validBets.length !== allBets.length) {
         const filtered = allBets.filter(b => !isValidBet);
-        console.warn(`[FinancialProjection] Filtered ${filtered.length} invalid bets`);
+        log.warn(`[FINANCIAL_PROJECTION] Filtered ${filtered.length} invalid bets`, filtered.map(b => ({
+            id: b.id,
+            status: b.status,
+            timestamp: b.timestamp,
+            timestampLocal: new Date(b.timestamp).toLocaleString()
+        })));
     }
 
     let totalCollected = 0;
@@ -38,7 +58,12 @@ export const calculateFinancialProjection = (
     for (const bet of validBets) {
         const amount = Number(bet.amount) || 0;
         if (amount <= 0) {
-            console.warn(`[FinancialProjection] Skipping bet with invalid amount`, { betId: bet.id, amount });
+            log.warn(`[FINANCIAL_PROJECTION] Skipping bet with invalid amount`, {
+                betId: bet.id,
+                amount,
+                status: bet.status,
+                timestamp: bet.timestamp
+            });
             continue;
         }
 
@@ -56,6 +81,7 @@ export const calculateFinancialProjection = (
                 premiumsPaid: premiumsByDraw[drawId] || 0,
                 netResult: 0
             };
+            log.debug(`[FINANCIAL_PROJECTION] Created DrawFinancial for draw ${drawId}`);
         }
         byDrawId[drawId].totalCollected += amount;
         byDrawId[drawId].betCount++;
@@ -76,13 +102,23 @@ export const calculateFinancialProjection = (
     const estimatedCommission = totalCollected * safeRate;
     const netResult = totalCollected - totalPremiums - estimatedCommission;
 
+    log.info('[FINANCIAL_PROJECTION] Totals calculated', {
+        totalCollected,
+        totalPremiums,
+        estimatedCommission,
+        netResult,
+        betCount,
+        drawsCount: Object.keys(byDrawId).length,
+        betTypesCount: Object.keys(byBetType).length
+    });
+
     for (const drawId of Object.keys(byDrawId)) {
         const draw = byDrawId[drawId];
         const drawCommission = draw.totalCollected * safeRate;
         draw.netResult = draw.totalCollected - draw.premiumsPaid - drawCommission;
     }
 
-    return {
+    const projection = {
         calculatedAt: now,
         structureId,
         date: today,
@@ -95,12 +131,29 @@ export const calculateFinancialProjection = (
         byDrawId,
         byBetType
     };
+
+    log.info('[FINANCIAL_PROJECTION] Projection complete', {
+        calculatedAt: new Date(now).toLocaleString(),
+        date: today,
+        totalCollected: projection.totalCollected,
+        betCount: projection.betCount
+    });
+
+    return projection;
 };
 
 export const extractDailyTotals = (
     projection: FinancialProjection,
     commissionRate: number
 ): DailyTotals => {
+    log.info('[FINANCIAL_PROJECTION] Extracting DailyTotals from projection', {
+        totalCollected: projection.totalCollected,
+        premiumsPaid: projection.premiumsPaid,
+        estimatedCommission: projection.estimatedCommission,
+        netResult: projection.netResult,
+        betCount: projection.betCount
+    });
+
     return {
         totalCollected: projection.totalCollected,
         premiumsPaid: projection.premiumsPaid,

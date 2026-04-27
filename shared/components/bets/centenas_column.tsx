@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import StyledText from '@/components/typography/styled_text';
 import Layout from '@/constants/layout';
 import AmountCircle from './amount_circle';
-import { useBetsStore, selectBetsModel } from '../../core/store';
+import { useBetsStore, selectBetsModel } from '@/features/listero/bet-workspace/core/store';
 
 interface CentenasColumnProps {
     editable?: boolean;

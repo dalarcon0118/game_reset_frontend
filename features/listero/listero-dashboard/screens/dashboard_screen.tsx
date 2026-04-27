@@ -6,10 +6,10 @@ import { RemoteData } from '@core/tea-utils';
 import { Label, ScreenContainer } from '@/shared/components';
 import Header from '../views/header';
 import { useDashboardStore, useListeroDashboardStoreApi } from '../store';
-import { useNotificationStore, NotificationModule } from '@/features/notification';
+import { useNotificationStore, NotificationModule, selectUnreadCount } from '@/features/notification';
 import { useWinningStore, useWinningDispatch } from '@/features/listero/winning/core/store';
 import { FETCH_PENDING_REWARDS_COUNT } from '@/features/listero/winning/core/types';
-import { REFRESH_CLICKED, PROMOTION_MSG, HELP_CLICKED, NOTIFICATIONS_CLICKED, SETTINGS_CLICKED, TOGGLE_BALANCE } from '../core/msg';
+import { REFRESH_CLICKED, PROMOTION_MSG, HELP_CLICKED, NOTIFICATIONS_CLICKED, SETTINGS_CLICKED, TOGGLE_BALANCE, SYNC_PRESSED } from '../core/msg';
 import { useAuth } from '@/features/auth';
 import { CLOSE_PROMOTIONS_MODAL, PARTICIPATE_CLICKED } from '../../../../shared/components/promotion/msg';
 import { PromotionModal } from '../../../../shared/components/promotion/PromotionModal';
@@ -47,7 +47,7 @@ export default function DashboardScreen() {
     const dispatch = useDashboardStore((s) => s.dispatch);
     const { user } = useAuth();
     const isOnline = CoreModule.useStore((s) => s.model.networkConnected);
-    const { unreadCount } = useNotificationStore(useShallow((s) => ({ unreadCount: s.model.unreadCount })));
+    const unreadCount = useNotificationStore(useShallow((s) => selectUnreadCount(s.model)));
     const { pendingRewardsCount, pendingRewardsError } = useWinningStore(useShallow((s) => ({
         pendingRewardsCount: s.model.pendingRewardsCount,
         pendingRewardsError: s.model.pendingRewardsError,
@@ -69,20 +69,22 @@ export default function DashboardScreen() {
 
     return (
         <ScreenContainer edges={['top', 'left', 'right']} backgroundColor="#f5f5f5">
-            <Header
-                username={user?.username || 'Usuario'}
-                structureName={user?.structure?.name || 'Mi Estructura'}
-                isOnline={isOnline}
-                showBalance={model.showBalance}
-                unreadCount={unreadCount}
-                rewardsCount={pendingRewardsCount}
-                rewardsError={pendingRewardsError}
-                onRewardsCountPress={handleRetryRewards}
-                onHelpPress={() => dispatch(HELP_CLICKED())}
-                onNotificationPress={() => dispatch(NOTIFICATIONS_CLICKED())}
-                onSettingsPress={() => dispatch(SETTINGS_CLICKED())}
-                onToggleBalance={() => dispatch(TOGGLE_BALANCE())}
-            />
+    <Header
+          username={user?.username || 'Usuario'}
+          structureName={user?.structure?.name || 'Mi Estructura'}
+          isOnline={isOnline}
+          showBalance={model.showBalance}
+          unreadCount={unreadCount}
+          rewardsCount={pendingRewardsCount}
+          rewardsError={pendingRewardsError}
+          onRewardsCountPress={handleRetryRewards}
+          onHelpPress={() => dispatch(HELP_CLICKED())}
+          onNotificationPress={() => dispatch(NOTIFICATIONS_CLICKED())}
+          onSettingsPress={() => dispatch(SETTINGS_CLICKED())}
+          onToggleBalance={() => dispatch(TOGGLE_BALANCE())}
+          onSyncPress={() => dispatch(SYNC_PRESSED())}
+          isSyncing={model.syncStatus === 'syncing'}
+        />
             <ContentScrollView 
                 model={model} 
                 onRefresh={handleRefresh} 

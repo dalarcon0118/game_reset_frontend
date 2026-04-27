@@ -235,8 +235,19 @@ export class SyncWorkerCore {
         const errors: { entityId: string; type: string; reason: string }[] = [];
         const breakdown: SyncBreakdown = {};
 
+        // Deduplicación: Mantener solo el último item por entityId (Bug 3 fix - previene ciclos infinitos)
+        const entityIdSeen = new Set<string>();
+        const dedupedItems = items.filter(item => {
+            if (entityIdSeen.has(item.entityId)) {
+                log.debug(`[SYNC-WORKER] Deduplicating duplicate entityId: ${item.entityId} (${item.type})`);
+                return false;
+            }
+            entityIdSeen.add(item.entityId);
+            return true;
+        });
+
         // Agrupar ítems por tipo para aprovechar pushBatch
-        const groups = items.reduce((acc, item) => {
+        const groups = dedupedItems.reduce((acc, item) => {
             const type = item.type.toLowerCase();
             if (!acc[type]) acc[type] = [];
             acc[type].push(item);

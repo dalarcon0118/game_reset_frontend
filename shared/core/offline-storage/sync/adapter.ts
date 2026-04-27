@@ -11,6 +11,14 @@ const log = logger.withTag('SyncAdapter');
  */
 export const SyncAdapter = {
     /**
+     * Obtiene el conteo actual de items en la cola
+     */
+    async getQueueCount(): Promise<number> {
+        const pattern = OfflineStorageKeyManager.getPattern('system', 'sync_queue', '*', 'data');
+        return offlineStorage.query<SyncQueueItem>(pattern).count();
+    },
+
+    /**
      * Obtiene todos los items de la cola
      */
     async getQueue(): Promise<SyncQueueItem[]> {
@@ -19,9 +27,68 @@ export const SyncAdapter = {
     },
 
     /**
-     * Agrega un item a la cola
+     * Agrega un item a la cola con quota enforcement.
+     * Si la cola está llena, limpia items exhaustos o antiguos primero.
+     * @returns id del item agregado, o null si la cola está llena
      */
-    async addToQueue(item: Omit<SyncQueueItem, 'id' | 'createdAt'>): Promise<string> {
+    async addToQueue(item: Omit<SyncQueueItem, 'id' | 'createdAt'>): Promise<string | null> {
+        const maxItems = SYNC_CONSTANTS.MAX_SYNC_QUEUE_ITEMS;
+        const queue = await this.getQueue();
+
+        // Si la cola está llena, intentar cleanup
+        if (queue.length >= maxItems) {
+            log.warn(`[SyncAdapter] Queue at capacity (${queue.length}/${maxItems}). Attempting cleanup...`);
+            
+            // 1. Marcar exhaust los que excedieron retries
+            await this.markExhaustedItems();
+            
+            // 2. Limpiar exhaustos inmediatamente
+            await this.cleanup(0, 0);
+            
+            // 3. Si aún está llena, limpiar completed antiguos y los más antiguos
+            const stillFull = await this.getQueueCount() >= maxItems;
+            if (stillFull) {
+                const remaining = await this.getQueue();
+                const toDelete: string[] = [];
+                
+                // Limpiar completed (sin límite de días cuando hay presión)
+                for (const item of remaining) {
+                    if (item.status === 'completed' || item.status === 'exhausted') {
+                        toDelete.push(item.id);
+                    }
+                }
+                
+                // Si aún lleno, limpiar los más antiguos (LIFO: oldest first)
+                if (toDelete.length < (queue.length - maxItems + 1)) {
+                    const pendingItems = remaining
+                        .filter(i => i.status === 'pending' || i.status === 'failed')
+                        .sort((a, b) => a.createdAt - b.createdAt);
+                    
+                    const slotsNeeded = queue.length - maxItems + 1 - toDelete.length;
+                    for (let i = 0; i < slotsNeeded && i < pendingItems.length; i++) {
+                        if (!toDelete.includes(pendingItems[i].id)) {
+                            toDelete.push(pendingItems[i].id);
+                        }
+                    }
+                }
+                
+                if (toDelete.length > 0) {
+                    log.warn(`[SyncAdapter] Emergency cleanup: removing ${toDelete.length} items to free space`);
+                    await this.removeBatchFromQueue(toDelete);
+                }
+            }
+        }
+
+        // Verificar nuevamente después del cleanup
+        const currentCount = await this.getQueueCount();
+        if (currentCount >= maxItems) {
+            log.error(`[SyncAdapter] Queue FULL (${currentCount}/${maxItems}). Rejecting new item.`, {
+                itemType: item.type,
+                entityId: item.entityId
+            });
+            return null; // Backpressure: rechazar nuevo item
+        }
+
         console.log(`[DEBUG_SYNC_ADAPTER] Adding to queue: ${item.type}`, { entityId: item.entityId });
         const id = Math.random().toString(36).substring(2, 11);
         const newItem: SyncQueueItem = {
@@ -34,6 +101,7 @@ export const SyncAdapter = {
 
         const key = OfflineStorageKeyManager.generateKey('system', 'sync_queue', id);
         await offlineStorage.set(key, newItem);
+        log.debug(`[SyncAdapter] Item added to queue (${currentCount + 1}/${maxItems})`);
         return id;
     },
 
@@ -95,7 +163,7 @@ export const SyncAdapter = {
         const pending = queue
             .filter(item => {
                 // Ignorar ítems completados o exhaustos (estados terminales)
-                if (item.status === 'completed' || item.status === 'synced' || item.status === 'exhausted') {
+                if (item.status === 'completed' || item.status === 'exhausted') {
                     return false;
                 }
 
@@ -114,7 +182,7 @@ export const SyncAdapter = {
             })
             .sort((a, b) => a.priority - b.priority);
 
-        log.debug(`[SyncAdapter] Found ${pending.length} processable items (filtered ${queue.length - pending.length} exhausted/completed)`);
+log.debug(`[SyncAdapter] Found ${pending.length} processable items (filtered ${queue.length - pending.length} exhausted/completed)`);
         return pending;
     },
 
@@ -129,53 +197,83 @@ export const SyncAdapter = {
     },
 
     /**
- * Metadatos de sincronización
- */
-async getMetadata(): Promise<SyncMetadata> {
-    const key = OfflineStorageKeyManager.generateKey('system', 'sync_metadata', 'global');
-    const meta = await offlineStorage.get<SyncMetadata>(key);
-    return meta || { totalSyncs: 0, totalErrors: 0, workerStatus: 'idle' };
-},
+     * Metadatos de sincronización
+     */
+    async getMetadata(): Promise<SyncMetadata> {
+        const key = OfflineStorageKeyManager.generateKey('system', 'sync_metadata', 'global');
+        const meta = await offlineStorage.get<SyncMetadata>(key);
+        return meta || { totalSyncs: 0, totalErrors: 0, workerStatus: 'idle' };
+    },
 
-async updateMetadata(updates: Partial<SyncMetadata>): Promise<void> {
-    const key = OfflineStorageKeyManager.generateKey('system', 'sync_metadata', 'global');
-    const current = await this.getMetadata();
-    await offlineStorage.set(key, { ...current, ...updates });
-},
+    async updateMetadata(updates: Partial<SyncMetadata>): Promise<void> {
+        const key = OfflineStorageKeyManager.generateKey('system', 'sync_metadata', 'global');
+        const current = await this.getMetadata();
+        await offlineStorage.set(key, { ...current, ...updates });
+    },
 
-/**
- * Limpia items de la cola de sincronización que están:
- * - Exhaustos (fallaron después de MAX_RETRIES)
- * - Completados/sincronizados antiguos (limpieza de已完成)
- * - Atascados (pending/failed por demasiado tiempo)
- */
-async cleanup(retentionDays: number = 7, stuckHours: number = 24): Promise<number> {
-    const queue = await this.getQueue();
-    const now = Date.now();
-    const stuckThreshold = now - (stuckHours * 60 * 60 * 1000);
-    const completedThreshold = now - (retentionDays * 24 * 60 * 60 * 1000);
+    /**
+     * Marca items como exhaustos si excedieron MAX_RETRIES.
+     * Esto previene que items huérfanos se reprocesen infinitamente.
+     */
+    async markExhaustedItems(): Promise<number> {
+        const queue = await this.getQueue();
+        const maxRetries = SYNC_CONSTANTS.MAX_RETRIES;
+        const toExhaust: string[] = [];
 
-    const toDelete: string[] = [];
-
-    for (const item of queue) {
-        if (item.status === 'exhausted') {
-            toDelete.push(item.id);
-        } else if (item.status === 'completed' || item.status === 'synced') {
-            if (item.createdAt < completedThreshold) {
-                toDelete.push(item.id);
-            }
-        } else if (item.status === 'pending' || item.status === 'failed') {
-            if (item.createdAt < stuckThreshold) {
-                toDelete.push(item.id);
+        for (const item of queue) {
+            // Solo marcar pending/failed que excedieron reintentos
+            if ((item.status === 'pending' || item.status === 'failed') && item.attempts >= maxRetries) {
+                toExhaust.push(item.id);
             }
         }
-    }
 
-    if (toDelete.length > 0) {
-        log.info(`[SyncAdapter] Cleaning up ${toDelete.length} stuck/orphaned sync queue items`);
-        await this.removeBatchFromQueue(toDelete);
-    }
+        if (toExhaust.length > 0) {
+            log.warn(`[SyncAdapter] Marking ${toExhaust.length} items as exhausted (max retries: ${maxRetries})`);
+            for (const id of toExhaust) {
+                await this.updateQueueItem(id, { status: 'exhausted' });
+            }
+        }
 
-    return toDelete.length;
-}
+        return toExhaust.length;
+    },
+
+    /**
+     * Limpia items de la cola de sincronización que están:
+     * - Exhaustos (fallaron después de MAX_RETRIES)
+     * - Completados/sincronizados antiguos (limpieza de已完成)
+     * - Atascados (pending/failed por demasiado tiempo)
+     * También marca items como exhaustos si excedieron MAX_RETRIES.
+     */
+    async cleanup(retentionDays: number = 7, stuckHours: number = 24): Promise<number> {
+        // Primero marcar items que excedieron retries como exhaustos
+        await this.markExhaustedItems();
+
+        const queue = await this.getQueue();
+        const now = Date.now();
+        const stuckThreshold = now - (stuckHours * 60 * 60 * 1000);
+        const completedThreshold = now - (retentionDays * 24 * 60 * 60 * 1000);
+
+        const toDelete: string[] = [];
+
+        for (const item of queue) {
+            if (item.status === 'exhausted') {
+                toDelete.push(item.id);
+            } else if (item.status === 'completed') {
+                if (item.createdAt < completedThreshold) {
+                    toDelete.push(item.id);
+                }
+            } else if (item.status === 'pending' || item.status === 'failed') {
+                if (item.createdAt < stuckThreshold) {
+                    toDelete.push(item.id);
+                }
+            }
+        }
+
+        if (toDelete.length > 0) {
+            log.info(`[SyncAdapter] Cleaning up ${toDelete.length} stuck/orphaned sync queue items`);
+            await this.removeBatchFromQueue(toDelete);
+        }
+
+        return toDelete.length;
+    }
 };

@@ -1,3 +1,5 @@
+import { createCommissionRate } from '../../../domain/commission.rate';
+
 export interface UserStructure {
     id: number;
     name: string;
@@ -6,6 +8,20 @@ export interface UserStructure {
     role_in_structure: string;
     commission_rate?: number;
 }
+
+export interface UserStructureNormalized {
+    id: number;
+    name: string;
+    type: string;
+    path: string;
+    role_in_structure: string;
+    commission_rate: number;
+}
+
+export const normalizeUserStructure = (raw: UserStructure): UserStructureNormalized => ({
+    ...raw,
+    commission_rate: createCommissionRate(raw.commission_rate)
+});
 
 export interface User {
     id: string | number;
@@ -48,46 +64,34 @@ export enum AuthErrorType {
     UNKNOWN_ERROR = 'UNKNOWN_ERROR',
     OFFLINE_NOT_ALLOWED = 'OFFLINE_NOT_ALLOWED',
     RATE_LIMIT_EXCEEDED = 'RATE_LIMIT_EXCEEDED',
-    // Errores específicos para flujo de primera autenticación vs offline
-    CONNECTION_ERROR_FIRST_AUTH = 'CONNECTION_ERROR_FIRST_AUTH', // Error de conexión en primera auth del día
-    OFFLINE_NO_DRAWS = 'OFFLINE_NO_DRAWS', // Offline sin sorteos locales disponibles
-    // Nuevos códigos para errores específicos del backend
+    CONNECTION_ERROR_FIRST_AUTH = 'CONNECTION_ERROR_FIRST_AUTH',
+    OFFLINE_NO_DRAWS = 'OFFLINE_NO_DRAWS',
     DB_CONNECTION_ERROR = 'DB_CONNECTION_ERROR',
     DB_QUERY_ERROR = 'DB_QUERY_ERROR',
     INVALID_REQUEST = 'INVALID_REQUEST',
     INVALID_PIN_FORMAT = 'INVALID_PIN_FORMAT',
     CONFIRMATION_TOKEN_INVALID = 'CONFIRMATION_TOKEN_INVALID',
     USERNAME_TAKEN = 'USERNAME_TAKEN',
-    EMAIL_TAKEN = 'EMAIL_TAKEN',
-    ENDPOINT_DEPRECATED = 'ENDPOINT_DEPRECATED',
+    OFFLINE_NO_DRAWS_FOR_STRUCTURE = 'OFFLINE_NO_DRAWS_FOR_STRUCTURE',
+    OFFLINE_USER_NO_STRUCTURE = 'OFFLINE_USER_NO_STRUCTURE',
+    TIME_INTEGRITY_VIOLATION = 'TIME_INTEGRITY_VIOLATION',
+    OFFLINE_CONDITION_CHECKER_MISSING = 'OFFLINE_CONDITION_CHECKER_MISSING',
+    UNEXPECTED_ERROR = 'UNEXPECTED_ERROR',
 }
 
-export type AuthError = {
+export interface AuthError {
     type: AuthErrorType;
-    message: string;
-    redirectTo?: string;
+    message?: string;
     backendCode?: string;
-};
-
-export type AuthResult =
-    | { success: true; data: AuthSession; redirectTo?: string }
-    | { success: false; error: AuthError };
-
-export interface LocalCredentials {
-    username: string;
-    pinHash: string;
-    profile: User;
 }
 
-export interface BackendLoginResponse {
-    access: string;
-    refresh?: string;
-    confirmation_token?: string; // Nuevo campo para la estrategia
-    daily_secret?: string; // Secreto diario para Zero Trust Fingerprint
-    time_anchor?: {
-        serverTime: number;
-        signature: string;
-        validUntil: number;
-    };
+export interface BackendLoginResponse extends AuthSession {
     user: User;
+}
+
+export interface AuthResult {
+    success: boolean;
+    data?: BackendLoginResponse;
+    error?: AuthError;
+    errorMessage?: string;
 }

@@ -2,14 +2,14 @@ import { AppState, AppStateStatus } from 'react-native';
 import { logger } from '@shared/utils/logger';
 import { setAuthRepository } from './service';
 import { deviceRepository } from '@shared/repositories/system/device';
+import { sessionLockMediator } from './services/session-lock.mediator';
 
 const log = logger.withTag('APP_STATE_SERVICE');
-
 const BACKGROUND_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutos
 
 interface AppStateServiceDeps {
     getAuthRepository: () => ReturnType<typeof setAuthRepository> extends void ? never : ReturnType<typeof setAuthRepository>;
-    onSessionExpired?: (reason: string) => void;
+    onSessionExpired: (reason: string) => void;
 }
 
 let _authRepoGetter: (() => any) | null = null;
@@ -20,22 +20,17 @@ class AppStateServiceImpl {
     private timeoutCheckInterval: NodeJS.Timeout | null = null;
     private appStateSubscription: ReturnType<typeof AppState.addEventListener> | null = null;
     private isSessionLocked = false;
-    private wasTimeoutExceeded = false; // Flag para rastrear si hubo timeout de background
+    private wasTimeoutExceeded = false;
 
     start(deps?: AppStateServiceDeps): () => void {
-        log.info('[APP_STATE_SERVICE] Starting background timeout monitor', { 
-            timeoutMs: BACKGROUND_TIMEOUT_MS 
-        });
-
+        log.info('[APP_STATE_SERVICE] Starting background timeout monitor', { timeoutMs: BACKGROUND_TIMEOUT_MS });
         if (deps?.getAuthRepository) {
             _authRepoGetter = deps.getAuthRepository;
         }
         if (deps?.onSessionExpired) {
             _onSessionExpiredCallback = deps.onSessionExpired;
         }
-
         this.appStateSubscription = AppState.addEventListener('change', this.handleAppStateChange.bind(this));
-        
         return this.stop.bind(this);
     }
 
@@ -66,7 +61,7 @@ class AppStateServiceImpl {
         const backgroundStartTime = this.backgroundTimestamp;
         const wasInBackground = backgroundStartTime !== null;
         const backgroundDuration = wasInBackground ? Date.now() - backgroundStartTime : 0;
-        
+
         log.info('[APP_STATE_SERVICE] App entered foreground', {
             wasInBackground,
             backgroundDurationMs: backgroundDuration,
@@ -77,7 +72,8 @@ class AppStateServiceImpl {
         this.backgroundTimestamp = null;
 
         if (this.isSessionLocked) {
-            log.info('[APP_STATE_SERVICE] Session already locked due to background timeout');
+            log.info('[APP_STATE_SERVICE] Session locked, forcing navigation to login');
+            sessionLockMediator.forceNavigationToLogin();
             return;
         }
 
@@ -92,17 +88,11 @@ class AppStateServiceImpl {
 
     private startTimeoutCheck(): void {
         this.stopTimeoutCheck();
-
         this.timeoutCheckInterval = setInterval(() => {
             if (this.backgroundTimestamp === null) return;
-
             const elapsed = Date.now() - this.backgroundTimestamp;
-            
             if (elapsed >= BACKGROUND_TIMEOUT_MS && !this.isSessionLocked) {
-                log.warn('[APP_STATE_SERVICE] Background timeout threshold reached', {
-                    elapsedMs: elapsed,
-                    thresholdMs: BACKGROUND_TIMEOUT_MS
-                });
+                log.warn('[APP_STATE_SERVICE] Background timeout threshold reached', { elapsedMs: elapsed, thresholdMs: BACKGROUND_TIMEOUT_MS });
                 this.lockSessionDueToTimeout();
                 this.stopTimeoutCheck();
             }
@@ -130,23 +120,28 @@ class AppStateServiceImpl {
             }
 
             if (_onSessionExpiredCallback) {
-                _onSessionExpiredCallback('BACKGROUND_TIMEOUT');
-                log.info('[APP_STATE_SERVICE] Session expired callback invoked');
+                sessionLockMediator.lock(_onSessionExpiredCallback, 'BACKGROUND_TIMEOUT');
+                log.info('[APP_STATE_SERVICE] Session lock delegated to SessionLockMediator');
                 return;
             }
 
             if (_authRepoGetter) {
                 const authRepo = _authRepoGetter();
                 if (authRepo) {
-                    authRepo.notifySessionExpired('BACKGROUND_TIMEOUT');
-                    log.info('[APP_STATE_SERVICE] Notified AuthRepository session expired');
+                    sessionLockMediator.lock(
+                        (reason: string) => authRepo.notifySessionExpired(reason),
+                        'BACKGROUND_TIMEOUT'
+                    );
+                    log.info('[APP_STATE_SERVICE] Session lock delegated to SessionLockMediator (via authRepo)');
                     return;
                 }
             }
 
             log.error('[APP_STATE_SERVICE] No auth repo available to notify session expired');
+            sessionLockMediator.forceNavigationToLogin();
         } catch (error) {
             log.error('[APP_STATE_SERVICE] Failed to notify session expired', { error });
+            sessionLockMediator.forceNavigationToLogin();
         }
     }
 
@@ -159,36 +154,25 @@ class AppStateServiceImpl {
 
     stop(): void {
         log.info('[APP_STATE_SERVICE] Stopping background timeout monitor');
-        
         this.stopTimeoutCheck();
-        
         if (this.appStateSubscription) {
             this.appStateSubscription.remove();
             this.appStateSubscription = null;
         }
-        
         this.backgroundTimestamp = null;
         this.isSessionLocked = false;
     }
 
     resetLockState(): void {
         this.isSessionLocked = false;
+        sessionLockMediator.unlock();
         log.debug('[APP_STATE_SERVICE] Lock state reset');
     }
 
-    /**
-     * Retorna si la última vez que la app entró al foreground 
-     * había excedido el timeout de background.
-     * Útil para que otros componentes sepa si fue un timeout legítimo.
-     */
     hasJustRecoveredFromTimeout(): boolean {
         return this.wasTimeoutExceeded;
     }
 
-    /**
-     * Limpia el flag de timeout recovery.
-     * Debe llamarse después de que el flujo de auth se complete.
-     */
     clearTimeoutRecoveryFlag(): void {
         this.wasTimeoutExceeded = false;
         log.debug('[APP_STATE_SERVICE] Timeout recovery flag cleared');
@@ -199,23 +183,13 @@ class AppStateServiceImpl {
         return Date.now() - this.backgroundTimestamp;
     }
 
-    /**
-     * Verifica si el device ID está sincronizado entre cache y storage.
-     * Si no lo está, invalida el cache y retorna false.
-     * Útil para verificar antes de hacer requests críticos.
-     */
     async ensureDeviceIdConsistency(): Promise<boolean> {
         if (!deviceRepository) return true;
-
         try {
             const cachedId = await deviceRepository.getUniqueId();
             const directId = await deviceRepository.getUniqueIdDirect();
-
             if (cachedId !== directId) {
-                log.warn('[APP_STATE_SERVICE] Device ID mismatch detected, invalidating cache', {
-                    cachedId,
-                    directId
-                });
+                log.warn('[APP_STATE_SERVICE] Device ID mismatch detected, invalidating cache', { cachedId, directId });
                 deviceRepository.invalidateCache();
                 return false;
             }

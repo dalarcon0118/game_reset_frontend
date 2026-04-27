@@ -20,7 +20,7 @@ export default function BankerLayout() {
         name="index"
         options={{
           ...routes.banker.dashboard.options,
-          tabBarIcon: ({ color, size }) => <LayoutDashboard color={color} size={size} />,
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => <LayoutDashboard color={color} size={size} />,
         }}
       />
 
@@ -28,7 +28,7 @@ export default function BankerLayout() {
         name="reports"
         options={{
           ...routes.banker.reports.options,
-          tabBarIcon: ({ color, size }) => <FileText color={color} size={size} />,
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => <FileText color={color} size={size} />,
         }}
       />
 
@@ -36,7 +36,7 @@ export default function BankerLayout() {
         name="rules"
         options={{
           title: 'Rules',
-          tabBarIcon: ({ color, size }) => <Shield color={color} size={size} />,
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => <Shield color={color} size={size} />,
         }}
       />
 
@@ -44,7 +44,7 @@ export default function BankerLayout() {
         name="settings"
         options={{
           title: 'Settings',
-          tabBarIcon: ({ color, size }) => <Settings color={color} size={size} />,
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => <Settings color={color} size={size} />,
         }}
       />
     </Tabs>

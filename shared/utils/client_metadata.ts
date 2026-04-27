@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { getAppVersion } from './app_version';
 
 export interface ClientMetadata {
   appVersion: string;
@@ -12,7 +13,7 @@ export interface ClientMetadata {
 
 export const getClientMetadata = (): ClientMetadata => {
   return {
-    appVersion: Constants.expoConfig?.version || 'unknown',
+    appVersion: getAppVersion(),
     runtimeVersion: Constants.runtimeVersion || 'unknown',
     platform: Constants.platform || 'unknown',
     systemVersion: Constants.systemVersion || 'unknown',

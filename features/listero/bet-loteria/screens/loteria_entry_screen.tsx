@@ -13,8 +13,8 @@ interface LoteriaEntryScreenProps {
 }
 
 const LoteriaEntryContent: React.FC<LoteriaEntryScreenProps> = ({ drawId }) => {
-    const { colors } = useTheme();
-    const { loteriaTotal, hasBets, isSaving, handleSave } = useLoteria(drawId);
+  const { colors } = useTheme();
+  const { loteriaTotal, hasBets, isSaving, isCatalogReady, handleSave } = useLoteria(drawId);
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -23,11 +23,12 @@ const LoteriaEntryContent: React.FC<LoteriaEntryScreenProps> = ({ drawId }) => {
             </View>
 
             {hasBets && (
-                <LoteriaFooter
-                    total={loteriaTotal}
-                    isSaving={isSaving}
-                    onSave={handleSave}
-                />
+    <LoteriaFooter
+      total={loteriaTotal}
+      isSaving={isSaving}
+      isCatalogReady={isCatalogReady}
+      onSave={handleSave}
+    />
             )}
         </View>
     );
@@ -49,33 +50,36 @@ const LoteriaEntryScreen: React.FC<LoteriaEntryScreenProps> = (props) => {
  * Componente interno para el pie de página que muestra el total y el botón de guardado.
  */
 const LoteriaFooter: React.FC<{
-    total: number;
-    isSaving: boolean;
-    onSave: () => void;
-}> = ({ total, isSaving, onSave }) => {
-    const { colors } = useTheme();
+  total: number;
+  isSaving: boolean;
+  isCatalogReady: boolean;
+  onSave: () => void;
+}> = ({ total, isSaving, isCatalogReady, onSave }) => {
+  const { colors } = useTheme();
 
-    return (
-        <Layout style={[styles.footer, { borderTopColor: colors.border }]} level='1'>
-            <View style={styles.grandTotalContainer}>
-                <SumRowComponent
-                    label="Total Lista"
-                    total={total}
-                />
-            </View>
-            <View style={styles.saveButtonContainer}>
-                <Button
-                    status='primary'
-                    onPress={onSave}
-                    size="medium"
-                    disabled={isSaving}
-                    style={styles.footerButton}
-                >
-                    {isSaving ? 'Guardando...' : 'Salvar'}
-                </Button>
-            </View>
-        </Layout>
-    );
+  const saveDisabled = isSaving || !isCatalogReady;
+
+  return (
+    <Layout style={[styles.footer, { borderTopColor: colors.border }]} level='1'>
+      <View style={styles.grandTotalContainer}>
+        <SumRowComponent
+          label="Total Lista"
+          total={total}
+        />
+      </View>
+      <View style={styles.saveButtonContainer}>
+        <Button
+          status='primary'
+          onPress={onSave}
+          size="medium"
+          disabled={saveDisabled}
+          style={styles.footerButton}
+        >
+          {isSaving ? 'Guardando...' : !isCatalogReady ? 'Cargando catálogo...' : 'Salvar'}
+        </Button>
+      </View>
+    </Layout>
+  );
 };
 
 const styles = StyleSheet.create({

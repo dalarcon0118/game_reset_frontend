@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from '@ui-kitten/components';
-import { FormattedBet } from '../../core/domain/success.types';
+import { FormattedBet } from '../../../core/domain/success.types';
 
 interface CentenasTableProps {
     bets: FormattedBet[];

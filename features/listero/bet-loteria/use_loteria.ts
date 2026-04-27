@@ -14,20 +14,23 @@ export const useLoteria = (drawId?: string, isEditing: boolean = true) => {
     // Obtener el structureId del usuario actual para el registro financiero
     const structureId = user?.structure?.id ? String(user.structure.id) : undefined;
 
-    const {
-        loteriaSession,
-        editSession,
-        listSession,
-        summary,
-        rulesSession
-    } = model;
+  const {
+    loteriaSession,
+    editSession,
+    listSession,
+    summary,
+    rulesSession,
+    managementSession
+  } = model;
 
     // Derived data using selectors
     const loteriaList = useMemo(() => selectLoteriaList(model), [model]);
     const fixedAmount = useMemo(() => selectFixedAmount(model), [model]);
     const drawDetails = useMemo(() => selectDrawDetails(model), [model]);
 
-    // Side effects (Initialization)
+    const isCatalogReady = managementSession.betTypes.type === 'Success';
+
+  // Side effects (Initialization)
     useEffect(() => {
         if (drawId) {
             actions.init(drawId, isEditing, structureId);
@@ -72,28 +75,31 @@ export const useLoteria = (drawId?: string, isEditing: boolean = true) => {
         dispatch(RulesMsg.CLEAR_SELECTION());
     }, [dispatch]);
 
-    return {
-        // Data
-        loteriaList,
-        fixedAmount,
-        drawDetails,
-        isEditing: model.isEditing,
-        isBetKeyboardVisible: loteriaSession.isBetKeyboardVisible,
-        isAmountKeyboardVisible: loteriaSession.isAmountKeyboardVisible,
-        currentInput: editSession.currentInput,
+  return {
+    // Data
+    loteriaList,
+    fixedAmount,
+    drawDetails,
+    isEditing: model.isEditing,
+    isBetKeyboardVisible: loteriaSession.isBetKeyboardVisible,
+    isAmountKeyboardVisible: loteriaSession.isAmountKeyboardVisible,
+    currentInput: editSession.currentInput,
 
-        // List status
-        isRefreshing: listSession.isRefreshing,
-        listStatus: listSession.remoteData.type,
+    // List status
+    isRefreshing: listSession.isRefreshing,
+    listStatus: listSession.remoteData.type,
 
-        // Summary
-        loteriaTotal: summary.loteriaTotal,
-        hasBets: summary.hasBets,
-        isSaving: summary.isSaving,
-        error: summary.error,
+    // Summary
+    loteriaTotal: summary.loteriaTotal,
+    hasBets: summary.hasBets,
+    isSaving: summary.isSaving,
+    error: summary.error,
 
-        // Rules Session
-        rulesSession,
+    // Catalog readiness
+    isCatalogReady,
+
+    // Rules Session
+    rulesSession,
 
         // Actions
         ...actions,

@@ -172,6 +172,8 @@ export const SYNC_CONSTANTS = {
   BATCH_SIZE: 10,
   BLOCK_AFTER_HOURS: 24, // Bloquear después de 24h sin sincronizar
   RESET_HOUR: 0,         // Reset nocturno a medianoche
+  /** Máximo items en la cola de sincronización. Previene storage bloat. */
+  MAX_SYNC_QUEUE_ITEMS: 50,
 };
 
 /**

@@ -1,10 +1,8 @@
-import { Stack, ErrorBoundary } from "expo-router";
+import { Stack } from "expo-router";
 import { routes } from "../../config/routes";
 import { ColectorDashboardProvider } from "../../features/colector/dashboard/core";
 import { ColectorReportsFormProvider } from "../../features/colector/reports/core";
 import { FinancialModule } from "../../shared/store/financial/store";
-
-export { ErrorBoundary };
 
 export default function AuthenticatedLayout() {
   return (

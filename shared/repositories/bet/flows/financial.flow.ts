@@ -62,7 +62,7 @@ export const getFinancialSummaryFlow = async (
         return totals;
     } catch (error) {
         log.error('Error aggregating raw financial data', error);
-        return createEmptyTotals();
+        throw error;
     }
 };
 

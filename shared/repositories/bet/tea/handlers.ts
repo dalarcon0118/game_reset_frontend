@@ -12,6 +12,8 @@ import { placeBetFlow, placeBatchFlow } from '../flows/place-bet.flow';
 import { getBetsFlow } from '../flows/get-bets.flow';
 import { syncPendingFlow } from '../flows/sync-bets.flow';
 import { getFinancialSummaryFlow, getTotalsByDrawIdFlow } from '../flows/financial.flow';
+import { TimerRepository } from '@/shared/repositories/system/time/tea.repository';
+import { TimePolicy } from '@/shared/repositories/system/time/time.update';
 import { BET_LOGS } from '../bet.constants';
 
 const log = logger.withTag('BetSystemEffects');
@@ -112,10 +114,16 @@ export const createBetEffectHandlers = (
         },
 
         [Fx.cleanup.type]: ({ today }: any) => {
-            const [y, m, d] = today.split('-').map(Number);
-            const threshold = Date.UTC(y, m - 1, d, 0, 0, 0, 0);
+            // SSOT: Calcular todayStart usando TimePolicy.getTodayStart()
+            const trustedNow = TimerRepository.getTrustedNow(Date.now());
+            const todayStart = TimePolicy.getTodayStart(trustedNow);
+            log.info('[CLEANUP] Using SSOT todayStart', {
+                today,
+                todayStart,
+                todayStartLocal: new Date(todayStart).toLocaleString()
+            });
             return Task.fromPromise(() => storage.getAll())
-                .map(all => all.filter(b => b.status === 'synced' && b.timestamp < threshold))
+                .map(all => all.filter(b => b.status !== 'pending' && b.timestamp < todayStart))
                 .andThen(toDelete => Task.fromPromise(async () => {
                     for (const bet of toDelete) await storage.delete(bet.externalId);
                     return toDelete.length;

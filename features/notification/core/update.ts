@@ -6,19 +6,19 @@ import {
     Sub,
     RemoteData,
     singleton,
-    ret
+    ret,
+    RemoteDataHttp
 } from '@core/tea-utils';
 import { logger } from '@/shared/utils/logger';
 
-import { NotificationService } from './service';
 import { NOTIFICATIONS_UPDATED, NETWORK_STATUS_CHANGED } from '@/config/signals';
 import { offlineEventBus } from '@core/offline-storage/instance';
 import { AuthRepository } from '@/shared/repositories/auth';
 import { NotificationOfflineKeys } from '@/shared/repositories/notification/NotificationOfflineKeys';
 import { notificationRepository } from '@/shared/repositories/notification';
+import { TimerRepository } from '@/shared/repositories/system/time';
+import { selectUnreadCount, selectFilteredNotifications } from './selectors';
 
-
-// 🛠️ INJECT SERVICE
 const log = logger.withTag('NOTIFICATION_CORE');
 
 /**
@@ -48,7 +48,7 @@ export const subscriptions = (model: Model) => {
                         debounceTimer = setTimeout(() => {
                             if (!isCancelled) {
                                 log.debug('Notification storage changed, refreshing store UI (debounced)');
-                                dispatch({ type: 'REFRESH_NOTIFICATIONS' });
+                                dispatch({ type: 'FETCH_NOTIFICATIONS_REQUESTED' });
                             }
                         }, 5000); // Aumentado a 5s de ventana para agrupar cambios (evita múltiples llamadas si llegan varias notificaciones o hay resyncs)
                     }
@@ -69,7 +69,7 @@ export const subscriptions = (model: Model) => {
             const unsubscribe = AuthRepository.onSessionChange((user) => {
                 if (user) {
                     log.info(`User authenticated (ID: ${user.id}), fetching notifications...`);
-                    dispatch({ type: 'REFRESH_NOTIFICATIONS' });
+                    dispatch({ type: 'FETCH_NOTIFICATIONS_REQUESTED' });
                 } else {
                     log.info('User logged out, resetting notification state');
                     dispatch({ type: 'RESET_STATE' });
@@ -112,8 +112,12 @@ export const subscriptions = (model: Model) => {
 
 // --- Pure Helper Functions ---
 
-const calculateUnreadCount = (notifications: AppNotification[]): number => {
-    return notifications.filter(n => n.status === 'pending').length;
+const getTrustedTimestamp = (): string => {
+    try {
+        return new Date(TimerRepository.getTrustedNow(Date.now())).toISOString();
+    } catch {
+        return new Date().toISOString();
+    }
 };
 
 const updateNotificationStatus = (notifications: AppNotification[], notificationId: string, status: 'read' | 'pending', timestamp: string): AppNotification[] => {
@@ -122,14 +126,6 @@ const updateNotificationStatus = (notifications: AppNotification[], notification
             ? { ...notification, status, readAt: status === 'read' ? timestamp : undefined }
             : notification
     );
-};
-
-const filterNotifications = (notifications: AppNotification[], filter: 'all' | 'pending' | 'read' = 'all'): AppNotification[] => {
-    switch (filter) {
-        case 'pending': return notifications.filter(n => n.status === 'pending');
-        case 'read': return notifications.filter(n => n.status === 'read');
-        default: return notifications;
-    }
 };
 
 /**
@@ -142,19 +138,21 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
             if (model.notifications.type === 'Loading') return singleton(model);
             return ret(
                 { ...model, notifications: RemoteData.loading() },
-                NotificationService.getInstance().fetchNotifications()
+                RemoteDataHttp.fetch<AppNotification[], Msg>(
+                    () => notificationRepository.getNotifications() as Promise<AppNotification[]>,
+                    (webData) => ({ type: 'NOTIFICATIONS_RECEIVED', webData })
+                )
             );
         })
 
         .with({ type: 'NOTIFICATIONS_RECEIVED' }, ({ webData }) => {
             if (webData.type === 'Success') {
-                const filteredNotifications = filterNotifications(webData.data, model.currentFilter);
-                const unreadCount = calculateUnreadCount(webData.data);
+                const filteredNotifications = selectFilteredNotifications({ ...model, allNotifications: webData.data });
+                const unreadCount = selectUnreadCount({ ...model, allNotifications: webData.data });
                 return ret(
                     {
                         ...model,
                         notifications: RemoteData.success(filteredNotifications),
-                        unreadCount,
                         allNotifications: webData.data
                     },
                     Cmd.sendMsg(NOTIFICATIONS_UPDATED({ unreadCount }))
@@ -164,7 +162,7 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
         })
 
         .with({ type: 'MARK_AS_READ_REQUESTED' }, ({ notificationId }) => {
-            const timestamp = new Date().toISOString();
+            const timestamp = getTrustedTimestamp();
             const updatedNotifications = updateNotificationStatus(
                 model.allNotifications || [],
                 notificationId,
@@ -172,91 +170,66 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
                 timestamp
             );
 
-            const filteredNotifications = filterNotifications(updatedNotifications, model.currentFilter);
-            const unreadCount = calculateUnreadCount(updatedNotifications);
+            const filteredNotifications = selectFilteredNotifications({ ...model, allNotifications: updatedNotifications });
+            const unreadCount = selectUnreadCount({ ...model, allNotifications: updatedNotifications });
 
             return ret(
                 {
                     ...model,
                     allNotifications: updatedNotifications,
-                    notifications: RemoteData.success(filteredNotifications),
-                    unreadCount
+                    notifications: RemoteData.success(filteredNotifications)
                 },
                 Cmd.batch([
-                    NotificationService.getInstance().markAsRead(notificationId),
+                    RemoteDataHttp.fetch<AppNotification, Msg>(
+                        () => notificationRepository.markAsRead(notificationId) as Promise<AppNotification>,
+                        (webData) => ({ type: 'NOTIFICATION_MARKED_READ', webData, notificationId })
+                    ),
                     Cmd.sendMsg(NOTIFICATIONS_UPDATED({ unreadCount }))
                 ])
             );
         })
 
         .with({ type: 'NOTIFICATION_MARKED_READ' }, ({ webData, notificationId }) => {
-            if (webData.type === 'Success') {
-                const timestamp = new Date().toISOString();
-                const updatedNotifications = updateNotificationStatus(
-                    model.allNotifications || [],
-                    notificationId,
-                    'read',
-                    timestamp
-                );
-                const filteredNotifications = filterNotifications(updatedNotifications, model.currentFilter);
-                const unreadCount = calculateUnreadCount(updatedNotifications);
-                return ret(
-                    {
-                        ...model,
-                        allNotifications: updatedNotifications,
-                        notifications: RemoteData.success(filteredNotifications),
-                        unreadCount
-                    },
-                    Cmd.sendMsg(NOTIFICATIONS_UPDATED({ unreadCount }))
-                );
+            // Optimistic update already applied, only handle error case if needed
+            if (webData.type === 'Failure') {
+                // TODO: Revert optimistic update on failure (requires storing previous state)
+                log.warn('Failed to mark notification as read', webData.error);
             }
-            return singleton({ ...model, notifications: webData as any });
+            return singleton({ ...model, notifications: RemoteData.success(selectFilteredNotifications(model)) });
         })
 
         .with({ type: 'MARK_ALL_AS_READ_REQUESTED' }, () => {
-            const timestamp = new Date().toISOString();
+            const timestamp = getTrustedTimestamp();
             const updatedNotifications = (model.allNotifications || []).map(notification => ({
                 ...notification,
                 status: 'read' as const,
                 readAt: timestamp
             }));
 
-            const filteredNotifications = filterNotifications(updatedNotifications, model.currentFilter);
+            const filteredNotifications = selectFilteredNotifications({ ...model, allNotifications: updatedNotifications });
 
             return ret(
                 {
                     ...model,
                     allNotifications: updatedNotifications,
-                    notifications: RemoteData.success(filteredNotifications),
-                    unreadCount: 0
+                    notifications: RemoteData.success(filteredNotifications)
                 },
                 Cmd.batch([
-                    NotificationService.getInstance().markAllAsRead(),
+                    RemoteDataHttp.fetch<void, Msg>(
+                        () => notificationRepository.markAllAsRead() as Promise<void>,
+                        (webData) => ({ type: 'ALL_MARKED_READ', webData })
+                    ),
                     Cmd.sendMsg(NOTIFICATIONS_UPDATED({ unreadCount: 0 }))
                 ])
             );
         })
 
         .with({ type: 'ALL_MARKED_READ' }, ({ webData }) => {
-            if (webData.type === 'Success') {
-                const timestamp = new Date().toISOString();
-                const updatedNotifications = (model.allNotifications || []).map(notification => ({
-                    ...notification,
-                    status: 'read' as const,
-                    readAt: timestamp
-                }));
-                const filteredNotifications = filterNotifications(updatedNotifications, model.currentFilter);
-                return ret(
-                    {
-                        ...model,
-                        allNotifications: updatedNotifications,
-                        notifications: RemoteData.success(filteredNotifications),
-                        unreadCount: 0
-                    },
-                    Cmd.sendMsg(NOTIFICATIONS_UPDATED({ unreadCount: 0 }))
-                );
+            // Optimistic update already applied, only handle error case
+            if (webData.type === 'Failure') {
+                log.warn('Failed to mark all notifications as read', webData.error);
             }
-            return singleton({ ...model, notifications: webData as any });
+            return singleton(model);
         })
 
         .with({ type: 'CLEAR_ALL_NOTIFICATIONS_REQUESTED' }, () => {
@@ -264,44 +237,32 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
                 {
                     ...model,
                     allNotifications: [],
-                    notifications: RemoteData.success([]),
-                    unreadCount: 0
+                    notifications: RemoteData.success([])
                 },
                 Cmd.batch([
-                    NotificationService.getInstance().clearAllNotifications(),
+                    RemoteDataHttp.fetch<void, Msg>(
+                        () => notificationRepository.clearAllNotifications() as Promise<void>,
+                        (webData) => ({ type: 'NOTIFICATIONS_CLEARED', webData })
+                    ),
                     Cmd.sendMsg(NOTIFICATIONS_UPDATED({ unreadCount: 0 }))
                 ])
             );
         })
 
         .with({ type: 'NOTIFICATIONS_CLEARED' }, ({ webData }) => {
-            if (webData.type === 'Success') {
-                return ret(
-                    {
-                        ...model,
-                        allNotifications: [],
-                        notifications: RemoteData.success([]),
-                        unreadCount: 0
-                    },
-                    Cmd.sendMsg(NOTIFICATIONS_UPDATED({ unreadCount: 0 }))
-                );
+            // Optimistic update already applied, only handle error case
+            if (webData.type === 'Failure') {
+                log.warn('Failed to clear notifications', webData.error);
             }
-            return singleton({ ...model, notifications: webData as any });
+            return singleton(model);
         })
 
         .with({ type: 'NOTIFICATION_DELETED' }, ({ webData, notificationId }) => {
-            if (webData.type === 'Success') {
-                const updatedNotifications = (model.allNotifications || []).filter(n => n.id !== notificationId);
-                const filteredNotifications = filterNotifications(updatedNotifications, model.currentFilter);
-                const unreadCount = calculateUnreadCount(updatedNotifications);
-                return singleton({
-                    ...model,
-                    allNotifications: updatedNotifications,
-                    notifications: RemoteData.success(filteredNotifications),
-                    unreadCount
-                });
+            // Optimistic update already applied, only handle error case
+            if (webData.type === 'Failure') {
+                log.warn('Failed to delete notification', webData.error);
             }
-            return singleton({ ...model, notifications: webData as any });
+            return singleton(model);
         })
 
         .with({ type: 'NOTIFICATION_SELECTED' }, ({ notification }) => {
@@ -314,14 +275,12 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
 
         .with({ type: 'FILTER_CHANGED' }, ({ filter }) => {
             const allNotifications = model.allNotifications || [];
-            const filteredNotifications = filterNotifications(allNotifications, filter);
-            const unreadCount = calculateUnreadCount(allNotifications);
+            const filteredNotifications = selectFilteredNotifications({ ...model, allNotifications, currentFilter: filter });
 
             return singleton({
                 ...model,
                 notifications: RemoteData.success(filteredNotifications),
-                currentFilter: filter,
-                unreadCount
+                currentFilter: filter
             });
         })
 
@@ -334,15 +293,14 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
 
         .with({ type: 'ADD_NOTIFICATION' }, ({ notification }) => {
             const allNotifications = [notification, ...(model.allNotifications || [])];
-            const filteredNotifications = filterNotifications(allNotifications, model.currentFilter);
-            const unreadCount = calculateUnreadCount(allNotifications);
+            const filteredNotifications = selectFilteredNotifications({ ...model, allNotifications });
+            const unreadCount = selectUnreadCount({ ...model, allNotifications });
 
             return ret(
                 {
                     ...model,
                     allNotifications: allNotifications,
-                    notifications: RemoteData.success(filteredNotifications),
-                    unreadCount
+                    notifications: RemoteData.success(filteredNotifications)
                 },
                 Cmd.sendMsg(NOTIFICATIONS_UPDATED({ unreadCount }))
             );
@@ -350,37 +308,36 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
 
         .with({ type: 'REMOVE_NOTIFICATION' }, ({ notificationId }) => {
             const allNotifications = (model.allNotifications || []).filter(n => n.id !== notificationId);
-            const filteredNotifications = filterNotifications(allNotifications, model.currentFilter);
-            const unreadCount = calculateUnreadCount(allNotifications);
+            const filteredNotifications = selectFilteredNotifications({ ...model, allNotifications });
 
             return singleton({
                 ...model,
                 allNotifications: allNotifications,
-                notifications: RemoteData.success(filteredNotifications),
-                unreadCount
+                notifications: RemoteData.success(filteredNotifications)
             });
         })
 
         .with({ type: 'CLEAR_FILTER' }, () => {
             const allNotifications = model.allNotifications || [];
-            const unreadCount = calculateUnreadCount(allNotifications);
+            const filteredNotifications = selectFilteredNotifications({ ...model, allNotifications, currentFilter: 'all' });
 
             return singleton({
                 ...model,
-                notifications: RemoteData.success(allNotifications),
-                currentFilter: 'all',
-                unreadCount
+                notifications: RemoteData.success(filteredNotifications),
+                currentFilter: 'all'
             });
         })
 
-        .with({ type: 'REFRESH_NOTIFICATIONS' }, () => {
-            return ret(model, NotificationService.getInstance().fetchNotifications());
-        })
-
-        .with({ type: 'SYNC_FROM_BACKEND_REQUESTED' }, () => {
+	.with({ type: 'SYNC_FROM_BACKEND_REQUESTED' }, () => {
             return ret(
                 { ...model, notifications: RemoteData.loading() },
-                NotificationService.getInstance().forceSyncFromBackend()
+                Cmd.task({
+                    task: async () => {
+                        return await notificationRepository.forceSyncFromBackend();
+                    },
+                    onSuccess: (notifications: any[]) => ({ type: 'NOTIFICATIONS_RECEIVED', webData: { type: 'Success', data: notifications } }),
+                    onFailure: (error: any) => ({ type: 'NOTIFICATIONS_RECEIVED', webData: { type: 'Failure', error: String(error) } } as any)
+                })
             );
         })
 
@@ -392,7 +349,6 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
         .with({ type: 'RESET_STATE' }, () => singleton({
             ...model,
             notifications: RemoteData.notAsked(),
-            unreadCount: 0,
             allNotifications: [],
             selectedNotification: null
         }))
@@ -406,7 +362,7 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
             const navigateCmd = Cmd.navigate(`/notification/detail?id=${notificationId}`);
 
             if (notification.status === 'pending') {
-                const timestamp = new Date().toISOString();
+                const timestamp = getTrustedTimestamp();
                 const updatedNotifications = updateNotificationStatus(
                     model.allNotifications || [],
                     notificationId,
@@ -414,18 +370,22 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
                     timestamp
                 );
 
-                const filteredNotifications = filterNotifications(updatedNotifications, model.currentFilter);
-                const unreadCount = calculateUnreadCount(updatedNotifications);
+const filteredNotifications = selectFilteredNotifications({ ...model, allNotifications: updatedNotifications });
 
-                return ret(
-                    {
-                        ...model,
-                        selectedNotification: notification,
-                        allNotifications: updatedNotifications,
-                        notifications: RemoteData.success(filteredNotifications),
-                        unreadCount
+            return ret(
+                {
+                    ...model,
+                    selectedNotification: notification,
+                    allNotifications: updatedNotifications,
+                        notifications: RemoteData.success(filteredNotifications)
                     },
-                    Cmd.batch([navigateCmd, NotificationService.getInstance().markAsRead(notificationId)])
+                    Cmd.batch([
+                        navigateCmd,
+                        RemoteDataHttp.fetch<AppNotification, Msg>(
+                            () => notificationRepository.markAsRead(notificationId) as Promise<AppNotification>,
+                            (webData) => ({ type: 'NOTIFICATION_MARKED_READ', webData, notificationId })
+                        )
+                    ])
                 );
             }
 
@@ -439,18 +399,24 @@ export const update = (model: Model, msg: Msg): [Model, Cmd] => {
         .with({ type: 'ADD_SYSTEM_NOTIFICATION' }, ({ payload }) => {
             log.info('Adding system notification', payload);
 
-            // Crear notificación usando NotificationRepository
-            notificationRepository.addNotification({
-                title: payload.title,
-                message: payload.message,
-                type: payload.type,
-                metadata: { source: 'system' }
-            }).catch(err => {
-                log.error('Failed to add system notification', err);
-            });
-
-            // Retornar modelo sin cambios, la notificación se agregará vía SUB cuando se guarde en SSOT
-            return singleton(model);
+            return ret(
+                model,
+                Cmd.task({
+                    task: async () => {
+                        await notificationRepository.addNotification({
+                            title: payload.title,
+                            message: payload.message,
+                            type: payload.type,
+                            metadata: { source: 'system' }
+                        });
+                    },
+                    onSuccess: () => ({ type: 'NONE' } as Msg),
+                    onFailure: (err) => {
+                        log.error('Failed to add system notification', err);
+                        return { type: 'NOTIFICATION_ERROR', error: String(err) } as Msg;
+                    }
+                })
+            );
         })
 
         .with({ type: 'NONE' }, () => singleton(model))

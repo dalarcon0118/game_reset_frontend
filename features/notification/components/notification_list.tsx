@@ -5,6 +5,7 @@ import { BellOff, RefreshCw } from 'lucide-react-native';
 import { NotificationModule } from '../core/store';
 import { NotificationItem } from './notification_item';
 import { AppNotification } from '../core/model';
+import { selectUnreadCount } from '../core/selectors';
 import {
   MARK_ALL_AS_READ_REQUESTED,
   FILTER_CHANGED,
@@ -20,6 +21,7 @@ interface NotificationListProps {
 export const NotificationList: React.FC<NotificationListProps> = ({ onNotificationPress }) => {
   const model = NotificationModule.useStore(s => s.model);
   const dispatch = NotificationModule.useDispatch();
+  const unreadCount = selectUnreadCount(model);
   const rawData = model.notifications.type === 'Success' && Array.isArray(model.notifications.data)
     ? model.notifications.data
     : [];
@@ -81,7 +83,7 @@ export const NotificationList: React.FC<NotificationListProps> = ({ onNotificati
         status="basic"
         onPress={() => handleFilterChange('pending')}
       >
-        {`Pendientes (${model.unreadCount})`}
+        {`Pendientes (${unreadCount})`}
       </Button>
       <Button
         size="small"
@@ -110,7 +112,7 @@ export const NotificationList: React.FC<NotificationListProps> = ({ onNotificati
             Sincronizar
           </Button>
         </View>
-        {model.unreadCount > 0 && (
+        {unreadCount > 0 && (
           <View style={styles.headerSecondaryRow}>
             <Button
               size="small"

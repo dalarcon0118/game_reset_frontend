@@ -17,9 +17,12 @@ import { PROMOTION_MSG, RETRY_INITIAL_LOAD } from './msg';
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
 import { drawRepository } from '@/shared/repositories/draw';
 import { dashboardService } from '../services/dashboard.service';
-import { calculateFinancials } from './logic/financial';
 import { filterDraws } from './logic/index';
 import { DrawTotalsUpdate } from './msg';
+
+import { syncWorker } from '@core/offline-storage/instance';
+import { notificationRepository } from '@/shared/repositories/notification';
+import { Alert } from 'react-native';
 
 const log = logger.withTag('DASHBOARD_UPDATE');
 
@@ -114,9 +117,6 @@ export const update = (model: Model, msg: Msg): Return<Model, Msg> => {
         .with({ type: 'APPLY_STATUS_FILTER' }, ({ filter }) =>
             FilterHandler.handleApplyStatusFilter(model, filter)
         )
-        .with({ type: 'SET_COMMISSION_RATE' }, ({ rate }) =>
-            FilterHandler.handleSetCommissionRate(model, rate)
-        )
 
         // Navigation Handling
         .with({ type: 'RULES_CLICKED' }, ({ drawId }) =>
@@ -158,9 +158,12 @@ export const update = (model: Model, msg: Msg): Return<Model, Msg> => {
         .with({ type: 'REQUEST_LOCAL_DRAWS' }, () =>
             handleRequestLocalDraws(model)
         )
-        .with({ type: 'LOCAL_DRAWS_LOADED' }, ({ draws, filteredDraws }) =>
-            ret({ ...model, draws: { type: 'Success', data: draws }, filteredDraws }, Cmd.none)
-        )
+  .with({ type: 'LOCAL_DRAWS_LOADED' }, ({ draws, filteredDraws }) => {
+    return ret(
+      { ...model, draws: { type: 'Success', data: draws }, filteredDraws },
+      Cmd.none
+    );
+  })
         // SSOT: Totals by drawId (from draws_list_plugin)
         .with({ type: 'BATCH_OFFLINE_UPDATE' }, ({ updates, timestamp }) =>
             handleBatchOfflineUpdate(model, updates, timestamp)
@@ -172,49 +175,48 @@ export const update = (model: Model, msg: Msg): Return<Model, Msg> => {
         .with({ type: 'SELECT_FILTER' }, ({ filter }) =>
             FilterHandler.handleApplyStatusFilter(model, filter)
         )
+        // SSOT: Manual sync reconciliation
+        .with({ type: 'SYNC_PRESSED' }, () =>
+            handleSyncPressed(model)
+        )
+        .with({ type: 'SYNC_COMPLETED' }, ({ successCount, failedCount }) =>
+            handleSyncCompleted(model, successCount, failedCount)
+        )
+        .with({ type: 'SYNC_ERROR' }, ({ error }) =>
+            handleSyncError(model, error)
+        )
         .with({ type: 'NONE' }, () => ret(model, Cmd.none))
         .exhaustive();
 };
 
 // SSOT: Financial Bets Handlers (from summary_plugin)
 function handleGetFinancialBets(model: Model): Return<Model, Msg> {
-    if (!model.userStructureId) return ret(model, Cmd.none);
+  if (!model.userStructureId) return ret(model, Cmd.none);
 
-    const trustedNow = Date.now();
-    const trustedDate = new Date(trustedNow);
-    const todayStart = new Date(
-        trustedDate.getFullYear(),
-        trustedDate.getMonth(),
-        trustedDate.getDate()
-    ).getTime();
+  const trustedNow = Date.now();
+  const trustedDate = new Date(trustedNow);
+  const todayStart = new Date(
+    trustedDate.getFullYear(),
+    trustedDate.getMonth(),
+    trustedDate.getDate()
+  ).getTime();
 
-    return ret(
-        { ...model, financialSummary: { type: 'Loading' } as any, trustedNow },
-        Cmd.task({
-            task: async () => {
-                if (!model.userStructureId) return { type: 'Failure' as const, error: new Error('No structure ID') };
-                const rawData = await betRepository.getFinancialSummary(todayStart, model.userStructureId);
-                const result = calculateFinancials(
-                    { totalCollected: rawData.totalCollected, premiumsPaid: model.dailyTotals.premiumsPaid, betCount: rawData.betCount },
-                    model.commissionRate
-                );
-                return { type: 'Success' as const, data: rawData, totals: result.totals };
-            },
-            onSuccess: (result) => ({ type: 'FINANCIAL_BETS_UPDATED', webData: result }),
-            onFailure: (error) => ({ type: 'FINANCIAL_BETS_UPDATED', webData: { type: 'Failure', error } })
-        })
-    );
+  return ret(
+    { ...model, financialSummary: { type: 'Loading' } as any, trustedNow },
+    Cmd.task({
+      task: async () => {
+        if (!model.userStructureId) return { type: 'Failure' as const, error: new Error('No structure ID') };
+        const rawData = await betRepository.getFinancialSummary(todayStart, model.userStructureId);
+        return { type: 'Success' as const, data: rawData };
+      },
+      onSuccess: (result) => ({ type: 'FINANCIAL_BETS_UPDATED', webData: result }),
+      onFailure: (error) => ({ type: 'FINANCIAL_BETS_UPDATED', webData: { type: 'Failure', error } })
+    })
+  );
 }
 
 function handleFinancialBetsUpdated(model: Model, webData: any): Return<Model, Msg> {
-    if (webData.type === 'Success' && webData.totals) {
-        return ret({
-            ...model,
-            financialSummary: webData,
-            dailyTotals: webData.totals
-        }, Cmd.none);
-    }
-    return ret({ ...model, financialSummary: webData }, Cmd.none);
+  return ret({ ...model, financialSummary: webData }, Cmd.none);
 }
 
 // SSOT: Local Draws Handler (from draws_list_plugin)
@@ -247,7 +249,7 @@ function handleRequestLocalDraws(model: Model): Return<Model, Msg> {
 // SSOT: Batch Offline Update Handler (from draws_list_plugin)
 function handleBatchOfflineUpdate(model: Model, updates: DrawTotalsUpdate[], timestamp: number): Return<Model, Msg> {
     const newTotalsByDrawId = new Map(model.totalsByDrawId);
-    
+
     updates.forEach(update => {
         if (update.betCount === 0) {
             newTotalsByDrawId.delete(update.drawId);
@@ -264,4 +266,64 @@ function handleBatchOfflineUpdate(model: Model, updates: DrawTotalsUpdate[], tim
     });
 
     return ret({ ...model, totalsByDrawId: newTotalsByDrawId }, Cmd.none);
+}
+
+// SSOT: Manual Sync Reconciliation Handlers
+function handleSyncPressed(model: Model): Return<Model, Msg> {
+    return ret(
+        { ...model, syncStatus: 'syncing' as const },
+        Cmd.task({
+            task: async () => {
+                try {
+                    // Full reconcile: push all pending + pull fresh data
+                    const [syncReport] = await Promise.all([
+                        syncWorker.triggerSync(),
+                        notificationRepository.forceSyncFromBackend().catch(() => [])
+                    ]);
+                    
+                    return {
+                        successCount: syncReport.succeeded,
+                        failedCount: syncReport.failed,
+                        status: syncReport.status
+                    };
+                } catch (error: any) {
+                    throw new Error(error?.message || 'Sync failed');
+                }
+            },
+            onSuccess: (result) => ({
+                type: 'SYNC_COMPLETED',
+                successCount: result.successCount,
+                failedCount: result.failedCount
+            }),
+            onFailure: (error) => ({
+                type: 'SYNC_ERROR',
+                error: error?.message || 'Sync failed'
+            })
+        })
+    );
+}
+
+function handleSyncCompleted(model: Model, successCount: number, failedCount: number): Return<Model, Msg> {
+    const total = successCount + failedCount;
+    const message = total === 0
+        ? 'No había datos pendientes para sincronizar'
+        : failedCount === 0
+            ? `Sincronización completa: ${successCount} elemento(s) enviado(s)`
+            : `Sincronización parcial: ${successCount} ok, ${failedCount} error(es)`;
+    
+    Alert.alert('Sincronización', message);
+    
+    return ret(
+        { ...model, syncStatus: 'success' as const },
+        Cmd.none
+    );
+}
+
+function handleSyncError(model: Model, error: string): Return<Model, Msg> {
+    Alert.alert('Error de sincronización', error);
+    
+    return ret(
+        { ...model, syncStatus: 'error' as const },
+        Cmd.none
+    );
 }

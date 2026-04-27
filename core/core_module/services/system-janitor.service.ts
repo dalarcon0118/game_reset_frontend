@@ -2,6 +2,7 @@ import { maintenanceRepository } from '@/shared/repositories/system/maintenance/
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
 import { drawRepository } from '@/shared/repositories/draw';
 import { TimerRepository } from '@/shared/repositories/system/time';
+import { TimePolicy } from '@/shared/repositories/system/time/time.update';
 import { notificationRepository } from '@/shared/repositories/notification';
 import { logger } from '@/shared/utils/logger';
 import { offlineEventBus, SyncAdapter } from '@/shared/core/offline-storage/instance';
@@ -45,22 +46,19 @@ export class SystemJanitor {
 
             // 1. Obtener tiempo confiable (SSOT Time)
             // trustedTs es la hora del servidor ajustada por el offset cliente/servidor.
-            // new Date(trustedTs) interpreta el timestamp en hora LOCAL del dispositivo.
-            // Usamos getFullYear/getMonth/getDate (LOCAL) en lugar de toISOString (UTC)
-            // para que el día coincida con la hora local del servidor.
             const trustedTs = TimerRepository.getTrustedNow(Date.now());
-            const trustedDate = new Date(trustedTs);
-            const year = trustedDate.getFullYear();
-            const month = String(trustedDate.getMonth() + 1).padStart(2, '0');
-            const day = String(trustedDate.getDate()).padStart(2, '0');
-            const today = `${year}-${month}-${day}`;
 
-            log.info('[DIAGNOSTIC] Fecha calculada para cleanup', {
+            // SSOT: Usar TimePolicy.getTodayStart() como única fuente de verdad para "hoy"
+            const todayStart = TimePolicy.getTodayStart(trustedTs);
+            const today = TimePolicy.formatLocalDate(new Date(todayStart));
+
+            log.info('[DIAGNOSTIC] Fecha calculada para cleanup (SSOT)', {
                 today,
+                todayStart,
+                todayStartLocal: new Date(todayStart).toLocaleString(),
                 trustedTs,
-                localDate: new Date().toISOString(),
-                serverOffset: TimerRepository.getTrustedNow(Date.now()) - Date.now(),
-                trustedDate: trustedDate.toISOString()
+                trustedTsLocal: new Date(trustedTs).toLocaleString(),
+                serverOffset: TimerRepository.getTrustedNow(Date.now()) - Date.now()
             });
 
             log.info('Iniciando preparación de sesión diaria', { today, force });
@@ -79,6 +77,12 @@ export class SystemJanitor {
             await betRepository.applyMaintenance();
 
             // 4. Sincronizar apuestas pendientes ANTES de limpiar
+            // todayStart ya fue definido arriba (línea 52) usando TimePolicy.getTodayStart()
+            log.info('[DIAGNOSTIC] todayStart confirmado (from SSOT)', {
+                todayStart,
+                todayStartLocal: new Date(todayStart).toLocaleString()
+            });
+
             const pendingBets = await betRepository.getPendingBets();
             log.info('[DIAGNOSTIC] Verificacion de sync', {
                 pendingBetsCount: pendingBets.length,
@@ -109,8 +113,14 @@ export class SystemJanitor {
                         successBets: syncResult.successBets
                     });
                     if (syncResult.structureTotalCollected !== undefined && syncResult.structureId !== undefined) {
+                        // SSOT: Usar todayStart calculado arriba (TimePolicy.getTodayStart)
+                        log.info('[DIAGNOSTIC] Using todayStart from SSOT for balance comparison', {
+                            todayStart,
+                            todayStartLocal: new Date(todayStart).toLocaleString()
+                        });
+
                         const localSummary = await betRepository.getFinancialSummary(
-                            trustedTs,
+                            todayStart,
                             String(syncResult.structureId)
                         );
                         const localTotal = localSummary.totalCollected;

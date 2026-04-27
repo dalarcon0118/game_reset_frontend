@@ -26,19 +26,13 @@ import { AuthRepository } from '../../repositories/auth';
 import { AuthErrorType } from '../../repositories/auth/types/types';
 import { logger } from '../../utils/logger';
 import { GLOBAL_LOGOUT } from '@/config/signals';
+import { sessionLockMediator } from '@/core/core_module/services/session-lock.mediator';
+import { inactivityTracker } from '@/core/core_module/services/inactivity-tracker.service';
 
 const log = logger.withTag('AUTH_V1_UPDATE');
-
-// ID de instancia para detectar re-creaciones del store
 const STORE_INSTANCE_ID = Math.random().toString(36).substring(7).toUpperCase();
 log.debug(`AuthModuleV1.update loaded - Instance: #${STORE_INSTANCE_ID}`);
 
-/**
- * Update Function (v1)
- * 
- * Orquestador reactivo de la sesión. 
- * El SSOT es el AuthRepository; este update solo proyecta el estado.
- */
 export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMsg> {
     log.debug(`[${STORE_INSTANCE_ID}] Processing message: ${msg.type}`, {
         currentStatus: model.status,
@@ -47,17 +41,14 @@ export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMs
 
     return match<AuthMsg, Return<AuthModel, AuthMsg>>(msg)
         .with(INITIAL_SESSION_CHECK_REQUESTED.type(), () => {
-            log.warn('INITIAL_SESSION_CHECK_REQUESTED ignored (Deprecated in favor of SSOT Subscriptions)');
+            log.warn('INITIAL_SESSION_CHECK_REQUESTED ignored (Deprecated)');
             return singleton(model);
         })
-
         .with(SESSION_HYDRATED.type(), () => {
-            log.warn('SESSION_HYDRATED ignored (Deprecated in favor of SESSION_CHANGED from SSOT Subscriptions)');
+            log.warn('SESSION_HYDRATED ignored (Deprecated)');
             return singleton(model);
         })
-
         .with(SESSION_CHANGED.type(), ({ payload }) => {
-            // Reacción directa a cambios en el repositorio (SSOT)
             if (payload.user) {
                 log.info('Sesión detectada vía SSOT');
                 return singleton({
@@ -67,95 +58,47 @@ export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMs
                     isOffline: payload.isOffline
                 });
             }
-            return singleton({
-                ...model,
-                status: AuthStatus.UNAUTHENTICATED,
-                user: null,
-                tokens: null
-            });
+            return singleton({ ...model, status: AuthStatus.UNAUTHENTICATED, user: null, tokens: null });
         })
-
         .with(LOGIN_REQUESTED.type(), ({ payload }) => {
-            // Guard: Si ya estamos autenticados, ignorar el login redundante
             if (model.status === AuthStatus.AUTHENTICATED || model.status === AuthStatus.AUTHENTICATED_OFFLINE) {
                 log.warn('Ignorando LOGIN_REQUESTED: El usuario ya está autenticado');
                 return singleton(model);
             }
-
             return ret(
                 { ...model, status: AuthStatus.AUTHENTICATING, error: null },
-RemoteDataHttp.fetch(
+                RemoteDataHttp.fetch(
                     () => AuthRepository.login(payload.username, payload.pin),
                     (result) => {
                         if (result.type === 'Success') {
                             if (result.data.success) {
                                 return LOGIN_SUCCEEDED({
                                     user: result.data.data.user,
-                                    tokens: {
-                                        access: result.data.data.accessToken,
-                                        refresh: result.data.data.refreshToken
-                                    },
+                                    tokens: { access: result.data.data.accessToken, refresh: result.data.data.refreshToken },
                                     isOffline: result.data.data.isOffline,
                                     needs_pin_change: result.data.data.needs_pin_change
                                 });
                             }
-                            return LOGIN_FAILED({
-                                error: result.data.error.message,
-                                type: result.data.error.type
-                            });
+                            return LOGIN_FAILED({ error: result.data.error.message, type: result.data.error.type });
                         }
-                        
-                        // HERE: result.type === 'Failure' - la llamada HTTP falló
-                        // Error de red/transporte
                         let detailedErrorMessage = 'Error de conexión';
                         const resultError = (result as any).error;
-
-                        if (resultError) {
-                            if (resultError.userMessage) {
-                                detailedErrorMessage = resultError.userMessage;
-                            } else if (resultError.message) {
-                                const errorData = resultError.data;
-                                if (errorData && errorData.detail) {
-                                    detailedErrorMessage = errorData.detail;
-                                } else if (resultError.message !== 'HTTP error! status: 503') {
-                                    detailedErrorMessage = resultError.message;
-                                }
-                            }
+                        if (resultError?.userMessage) {
+                            detailedErrorMessage = resultError.userMessage;
+                        } else if (resultError?.message) {
+                            const errorData = resultError.data;
+                            detailedErrorMessage = errorData?.detail || resultError.message;
                         }
-                        
-                        // Detectar errores específicos del servidor (503, 500, etc)
-                        const errorStatus = resultError?.status || 0;
-                        if (errorStatus >= 500) {
-                            const errorData = resultError?.data;
-                            if (errorData?.detail) {
-                                detailedErrorMessage = errorData.detail;
-                            } else if (errorStatus === 503) {
-                                detailedErrorMessage = 'El servidor no está disponible. Por favor, intenta más tarde.';
-                            } else if (errorStatus === 500) {
-                                detailedErrorMessage = 'Error interno del servidor. Por favor, intenta más tarde.';
-                            }
-                        }
-
-                        return LOGIN_FAILED({ 
-                            error: detailedErrorMessage, 
-                            type: AuthErrorType.CONNECTION_ERROR 
-                        });
+                        return LOGIN_FAILED({ error: detailedErrorMessage, type: AuthErrorType.CONNECTION_ERROR });
                     },
                     'AUTH_LOGIN'
                 )
             );
         })
-
         .with(LOGIN_SUCCEEDED.type(), ({ payload }) => {
-            const needsPinChange = payload.needs_pin_change || false;
-            
-            logger.info('[AUTH] LOGIN_SUCCEEDED - Navigating to dashboard', {
-                userId: payload.user?.id,
-                username: payload.user?.username,
-                isOffline: payload.isOffline,
-                needsPinChange
-            });
-
+            sessionLockMediator.unlock();
+    inactivityTracker.reset(); // Resetear tracker de inactividad tras login exitoso
+            logger.info('[AUTH] LOGIN_SUCCEEDED', { userId: payload.user?.id });
             return ret(
                 {
                     ...model,
@@ -164,96 +107,56 @@ RemoteDataHttp.fetch(
                     tokens: payload.tokens,
                     isOffline: payload.isOffline,
                     error: null,
-                    needs_pin_change: needsPinChange
+                    needs_pin_change: payload.needs_pin_change || false
                 },
-                needsPinChange
-                    ? Cmd.batch([
-                        Cmd.sendMsg(PIN_CHANGE_REQUIRED()),
-                        Cmd.navigate({ pathname: '/lister/change_password' })
-                    ])
+                payload.needs_pin_change
+                    ? Cmd.batch([Cmd.sendMsg(PIN_CHANGE_REQUIRED()), Cmd.navigate({ pathname: '/lister/change_password' })])
                     : Cmd.navigate({ pathname: '/lister/dashboard', method: 'replace' })
             );
         })
-
-        .with(PIN_CHANGE_REQUIRED.type(), () => {
-            return singleton(model);
-        })
-
+        .with(PIN_CHANGE_REQUIRED.type(), () => singleton(model))
         .with(LOGIN_FAILED.type(), ({ payload }) => {
-            // Distinguir entre diferentes tipos de errores para mostrar UI apropiada
             let status: AuthStatus;
-            
             if (payload.type === AuthErrorType.DEVICE_LOCKED) {
                 status = AuthStatus.DEVICE_LOCKED;
-            } else if (payload.type === AuthErrorType.DEVICE_ID_REQUIRED) {
-                // DEVICE_ID_REQUIRED: No es cambio de dispositivo, es error de red/transporte
-                // Mostramos CONNECTION_ERROR en lugar de DEVICE_LOCKED
+            } else if (
+                payload.type === AuthErrorType.CONNECTION_ERROR ||
+                payload.type === AuthErrorType.OFFLINE_NOT_ALLOWED ||
+                payload.type === AuthErrorType.CONNECTION_ERROR_FIRST_AUTH ||
+                payload.type === AuthErrorType.OFFLINE_NO_DRAWS
+            ) {
                 status = AuthStatus.CONNECTION_ERROR;
-                logger.warn('[AUTH] DEVICE_ID_REQUIRED detected - treating as connection error, not device mismatch');
-            } else if (payload.type === AuthErrorType.CONNECTION_ERROR || 
-                     payload.type === AuthErrorType.OFFLINE_NOT_ALLOWED ||
-                     payload.type === AuthErrorType.CONNECTION_ERROR_FIRST_AUTH ||
-                     payload.type === AuthErrorType.OFFLINE_NO_DRAWS) {
-                // Errores de conexión: el servidor no está reachable
-                // Ahora también incluye errores específicos de primera auth y sin sorteos locales
-                status = AuthStatus.CONNECTION_ERROR;
-                logger.warn('[AUTH] Connection error detected - treating as CONNECTION_ERROR', { 
-                    errorType: payload.type 
-                });
             } else if (payload.type === AuthErrorType.ACCOUNT_DISABLED || payload.type === AuthErrorType.ACCOUNT_LOCKED) {
-                // Cuenta deshabilitada o bloqueada
                 status = AuthStatus.UNAUTHENTICATED;
-                logger.warn('[AUTH] Account disabled/locked detected');
             } else {
                 status = AuthStatus.UNAUTHENTICATED;
             }
-
-            return singleton({
-                ...model,
-                status,
-                error: payload.error
-            });
+            return singleton({ ...model, status, error: payload.error });
         })
-
         .with(LOGOUT_REQUESTED.type(), () => {
             return ret(
                 { ...model, status: AuthStatus.LOGGING_OUT },
-                RemoteDataHttp.fetch(
-                    () => AuthRepository.logout(),
-                    () => LOGOUT_COMPLETED(),
-                    'AUTH_LOGOUT'
-                )
+                RemoteDataHttp.fetch(() => AuthRepository.logout(), () => LOGOUT_COMPLETED(), 'AUTH_LOGOUT')
             );
         })
-
         .with(LOGOUT_COMPLETED.type(), () => {
             return ret(
                 { ...model, status: AuthStatus.UNAUTHENTICATED, user: null, tokens: null },
                 Cmd.navigate({ pathname: '/login', method: 'replace' })
             );
         })
-
         .with(AUTH_ERROR_DETECTED.type(), ({ payload }) => {
             if (payload.status === 401 && model.tokens?.refresh) {
                 return update(model, REFRESH_STARTED());
             }
             if (payload.status === 403) {
-                return singleton({
-                    ...model,
-                    status: AuthStatus.DEVICE_LOCKED,
-                    error: 'Este dispositivo ya no está autorizado.'
-                });
+                return singleton({ ...model, status: AuthStatus.DEVICE_LOCKED, error: 'Este dispositivo ya no está autorizado.' });
             }
-            if (payload.status === 504 || payload.status === 502 || payload.status === 503 || payload.status === 0) {
-                return singleton({
-                    ...model,
-                    status: AuthStatus.CONNECTION_ERROR,
-                    error: 'No se puede conectar al servidor. Verifica tu conexión a internet.'
-                });
+            if ([504, 502, 503, 0].includes(payload.status)) {
+                return singleton({ ...model, status: AuthStatus.CONNECTION_ERROR, error: 'No se puede conectar al servidor.' });
             }
             return update(model, SESSION_EXPIRED_MSG({ reason: 'Error de autenticación' }));
         })
-
         .with(REFRESH_STARTED.type(), () => {
             if (model.status === AuthStatus.REFRESHING || !model.tokens?.refresh) {
                 return singleton(model);
@@ -264,55 +167,33 @@ RemoteDataHttp.fetch(
                     () => AuthRepository.refresh(),
                     (result) => {
                         if (result.type === 'Success' && result.data.success) {
-                            return REFRESH_SUCCEEDED({
-                                tokens: {
-                                    access: result.data.data.accessToken,
-                                    refresh: result.data.data.refreshToken || model.tokens?.refresh
-                                }
-                            });
+                            return REFRESH_SUCCEEDED({ tokens: { access: result.data.data.accessToken, refresh: result.data.data.refreshToken || model.tokens?.refresh } });
                         }
-                        return REFRESH_FAILED({
-                            error: result.type === 'Failure' ? String(result.error) : 'Refresh failed'
-                        });
+                        return REFRESH_FAILED({ error: result.type === 'Failure' ? String(result.error) : 'Refresh failed' });
                     },
                     'AUTH_REFRESH'
                 )
             );
         })
-
         .with(REFRESH_SUCCEEDED.type(), ({ payload }) => {
             return singleton({
                 ...model,
                 status: AuthStatus.AUTHENTICATED,
-                tokens: {
-                    access: payload.tokens.access,
-                    refresh: payload.tokens.refresh || model.tokens?.refresh || ''
-                }
+                tokens: { access: payload.tokens.access, refresh: payload.tokens.refresh || model.tokens?.refresh || '' }
             });
         })
-
         .with(REFRESH_FAILED.type(), ({ payload }) => {
             return update(model, SESSION_EXPIRED_MSG({ reason: payload.error }));
         })
-
         .with(SESSION_EXPIRED_MSG.type(), () => {
-            // El SSOT (AuthRepository) ya notificó la expiración.
-            // CoreModule se encarga de llamar a logout().
-            // v1 solo proyecta el estado de expiración para la UI y navega al login.
             return ret(
                 { ...model, status: AuthStatus.EXPIRED, user: null, tokens: null },
                 Cmd.navigate({ pathname: '/login', method: 'replace' })
             );
         })
-
         .with(RESET_AUTH_STATE.type(), () => {
-            return singleton({
-                ...model,
-                status: AuthStatus.UNAUTHENTICATED,
-                error: null
-            });
+            return singleton({ ...model, status: AuthStatus.UNAUTHENTICATED, error: null });
         })
-
         .with(GLOBAL_SIGNAL_RECEIVED.type(), ({ payload }) => {
             return match(payload.payload)
                 .with({ type: GLOBAL_LOGOUT.kind }, () => {
@@ -321,6 +202,5 @@ RemoteDataHttp.fetch(
                 })
                 .otherwise(() => singleton(model));
         })
-
         .otherwise(() => singleton(model));
 }

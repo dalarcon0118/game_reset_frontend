@@ -40,11 +40,19 @@ export const FETCH_USER_WINNINGS_FAILED = createMsg<'FETCH_USER_WINNINGS_FAILED'
 /** Acción de navegación atrás */
 export const GO_BACK_CLICKED = createMsg<'GO_BACK_CLICKED', void>('GO_BACK_CLICKED');
 
+/** Solicita carga de premios */
+export const FETCH_REWARDS_REQUESTED = createMsg<'FETCH_REWARDS_REQUESTED', { drawId: string }>('FETCH_REWARDS_REQUESTED');
+
+/** Solicita carga de reglas */
+export const FETCH_RULES_REQUESTED = createMsg<'FETCH_RULES_REQUESTED', { drawId: string }>('FETCH_RULES_REQUESTED');
+
 export type RewardsMsg =
     | ReturnType<typeof INIT_MODULE>
     | ReturnType<typeof FETCH_ALL_DATA_REQUESTED>
+    | ReturnType<typeof FETCH_REWARDS_REQUESTED>
     | ReturnType<typeof FETCH_REWARDS_SUCCEEDED>
     | ReturnType<typeof FETCH_REWARDS_FAILED>
+    | ReturnType<typeof FETCH_RULES_REQUESTED>
     | ReturnType<typeof FETCH_RULES_SUCCEEDED>
     | ReturnType<typeof FETCH_RULES_FAILED>
     | ReturnType<typeof FETCH_BET_TYPES_SUCCEEDED>

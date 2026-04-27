@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useCallback, useMemo, useEffect } from 'react';
-import { router } from 'expo-router';
+import { router } from '@/shared/core/router';
 import { useLoteriaStore, useLoteriaDispatch, useLoteriaModel, selectLoteriaModel, selectDispatch } from '../../core/store';
 import { selectLoteriaList, selectFixedAmount, selectDrawDetails } from '../../use_loteria_selectors';
 import { groupBetsByReceipt } from '../../components/loteria/loteria_column.impl';

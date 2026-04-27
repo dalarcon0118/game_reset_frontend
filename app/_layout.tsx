@@ -11,23 +11,23 @@ import { ErrorBoundary as SharedErrorBoundary } from '../shared/components/error
 import { useAuthNavigation } from '../hooks/useAuthNavigation';
 import { useNavigationLogger } from '../hooks/useNavigationLogger';
 import { routes } from '../config/routes';
-import setings, { __DEV__TOOL } from '../config/settings';
+import  { __DEV__TOOL } from '../config/settings';
 import { logger } from '../shared/utils/logger';
-import DeviceSimulator, { DEVICE_PRESETS, DeviceConfig } from '@/components/ui/device_simulator';
+import { useAppUpdate, UpdateAvailableModal } from '@/features/app-update';
 
 export { GlobalErrorBoundary as ErrorBoundary };
 
 export default function RootLayout() {
 
   return (
-      <GlobalErrorBoundary>
-        <AppProviders>
-          <SharedErrorBoundary name="RootLayout">
-            <RootLayoutContent />
-          </SharedErrorBoundary>
-        </AppProviders>
-      </GlobalErrorBoundary>
-    
+    <GlobalErrorBoundary>
+      <AppProviders>
+        <SharedErrorBoundary name="RootLayout">
+          <RootLayoutContent />
+        </SharedErrorBoundary>
+      </AppProviders>
+    </GlobalErrorBoundary>
+
   );
 }
 
@@ -45,9 +45,12 @@ function RootLayoutInner() {
   // Logger para capturar todas las navegaciones (incluyendo router.push directo)
   useNavigationLogger();
 
+  // 🔄 Auto-update: verifica nuevas versiones desde GitHub Releases
+  useAppUpdate();
+
   return (
     <View style={{ flex: 1 }}>
-      
+      <UpdateAvailableModal />
       {__DEV__TOOL && <DevToolbar />
       }
       <Stack
@@ -61,6 +64,7 @@ function RootLayoutInner() {
         <Stack.Screen name="lister" options={{ headerShown: false }} />
         <Stack.Screen name="colector" options={{ headerShown: false }} />
         <Stack.Screen name="banker" options={{ headerShown: false }} />
+        <Stack.Screen name="notifications" options={{ headerShown: false }} />
       </Stack>
 
     </View>

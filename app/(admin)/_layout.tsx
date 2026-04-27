@@ -24,7 +24,7 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Panel',
-          tabBarIcon: ({ color, size }) => (
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => (
             <Home color={color} size={size} />
           ),
         }}
@@ -33,7 +33,7 @@ export default function TabLayout() {
         name="reports"
         options={{
           title: 'Reportes',
-          tabBarIcon: ({ color, size }) => (
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => (
             <List color={color} size={size} />
           ),
         }}
@@ -42,7 +42,7 @@ export default function TabLayout() {
         name="settings"
         options={{
           title: 'Configuraciones',
-          tabBarIcon: ({ color, size }) => (
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => (
             <BarChart3 color={color} size={size} />
           ),
         }}

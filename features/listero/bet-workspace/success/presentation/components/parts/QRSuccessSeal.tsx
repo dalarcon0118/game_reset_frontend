@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from '@ui-kitten/components';
 import QRCode from 'react-native-qrcode-svg';
-import { VoucherMetadata } from '../../core/domain/success.types';
+import { VoucherMetadata } from '../../../core/domain/success.types';
 
 interface QRSuccessSealProps {
     metadata: VoucherMetadata;

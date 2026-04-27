@@ -13,41 +13,41 @@ const log = logger.withTag('DASHBOARD_AUTH_HANDLER');
 const INITIAL_LOAD_TIMEOUT_MS = 15000;
 
 export const triggerInitialLoad = (model: Model): Return<Model, Msg> => {
-    log.debug('triggerInitialLoad evaluation', {
-        status: model.status.type,
-        userStructureId: model.userStructureId,
-        drawsType: model.draws.type
-    });
-
     // STATE MACHINE GUARD: Solo permitir carga si estamos en LOADING_DATA
     if (model.status.type !== 'LOADING_DATA') {
-        log.debug('triggerInitialLoad skipped: Must be in LOADING_DATA state', { currentStatus: model.status.type });
+        log.debug('[FLOW] triggerInitialLoad skipped: Must be in LOADING_DATA state', { currentStatus: model.status.type });
         return singleton(model);
     }
 
     // 1. Basic Requirement: We need a user structure.
     if (!model.userStructureId) {
-        log.debug('triggerInitialLoad skipped: No userStructureId');
+        log.warn('[FLOW] triggerInitialLoad skipped: No userStructureId');
+        return singleton(model);
+    }
+
+    // 1. Basic Requirement: We need a user structure.
+    if (!model.userStructureId) {
+        log.warn('[FLOW] triggerInitialLoad skipped: No userStructureId');
         return singleton(model);
     }
 
     // 2. Data Status: Check if we need to fetch
-    const needsFetch = 
-        model.draws.type === 'NotAsked' || 
+    const needsFetch =
+        model.draws.type === 'NotAsked' ||
         model.draws.type === 'Failure' ||
         (model.draws.type === 'Loading' && !model.userStructureId); // Safety fallback
 
     if (!needsFetch) {
         if (model.draws.type === 'Success') {
-            log.info('Data already loaded, transitioning to READY');
+            log.info('[FLOW] Data already loaded, transitioning to READY');
             return singleton({ ...model, status: { type: 'READY' } });
         }
-        log.debug('triggerInitialLoad: already fetching or loaded');
+        log.debug('[FLOW] triggerInitialLoad: already fetching or loaded');
         return singleton(model);
     }
 
     // 3. Ready to Fetch:
-    log.info('Ready for initial fetch.');
+    log.info('[FLOW] Ready for initial fetch. Loading draws and pending bets...');
 
     // Set draws to loading
     const finalModel: Model = {
@@ -76,28 +76,32 @@ export const triggerInitialLoad = (model: Model): Return<Model, Msg> => {
 };
 
 export const AuthHandler = {
-    handleAuthUserSynced: (model: Model, user: DashboardUser | null): Return<Model, Msg> => {
-        log.info('[DIAGNOSTIC] handleAuthUserSynced', {
-            hasUser: !!user,
-            structureId: user?.structureId,
-            commissionRate: user?.commissionRate,
-            currentModelStatus: model.status.type
-        });
-        const nextModel = logicHandleAuthUserSynced(model, user);
+  handleAuthUserSynced: (model: Model, user: DashboardUser | null): Return<Model, Msg> => {
+    log.info('[FLOW] handleAuthUserSynced', {
+      hasUser: !!user,
+      structureId: user?.structureId,
+      commissionRate: user?.commissionRate,
+      currentModelStatus: model.status.type
+    });
+    const nextModel = logicHandleAuthUserSynced(model, user);
 
-        // Si estamos en LOADING_DATA y acabamos de recibir el structureId, disparamos la carga
-        if (nextModel.status.type === 'LOADING_DATA' && nextModel.userStructureId) {
-            log.info('User data synced while in LOADING_DATA state. Triggering initial load.');
-            return triggerInitialLoad(nextModel);
-        }
+    // Root cause: If we're in LOADING_DATA state and receive user data with structureId,
+    // trigger the initial load. This fixes the race condition where SYSTEM_READY arrived 
+    // without user, then AUTH_USER_SYNCED arrived after user was hydrated.
+    // (Previously this check was missing - the flow required handleSystemReady 
+    // to call fetchUserDataCmd which then waited for AUTH_USER_SYNCED)
+    if (model.status.type === 'LOADING_DATA' && nextModel.userStructureId) {
+      log.info('[FLOW] handleAuthUserSynced: User arrived while in LOADING_DATA, triggering initial load.');
+      return triggerInitialLoad(nextModel);
+    }
 
-        return singleton(nextModel);
-    },
+    return singleton(nextModel);
+  },
 
     handleSystemReady: (model: Model, date: string, structureId?: string, user?: any): Return<Model, Msg> => {
         const adaptedUser = user ? adaptAuthUser(user) : null;
 
-        log.info('SYSTEM_READY received from CoreModule. Context is guaranteed.', {
+        log.info('[FLOW] SYSTEM_READY received from CoreModule. Context is guaranteed.', {
             date,
             structureId,
             hasUser: !!user,
@@ -106,6 +110,7 @@ export const AuthHandler = {
         });
 
         if (model.draws.type === 'Success' && model.status.type === 'READY') {
+            log.info('[FLOW] SYSTEM_READY: Data already loaded, skipping');
             return singleton(model);
         }
 
@@ -119,17 +124,18 @@ export const AuthHandler = {
 
         // Si ya tenemos el ID (vía payload o previo), procedemos.
         if (hydratedModel.userStructureId) {
+            log.info('[FLOW] SYSTEM_READY: Proceeding to triggerInitialLoad');
             return triggerInitialLoad(hydratedModel);
         }
 
         // Fallback: Si por alguna razón no vino en el payload, lo pedimos al repositorio
-        log.info('SYSTEM_READY: userStructureId missing in payload. Fetching from AuthRepository...');
+        log.info('[FLOW] SYSTEM_READY: userStructureId missing in payload. Fetching from AuthRepository...');
         return ret(hydratedModel, fetchUserDataCmd());
     },
 
     handleAuthTokenUpdated: (model: Model, token: string): Return<Model, Msg> => {
         if (!token) {
-            log.warn('Received empty token in AUTH_TOKEN_UPDATED - ignoring update');
+            log.warn('[FLOW] Received empty token in AUTH_TOKEN_UPDATED - ignoring update');
             return singleton(model);
         }
 
@@ -137,11 +143,12 @@ export const AuthHandler = {
 
         // Si estábamos esperando preparación de sesión, podemos continuar si ya tenemos el token
         // Pero la regla es: esperar a MAINTENANCE_COMPLETED
-        log.info('Auth token updated, session preparation continues...');
+        log.info('[FLOW] Auth token updated, session preparation continues (waiting for SYSTEM_READY)...');
         return singleton(nextModel);
     },
 
     handleSetUserStructure: (model: Model, id: string): Return<Model, Msg> => {
+        log.info('[FLOW] handleSetUserStructure', { structureId: id });
         return ret({ ...model, userStructureId: id }, [fetchDrawsCmd(id, model.commissionRate), loadPendingBetsCmd()] as Cmd);
     },
 

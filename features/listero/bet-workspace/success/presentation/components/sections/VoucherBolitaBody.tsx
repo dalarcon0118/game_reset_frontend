@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from '@ui-kitten/components';
 import { match } from 'ts-pattern';
-import { FormattedBet } from '../../core/domain/success.types';
+import { FormattedBet } from '../../../core/domain/success.types';
 import { BET_TYPE_KEYS } from '@/shared/types/bet_types';
 import { BetRow } from '../parts/BetRow';
 import { FijosCorridosTable } from '../parts/FijosCorridosTable';

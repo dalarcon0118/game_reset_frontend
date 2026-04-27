@@ -162,6 +162,16 @@ export class DrawOfflineAdapter {
     }
 
     /**
+     * Obtiene los tipos de apuesta cacheados, incluyendo datos expirados.
+     * Útil como fallback cuando la red falla y no hay cache fresco.
+     * @returns Array de bet types o null si no hay cache (ni fresco ni expirado)
+     */
+    async getBetTypesIncludingStale(drawId: string | number): Promise<BetType[] | null> {
+        const key = DrawOfflineKeys.betType(String(drawId), 'list');
+        return await offlineStorage.getIncludingStale<BetType[]>(key);
+    }
+
+    /**
      * Limpia la caché de sorteos
      */
     async clear(): Promise<void> {

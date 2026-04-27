@@ -60,7 +60,7 @@ export function update(model: BetState, msg: BetMsg): Return<BetState, BetMsg> {
 
         .with(Msg.syncRequested.type(), ({ payload: { resolve } }) => {
             if (model.syncStatus === 'SYNCING') {
-                if (resolve) resolve(Result.ok({ success: 0, failed: 0 }));
+                if (resolve) resolve(Result.ok({ success: 0, failed: 0, successBets: [], failedBets: [] }));
                 return singleton(model);
             }
             return ret(
@@ -68,7 +68,7 @@ export function update(model: BetState, msg: BetMsg): Return<BetState, BetMsg> {
                 Cmd.effect(
                     Fx.performSync.type,
                     {},
-                    (res: Result<Error, { success: number; failed: number }>) => Msg.syncCompleted({ result: res, resolve }),
+                    (res: Result<Error, { success: number; failed: number; successBets: string[]; failedBets: { receiptCode: string; error: string }[]; structureTotalCollected?: number; structureId?: number }>) => Msg.syncCompleted({ result: res, resolve }),
                     (err) => Msg.effectFailed({ effectType: Fx.performSync.type, error: err, resolve })
                 )
             );
@@ -158,8 +158,9 @@ export function update(model: BetState, msg: BetMsg): Return<BetState, BetMsg> {
             if (result.isError()) {
                 return ret({ ...model, syncStatus: 'IDLE' as const }, Cmd.none);
             }
+            // Guardar el resultado completo para uso en janitor
             return ret(
-                { ...model, syncStatus: 'IDLE' as const, lastSyncResult: result.value },
+                { ...model, syncStatus: 'IDLE' as const, lastSyncResult: result.value as any },
                 Cmd.batch([
                     Cmd.effect(Fx.notifySyncResult.type, { result: result.value }, () => Msg.noOp(), () => Msg.noOp()),
                     Cmd.effect(Fx.notifySubscribers.type, {}, () => Msg.noOp(), () => Msg.noOp()),

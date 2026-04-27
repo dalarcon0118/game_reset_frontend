@@ -1,14 +1,15 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Text, Card, Avatar, Button, Divider, Spinner, Layout, TopNavigation, TopNavigationAction } from '@ui-kitten/components';
-import { Key, LogOut, ChevronRight, ArrowLeft } from 'lucide-react-native';
+import { Text, Card, Avatar, Button, Divider, Spinner, Layout, TopNavigation, TopNavigationAction, Toggle } from '@ui-kitten/components';
+import { Key, LogOut, ChevronRight, ArrowLeft, Activity } from 'lucide-react-native';
 import { useProfileStore, selectProfileModel, selectDispatch, selectInit } from '../store';
 import { ProfileMsgType } from '../profile.types';
 import { RemoteData } from '@core/tea-utils';
 import { IncidentList } from '../components/incident_list';
 import LayoutConstants from '@/constants/layout';
+import { userPreferences } from '@/shared/repositories/system/preferences';
 
 interface ProfileScreenProps {
     showHeader?: boolean;
@@ -18,12 +19,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ showHeader = true 
     const model = useProfileStore(selectProfileModel);
     const dispatch = useProfileStore(selectDispatch);
     const router = useRouter();
+    const [telemetryEnabled, setTelemetryEnabled] = useState(true);
 
     useEffect(() => {
-        // Cargar datos explícitamente cuando la pantalla se monta
-        // NOTA: No llamamos a init() para mantener los datos en caché (Stale-While-Revalidate)
         dispatch({ type: ProfileMsgType.FETCH_PROFILE_REQUESTED });
         dispatch({ type: ProfileMsgType.FETCH_INCIDENTS_REQUESTED });
+        
+        userPreferences.isTelemetryEnabled().then(setTelemetryEnabled);
     }, [dispatch]);
 
     const { user, userData } = model;
@@ -34,6 +36,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ showHeader = true 
 
     const handleChangePassword = () => {
         dispatch({ type: ProfileMsgType.CHANGE_PASSWORD_REQUESTED });
+    };
+
+    const handleToggleTelemetry = async (checked: boolean) => {
+        await userPreferences.setTelemetryEnabled(checked);
+        setTelemetryEnabled(checked);
     };
 
     const renderBackAction = () => (
@@ -161,6 +168,29 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ showHeader = true 
                         </View>
                         <ChevronRight size={20} color="#8F9BB3" />
                     </TouchableOpacity>
+
+                    <Divider style={styles.divider} />
+
+                    <View style={styles.menuItem}>
+                        <View style={styles.menuItemLeft}>
+                            <View style={[styles.menuIconContainer, { backgroundColor: '#E8FEF5' }]}>
+                                <Activity size={20} color="#00C48C" />
+                            </View>
+                            <View style={styles.menuItemContent}>
+                                <Text category="s1" style={styles.menuItemTitle}>
+                                    Telemetría
+                                </Text>
+                                <Text category="c2" style={styles.menuItemSubtitle}>
+                                    {telemetryEnabled ? 'Activa' : 'Inactiva'}
+                                </Text>
+                            </View>
+                        </View>
+                        <Toggle
+                            checked={telemetryEnabled}
+                            onChange={handleToggleTelemetry}
+                            status="success"
+                        />
+                    </View>
 
                     <Divider style={styles.divider} />
 

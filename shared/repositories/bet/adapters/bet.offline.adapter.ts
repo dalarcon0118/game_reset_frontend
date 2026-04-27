@@ -266,18 +266,30 @@ export class BetOfflineAdapter implements IBetStorage {
         let rangeEnd: number | undefined;
 
         if (filters.todayStart) {
+            if (isNaN(filters.todayStart) || filters.todayStart <= 0) {
+                throw new Error(`[BET-OFFLINE-FILTER] Invalid todayStart: ${filters.todayStart}`);
+            }
             rangeStart = filters.todayStart;
             rangeEnd = rangeStart + (24 * 60 * 60 * 1000);
+            log.info(`[BET-OFFLINE-FILTER] Using todayStart=${rangeStart} (${new Date(rangeStart).toLocaleString()}), rangeEnd=${rangeEnd}`);
         } else if (filters.date) {
-            rangeStart = typeof filters.date === 'number' ? filters.date : new Date(filters.date).getTime();
-            if (!isNaN(rangeStart)) {
-                rangeEnd = rangeStart + (24 * 60 * 60 * 1000);
-            } else {
-                rangeStart = undefined; // Fecha inválida
+            if (typeof filters.date === 'number') {
+                rangeStart = filters.date;
+                log.info(`[BET-OFFLINE-FILTER] Using numeric date ${rangeStart} (${new Date(rangeStart).toISOString()})`);
+} else {
+                // Parse YYYY-MM-DD string as LOCAL midnight (not UTC).
+                // new Date('2026-04-27') is treated as UTC midnight by JS, causing a timezone offset bug.
+                const [y, m, d] = filters.date.split('-').map(Number);
+                rangeStart = new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
             }
+            if (isNaN(rangeStart)) {
+                throw new Error(`[BET-OFFLINE-FILTER] Invalid date provided: ${filters.date}`);
+            }
+            rangeEnd = rangeStart + (24 * 60 * 60 * 1000);
+            log.info(`[BET-OFFLINE-FILTER] Date range [${new Date(rangeStart).toLocaleString()} - ${new Date(rangeEnd).toLocaleString()}]`);
         }
 
-        return all.filter((bet) => {
+        const filtered = all.filter((bet) => {
             // 1. Filtro de fecha (opcional)
             if (rangeStart !== undefined && rangeEnd !== undefined) {
                 const timestamp = Number(bet.timestamp) || 0;
@@ -301,6 +313,19 @@ export class BetOfflineAdapter implements IBetStorage {
 
             return true;
         });
+
+        log.info(`[BET-OFFLINE-FILTER] ${all.length} total bets -> ${filtered.length} after filtering (date: ${filters.date}, structureId: ${filters.structureId}, drawId: ${filters.drawId})`);
+        if (filtered.length > 0 && filtered.length <= 5) {
+            log.info(`[BET-OFFLINE-FILTER] Sample filtered bets:`, filtered.map(b => ({
+                externalId: b.externalId,
+                timestamp: b.timestamp,
+                timestampLocal: new Date(b.timestamp).toLocaleString(),
+                status: b.status,
+                amount: b.amount
+            })));
+        }
+
+        return filtered;
     }
 
     /**

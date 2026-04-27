@@ -37,25 +37,25 @@ interface SafeLogger {
 }
 
 export class DrawRepository implements IDrawRepository {
-  private log: SafeLogger;
-  private offlineAdapter = new DrawOfflineAdapter();
-  private _betRepository: IBetRepository | null = null;
+    private log: SafeLogger;
+    private offlineAdapter = new DrawOfflineAdapter();
+    private _betRepository: IBetRepository | null = null;
 
-  private get betRepository(): IBetRepository {
-    if (!this._betRepository) {
-      this._betRepository = locator.getSync<IBetRepository>('BetRepository');
+    private get betRepository(): IBetRepository {
+        if (!this._betRepository) {
+            this._betRepository = locator.getSync<IBetRepository>('BetRepository');
+        }
+        return this._betRepository;
     }
-    return this._betRepository;
-  }
 
-  constructor(
-    private api: typeof DrawApi,
-    betRepository?: IBetRepository,
-    loggerInstance?: SafeLogger
-  ) {
-    if (betRepository) {
-      this._betRepository = betRepository;
-    }
+    constructor(
+        private api: typeof DrawApi,
+        betRepository?: IBetRepository,
+        loggerInstance?: SafeLogger
+    ) {
+        if (betRepository) {
+            this._betRepository = betRepository;
+        }
         if (loggerInstance) {
             this.log = loggerInstance;
         } else {
@@ -78,14 +78,14 @@ export class DrawRepository implements IDrawRepository {
     async getDraws(params: Record<string, any> = {}): Promise<Result<ExtendedDrawType[], Error>> {
         let structureId = params.owner_structure;
         const commissionRate = params.commissionRate ?? 0;
-        
+
         // Si no se proporciona structureId, obtenerlo directamente del AuthRepository
         if (!structureId) {
             const user = await AuthRepository.getMe();
             structureId = user?.structure?.id?.toString();
             this.log.debug('Auto-obtained structureId from AuthRepository', { structureId });
         }
-        
+
         const forceSync = params.forceSync === true;
 
         if (!forceSync) {
@@ -134,8 +134,10 @@ export class DrawRepository implements IDrawRepository {
             const mapped = mapBackendDrawToFrontend(cachedDraw);
             const user = await AuthRepository.getMe();
             const structureId = user?.structure?.id?.toString();
+            const commissionRate = user?.structure?.commission_rate ?? 0;
             if (structureId) {
-                return ok(await this.enrichDrawsWithFinancialData([mapped], structureId));
+                const [enriched] = await this.enrichDrawsWithFinancialData([mapped], structureId, commissionRate);
+                return ok(enriched);
             }
             return ok(mapped);
         }
@@ -156,12 +158,13 @@ export class DrawRepository implements IDrawRepository {
                     });
             });
 
-        // Apply enrichment to remote result
         if (result.isOk()) {
             const user = await AuthRepository.getMe();
             const structureId = user?.structure?.id?.toString();
+            const commissionRate = user?.structure?.commission_rate ?? 0;
             if (structureId) {
-                return ok(await this.enrichDrawsWithFinancialData([result.value], structureId));
+                const [enriched] = await this.enrichDrawsWithFinancialData([result.value], structureId, commissionRate);
+                return ok(enriched);
             }
         }
 
@@ -174,7 +177,8 @@ export class DrawRepository implements IDrawRepository {
         }
         const cachedTypes = await this.offlineAdapter.getBetTypes(drawId);
         if (cachedTypes && cachedTypes.length > 0) {
-            this.log.debug('Disco Hit: devolviendo tipos de apuesta instantáneamente', { drawId });
+            this.log.debug('Disco Hit (fresco): devolviendo tipos de apuesta instantáneamente', { drawId });
+            this.backgroundRefreshBetTypes(drawId);
             return ok<BetType[], Error>(cachedTypes);
         }
 
@@ -188,7 +192,37 @@ export class DrawRepository implements IDrawRepository {
                 return ok<BetType[], Error>(types);
             });
 
+        if (result.isErr()) {
+            this.log.warn('Red fallida y sin caché fresco, intentando con caché expirado', { drawId });
+            const staleTypes = await this.offlineAdapter.getBetTypesIncludingStale(drawId);
+            if (staleTypes && staleTypes.length > 0) {
+                this.log.info('Stale cache hit: devolviendo datos expirados como fallback', { drawId });
+                this.backgroundRefreshBetTypes(drawId);
+                return ok<BetType[], Error>(staleTypes);
+            }
+        }
+
         return result;
+    }
+
+    private async backgroundRefreshBetTypes(drawId: string | number, attempt: number = 0): Promise<void> {
+        const MAX_ATTEMPTS = 3;
+        const BASE_DELAY_MS = 2000;
+        if (attempt >= MAX_ATTEMPTS) {
+            this.log.debug('backgroundRefreshBetTypes: max attempts reached, aborting', { drawId, attempt });
+            return;
+        }
+        try {
+            const isOnline = await isServerReachable();
+            if (!isOnline) return;
+            const types = await this.api.getBetTypes(drawId);
+            if (types.length > 0) this.offlineAdapter.saveBetTypes(drawId, types);
+        } catch (e) {
+            const delay = BASE_DELAY_MS * Math.pow(2, attempt);
+            this.log.info('backgroundRefreshBetTypes: attempt failed, retrying', { drawId, attempt, nextDelay: delay });
+            await new Promise(resolve => setTimeout(resolve, delay));
+            await this.backgroundRefreshBetTypes(drawId, attempt + 1);
+        }
     }
 
     async hasDrawAvailable(skipRemoteFetch: boolean = false): Promise<boolean> {
@@ -282,12 +316,12 @@ export class DrawRepository implements IDrawRepository {
             ...draw,
             owner_structure: structureId ? Number(structureId) : draw.owner_structure
         }));
-        
+
         // Apply financial enrichment (SSOT) - only if we have structureId
         if (structureId) {
             return await this.enrichDrawsWithFinancialData(mapped, String(structureId), commissionRate);
         }
-        
+
         return mapped;
     }
 
@@ -430,33 +464,33 @@ export class DrawRepository implements IDrawRepository {
      * Usa tiempo SINCRONIZADO con backend exclusivamente vía TimeRepository
      */
     public filterDraws(
-        draws: ExtendedDrawType[], 
+        draws: ExtendedDrawType[],
         filter: any, // Usar StatusFilter una vez migrados todos
         referenceTime?: number
     ): ExtendedDrawType[] {
         const now = referenceTime ?? TimerRepository.getTrustedNow(Date.now());
-        
+
         const filtered = draws.filter(draw => {
             switch (filter) {
                 case 'all':
                     return true;
-                    
+
                 case 'open':
                     return this.isBettingOpen(draw, now);
-                    
+
                 case 'closed':
-                    return this.isExpired(draw, now) || 
-                           ['closed', 'completed', 'rewarded'].includes(draw.status);
-                    
+                    return this.isExpired(draw, now) ||
+                        ['closed', 'completed', 'rewarded'].includes(draw.status);
+
                 case 'scheduled':
                     return this.isScheduled(draw, now);
-                    
+
                 case 'closing_soon':
                     return this.isBettingOpen(draw, now) && this.isClosingSoon(draw, now);
-                    
+
                 case 'rewarded':
                     return draw.status === 'rewarded' || !!draw.is_rewarded;
-                    
+
                 default:
                     return true;
             }
@@ -473,10 +507,10 @@ export class DrawRepository implements IDrawRepository {
         if (!draw.betting_start_time || !draw.betting_end_time) {
             return false;
         }
-        
+
         const startTime = new Date(draw.betting_start_time).getTime();
         const endTime = new Date(draw.betting_end_time).getTime();
-        
+
         // ✅ Bug corregido: ahora usa <= en vez de <
         return now >= startTime && now <= endTime;
     }
@@ -490,11 +524,11 @@ export class DrawRepository implements IDrawRepository {
         if (this.isBettingOpen(draw, now) || this.isExpired(draw, now)) {
             return false;
         }
-        
+
         if (draw.betting_start_time) {
             return now < new Date(draw.betting_start_time).getTime();
         }
-        
+
         return ['scheduled', 'pending'].includes(draw.status);
     }
 
@@ -509,13 +543,13 @@ export class DrawRepository implements IDrawRepository {
         return [...draws].sort((a, b) => {
             const aOpen = this.isBettingOpen(a, now);
             const bOpen = this.isBettingOpen(b, now);
-            
+
             if (aOpen && !bOpen) return -1;
             if (!aOpen && bOpen) return 1;
-            
+
             const aEnd = a.betting_end_time ? new Date(a.betting_end_time).getTime() : Infinity;
             const bEnd = b.betting_end_time ? new Date(b.betting_end_time).getTime() : Infinity;
-            
+
             return aEnd - bEnd;
         });
     }
@@ -596,7 +630,7 @@ export class DrawRepository implements IDrawRepository {
 
         // Use provided commissionRate or get from model (passed from dashboard)
         let rate = commissionRate ?? 0;
-        
+
         // If no commissionRate provided, try to get from AuthRepository (async fallback)
         if (rate === 0) {
             // This requires synchronous access which we don't have, so we log a warning
@@ -613,9 +647,15 @@ export class DrawRepository implements IDrawRepository {
 
         try {
             // Use BetRepository abstraction (DIP compliant)
-            const allBets = await this.betRepository.getAllRawBets();
+            // DEFENSIVE: Verificar que betRepository este disponible
+		if (!this._betRepository) { this._betRepository = locator.getSync<IBetRepository>('BetRepository'); }
+		if (!this._betRepository || typeof this._betRepository.getAllRawBets !== 'function') {
+			this.log.warn('[enrichDrawsWithFinancialData] BetRepository not available, using empty bets');
+		} else {
+			const allBets = await this._betRepository.getAllRawBets();
             pendingBets = allBets.filter(bet => bet.status === 'pending' || bet.status === 'error');
             syncedBets = allBets.filter(bet => bet.status === 'synced');
+		}
         } catch (error) {
             this.log.error('[enrichDrawsWithFinancialData] Failed to get local bets', error);
         }

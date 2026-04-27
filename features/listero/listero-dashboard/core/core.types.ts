@@ -1,23 +1,16 @@
 import { DrawType, DRAW_STATUS } from '@/types';
+export { DailyTotals } from '@/shared/domain/financial.types';
 
 export const DRAW_FILTER = {
-    ALL: 'all',
-    OPEN: 'open',
-    CLOSED: 'closed',
-    CLOSING_SOON: 'closing_soon',
-    REWARDED: 'rewarded',
-    SCHEDULED: 'scheduled',
+  ALL: 'all',
+  OPEN: 'open',
+  CLOSED: 'closed',
+  CLOSING_SOON: 'closing_soon',
+  REWARDED: 'rewarded',
+  SCHEDULED: 'scheduled',
 } as const;
 
 export type StatusFilter = typeof DRAW_FILTER[keyof typeof DRAW_FILTER];
-
-export interface DailyTotals {
-    totalCollected: number;
-    premiumsPaid: number;
-    netResult: number;
-    estimatedCommission: number;
-    amountToRemit: number;
-}
 
 export const isClosingSoon = (bettingEndTime: string | null | undefined, now: number) => {
     if (!bettingEndTime) return false;

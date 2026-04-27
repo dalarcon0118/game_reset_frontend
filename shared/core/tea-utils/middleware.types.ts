@@ -1,5 +1,5 @@
 import * as t from 'io-ts';
-import { Cmd } from './tea-utils/cmd';
+import { Cmd } from './cmd';
 
 // Custom codec for Function type since io-ts doesn't provide one out of the box
 const FunctionType = new t.Type<Function, Function, unknown>(

@@ -115,9 +115,12 @@ export const createBetRepository = (
             if (filters?.drawId) storageFilters.drawId = filters.drawId;
             if (filters?.receiptCode) storageFilters.receiptCode = filters.receiptCode;
             if (filters?.date) {
-                storageFilters.date = typeof filters.date === 'number'
-                    ? filters.date
-                    : new Date(filters.date).getTime();
+                if (typeof filters.date === 'number') {
+                    storageFilters.date = filters.date;
+                } else {
+                    const [y, m, d] = filters.date.split('-').map(Number);
+                    storageFilters.date = new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
+                }
             }
             try {
                 const offlineBets = await storage.getFiltered(storageFilters);

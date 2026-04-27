@@ -1,6 +1,7 @@
 import { logger } from '@/shared/utils/logger';
 import { SyncAdapter } from '@core/offline-storage/sync/adapter';
 import { syncWorker } from '@core/offline-storage/instance';
+import { userPreferences } from '../preferences';
 import { ITelemetryRepository, ITelemetryStorageAdapter } from './telemetry.ports';
 import { TelemetryStorageAdapter } from './adapters/telemetry.storage.adapter';
 import { TelemetryPushStrategy } from './sync/telemetry.push.strategy';
@@ -21,6 +22,8 @@ const HIGH_AUTH_ERRORS = ['DEVICE_LOCKED', 'SESSION_EXPIRED', 'ACCOUNT_LOCKED', 
 
 const MAX_BUFFER_SIZE = 1000;
 const FLUSH_DEBOUNCE_MS = 100;
+const RATE_LIMIT_PER_SECOND = 10;
+const RATE_LIMIT_WINDOW_MS = 1000;
 
 export class TelemetryRepository implements ITelemetryRepository {
     private initialized = false;
@@ -31,6 +34,8 @@ export class TelemetryRepository implements ITelemetryRepository {
     private flushInProgress = false;
     private initializationFailed = false;
     private pendingFlush: ReturnType<typeof setTimeout> | null = null;
+    private eventTimestamps: number[] = [];
+    private droppedEventsCount = 0;
 
     constructor(private readonly storage: ITelemetryStorageAdapter = new TelemetryStorageAdapter()) { }
 
@@ -105,6 +110,10 @@ export class TelemetryRepository implements ITelemetryRepository {
         context: Record<string, any> = {},
         priority: TelemetryPriority = 'MEDIUM'
     ): Promise<void> {
+        if (!(await userPreferences.isTelemetryEnabled())) {
+            return;
+        }
+
         const scrubbedMessage = TelemetryScrubber.scrub(message);
         const scrubbedContext = TelemetryScrubber.scrub(context);
 
@@ -124,6 +133,27 @@ export class TelemetryRepository implements ITelemetryRepository {
     }
 
     private addToBuffer(event: TelemetryEvent): void {
+        const now = Date.now();
+        
+        // RATE LIMITING: Limpiar eventos antiguos del window
+        this.eventTimestamps = this.eventTimestamps.filter(ts => now - ts < RATE_LIMIT_WINDOW_MS);
+        
+        // Si excedemos rate limit, rechazar el evento
+        if (this.eventTimestamps.length >= RATE_LIMIT_PER_SECOND) {
+            this.droppedEventsCount++;
+            if (this.droppedEventsCount <= 5 || this.droppedEventsCount % 100 === 0) {
+                log.warn('[TELEMETRY] Rate limit exceeded, dropping event', {
+                    droppedCount: this.droppedEventsCount,
+                    rateLimit: RATE_LIMIT_PER_SECOND,
+                    eventId: event.id
+                });
+            }
+            return;
+        }
+        
+        // Registrar timestamp del evento
+        this.eventTimestamps.push(now);
+        
         if (this.eventBuffer.length >= MAX_BUFFER_SIZE) {
             log.warn('[TELEMETRY] Buffer full, dropping oldest event', {
                 bufferSize: this.eventBuffer.length,

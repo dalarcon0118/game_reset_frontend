@@ -3,6 +3,8 @@ import { Badge } from './badge';
 import { Card } from './card';
 import { Flex } from './flex';
 import { IconBox } from './icon-box';
+import { IconButton } from './icon_button';
+import { NotificationBadge } from './notification_badge';
 import { ButtonKit } from './button';
 import { ScreenContainer } from './screen_container';
 import { withDataView } from './with_data_view';
@@ -14,6 +16,8 @@ export {
   Card,
   Flex,
   IconBox,
+  IconButton,
+  NotificationBadge,
   ButtonKit,
   withDataView,
   ScreenContainer,

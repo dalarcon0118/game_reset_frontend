@@ -38,3 +38,9 @@ export type RewardMsg =
   | ReturnType<typeof FETCH_BET_TYPES_REQUESTED>
   | ReturnType<typeof FETCH_BET_TYPES_SUCCEEDED>
   | ReturnType<typeof FETCH_BET_TYPES_FAILED>;
+
+/** Solicita carga de reglas */
+export const FETCH_RULES_REQUESTED = createMsg<'FETCH_RULES_REQUESTED', { drawId?: string }>('FETCH_RULES_REQUESTED');
+
+/** Solicita carga de premios */
+export const FETCH_REWARDS_REQUESTED = createMsg<'FETCH_REWARDS_REQUESTED', { drawId?: string }>('FETCH_REWARDS_REQUESTED');

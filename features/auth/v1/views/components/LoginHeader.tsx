@@ -4,7 +4,12 @@ import { Text, Input, Button } from '@ui-kitten/components';
 import { Lock, Edit2 } from 'lucide-react-native';
 import { Flex } from '@/shared/components';
 import { THEME } from '../login.styles';
+import Constants from 'expo-constants';
+import { getAppVersion } from '@/shared/utils/app_version';
 import { LoginMetrics } from '../../hooks/use_responsive_login';
+
+
+
 
 interface LoginHeaderProps {
   username: string;
@@ -57,7 +62,7 @@ export const LoginHeader = React.memo(({
         <Lock size={metrics.iconSize} color={THEME.accent} />
       </View>
       <Text category="h4" style={{ color: THEME.text }}>Game-Reset</Text>
-
+      <Text category="s1" style={{ color: THEME.textSecondary }}>{getAppVersion()}</Text>
       {isEditing ? (
         <View style={styles.inputContainer}>
           <Input
@@ -109,3 +114,4 @@ export const LoginHeader = React.memo(({
     </Flex>
   );
 });
+LoginHeader.displayName = 'LoginHeader';

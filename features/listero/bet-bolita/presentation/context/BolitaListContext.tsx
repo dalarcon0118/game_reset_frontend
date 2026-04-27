@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useCallback, useEffect, useMemo } from 'react';
-import { router } from 'expo-router';
+import { router } from '@/shared/core/router';
 import { useBolitaDispatch, useBolitaModel } from '../store';
 import { BolitaListData } from '../../domain/models/bolita.types';
 import { ListMsgType, LIST } from '../../domain/models/bolita.messages';

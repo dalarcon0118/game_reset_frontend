@@ -10,22 +10,26 @@ export const BackendUserCodec = t.intersection([
   t.type({
     id: t.union([t.string, t.number]),
     username: t.string,
-    role: t.string,
-    email: t.string,
     name: t.string,
   }),
   t.partial({
+    role: t.union([t.string, t.null]),
+    email: t.union([t.string, t.null]),
     active: t.boolean,
     password: t.string,
     needs_pin_change: t.boolean,
-    structure: t.type({
-      id: t.number,
-      name: t.string,
-      type: t.string,
-      path: t.string,
-      role_in_structure: t.string,
-      commission_rate: t.union([t.number, t.undefined])
-    })
+    structure: t.union([
+      t.type({
+        id: t.number,
+        name: t.string,
+        type: t.string,
+        path: t.string,
+        role_in_structure: t.string,
+        commission_rate: t.union([t.number, t.undefined])
+      }),
+      t.null,
+      t.undefined
+    ])
   })
 ]);
 

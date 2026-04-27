@@ -1,5 +1,5 @@
 import { RemoteData } from '../../core/tea-utils/remote.data';
-import { Return, singleton } from '../../core/return';
+import { Return, singleton } from '../../core/tea-utils/return';
 import { Model, Msg, init } from './data_view.types';
 import { update } from './data_view.update';
 

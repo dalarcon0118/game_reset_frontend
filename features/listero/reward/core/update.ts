@@ -6,24 +6,17 @@ import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('RewardUpdate');
 
-/**
- * 🎼 REWARD UPDATE (Orchestrator)
- * Función pura que orquest la lógica del módulo.
- * Usa el patrón RemoteData.fold para procesar el fetch DENTRO del update.
- */
 export const makeUpdate = () => (model: RewardModel, msg: RewardMsg): [RewardModel, any] => {
-  // Debug: ver todos los mensajes que llegan
   if (msg.type !== 'NO_OP') {
     log.debug('[RewardUpdate] Processing message', { 
       msgType: msg.type, 
-      payload: msg.payload,
-      currentModelStatus: model.betTypes.status._tag 
+      payload: (msg as any).payload,
+      currentModelStatus: model.betTypes.status.type 
     });
   }
 
-  // INIT_MODULE - Inicializa el módulo y solicita los bet types
   if (msg.type === 'INIT_MODULE') {
-    const structureId = msg.payload?.structureId;
+    const structureId = (msg as any).payload?.structureId;
     const nextModel: RewardModel = {
       ...model,
       structureId: structureId || null
@@ -56,17 +49,11 @@ export const makeUpdate = () => (model: RewardModel, msg: RewardMsg): [RewardMod
             },
             onSuccess: (data) => ({ 
               type: 'FETCH_BET_TYPES_SUCCEEDED' as const, 
-              payload: { 
-                _tag: 'Success' as const,
-                data 
-              } 
+              payload: RemoteData.success(data)
             }),
             onFailure: (error) => ({ 
               type: 'FETCH_BET_TYPES_FAILED' as const, 
-              payload: { 
-                _tag: 'Failure' as const,
-                error: error?.message || String(error)
-              } 
+              payload: RemoteData.failure(error?.message || String(error))
             })
           })
         ];
@@ -74,7 +61,6 @@ export const makeUpdate = () => (model: RewardModel, msg: RewardMsg): [RewardMod
     }, model.betTypes.status);
   }
 
-  // FETCH_BET_TYPES_REQUESTED - Solicitud explícita del usuario
   if (msg.type === 'FETCH_BET_TYPES_REQUESTED') {
     return RemoteData.fold({
       notAsked: () => {
@@ -96,31 +82,37 @@ export const makeUpdate = () => (model: RewardModel, msg: RewardMsg): [RewardMod
     }, model.betTypes.status);
   }
 
-  // FETCH_BET_TYPES_SUCCEEDED - Respuesta exitosa del fetch
   if (msg.type === 'FETCH_BET_TYPES_SUCCEEDED') {
-    const webData = msg.payload;
+    const webData = (msg as any).payload;
     log.info('[RewardUpdate] FETCH_SUCCEEDED', { 
-      webDataTag: webData._tag,
-      hasData: webData._tag === 'Success' && webData.data !== null,
+      webDataType: webData.type,
+      hasData: webData.type === 'Success' && webData.data !== null,
       drawTypesCount: webData.data?.draw_types?.length
     });
     return [{ ...model, betTypes: { status: webData } }, Cmd.none];
   }
 
-  // FETCH_BET_TYPES_FAILED - Error del fetch
   if (msg.type === 'FETCH_BET_TYPES_FAILED') {
-    const webData = msg.payload;
+    const webData = (msg as any).payload;
     log.error('[RewardUpdate] FETCH_FAILED', { 
-      webDataTag: webData._tag,
-      error: webData._tag === 'Failure' ? webData.error : null
+      webDataType: webData.type,
+      error: webData.type === 'Failure' ? webData.error : null
     });
     return [{ ...model, betTypes: { status: webData } }, Cmd.none];
   }
 
+  if (msg.type === 'FETCH_RULES_REQUESTED') {
+    return [model, Cmd.none];
+  }
+
+  if (msg.type === 'FETCH_REWARDS_REQUESTED') {
+    return [model, Cmd.none];
+  }
+
+  log.warn('[RewardUpdate] Mensaje no manejado', { msgType: msg.type });
   return [model, Cmd.none];
 };
 
-// Efecto puro para llamar al repositorio
 const fetchRewardsCmd = (model: RewardModel): [RewardModel, any] => {
   return [
     { ...model, betTypes: { status: RemoteData.loading() } },
@@ -134,20 +126,14 @@ const fetchRewardsCmd = (model: RewardModel): [RewardModel, any] => {
       },
       onSuccess: (data) => ({ 
         type: 'FETCH_BET_TYPES_SUCCEEDED' as const, 
-        payload: { 
-          _tag: 'Success' as const,
-          data 
-        } 
+        payload: RemoteData.success(data)
       }),
       onFailure: (error) => ({ 
         type: 'FETCH_BET_TYPES_FAILED' as const, 
-        payload: { 
-          _tag: 'Failure' as const,
-          error: error?.message || String(error)
-        } 
+        payload: RemoteData.failure(error?.message || String(error))
       })
     })
   ];
 };
 
-export type RewardUpdate = 'update';
+export const update = makeUpdate();

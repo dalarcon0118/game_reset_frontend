@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
 import { StyleSheet, View, ScrollView, RefreshControl, useColorScheme, ActivityIndicator } from 'react-native';
-import { router } from 'expo-router';
+import { router } from '@/shared/core/router';
 import { match } from 'ts-pattern';
 import Colors from '@/constants/colors';
 import LayoutConstants from '@/constants/layout';

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useNotificationStore } from '../core/store';
+import { selectUnreadCount } from '../core/selectors';
 
 interface NotificationBadgeProps {
   maxCount?: number;
@@ -17,7 +18,7 @@ export const NotificationBadge: React.FC<NotificationBadgeProps> = ({
 }) => {
   const model = useNotificationStore((state) => state.model);
   
-  const unreadCount = model.unreadCount;
+  const unreadCount = selectUnreadCount(model);
   
   if (!showZero && unreadCount === 0) {
     return null;

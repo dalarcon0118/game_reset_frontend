@@ -1,10 +1,10 @@
 import { useColorScheme } from 'react-native';
-import { useTheme as useKittenTheme, Theme } from '@ui-kitten/components';
+import { useTheme as useKittenTheme } from '@ui-kitten/components';
 import Colors from '../../constants/colors';
 
 export const useTheme = () => {
     const colorScheme = useColorScheme() ?? 'light';
-    const kittenTheme = useKittenTheme() as Theme;
+    const kittenTheme = useKittenTheme() as Record<string, any>;
     const colors = Colors[colorScheme];
 
     const spacing = {

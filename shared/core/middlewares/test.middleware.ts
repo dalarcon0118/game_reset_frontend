@@ -1,14 +1,14 @@
-import { TeaMiddleware } from '../middleware.types';
+import { TeaMiddleware } from '../tea-utils/middleware.types';
 
 export const createTestMiddleware = <TModel, TMsg>(): {
     middleware: TeaMiddleware<TModel, TMsg>;
     waitForMsg: (predicate: (msg: TMsg) => boolean, timeout?: number) => Promise<TMsg>;
-    waitForEffect: (predicate: (cmd: any) => boolean, timeout?: number) => Promise<any>;
-    getHistory: () => { msg: TMsg, model: TModel, cmd: any }[];
+    waitForEffect: (predicate: (cmd: unknown) => boolean, timeout?: number) => Promise<unknown>;
+    getHistory: () => { msg: TMsg, model: TModel, cmd: unknown }[];
 } => {
-    const history: { msg: TMsg, model: TModel, cmd: any }[] = [];
+    const history: { msg: TMsg, model: TModel, cmd: unknown }[] = [];
     const msgWaiters: { check: (msg: TMsg) => boolean, resolve: (msg: TMsg) => void }[] = [];
-    const effectWaiters: { check: (cmd: any) => boolean, resolve: (cmd: any) => void }[] = [];
+    const effectWaiters: { check: (cmd: unknown) => boolean, resolve: (cmd: unknown) => void }[] = [];
 
     const middleware: TeaMiddleware<TModel, TMsg> = {
         beforeUpdate: (model, msg) => {

@@ -90,7 +90,13 @@ export const subscriptions = (model: Model): SubDescriptor<Msg> => {
         'listero-dashboard-auth-needs-pin-change'
     );
 
-    // 8. Periodic data refresh (TICK) — only when dashboard is READY
+    // 8. Timeout fallback: Si después de 8s el CoreModule no envía SYSTEM_READY,
+    // forzamos la carga de datos usando fetchUserDataCmd (Bug 2 fix)
+    const timeoutFallbackSub = model.status.type === 'IDLE'
+        ? Sub.every(8000, SYSTEM_READY_MSG({ date: new Date().toISOString().split('T')[0] }), 'listero-dashboard-timeout-fallback')
+        : Sub.none();
+
+    // 9. Periodic data refresh (TICK) — only when dashboard is READY
     /*const tickSub = model.status.type === 'READY' && model.userStructureId
         ? Sub.every(30000, TICK(), 'listero-dashboard-tick')
         : Sub.none();*/
@@ -103,7 +109,7 @@ export const subscriptions = (model: Model): SubDescriptor<Msg> => {
     const betsSyncSub = Sub.custom<Msg>(
         (dispatch) => {
             let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-            const DEBOUNCE_MS = 1000;
+            const DEBOUNCE_MS = 3000; // Aumentado de 1000ms a 3000ms para prevenir ANR por storm de peticiones
 
             const unsubscribe = offlineEventBus.subscribe((event: DomainEvent) => {
                 const isBetSync = (event.type === 'SYNC_ITEM_SUCCESS' || event.type === 'SYNC_ITEM_ERROR') && event.entity === 'bet';
@@ -122,5 +128,7 @@ export const subscriptions = (model: Model): SubDescriptor<Msg> => {
         'listero-dashboard-bets-sync-listener'
     );
 
-    return Sub.batch([filterSub, rulesSub, rewardsSub, refreshSub, systemReadySub, coreReadySub, authUserSub, authNeedsPasswordChangeSub, betsSyncSub]);
+    // 11. Periodic data refresh (TICK) — only when dashboard is READY
+
+    return Sub.batch([filterSub, rulesSub, rewardsSub, refreshSub, systemReadySub, coreReadySub, authUserSub, authNeedsPasswordChangeSub, timeoutFallbackSub, betsSyncSub]);
 };

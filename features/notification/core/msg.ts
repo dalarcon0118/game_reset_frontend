@@ -14,7 +14,6 @@ export type Msg =
     | { type: 'ADD_NOTIFICATION'; notification: AppNotification }
     | { type: 'REMOVE_NOTIFICATION'; notificationId: string }
     | { type: 'CLEAR_FILTER' }
-    | { type: 'REFRESH_NOTIFICATIONS' }
     | { type: 'RESET_STATE' }
     | { type: 'NAVIGATE_TO_DETAIL'; notificationId: string }
     | { type: 'NAVIGATE_BACK' }
@@ -76,7 +75,7 @@ export const REMOVE_NOTIFICATION = (notificationId: string): Msg => ({
     notificationId
 });
 export const CLEAR_FILTER = (): Msg => ({ type: 'CLEAR_FILTER' });
-export const REFRESH_NOTIFICATIONS = (): Msg => ({ type: 'REFRESH_NOTIFICATIONS' });
+export const REFRESH_NOTIFICATIONS = FETCH_NOTIFICATIONS_REQUESTED; // Alias for backward compatibility
 export const NAVIGATE_TO_DETAIL = (notificationId: string): Msg => ({ type: 'NAVIGATE_TO_DETAIL', notificationId });
 export const NAVIGATE_BACK = (): Msg => ({ type: 'NAVIGATE_BACK' });
 export const NOTIFICATION_ERROR = (error: string): Msg => ({

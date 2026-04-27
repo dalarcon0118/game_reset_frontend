@@ -21,7 +21,7 @@ import {
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
 import { drawRepository } from '@/shared/repositories/draw';
 import { logger } from '@/shared/utils/logger';
-import { BET_TYPE_KEYS, isLoteriaType } from '@/shared/types/bet_types';
+import { BET_TYPE_KEYS, isLoteriaType, resolveLoteriaBetTypeId } from '@/shared/types/bet_types';
 import { BetType } from '@/types';
 import { CalculationLogic } from './domain/calculation.logic';
 
@@ -303,10 +303,31 @@ export const FeatureFlows = {
     // --- Persistence Flows ---
 
     requestSave: (model: LoteriaFeatureModel, drawId: string): Return<LoteriaFeatureModel, FeatureMsg> => {
-        // 1. Prepare for save (validations, etc.)
+        // 1. Gate: Catalog must be loaded (SSOT requirement)
+        if (model.managementSession.betTypes.type !== 'Success') {
+            const catalogAlertCmd = Cmd.alert({
+                title: 'Catálogo no disponible',
+                message: 'Los tipos de apuesta aún se están cargando. Por favor espera un momento e intenta de nuevo.',
+                buttons: [{ text: 'Entendido', style: 'cancel' }]
+            });
+            return ret(model, catalogAlertCmd);
+        }
+
+        // 2. Validate Loteria type is resolvable from catalog
+        const loteriaBetTypeId = resolveLoteriaBetTypeId(model.managementSession.betTypes.data);
+        if (!loteriaBetTypeId) {
+            const configAlertCmd = Cmd.alert({
+                title: 'Configuración incompleta',
+                message: 'No se encontró el tipo de apuesta Lotería en el catálogo. Por favor recarga la página.',
+                buttons: [{ text: 'Entendido', style: 'cancel' }]
+            });
+            return ret(model, configAlertCmd);
+        }
+
+        // 3. Prepare for save (validations, etc.)
         const readyModel = LoteriaDomain.prepareSave(model);
 
-        // 2. Trigger Alert (Side Effect via Cmd)
+        // 4. Trigger Alert (Side Effect via Cmd)
         const confirmAlertCmd = Cmd.alert({
             title: 'Confirmar Apuesta',
             message: '¿Estás seguro de que deseas guardar las apuestas?',

@@ -41,7 +41,6 @@ export type Msg =
     | { type: 'BETS_LIST_CLICKED'; drawId: string; title: string; drawType?: string }
     | { type: 'CREATE_BET_CLICKED'; drawId: string; title: string; drawType?: string }
     | { type: 'NAVIGATE_TO_ERROR' }
-    | { type: 'SET_COMMISSION_RATE'; rate: number }
     | { type: 'AUTH_USER_SYNCED'; user: DashboardUser | null }
     | { type: 'AUTH_TOKEN_UPDATED'; token: string }
     | { type: 'NEEDS_PASSWORD_CHANGE'; needsChange: boolean }
@@ -67,7 +66,11 @@ export type Msg =
     // SSOT: Totals by drawId (from draws_list_plugin)
     | { type: 'BATCH_OFFLINE_UPDATE'; updates: DrawTotalsUpdate[]; timestamp: number }
     // SSOT: External bet storage changed (from offlineEventBus)
-    | { type: 'EXTERNAL_BETS_CHANGED' };
+    | { type: 'EXTERNAL_BETS_CHANGED' }
+    // SSOT: Manual sync reconciliation
+    | { type: 'SYNC_PRESSED' }
+    | { type: 'SYNC_COMPLETED'; successCount: number; failedCount: number }
+    | { type: 'SYNC_ERROR'; error: string };
 
 export const FETCH_DATA_REQUESTED = (structureId?: string): Msg => ({ type: 'FETCH_DATA_REQUESTED', structureId });
 export const REFRESH_CLICKED = (): Msg => ({ type: 'REFRESH_CLICKED' });
@@ -81,7 +84,6 @@ export const REWARDS_CLICKED = (drawId: string, title: string): Msg => ({ type: 
 export const BETS_LIST_CLICKED = (drawId: string, title: string, drawType?: string): Msg => ({ type: 'BETS_LIST_CLICKED', drawId, title, drawType });
 export const CREATE_BET_CLICKED = (drawId: string, title: string, drawType?: string): Msg => ({ type: 'CREATE_BET_CLICKED', drawId, title, drawType });
 export const NAVIGATE_TO_ERROR = (): Msg => ({ type: 'NAVIGATE_TO_ERROR' });
-export const SET_COMMISSION_RATE = (rate: number): Msg => ({ type: 'SET_COMMISSION_RATE', rate });
 export const AUTH_USER_SYNCED = (user: DashboardUser | null): Msg => ({ type: 'AUTH_USER_SYNCED', user });
 export const AUTH_TOKEN_UPDATED = (token: string): Msg => ({ type: 'AUTH_TOKEN_UPDATED', token });
 export const NEEDS_PASSWORD_CHANGE = (needsChange: boolean): Msg => ({ type: 'NEEDS_PASSWORD_CHANGE', needsChange });
@@ -122,3 +124,10 @@ export const BATCH_OFFLINE_UPDATE = (updates: DrawTotalsUpdate[], timestamp: num
 
 // SSOT: External bet storage changed (from offlineEventBus)
 export const EXTERNAL_BETS_CHANGED = (): Msg => ({ type: 'EXTERNAL_BETS_CHANGED' });
+
+// SSOT: Sync reconciliation
+export type SyncStatus = 'idle' | 'syncing' | 'success' | 'error';
+
+export const SYNC_PRESSED = (): Msg => ({ type: 'SYNC_PRESSED' });
+export const SYNC_COMPLETED = (successCount: number, failedCount: number): Msg => ({ type: 'SYNC_COMPLETED', successCount, failedCount });
+export const SYNC_ERROR = (error: string): Msg => ({ type: 'SYNC_ERROR', error });

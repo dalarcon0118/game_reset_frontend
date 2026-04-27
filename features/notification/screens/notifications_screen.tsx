@@ -5,13 +5,13 @@ import { ArrowLeft, Bell, Trash2 } from 'lucide-react-native';
 import { NotificationList } from '../components/notification_list';
 import { AppNotification } from '../core/model';
 import { NotificationModule } from '../core/store';
-import { NAVIGATE_BACK, NAVIGATE_TO_DETAIL, CLEAR_ALL_NOTIFICATIONS_REQUESTED } from '../core/msg';
+import { NAVIGATE_BACK, NAVIGATE_TO_DETAIL, CLEAR_ALL_NOTIFICATIONS_REQUESTED, FETCH_NOTIFICATIONS_REQUESTED } from '../core/msg';
 
 export default function NotificationsScreen() {
   const dispatch = NotificationModule.useDispatch();
 
   React.useEffect(() => {
-    dispatch({ type: 'REFRESH_NOTIFICATIONS' });
+    dispatch(FETCH_NOTIFICATIONS_REQUESTED());
   }, [dispatch]);
 
   const handleNotificationPress = React.useCallback((notification: AppNotification) => {

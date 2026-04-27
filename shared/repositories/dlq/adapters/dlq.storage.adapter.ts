@@ -7,6 +7,7 @@ import { logger } from '@/shared/utils/logger';
 const log = logger.withTag('DlqStorageAdapter');
 
 const DEFAULT_TTL_SECONDS = 7 * 24 * 60 * 60;
+const MAX_DLQ_ITEMS = 50;
 
 export class DlqStorageAdapter implements IDlqStorage {
     private generateId(): string {
@@ -21,7 +22,31 @@ export class DlqStorageAdapter implements IDlqStorage {
         return `@v2:dlq:${domain}:*`;
     }
 
+    private async enforceLimit(): Promise<void> {
+        const allItems = await this.getAll();
+        if (allItems.length >= MAX_DLQ_ITEMS) {
+            log.warn(`[DLQ-STORAGE] DLQ at capacity (${allItems.length}/${MAX_DLQ_ITEMS}). Cleaning up oldest...`);
+            
+            // Limpiar oldest reconciled/discarded primero
+            const cleanupCandidates = allItems
+                .filter(item => item.status === 'reconciled' || item.status === 'discarded')
+                .sort((a, b) => a.createdAt - b.createdAt);
+            
+            const toDelete = cleanupCandidates.slice(0, allItems.length - MAX_DLQ_ITEMS + 1);
+            
+            if (toDelete.length > 0) {
+                log.info(`[DLQ-STORAGE] Cleaning up ${toDelete.length} oldest DLQ items`);
+                for (const item of toDelete) {
+                    await this.delete(item.id);
+                }
+            }
+        }
+    }
+
     async add<T>(domain: string, entityId: string, payload: T, error: DlqError, ttlSeconds: number = DEFAULT_TTL_SECONDS): Promise<string> {
+        // Enforce limit before adding
+        await this.enforceLimit();
+        
         const id = this.generateId();
         const now = Date.now();
 

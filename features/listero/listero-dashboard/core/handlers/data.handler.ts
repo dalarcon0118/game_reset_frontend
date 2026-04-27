@@ -9,7 +9,6 @@ import { logger } from '@/shared/utils/logger';
 import { GameRegistry } from '@/shared/core/registry/game_registry';
 import { TimerRepository } from '@/shared/repositories/system/time/tea.repository';
 import { dashboardService } from '../../services/dashboard.service';
-import { calculateFinancialProjection, extractDailyTotals } from '../../../../../shared/domain/financial.projection';
 import { drawRepository } from '@/shared/repositories/draw';
 
 const log = logger.withTag('DASHBOARD_DATA_HANDLER');
@@ -54,54 +53,26 @@ export const DataHandler = {
         );
     },
 
-    handlePendingBetsLoaded: (model: Model, bets: BetType[], syncedBets?: BetType[]): Return<Model, Msg> => {
-        const safeBets = Array.isArray(bets) ? bets : [];
-        const allSynced = Array.isArray(syncedBets) ? syncedBets : (Array.isArray(model.syncedBets) ? model.syncedBets : []);
+  handlePendingBetsLoaded: (model: Model, bets: BetType[], syncedBets?: BetType[]): Return<Model, Msg> => {
+    const safeBets = Array.isArray(bets) ? bets : [];
+    const allSynced = Array.isArray(syncedBets) ? syncedBets : (Array.isArray(model.syncedBets) ? model.syncedBets : []);
 
-        log.info('[CQRS_FIX] handlePendingBetsLoaded: Calculating financial projection from bets (SSOT)', {
-            pending: safeBets.length,
-            synced: allSynced.length,
-            drawCount: model.draws.type === 'Success' ? model.draws.data.length : 0
-        });
+    log.info('[CQRS_FIX] handlePendingBetsLoaded: Bets loaded (dailyTotals derived via selector)', {
+      pending: safeBets.length,
+      synced: allSynced.length,
+    });
 
-        const drawsData = model.draws.type === 'Success' ? model.draws.data : [];
-        const now = TimerRepository.getTrustedNow(Date.now());
+    const drawsData = model.draws.type === 'Success' ? model.draws.data : [];
+    const now = TimerRepository.getTrustedNow(Date.now());
+    const filteredDraws = drawRepository.filterDraws(drawsData, model.appliedFilter, now);
 
-        const premiumsByDraw: Record<string, number> = {};
-        for (const draw of drawsData) {
-            premiumsByDraw[draw.id] = (draw as any).premiumsPaid || 0;
-        }
-
-        const projection = calculateFinancialProjection(
-            safeBets,
-            allSynced,
-            premiumsByDraw,
-            model.commissionRate,
-            model.userStructureId || ''
-        );
-
-        const enrichedDraws = drawsData.map(draw => ({
-            ...draw,
-            ...projection.byDrawId[draw.id]
-        }));
-
-        const filteredDraws = drawRepository.filterDraws(enrichedDraws, model.appliedFilter, now);
-        const dailyTotals = extractDailyTotals(projection, model.commissionRate);
-
-        log.info('[CQRS_FIX] Financial projection calculated', {
-            totalCollected: projection.totalCollected,
-            betCount: projection.betCount,
-            byDrawIds: Object.keys(projection.byDrawId)
-        });
-
-        return checkReadyState({
-            ...model,
-            pendingBets: safeBets,
-            syncedBets: allSynced,
-            filteredDraws,
-            dailyTotals
-        });
-    },
+    return checkReadyState({
+      ...model,
+      pendingBets: safeBets,
+      syncedBets: allSynced,
+      filteredDraws,
+    });
+  },
 
     handleExternalBetsChanged: (model: Model): Return<Model, Msg> => {
         log.info('[EXTERNAL_BETS_CHANGED] External bet storage changed, reloading pending bets');
@@ -142,62 +113,29 @@ export const DataHandler = {
                 }
             )
             // 2. Success Case: Update draws and recalculate derived state
-            .with({ type: 'Success', data: P.select() }, (data: DrawType[]) => {
-                log.info('[CRITERION_3B] DRAWS_SUCCESS: Datos de sorteos recibidos correctamente', {
-                    drawCount: data.length,
-                    firstDrawId: data[0]?.id,
-                    hasPremiumsData: data.some(d => ((d as any).premiums_paid ?? d.premiumsPaid ?? 0) > 0),
-                    premiumsInDraws: data.map(d => ({ id: d.id, premiumsPaid: (d as any).premiums_paid ?? d.premiumsPaid ?? 0, status: d.status }))
-                });
+    .with({ type: 'Success', data: P.select() }, (data: DrawType[]) => {
+        log.info('[CRITERION_3B] DRAWS_SUCCESS: Datos de sorteos recibidos correctamente', {
+          drawCount: data.length,
+          firstDrawId: data[0]?.id,
+        });
 
-                GameRegistry.syncWithBackend(data);
+        GameRegistry.syncWithBackend(data);
 
-                const now = TimerRepository.getTrustedNow(Date.now());
+        const now = TimerRepository.getTrustedNow(Date.now());
+        const filteredDraws = drawRepository.filterDraws(data, model.appliedFilter, now);
 
-                const premiumsByDraw: Record<string, number> = {};
-                for (const draw of data) {
-                    premiumsByDraw[draw.id] = (draw as any).premiumsPaid || 0;
-                }
+        log.info('[CRITERION_4] Draws filtered', {
+          filteredDrawsCount: filteredDraws.length,
+          filter: model.appliedFilter,
+        });
 
-                const projection = calculateFinancialProjection(
-                    model.pendingBets,
-                    model.syncedBets,
-                    premiumsByDraw,
-                    model.commissionRate,
-                    model.userStructureId || ''
-                );
-
-                const enrichedDraws = data.map(draw => ({
-                    ...draw,
-                    ...projection.byDrawId[draw.id]
-                }));
-
-                const filteredDraws = drawRepository.filterDraws(enrichedDraws, model.appliedFilter, now);
-                const dailyTotals = extractDailyTotals(projection, model.commissionRate);
-
-                log.info('[CRITERION_4] DAILY_TOTALS_CALCULATED: Totales diarios recalculados', {
-                    totalCollected: dailyTotals.totalCollected,
-                    premiumsPaid: dailyTotals.premiumsPaid,
-                    netResult: dailyTotals.netResult,
-                    filteredDrawsCount: filteredDraws.length,
-                    premiumsFromDraws: data.map(d => ({ id: d.id, premiumsPaid: (d as any).premiums_paid || d.premiumsPaid || 0 }))
-                });
-
-                log.debug('Recalculated dashboard state', {
-                    totalDraws: data.length,
-                    filteredCount: filteredDraws.length,
-                    filter: model.appliedFilter,
-                    totals: dailyTotals
-                });
-
-                return checkReadyState({
-                    ...model,
-                    draws: webData,
-                    isRateLimited: false,
-                    filteredDraws,
-                    dailyTotals
-                });
-            })
+        return checkReadyState({
+          ...model,
+          draws: webData,
+          isRateLimited: false,
+          filteredDraws,
+        });
+      })
             // 3. Other cases: Update draws, clear filteredDraws
             .otherwise(() =>
                 singleton({

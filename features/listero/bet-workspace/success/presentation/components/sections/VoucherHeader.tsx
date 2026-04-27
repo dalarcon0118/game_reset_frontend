@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from '@ui-kitten/components';
-import { VoucherMetadata } from '../../core/domain/success.types';
+import { VoucherMetadata } from '../../../core/domain/success.types';
 
 interface VoucherHeaderProps {
     receiptCode: string;

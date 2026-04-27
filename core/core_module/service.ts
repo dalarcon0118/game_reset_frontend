@@ -1,5 +1,4 @@
 import NetInfo from '@react-native-community/netinfo';
-import Constants from 'expo-constants';
 import { IAuthRepository, IOfflineConditionChecker } from '@shared/repositories/auth';
 import { hasDrawAvailable, hasDrawAvailableForStructure } from '@shared/repositories/draw';
 import { betRepository } from '@shared/repositories/bet/bet.repository';
@@ -7,6 +6,7 @@ import { apiClient } from '@shared/services/api_client';
 import { ConnectivityEvent } from '@shared/services/api_client/api_client.types';
 import { isServerReachable } from '@shared/utils/network';
 import { logger } from '@shared/utils/logger';
+import { getAppVersion } from '@/shared/utils/app_version';
 import { syncWorker, offlineEventBus, offlineStorage } from '@shared/core/offline-storage/instance';
 import { BetPushStrategy } from '@shared/repositories/bet/sync/bet.push.strategy';
 import { DlqPushStrategy } from '@shared/repositories/dlq/sync/dlq.push.strategy';
@@ -19,6 +19,7 @@ import { maintenanceRepository } from '@shared/repositories/system/maintenance/m
 import { CoreMsg } from './msg';
 import { CoreModel } from './model';
 import { systemJanitor } from './services/system-janitor.service';
+import { inactivityTracker } from './services/inactivity-tracker.service';
 import { Cmd } from '@core/tea-utils/cmd';
 import { SYSTEM_READY } from '@/config/signals';
 import { notificationRepository } from '@/shared/repositories/notification';
@@ -30,6 +31,34 @@ import storageClient from '@core/offline-storage/storage_client';
 const log = logger.withTag('CORE_SERVICE');
 const APP_VERSION_KEY = 'APP_VERSION_TRACKER';
 const SESSION_CHECK_COOLDOWN_MS = 1000;
+
+/**
+ * Claves que contienen DATOS CRÍTICOS de negocio que NO deben borrarse
+ * durante VERSION_CHECK. Estos datos representan trabajo activo en progreso.
+ */
+const PRESERVE_PATTERNS = [
+  '@v2:system:sync_queue:',    // Cola de sincronización activa
+  '@v2:bet:pending:',         // Apuestas pendientes por sync
+  '@v2:dlq:',                 // Dead letter queue
+  '@v2:system:telemetry:',    // Telemetría de errores
+  '@v2:auth:user:pin_hash:',  // Seguridad del PIN
+  '@v2:auth:user:offline_profile:', // Perfil offline para login sin conexión
+];
+
+/**
+ * Claves que son CACHÉ y SÍ pueden limpiarse durante VERSION_CHECK
+ * porque se recargan del servidor.
+ */
+const CLEANABLE_PATTERNS = [
+  '@v2:auth:user:last_login_date:',
+  '@v2:auth:user:last_username:',
+  '@v2:auth:user:profile:',
+  '@v2:bet:balance:',
+  '@v2:draw:',
+  '@v2:winnings:',
+  '@v2:config:',
+  '@v2:notification:',
+];
 
 let _authRepo: IAuthRepository | null = null;
 let _lastSessionCheckTime = 0;
@@ -111,9 +140,9 @@ export const CoreService = {
    * Retorna un payload con información del mismatch o null si no hubo cambio.
    */
   async checkVersionMismatch(): Promise<{ previousVersion: string | null; currentVersion: string } | null> {
-    const currentVersion = Constants.expoConfig?.version;
-    if (!currentVersion) {
-      log.warn('[VERSION_CHECK] No se pudo determinar la versión de la app desde expoConfig');
+    const currentVersion = getAppVersion();
+    if (currentVersion === 'N/A.0.0') {
+      log.warn('[VERSION_CHECK] No se pudo determinar la versión de la app');
       return null;
     }
 
@@ -134,21 +163,47 @@ export const CoreService = {
   },
 
   /**
-   * Limpia los datos de cache de sesión (estructura, stats, etc) pero preserva tokens.
-   * Esto fuerza una recarga de datos desde el servidor tras una actualización de la app.
+   * Limpia los datos de cache de sesión (estructura, stats, etc) pero preserva datos críticos.
+   * Esto fuerza una recarga de datos desde el servidor tras una actualización de la app,
+   * mientras mantiene el trabajo activo (apuestas pendientes, cola sync, etc).
    */
   async clearSessionCache(): Promise<void> {
     const SYSTEM_KEYS_TO_PRESERVE = [APP_VERSION_KEY];
     const allKeys = await storageClient.getAllKeys();
 
-    const keysToClean = allKeys.filter(key =>
-      key.startsWith('@v2:') && !SYSTEM_KEYS_TO_PRESERVE.includes(key)
-    );
+    const criticalKeys: string[] = [];
+    const cacheKeys: string[] = [];
 
-    if (keysToClean.length > 0) {
-      await storageClient.removeMulti(keysToClean);
-      log.info(`[VERSION_CHECK] Session cache cleared: ${keysToClean.length} keys removed`);
-    } else {
+    for (const key of allKeys) {
+      if (SYSTEM_KEYS_TO_PRESERVE.includes(key)) {
+        continue;
+      }
+
+      const isCritical = PRESERVE_PATTERNS.some(pattern => key.startsWith(pattern));
+      const isCache = CLEANABLE_PATTERNS.some(pattern => key.startsWith(pattern));
+
+      if (isCritical) {
+        criticalKeys.push(key);
+      } else if (key.startsWith('@v2:') && isCache) {
+        cacheKeys.push(key);
+      } else if (key.startsWith('@v2:')) {
+        cacheKeys.push(key);
+      }
+    }
+
+    if (cacheKeys.length > 0) {
+      await storageClient.removeMulti(cacheKeys);
+      log.info(`[VERSION_CHECK] Cache cleared: ${cacheKeys.length} keys removed`);
+    }
+
+    if (criticalKeys.length > 0) {
+      log.info(`[VERSION_CHECK] Preserved ${criticalKeys.length} critical business data keys`, {
+        preservedCount: criticalKeys.length,
+        preservedSample: criticalKeys.slice(0, 5)
+      });
+    }
+
+    if (cacheKeys.length === 0 && criticalKeys.length === 0) {
       log.info(`[VERSION_CHECK] No session cache keys to clear`);
     }
   },
@@ -416,36 +471,24 @@ export const CoreService = {
     });
   },
 
-  /**
-   * Verifica la inactividad del usuario basándose en la última apuesta creada.
-   * Si no hay apuestas o pasaron más de 15 min desde la última, fuerza logout.
-   */
+/**
+ * Verifica la inactividad del usuario basándose en el InactivityTracker (SSOT).
+ *
+ * FIX: Antes usaba betRepository.getAllRawBets() como proxy de actividad,
+ * lo que causaba expiraciones erróneas cuando no había apuestas
+ * (SRP violation: bets ≠ user activity).
+ *
+ * Ahora delega al InactivityTracker que rastrea la última actividad
+ * real del usuario (foreground, touch, navegación).
+ */
   async checkInactivityProximity(): Promise<CoreMsg> {
     try {
-      const allBets = await betRepository.getAllRawBets();
-      const now = Date.now();
-      const FIFTEEN_MIN_MS = 15 * 60 * 1000;
-
-      if (!allBets || allBets.length === 0) {
-        log.info('[INACTIVITY] No bets found - expiring session');
+      if (inactivityTracker.isInactive()) {
+        const elapsedMin = Math.round(inactivityTracker.getElapsedMs() / 60000);
+        log.info(`[INACTIVITY] Session expired: ${elapsedMin}min since last activity (threshold: 15min)`);
         return { type: 'SESSION_EXPIRED', reason: 'INACTIVITY' } as CoreMsg;
       }
-
-      const lastBet = allBets.reduce((latest, bet) => {
-        const betTime = bet.timestamp || bet.createdAt || 0;
-        return betTime > (latest.timestamp || latest.createdAt || 0) ? bet : latest;
-      });
-
-      const lastBetTime = (lastBet.timestamp || lastBet.createdAt || 0) as number;
-      const elapsed = now - lastBetTime;
-
-      log.debug('[INACTIVITY] Checking last bet activity', { lastBetTime, elapsed, threshold: FIFTEEN_MIN_MS });
-
-      if (elapsed > FIFTEEN_MIN_MS) {
-        log.info(`[INACTIVITY] Session expired: ${Math.round(elapsed / 60000)}min since last bet (threshold: 15min)`);
-        return { type: 'SESSION_EXPIRED', reason: 'INACTIVITY' } as CoreMsg;
-      }
-
+      log.debug('[INACTIVITY] User still active', { elapsedMs: inactivityTracker.getElapsedMs() });
       return { type: 'NO_OP' } as any;
     } catch (e) {
       log.error('[INACTIVITY] Error checking inactivity', e);

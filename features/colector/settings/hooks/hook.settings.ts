@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Alert } from 'react-native';
-import { router } from 'expo-router';
+import { router } from '@/shared/core/router';
 import { useAuth } from '../../../auth';
 import { ValidationRuleRepository } from '@/shared/repositories/validation_rule';
 import { ValidationRule } from '@/types/rules';

@@ -2,6 +2,7 @@ import * as t from 'io-ts';
 import { isLeft } from 'fp-ts/lib/Either';
 import { PathReporter } from 'io-ts/lib/PathReporter';
 import { logger } from '@/shared/utils/logger';
+import { createCommissionRate } from '@/shared/domain/commission.rate';
 
 const log = logger.withTag('DASHBOARD_USER_DTO');
 
@@ -72,10 +73,10 @@ export const adaptAuthUser = (rawUser: any): DashboardUser | null => {
     // 1. Flatten & Normalize
     // We extract exactly what we need, ignoring extra garbage fields.
     // We handle nested structure nullability here before validation.
-    const rawCommissionRate = rawUser.structure?.commission_rate ?? (rawUser.commission_rate ?? 0);
-    const normalizedCommissionRate = Number(rawCommissionRate) > 1
-        ? Number(rawCommissionRate) / 100
-        : Number(rawCommissionRate) || 0;
+    // SSOT: Using CommissionRate VO for consistent normalization
+    const normalizedCommissionRate = createCommissionRate(
+        rawUser.structure?.commission_rate ?? rawUser.commission_rate
+    );
 
     const candidate = {
         id: rawUser.id,
@@ -86,6 +87,13 @@ export const adaptAuthUser = (rawUser: any): DashboardUser | null => {
         structureId: rawUser.structure?.id,
         commissionRate: normalizedCommissionRate
     };
+
+    console.log('[DIAGNOSTIC][adaptAuthUser] Valor de commissionRate normalizado:', {
+        rawCommissionRate: rawUser.structure?.commission_rate ?? rawUser.commission_rate,
+        normalizedCommissionRate,
+        userId: rawUser.id,
+        username: rawUser.username
+    });
 
     // 2. Validate against Contract
     const result = DashboardUserContract.decode(candidate);

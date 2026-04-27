@@ -21,7 +21,6 @@ export interface NotificationPreferences {
 
 export interface Model {
     notifications: WebData<AppNotification[]>;
-    unreadCount: number;
     preferences: NotificationPreferences;
     selectedNotification: AppNotification | null;
     currentFilter: 'all' | 'pending' | 'read';

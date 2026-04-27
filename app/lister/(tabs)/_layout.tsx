@@ -34,7 +34,7 @@ export default function ListerTabLayout() {
         name="dashboard"
         options={{
           title: 'Panel',
-          tabBarIcon: ({ color, size }) => (
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => (
             <Home color={color} size={size} />
           ),
         }}
@@ -44,7 +44,7 @@ export default function ListerTabLayout() {
         name="winners"
         options={{
           title: 'Resultados',
-          tabBarIcon: ({ color, size }) => (
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => (
             <Trophy color={color} size={size} />
           ),
         }}
@@ -54,7 +54,7 @@ export default function ListerTabLayout() {
         name="panel"
         options={{
           title: 'Mi perfil',
-          tabBarIcon: ({ color, size }) => (
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => (
             <User color={color} size={size} />
           ),
         }}
@@ -64,7 +64,7 @@ export default function ListerTabLayout() {
         name="reward"
         options={{
           title: 'Premios',
-          tabBarIcon: ({ color, size }) => (
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => (
             <Gift color={color} size={size} />
           ),
         }}

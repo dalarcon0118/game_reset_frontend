@@ -37,9 +37,9 @@ export const Msg = {
     betsLoaded: createMsg<'BETS_LOADED', { result: Result<Error, BetType[]>; resolve: Resolve<Result<Error, BetType[]>> }>('BETS_LOADED'),
 
     // Sync - Requests
-    syncRequested: createMsg<'SYNC_REQUESTED', { resolve?: Resolve<Result<Error, { success: number; failed: number }>> }>('SYNC_REQUESTED'),
+    syncRequested: createMsg<'SYNC_REQUESTED', { resolve?: Resolve<Result<Error, { success: number; failed: number; successBets: string[]; failedBets: { receiptCode: string; error: string }[]; structureTotalCollected?: number; structureId?: number }>> }>('SYNC_REQUESTED'),
     // Sync - Results
-    syncCompleted: createMsg<'SYNC_COMPLETED', { result: Result<Error, { success: number; failed: number }>; resolve?: Resolve<Result<Error, { success: number; failed: number }>> }>('SYNC_COMPLETED'),
+    syncCompleted: createMsg<'SYNC_COMPLETED', { result: Result<Error, { success: number; failed: number; successBets: string[]; failedBets: { receiptCode: string; error: string }[]; structureTotalCollected?: number; structureId?: number }>; resolve?: Resolve<Result<Error, { success: number; failed: number; successBets: string[]; failedBets: { receiptCode: string; error: string }[]; structureTotalCollected?: number; structureId?: number }>> }>('SYNC_COMPLETED'),
 
     // Maintenance - Requests
     cleanupRequested: createMsg<'CLEANUP_REQUESTED', { today: string; resolve: Resolve<Result<Error, number>> }>('CLEANUP_REQUESTED'),

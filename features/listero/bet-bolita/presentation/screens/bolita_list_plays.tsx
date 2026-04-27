@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { router } from 'expo-router';
+import { router } from '@/shared/core/router';
 import { match } from 'ts-pattern';
 import { useBolitaListContext, BolitaListProvider } from '../context/BolitaListContext';
 import { NotAskedView, LoadingView, FailureView } from '../components/BolitaListStates';

@@ -20,7 +20,7 @@ export default function ColectorLayout() {
         name={routes.colector.dashboard.screen}
         options={{
           ...routes.colector.dashboard.options,
-          tabBarIcon: ({ color, size }) => <LayoutDashboard color={color} size={size} />,
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => <LayoutDashboard color={color} size={size} />,
         }}
       />
 
@@ -28,14 +28,14 @@ export default function ColectorLayout() {
         name={routes.colector.reports.screen}
         options={{
           ...routes.colector.reports.options,
-          tabBarIcon: ({ color, size }) => <FileText color={color} size={size} />,
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => <FileText color={color} size={size} />,
         }}
       />
       <Tabs.Screen
         name={routes.colector.settings.screen}
         options={{
           ...routes.colector.settings.options,
-          tabBarIcon: ({ color, size }) => <Settings color={color} size={size} />,
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => <Settings color={color} size={size} />,
         }}
       />
     </Tabs>

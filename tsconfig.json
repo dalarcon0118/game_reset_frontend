@@ -6,24 +6,12 @@
     "module": "esnext",
     "strict": true,
     "paths": {
-      "@/*": [
-        "./*"
-      ],
-      "@shared/*": [
-        "shared/*"
-      ],
-      "@features/*": [
-        "features/*"
-      ],
-      "@kernel/*": [
-        "core/*"
-      ],
-      "@core/*": [
-        "shared/core/*"
-      ],
-      "@domain/*": [
-        "shared/domain/*"
-      ]
+      "@/*": ["./*"],
+      "@shared/*": ["shared/*"],
+      "@features/*": ["features/*"],
+      "@kernel/*": ["core/*"],
+      "@core/*": ["shared/core/*"],
+      "@domain/*": ["shared/domain/*"]
     },
     "jsx": "react-native",
     "esModuleInterop": true
@@ -38,6 +26,11 @@
     "features/banker/common/header"
   ],
   "exclude": [
-    "**/legacy/**"
+    "**/legacy/**",
+    "tests/**",
+    "test/**",
+    "**/__tests__/**",
+    "**/__mocks__/**",
+    "**/*.example.ts"
   ]
 }
