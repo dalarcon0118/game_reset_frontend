@@ -2,7 +2,7 @@ import { Result, ResultAsync } from 'neverthrow';
 import { authApiAdapter } from './adapters/auth.api.adapter';
 import { authStorageAdapter } from './adapters/auth.storage.adapter';
 import { IAuthApi, IAuthStorage, IAuthRepository, IOfflineConditionChecker } from './auth.ports';
-import { AuthResult, User, AuthErrorType } from './types/types';
+import { AuthResult, User, AuthErrorType, isValidUser, selectBestUser } from './types/types';
 import { AUTH_MESSAGES } from './auth.messages';
 import { AUTH_ERROR_CODES } from './auth.error-codes';
 import { logger } from '../../utils/logger';
@@ -119,12 +119,12 @@ class AuthRepositoryImpl implements IAuthRepository {
             const offlineProfile = await this.storage.getOfflineProfile();
             const session = await this.storage.getSession();
 
-            // Reintento rápido si hay token pero no perfil (evitar race conditions tras login)
-            if (!user && !offlineProfile && session.access) {
-                log.warn('Access token found but no user profile, retrying in 300ms...');
+            // Reintento rápido si hay token pero no perfil válido (evitar race conditions tras login)
+            if (!isValidUser(user) && !isValidUser(offlineProfile) && session.access) {
+                log.warn('Access token found but no valid user profile, retrying in 300ms...');
                 await new Promise(resolve => setTimeout(resolve, 300));
                 const retryUser = await this.storage.getUserProfile();
-                if (retryUser) {
+                if (isValidUser(retryUser)) {
                     log.info('Session hydrated after retry', { username: retryUser.username });
                     this.notifySessionListeners(retryUser);
                     return retryUser;
@@ -134,12 +134,26 @@ class AuthRepositoryImpl implements IAuthRepository {
             const tokenState = SessionPolicy.resolveTokenState(session.access);
             const isValid = tokenState === TokenState.VALID || tokenState === TokenState.EXPIRED || tokenState === TokenState.OFFLINE_MARKER;
 
-            if ((user || offlineProfile) && isValid) {
-                const currentUser = user || offlineProfile!;
+            // DEFENSIVO: Validar que los perfiles tengan datos reales
+            const isUserValid = isValidUser(user);
+            const isOfflineValid = isValidUser(offlineProfile);
+
+            if ((isUserValid || isOfflineValid) && isValid) {
+                // DEFENSIVO: Usar selectBestUser que valida estructura
+                const currentUser = selectBestUser(user, offlineProfile);
+
+                if (!currentUser) {
+                    log.warn('Both profiles invalid despite passing validation check');
+                    this.notifySessionListeners(null);
+                    return null;
+                }
+
                 log.info('Session hydrated successfully', {
                     username: currentUser.username,
                     tokenState,
-                    source: user ? 'active_profile' : 'offline_profile'
+                    source: isUserValid ? 'active_profile' : 'offline_profile',
+                    isUserValid,
+                    isOfflineValid
                 });
 
                 this.notifySessionListeners(currentUser);
@@ -147,9 +161,13 @@ class AuthRepositoryImpl implements IAuthRepository {
             }
 
             log.info('No active or valid session found during hydration', {
-                hasUser: !!user,
-                hasOffline: !!offlineProfile,
-                tokenState
+                hasUser: isUserValid,
+                hasOffline: isOfflineValid,
+                tokenState,
+                userId: user?.id,
+                userUsername: user?.username,
+                offlineId: offlineProfile?.id,
+                offlineUsername: offlineProfile?.username
             });
             this.notifySessionListeners(null);
             return null;
@@ -246,12 +264,33 @@ class AuthRepositoryImpl implements IAuthRepository {
     }
 
     async saveToken(access: string, refresh?: string, confirmationToken?: string, dailySecret?: string, timeAnchor?: any): Promise<void> {
-        const user = (await this.storage.getUserProfile()) || ({} as User);
+        // DEFENSIVO: No usar || con objetos que pueden ser vacios
+        const userProfile = await this.storage.getUserProfile();
+        const offlineProfile = await this.storage.getOfflineProfile();
         const { confirmationToken: currentConfirmation, dailySecret: currentSecret, timeAnchor: currentAnchor } = await this.storage.getSession();
+
+        // Seleccionar el mejor usuario disponible
+        const user = selectBestUser(userProfile, offlineProfile);
+
+        // LOG DIAGNOSTICO: Si el usuario es null o invalido, loguear warning
+        if (!isValidUser(user)) {
+            log.warn('saveToken: No valid user profile found for session save', {
+                hasUserProfile: isValidUser(userProfile),
+                hasOfflineProfile: isValidUser(offlineProfile),
+                userProfileId: userProfile?.id,
+                userProfileUsername: userProfile?.username,
+                offlineProfileId: offlineProfile?.id,
+                offlineProfileUsername: offlineProfile?.username
+            });
+            // NO guardar sesion sin usuario valido - esto causaria corrupcion
+            // En su lugar, guardar sin el user pero loguear el error
+            // El saveSession fallara si user es invalido
+        }
+
         await this.storage.saveSession({
             accessToken: access,
             refreshToken: refresh,
-            user,
+            user: user || { id: 'unknown', username: '', name: '', email: '', role: '', active: false },
             isOffline: false,
             confirmationToken: confirmationToken || currentConfirmation || undefined,
             dailySecret: dailySecret || currentSecret || undefined,
@@ -279,14 +318,18 @@ class AuthRepositoryImpl implements IAuthRepository {
         try {
             const response = await this.api.refresh(refresh);
             if (response.success && response.data) {
-                const { accessToken, refreshToken: newRefresh, user, confirmationToken, dailySecret } = response.data;
-                const currentUser = (await this.storage.getUserProfile()) || ({} as User);
+                const { accessToken, refreshToken: newRefresh, user: freshUser, confirmationToken, dailySecret } = response.data;
+                const storedProfile = await this.storage.getUserProfile();
+                const offlineProfile = await this.storage.getOfflineProfile();
                 const { confirmationToken: currentConfirmation, dailySecret: currentSecret } = await this.storage.getSession();
+
+                // DEFENSIVO: Seleccionar el mejor usuario usando validacion
+                const user = selectBestUser(freshUser, selectBestUser(storedProfile, offlineProfile));
 
                 await this.storage.saveSession({
                     accessToken,
                     refreshToken: newRefresh || refresh,
-                    user: user || currentUser,
+                    user: isValidUser(user) ? user : (isValidUser(storedProfile) ? storedProfile : offlineProfile),
                     isOffline: false,
                     confirmationToken: confirmationToken || currentConfirmation || undefined,
                     dailySecret: dailySecret || currentSecret || undefined
@@ -294,8 +337,14 @@ class AuthRepositoryImpl implements IAuthRepository {
 
                 this.notifyRefreshedListeners(accessToken);
 
-                if (user || currentUser.id) {
-                    this.notifySessionListeners(user || currentUser);
+                if (isValidUser(user)) {
+                    this.notifySessionListeners(user);
+                } else {
+                    log.warn('Refresh: No valid user to notify', { 
+                        hasFreshUser: isValidUser(freshUser),
+                        hasStoredProfile: isValidUser(storedProfile),
+                        hasOfflineProfile: isValidUser(offlineProfile)
+                    });
                 }
 
                 return response;

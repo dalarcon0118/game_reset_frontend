@@ -28,8 +28,10 @@ export interface AuthModel {
     needs_pin_change: boolean;
 }
 
+// INICIAL: BOOTSTRAPPING en lugar de IDLE
+// Esto asegura que useAuthNavigation espere a que hidratacion termine
 export const initialModel: AuthModel = {
-    status: AuthStatus.IDLE,
+    status: AuthStatus.BOOTSTRAPPING,
     user: null,
     tokens: null,
     error: null,

@@ -2,7 +2,7 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import { AuthOfflineKeys } from '../auth.keys';
 import { IAuthStorage } from '../auth.ports';
-import { AuthResult, AuthSession, User, AuthErrorType } from '../types/types';
+import { AuthResult, AuthSession, User, AuthErrorType, isValidUser } from '../types/types';
 import { hashString } from '../../../utils/crypto';
 import { logger } from '../../../utils/logger';
 import { offlineStorage } from '../../../core/offline-storage/instance';
@@ -185,11 +185,29 @@ export const authStorageAdapter: IAuthStorage = {
     },
 
     async getUserProfile(): Promise<User | null> {
-        return await offlineStorage.get<User>(AuthOfflineKeys.userProfile());
+        const profile = await offlineStorage.get<User>(AuthOfflineKeys.userProfile());
+        // DEFENSIVO: Validar que el perfil tenga campos requeridos
+        if (!isValidUser(profile)) {
+            if (profile !== null) {
+                log.warn('getUserProfile: Returning null for invalid profile', {
+                    profileType: typeof profile,
+                    hasId: !!(profile as any)?.id,
+                    hasUsername: !!(profile as any)?.username,
+                    profileKeys: profile ? Object.keys(profile) : null
+                });
+            }
+            return null;
+        }
+        return profile;
     },
 
     async getOfflineProfile(): Promise<User | null> {
-        return await offlineStorage.get<User>(AuthOfflineKeys.offlineProfile());
+        const profile = await offlineStorage.get<User>(AuthOfflineKeys.offlineProfile());
+        // DEFENSIVO: Validar que el perfil tenga campos requeridos
+        if (!isValidUser(profile)) {
+            return null;
+        }
+        return profile;
     },
     async saveLastLoginDate(date: string): Promise<void> {
         await offlineStorage.set(AuthOfflineKeys.lastLoginDate(), date);

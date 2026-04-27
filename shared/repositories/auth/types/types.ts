@@ -35,6 +35,27 @@ export interface User {
     structure?: UserStructure;
 }
 
+/**
+ * Valida que un objeto User tenga los campos mínimos requeridos.
+ * IMPORTANTE: {} es truthy en JavaScript, por lo que necesitamos
+ * validar la estructura antes de usarlo.
+ */
+export function isValidUser(user: unknown): user is User {
+    if (!user || typeof user !== 'object') return false;
+    const u = user as Record<string, unknown>;
+    return Boolean(u.id != null && u.username != null && typeof u.username === 'string' && u.username.length > 0);
+}
+
+/**
+ * Selecciona el mejor usuario disponible entre userProfile y offlineProfile.
+ * Prioriza userProfile si es válido, si no usa offlineProfile.
+ */
+export function selectBestUser<T extends User | null>(userProfile: T, offlineProfile: T): T {
+    if (isValidUser(userProfile)) return userProfile;
+    if (isValidUser(offlineProfile)) return offlineProfile;
+    return null as T;
+}
+
 export interface AuthSession {
     user: User;
     accessToken: string;

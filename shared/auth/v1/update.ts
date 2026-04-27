@@ -23,7 +23,7 @@ import { Return, singleton, ret } from '../../core/tea-utils/return';
 import { Cmd } from '../../core/tea-utils/cmd';
 import { RemoteDataHttp } from '../../core/tea-utils/remote.data.http';
 import { AuthRepository } from '../../repositories/auth';
-import { AuthErrorType } from '../../repositories/auth/types/types';
+import { AuthErrorType, isValidUser } from '../../repositories/auth/types/types';
 import { logger } from '../../utils/logger';
 import { GLOBAL_LOGOUT } from '@/config/signals';
 import { sessionLockMediator } from '@/core/core_module/services/session-lock.mediator';
@@ -49,22 +49,42 @@ export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMs
             return singleton(model);
         })
         .with(SESSION_CHANGED.type(), ({ payload }) => {
-            if (payload.user) {
-                log.info('Sesión detectada vía SSOT');
+            // DEFENSIVO: Validar que el usuario tenga campos requeridos
+            if (payload.user && isValidUser(payload.user)) {
+                log.info('Sesión restaurada vía hidratación. Usuario listo para confirmar con PIN', {
+                    username: payload.user.username,
+                    isOffline: payload.isOffline,
+                    userId: payload.user.id
+                });
+                // FIX: Solo poner status=IDLE durante la hidratación inicial (BOOTSTRAPPING).
+                // Si ya estamos autenticados (ej: post-login), mantener el status actual.
+                const shouldSetIdle = model.status === AuthStatus.BOOTSTRAPPING;
+                const newStatus = shouldSetIdle ? AuthStatus.IDLE : model.status;
                 return singleton({
                     ...model,
-                    status: payload.isOffline ? AuthStatus.AUTHENTICATED_OFFLINE : AuthStatus.AUTHENTICATED,
+                    status: newStatus,
                     user: payload.user,
                     isOffline: payload.isOffline
                 });
             }
+            // DEFENSIVO: Usuario invalido o null - tratar como no autenticado
+            log.warn('SESSION_CHANGED: Usuario invalido o null, tratando como no autenticado', {
+                userExists: !!payload.user,
+                isValid: payload.user ? isValidUser(payload.user) : false,
+                userId: payload.user?.id,
+                userUsername: payload.user?.username
+            });
             return singleton({ ...model, status: AuthStatus.UNAUTHENTICATED, user: null, tokens: null });
         })
         .with(LOGIN_REQUESTED.type(), ({ payload }) => {
-            if (model.status === AuthStatus.AUTHENTICATED || model.status === AuthStatus.AUTHENTICATED_OFFLINE) {
-                log.warn('Ignorando LOGIN_REQUESTED: El usuario ya está autenticado');
-                return singleton(model);
-            }
+            // FIX: Permitir login aunque ya haya un usuario restaurado por hidratacion
+            // El usuario siempre debe confirmar su identidad con PIN
+            log.info('Procesando LOGIN_REQUESTED', { 
+                username: payload.username, 
+                currentStatus: model.status,
+                hasExistingUser: !!model.user
+            });
+            
             return ret(
                 { ...model, status: AuthStatus.AUTHENTICATING, error: null },
                 RemoteDataHttp.fetch(
@@ -96,8 +116,22 @@ export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMs
             );
         })
         .with(LOGIN_SUCCEEDED.type(), ({ payload }) => {
+            // DEFENSIVO: Validar que el usuario sea valido antes de marcar como autenticado
+            if (!isValidUser(payload.user)) {
+                log.error('LOGIN_SUCCEEDED: Payload user is invalid, treating as login failure', {
+                    isValid: isValidUser(payload.user),
+                    userId: payload.user?.id,
+                    userUsername: payload.user?.username
+                });
+                return singleton({
+                    ...model,
+                    status: AuthStatus.UNAUTHENTICATED,
+                    error: 'Datos de usuario inválidos después del login'
+                });
+            }
+
             sessionLockMediator.unlock();
-    inactivityTracker.reset(); // Resetear tracker de inactividad tras login exitoso
+            inactivityTracker.reset();
             logger.info('[AUTH] LOGIN_SUCCEEDED', { userId: payload.user?.id });
             return ret(
                 {

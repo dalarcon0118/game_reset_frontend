@@ -7,6 +7,7 @@ import { logger } from '../shared/utils/logger';
 import { Button } from '@ui-kitten/components';
 import { ArrowLeft } from "lucide-react-native";
 import { AuthModel, AuthStatus } from '../shared/auth/v1';
+import { isValidUser } from '../shared/repositories/auth/types/types';
 
 const log = logger.withTag('AUTH_NAVIGATION');
 
@@ -21,7 +22,11 @@ export function useAuthNavigation() {
   const [authState, setAuthState] = useState(() => {
     if (authStore) {
       const state = authStore.getState();
-      log.info('AuthModuleV1 store state',  { user: state.model.user, status: state.model.status });
+      log.info('AuthModuleV1 store state',  { 
+        user: state.model.user, 
+        status: state.model.status,
+        isUserValid: isValidUser(state.model.user)
+      });
 
       return { user: state.model.user, status: state.model.status };
     }
@@ -42,8 +47,10 @@ export function useAuthNavigation() {
   }, [authStore]);
 
   const { user, status } = authState;
-  const isLoading = status === AuthStatus.IDLE || status === AuthStatus.BOOTSTRAPPING;
-  const isAuthenticated = user !== null && (
+  // DEFENSIVO: isLoading espera a que hidratacion complete - solo BOOTSTRAPPING es loading
+  const isLoading = status === AuthStatus.BOOTSTRAPPING;
+  // DEFENSIVO: isAuthenticated valida que user tenga campos requeridos (id, username)
+  const isAuthenticated = isValidUser(user) && (
     status === AuthStatus.AUTHENTICATED || 
     status === AuthStatus.AUTHENTICATED_OFFLINE ||
     status === AuthStatus.REFRESHING
@@ -59,11 +66,28 @@ export function useAuthNavigation() {
       return;
     }
 
-    if (!isAuthenticated && !user) {
+    // Si NO está autenticado, redirigir a login (excepto si ya está en login/register)
+    if (!isAuthenticated) {
       if (pathname === '/' || pathname === '/index') {
         if (!redirectInProgress.current) {
           redirectInProgress.current = true;
-          logger.info('User not authenticated on root, redirecting to login', 'RootLayout', { pathname });
+          logger.info('User not authenticated on root, redirecting to login', 'RootLayout', { 
+            pathname, 
+            status, 
+            hasUser: !!user,
+            isUserValid: isValidUser(user)
+          });
+          router.replace('/login');
+        }
+      } else if (pathname !== '/login' && pathname !== '/register') {
+        // Si está en otra ruta sin estar autenticado, también redirigir a login
+        if (!redirectInProgress.current) {
+          redirectInProgress.current = true;
+          logger.warn('User not authenticated on protected route, redirecting to login', 'RootLayout', { 
+            pathname, 
+            status,
+            hasUser: !!user
+          });
           router.replace('/login');
         }
       }

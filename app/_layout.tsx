@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import '../config/init'; // Global side effects first
-import { Stack } from 'expo-router';
-import { View, TouchableOpacity, Text, StyleSheet, Alert, TextInput } from 'react-native';
+import { Stack, useRouter, usePathname } from 'expo-router';
+import { View, TouchableOpacity, Text, StyleSheet, Alert, TextInput, BackHandler, Platform } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
 import { DevTools } from '../config/init';
 import { AppProviders } from '../providers/AppProviders';
 import { useAuthV1 } from '../features/auth/v1';
@@ -39,8 +40,38 @@ function RootLayoutContent() {
 }
 
 function RootLayoutInner() {
+  const router = useRouter();
+  const pathname = usePathname() ?? '/';
   const { BackButton } = useAuthNavigation();
-  //add an alert with the backend url
+
+  // ✅ FIX: Forzar hide del splash screen lo más temprano posible
+  // Esto previene que el usuario vea el splash screen persistido
+  useEffect(() => {
+    SplashScreen.hideAsync().catch(() => {});
+  }, []);
+
+  // ✅ FIX: Manejar botón físico "Atrás" de Android
+  // Esto previene que el usuario tenga que presionar "Atrás" manualmente
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+
+    const handleBackPress = () => {
+      const currentPath = pathname ?? '';
+
+      // Si estamos en el dashboard (ruta raíz del tab), no hacemos nada
+      // deja que el sistema maneje el cierre de la app
+      if (currentPath.includes('dashboard') || currentPath === '/' || currentPath.includes('lister/(tabs)')) {
+        return false;
+      }
+
+      // Para cualquier otra ruta, navegamos atrás
+      router.back();
+      return true;
+    };
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+    return () => subscription.remove();
+  }, [pathname, router]);
 
   // Logger para capturar todas las navegaciones (incluyendo router.push directo)
   useNavigationLogger();
@@ -57,8 +88,11 @@ function RootLayoutInner() {
         screenOptions={{
           headerShown: true,
           headerLeft: () => BackButton,
-          freezeOnBlur: true,
+          // ✅ FIX: Deshabilitar freezeOnBlur para evitar problemas de foco
+          // freezeOnBlur puede causar que la pantalla no capture eventos correctamente
+          freezeOnBlur: false,
         }}>
+        <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="login" options={routes.login.options} />
         {/* <Stack.Screen name="(admin)" options={routes.admin.options} /> */}
         <Stack.Screen name="lister" options={{ headerShown: false }} />
