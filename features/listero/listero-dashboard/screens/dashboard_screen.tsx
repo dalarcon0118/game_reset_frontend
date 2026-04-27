@@ -82,7 +82,10 @@ export default function DashboardScreen() {
           onNotificationPress={() => dispatch(NOTIFICATIONS_CLICKED())}
           onSettingsPress={() => dispatch(SETTINGS_CLICKED())}
           onToggleBalance={() => dispatch(TOGGLE_BALANCE())}
-          onSyncPress={() => dispatch(SYNC_PRESSED())}
+          onSyncPress={() => {
+            dispatch(SYNC_PRESSED());
+            dispatch(REFRESH_CLICKED());
+          }}
           isSyncing={model.syncStatus === 'syncing'}
         />
             <ContentScrollView 
