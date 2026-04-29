@@ -15,6 +15,7 @@ import { TelemetryPushStrategy } from '@shared/repositories/system/telemetry/syn
 import { telemetryRepository } from '@shared/repositories/system/telemetry';
 import { NotificationSyncStrategy } from '@shared/repositories/notification/sync/notification.sync.strategy';
 import { TimerRepository } from '@shared/repositories/system/time';
+import { TimePolicy } from '@shared/repositories/system/time/time.update';
 import { maintenanceRepository } from '@shared/repositories/system/maintenance/maintenance.repository';
 import { CoreMsg } from './msg';
 import { CoreModel } from './model';
@@ -260,43 +261,64 @@ export const CoreService = {
   /**
    * Tarea para el mantenimiento del sistema.
    * SOLO se ejecuta si no se ha hecho mantenimiento hoy (idempotencia).
+   * SSOT: Usa TimePolicy.getTodayStart() + TimerRepository.getTrustedNow() para calcular "hoy"
    */
   maintenanceTask(label: string): Cmd {
     return Cmd.task({
       task: async () => {
-        const today = new Date().toISOString().split('T')[0];
+        // SSOT: Usar tiempo confiable del servidor (no hora del dispositivo)
+        const trustedTs = TimerRepository.getTrustedNow(Date.now());
+        const todayStart = TimePolicy.getTodayStart(trustedTs);
+        const today = TimePolicy.formatLocalDate(new Date(todayStart));
+
+        log.info(`[${label}] Verificando mantenimiento diario (SSOT)`, {
+          label,
+          trustedTs,
+          trustedTsLocal: new Date(trustedTs).toLocaleString(),
+          todayStart,
+          todayStartLocal: new Date(todayStart).toLocaleString(),
+          today,
+          deviceTime: new Date().toISOString()
+        });
+
         const alreadyPrepared = await maintenanceRepository.isDayPrepared(today);
         if (alreadyPrepared) {
           log.info(`[${label}] Mantenimiento ya realizado hoy (${today}). Omitiendo.`);
           return { skipped: true, date: today };
         }
+
+        log.info(`[${label}] Mantenimiento no realizado. Ejecutando prepareDailySession()...`);
         const maintenancePromise = systemJanitor.prepareDailySession();
-        const timeoutPromise = new Promise((_, reject) =>
+        const timeoutPromise = new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('Maintenance task timed out')), 10000)
         );
         return await Promise.race([maintenancePromise, timeoutPromise]);
       },
       onSuccess: (result: any) => {
+        const date = result?.date || new Date().toISOString().split('T')[0];
         if (result?.skipped) {
           // Even if skipped, we need to notify to unblock system readiness
           offlineEventBus.publish({
             type: 'MAINTENANCE_COMPLETED',
             entity: 'system',
-            payload: { date: result.date, status: 'ready' },
+            payload: { date, status: 'ready' },
             timestamp: Date.now()
           });
         }
-        return { type: 'NO_OP' } as any;
+        // 🔥 FIX: Return MAINTENANCE_COMPLETED to TEA to update CoreModel's maintenanceStatus
+        return { type: 'MAINTENANCE_COMPLETED', payload: { date, status: 'ready' } } as any;
       },
       onFailure: (err) => {
         log.error(`${label} maintenance failed`, err);
+        const date = new Date().toISOString().split('T')[0];
         offlineEventBus.publish({
           type: 'MAINTENANCE_COMPLETED',
           entity: 'system',
-          payload: { date: new Date().toISOString().split('T')[0], status: 'ready' },
+          payload: { date, status: 'ready' },
           timestamp: Date.now()
         });
-        return { type: 'NO_OP' } as any;
+        // 🔥 FIX: Even on failure, unlock the system to prevent permanent IDLE hangs
+        return { type: 'MAINTENANCE_COMPLETED', payload: { date, status: 'ready' } } as any;
       },
       label
     });

@@ -11,19 +11,24 @@ import { TimerRepository } from '@/shared/repositories/system/time/tea.repositor
 import { dashboardService } from '../../services/dashboard.service';
 import { drawRepository } from '@/shared/repositories/draw';
 
-const log = logger.withTag('DASHBOARD_DATA_HANDLER');
+const log = logger.withTag('DASHBOARD_LIFECYCLE');
 
-const checkReadyState = (model: Model): Return<Model, Msg> => {
-    log.debug('checkReadyState called', {
+export const checkReadyState = (model: Model): Return<Model, Msg> => {
+    log.info('[FLOW] checkReadyState CALLED', {
         drawsType: model.draws.type,
-        currentStatus: model.status.type
+        currentStatus: model.status.type,
+        userStructureId: model.userStructureId,
+        drawsError: model.draws.type === 'Failure' ? model.draws.error?.message : undefined
     });
 
     // El Dashboard está listo si los sorteos ya terminaron de cargar (éxito o error)
     const isDataLoaded = model.draws.type === 'Success' || model.draws.type === 'Failure';
 
     if (isDataLoaded) {
-        log.info('Transitioning dashboard to READY state', { type: model.draws.type });
+        log.info('[FLOW] checkReadyState: Transitioning dashboard to READY state', {
+          type: model.draws.type,
+          previousStatus: model.status.type
+        });
         return singleton({ ...model, status: { type: 'READY' } });
     }
 
@@ -80,11 +85,12 @@ export const DataHandler = {
     },
 
     handleDrawsReceived: (model: Model, webData: WebData<DrawType[]>): Return<Model, Msg> => {
-        log.info('[CRITERION_3] DRAWS_RECEIVED: Respuesta del servidor recibida', {
+        log.info('[FLOW] handleDrawsReceived ENTRY', {
             responseType: webData.type,
             drawCount: webData.type === 'Success' ? webData.data.length : 0,
             previousDrawsState: model.draws.type,
-            userStructureId: model.userStructureId
+            userStructureId: model.userStructureId,
+            currentStatus: model.status.type
         });
 
         if (webData.type === 'Success' && !Array.isArray(webData.data)) {
@@ -92,20 +98,21 @@ export const DataHandler = {
                 actualType: typeof webData.data,
                 isArray: Array.isArray(webData.data)
             });
-            return singleton({
+            // Ensure we transition out of LOADING_DATA even on invalid payload
+            return checkReadyState({
                 ...model,
-                draws: RemoteData.failure(new Error('Invalid draws payload')),
+                draws: { type: 'Failure', error: new Error('Invalid draws payload') } as const,
                 isRateLimited: false,
                 filteredDraws: []
             });
         }
 
-        return match(webData)
+        const result = match(webData)
             // 1. Rate Limit Case: Failure + we already had successful data
             .when(
                 (data) => checkRateLimit(data) && model.draws.type === 'Success',
                 () => {
-                    log.warn('[CRITERION_3A] RATE_LIMITED: Servidor limito solicitudes, manteniendo datos anteriores', {
+                    log.warn('[FLOW] handleDrawsReceived: RATE_LIMITED path', {
                         hadPreviousData: model.draws.type === 'Success',
                         previousDrawCount: model.draws.type === 'Success' ? model.draws.data.length : 0
                     });
@@ -113,38 +120,49 @@ export const DataHandler = {
                 }
             )
             // 2. Success Case: Update draws and recalculate derived state
-    .with({ type: 'Success', data: P.select() }, (data: DrawType[]) => {
-        log.info('[CRITERION_3B] DRAWS_SUCCESS: Datos de sorteos recibidos correctamente', {
-          drawCount: data.length,
-          firstDrawId: data[0]?.id,
-        });
+            .with({ type: 'Success', data: P.select() }, (data: DrawType[]) => {
+                log.info('[FLOW] handleDrawsReceived: SUCCESS path', {
+                  drawCount: data.length,
+                  firstDrawId: data[0]?.id,
+                });
 
-        GameRegistry.syncWithBackend(data);
+                GameRegistry.syncWithBackend(data);
 
-        const now = TimerRepository.getTrustedNow(Date.now());
-        const filteredDraws = drawRepository.filterDraws(data, model.appliedFilter, now);
+                const now = TimerRepository.getTrustedNow(Date.now());
+                const filteredDraws = drawRepository.filterDraws(data, model.appliedFilter, now);
 
-        log.info('[CRITERION_4] Draws filtered', {
-          filteredDrawsCount: filteredDraws.length,
-          filter: model.appliedFilter,
-        });
+                log.info('[FLOW] Draws filtered', {
+                  filteredDrawsCount: filteredDraws.length,
+                  filter: model.appliedFilter,
+                });
 
-        return checkReadyState({
-          ...model,
-          draws: webData,
-          isRateLimited: false,
-          filteredDraws,
-        });
-      })
-            // 3. Other cases: Update draws, clear filteredDraws
-            .otherwise(() =>
-                singleton({
+                return checkReadyState({
+                  ...model,
+                  draws: webData,
+                  isRateLimited: false,
+                  filteredDraws,
+                });
+              })
+            // 3. Other cases: Update draws, clear filteredDraws, then check ready state
+            .otherwise((webData) => {
+                log.warn('[FLOW] handleDrawsReceived: FAILURE path (no previous data)', {
+                    error: webData.type === 'Failure' ? webData.error : undefined,
+                    previousDrawsState: model.draws.type
+                });
+                return checkReadyState({
                     ...model,
                     draws: webData,
                     isRateLimited: false,
                     filteredDraws: []
-                })
-            );
+                });
+            });
+
+        log.info('[FLOW] handleDrawsReceived EXIT', {
+          nextStatus: (result as any)?.model?.status?.type,
+          nextDrawsType: (result as any)?.model?.draws?.type
+        });
+
+        return result;
     },
 
     handleRefreshClicked: (model: Model): Return<Model, Msg> => {
@@ -171,7 +189,7 @@ export const DataHandler = {
             log.error('[REFRESH_DIAGNOSTIC] CRITICAL: userStructureId es null o invalido!');
         }
 
-        const result = ret(model, [
+        const result: Return<Model, Msg> = ret(model, [
             fetchDrawsCmd(model.userStructureId, model.commissionRate, true),
             loadPendingBetsCmd()
         ] as Cmd);

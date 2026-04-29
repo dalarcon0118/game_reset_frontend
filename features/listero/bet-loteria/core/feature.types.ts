@@ -117,10 +117,10 @@ export const initialEditSession: EditSession = {
 };
 
 export const initialListSession: ListSession = {
-    remoteData: RemoteData.notAsked(),
-    aliasFilter: '',
-    isRefreshing: false,
-    loadedDrawId: null,
+  remoteData: RemoteData.loading(),
+  aliasFilter: '',
+  isRefreshing: false,
+  loadedDrawId: null,
 };
 
 export const initialEntrySession: ListData = {

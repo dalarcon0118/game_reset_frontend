@@ -24,14 +24,34 @@ import { syncWorker } from '@core/offline-storage/instance';
 import { notificationRepository } from '@/shared/repositories/notification';
 import { Alert } from 'react-native';
 
-const log = logger.withTag('DASHBOARD_UPDATE');
+const log = logger.withTag('DASHBOARD_LIFECYCLE');
 
 export const update = (model: Model, msg: Msg): Return<Model, Msg> => {
-    // log.debug('Update msg', { type: msg.type });
+    log.info('[DASHBOARD_UPDATE] Received message', {
+      msgType: msg.type,
+      currentStatus: model.status.type,
+      userStructureId: model.userStructureId,
+      drawsType: model.draws.type
+    });
 
     return match<Msg, Return<Model, Msg>>(msg)
         // Feature: Promotions
         .with({ type: 'PROMOTION_MSG', msg: P.select() }, (subMsg) => {
+            // Guard: Only allow promotion modal to show when dashboard is READY
+            if (subMsg.type === 'PROMOTIONS_RECEIVED' && model.status.type !== 'READY') {
+                log.info('[PROMO_GUARD] Blocking promotion modal - dashboard not ready', { status: model.status.type });
+                const promotionReturn = PromotionUpdate.update(subMsg, model.promotion);
+                // Override: Force modal to stay closed
+                const guardedModel = { 
+                    ...promotionReturn.model, 
+                    showPromotionsModal: false 
+                };
+                return Return.val<Model, Msg>(
+                    { ...model, promotion: guardedModel },
+                    Cmd.map(PROMOTION_MSG, promotionReturn.cmd)
+                );
+            }
+            
             const promotionReturn = PromotionUpdate.update(subMsg, model.promotion);
             return Return.val<Model, Msg>(
                 { ...model, promotion: promotionReturn.model },
@@ -56,6 +76,12 @@ export const update = (model: Model, msg: Msg): Return<Model, Msg> => {
             log.warn('[DASHBOARD] RETRY_INITIAL_LOAD triggered - retrying initial data load');
             return triggerInitialLoad(model);
         })
+        .with({ type: 'TIMEOUT_SYSTEM_READY' }, () => {
+            log.warn('[TIMEOUT_FALLBACK] TIMEOUT_SYSTEM_READY received - attempting to force initial load');
+            // Force a SYSTEM_READY-like flow: set status to LOADING_DATA and try to get userStructureId
+            // We call handleSystemReady with empty payload, which will attempt to fetch user data
+            return AuthHandler.handleSystemReady(model, new Date().toISOString().split('T')[0], undefined, undefined);
+        })
         .with({ type: 'TICK' }, () =>
             DataHandler.handleTick(model)
         )
@@ -71,12 +97,19 @@ export const update = (model: Model, msg: Msg): Return<Model, Msg> => {
 
         // Auth Handling
         .with({ type: 'AUTH_USER_SYNCED' }, ({ user }) => {
+            log.info('[DASHBOARD_UPDATE] AUTH_USER_SYNCED received', {
+              hasUser: !!user,
+              userId: user?.id,
+              userStructureId: user?.structureId,
+              currentStatus: model.status.type,
+              currentUserStructureId: model.userStructureId
+            });
             if (!user) {
-                log.info('AUTH_USER_SYNCED: Logout');
+                log.info('[DASHBOARD_UPDATE] AUTH_USER_SYNCED: Logout detected');
                 return AuthHandler.handleAuthUserSynced(model, null);
             }
 
-            log.info('AUTH_USER_SYNCED', { id: user.id, structureId: user.structureId });
+            log.info('[DASHBOARD_UPDATE] AUTH_USER_SYNCED: User present', { id: user.id, structureId: user.structureId });
             return AuthHandler.handleAuthUserSynced(model, user);
         })
         .with({ type: 'AUTH_TOKEN_UPDATED' }, ({ token }) => {
@@ -89,23 +122,37 @@ export const update = (model: Model, msg: Msg): Return<Model, Msg> => {
                 Cmd.none
             );
         })
-        .with({ type: 'SET_USER_STRUCTURE' }, ({ id }) =>
-            AuthHandler.handleSetUserStructure(model, id)
-        )
+        .with({ type: 'SYSTEM_READY' }, ({ date, structureId, user }) => {
+            log.info('[DASHBOARD_UPDATE] SYSTEM_READY message received in update', {
+              date,
+              structureId,
+              hasUser: !!user,
+              currentStatus: model.status.type,
+              currentUserStructureId: model.userStructureId
+            });
+            const result = AuthHandler.handleSystemReady(model, date, structureId, user);
+            log.info('[DASHBOARD_UPDATE] SYSTEM_READY handler result', {
+              nextStatus: (result as any)?.model?.status?.type,
+              nextUserStructureId: (result as any)?.model?.userStructureId
+            });
+            return result;
+        })
         .with({ type: 'TOGGLE_BALANCE' }, () =>
             AuthHandler.handleToggleBalance(model)
-        )
-        .with({ type: 'SYSTEM_READY' }, ({ date, structureId, user }) =>
-            AuthHandler.handleSystemReady(model, date, structureId, user)
         )
 
         // Error Handling
         .with({ type: 'ERROR' }, ({ error }) => {
-            log.error('Dashboard error received', error);
+            log.error('[DASHBOARD_UPDATE] Dashboard error received', {
+              error,
+              currentStatus: model.status.type,
+              userStructureId: model.userStructureId
+            });
             // Si hay un error durante la carga, permitimos que el Dashboard pase a READY
             // para que el usuario pueda al menos ver los datos locales o reintentar.
             if (model.status.type === 'LOADING_DATA') {
-                return DataHandler.handleDrawsReceived(model, { type: 'Failure', error: ensureError(error) });
+                log.info('[DASHBOARD_UPDATE] Error during LOADING_DATA, converting to Failure');
+                return DataHandler.handleDrawsReceived(model, { type: 'Failure', error: ensureError(error) } as any);
             }
             return ret(model, Cmd.none);
         })

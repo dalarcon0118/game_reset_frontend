@@ -43,6 +43,8 @@ export interface Model {
   totalsByDrawId: Map<string, DrawFinancialTotals>;
   // Trusted time reference for countdown display
   trustedNow: number;
-  // SSOT: Manual sync status
-  syncStatus: SyncStatus;
+   // SSOT: Manual sync status
+   syncStatus: SyncStatus;
+   // Timeout fallback: prevents indefinite LOADING_DATA if SYSTEM_READY never arrives
+   timeoutTriggered?: boolean;
 }

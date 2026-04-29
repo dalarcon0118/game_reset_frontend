@@ -9,6 +9,7 @@ import { LoteriaColumn } from '../components/loteria/loteria_column';
 import { LoteriaStoreProvider } from '../core/store';
 import { LoteriaListProvider, useLoteriaListContext } from '../presentation/context/LoteriaListContext';
 import { EmptyBetsView } from '@/shared/components/bets/empty';
+import { ErrorBetsView } from '@/shared/components/bets/error';
 
 interface LoteriaListContentProps {
     drawId: string;
@@ -31,10 +32,15 @@ const LoteriaListContent: React.FC<LoteriaListContentProps> = ({ drawId }) => {
                 <ActivityIndicator size="large" color={Colors[colorScheme].primary} />
             </View>
         ))
+        .with({ type: 'NotAsked' }, () => (
+            <View style={[styles.container, styles.loadingContainer]}>
+                <ActivityIndicator size="large" color={Colors[colorScheme].primary} />
+            </View>
+        ))
         .with({ type: 'Failure' }, ({ error }) => (
             <View style={[styles.container, styles.loadingContainer]}>
-                <EmptyBetsView 
-                    onAnotar={() => router.push({ pathname: '/lister/bets/loteria/anotate', params: { id: drawId } })} 
+                <ErrorBetsView
+                    onRetry={handleRefresh}
                     goToHome={() => router.push({ pathname: '/' })}
                 />
             </View>

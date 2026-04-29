@@ -6,6 +6,13 @@ import { Msg } from './msg';
 import { update } from './update';
 import { subscriptions } from './subscriptions';
 import { initialState as initial } from './initial.types';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('DASHBOARD_LIFECYCLE');
+log.info('[DASHBOARD_LIFECYCLE] Module loaded, creating DashboardModule', {
+  name: 'ListeroDashboard',
+  initialFn: 'function'
+});
 
 // ============================================================================
 // Module Definition

@@ -17,12 +17,15 @@ export const SessionHandler = {
 
         return ret(
             nextModel,
-            isNewAuth ? Cmd.batch([
-                CoreService.maintenanceTask('REACTIVE_MAINTENANCE'),
-                CoreService.verifySessionContextTask(),
-                CoreService.syncPendingBetsOnStartupTask(),
-                CoreService.syncTimeAnchorTask()
-            ]) : Cmd.none
+            isNewAuth
+                ? Cmd.batch([
+                    CoreService.verifySessionContextTask(),
+                    CoreService.syncPendingBetsOnStartupTask(),
+                    CoreService.syncTimeAnchorTask()
+                ])
+                : (nextModel.isSystemReady
+                    ? CoreService.notifySystemReady(new Date().toISOString().split('T')[0], nextModel.userContext)
+                    : Cmd.none)
         );
     },
 

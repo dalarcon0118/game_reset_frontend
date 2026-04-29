@@ -90,18 +90,18 @@ const RenderGroup: React.FC<RenderGroupProps> = memo(({
                     )}
                 </View>
             )}
-             <View style={styles.groupContent}>   
-            {group.items.map((item: LoteriaBet) => (
-                <LoteriaBetRow
-                    key={item.id}
-                    item={item}
-                    isEditing={isEditing}
-                    hasFixedAmount={hasFixedAmount}
-                    onEditBet={onEditBet}
-                    onOpenAmountKeyboard={onOpenAmountKeyboard}
-                />
-            ))}
-             </View>
+<View style={styles.groupContent}>
+  {group.items.map((item: LoteriaBet, index: number) => (
+    <LoteriaBetRow
+      key={item.id ?? `${item.bet}-${item.drawid}-${index}`}
+      item={item}
+      isEditing={isEditing}
+      hasFixedAmount={hasFixedAmount}
+      onEditBet={onEditBet}
+      onOpenAmountKeyboard={onOpenAmountKeyboard}
+    />
+  ))}
+</View>
             {!isEditing && !isLast && (
                 <View style={styles.groupSeparator} />
             )}

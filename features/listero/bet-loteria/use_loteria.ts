@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useEffect } from 'react';
+import { useCallback, useMemo, useEffect, useRef } from 'react';
 import { useLoteriaStore, useLoteriaModel, selectLoteriaModel, useLoteriaDispatch } from './core/store';
 import { useLoteriaActions } from './use_loteria_actions';
 import { selectLoteriaList, selectFixedAmount, selectDrawDetails } from './use_loteria_selectors';
@@ -14,14 +14,14 @@ export const useLoteria = (drawId?: string, isEditing: boolean = true) => {
     // Obtener el structureId del usuario actual para el registro financiero
     const structureId = user?.structure?.id ? String(user.structure.id) : undefined;
 
-  const {
-    loteriaSession,
-    editSession,
-    listSession,
-    summary,
-    rulesSession,
-    managementSession
-  } = model;
+    const {
+        loteriaSession,
+        editSession,
+        listSession,
+        summary,
+        rulesSession,
+        managementSession
+    } = model;
 
     // Derived data using selectors
     const loteriaList = useMemo(() => selectLoteriaList(model), [model]);
@@ -29,13 +29,22 @@ export const useLoteria = (drawId?: string, isEditing: boolean = true) => {
     const drawDetails = useMemo(() => selectDrawDetails(model), [model]);
 
     const isCatalogReady = managementSession.betTypes.type === 'Success';
+    const isCatalogLoading = managementSession.betTypes.type === 'Loading';
+    const catalogError = managementSession.betTypes.type === 'Failure'
+        ? (managementSession.betTypes as any).error?.userMessage || 'Error cargando catálogo'
+        : null;
 
-  // Side effects (Initialization)
+    // Side effects (Initialization)
+    // 🛡️ GUARDA: useRef para trackear el drawId ya inicializado y evitar re-ejecuciones
+    // causadas por cambios en la referencia de `actions` (useMemo se recrea cuando dispatch cambia).
+    // Solo se re-inicializa si el drawId cambia efectivamente.
+    const initDrawIdRef = useRef<string | null>(null);
     useEffect(() => {
-        if (drawId) {
+        if (drawId && initDrawIdRef.current !== drawId) {
+            initDrawIdRef.current = drawId;
             actions.init(drawId, isEditing, structureId);
         }
-    }, [drawId, actions, isEditing, structureId]);
+    }, [drawId, isEditing, structureId]); // Removido 'actions' de dependencias para estabilizar
 
     // High level callbacks
     const handleSave = useCallback(() => {
@@ -75,31 +84,33 @@ export const useLoteria = (drawId?: string, isEditing: boolean = true) => {
         dispatch(RulesMsg.CLEAR_SELECTION());
     }, [dispatch]);
 
-  return {
-    // Data
-    loteriaList,
-    fixedAmount,
-    drawDetails,
-    isEditing: model.isEditing,
-    isBetKeyboardVisible: loteriaSession.isBetKeyboardVisible,
-    isAmountKeyboardVisible: loteriaSession.isAmountKeyboardVisible,
-    currentInput: editSession.currentInput,
+    return {
+        // Data
+        loteriaList,
+        fixedAmount,
+        drawDetails,
+        isEditing: model.isEditing,
+        isBetKeyboardVisible: loteriaSession.isBetKeyboardVisible,
+        isAmountKeyboardVisible: loteriaSession.isAmountKeyboardVisible,
+        currentInput: editSession.currentInput,
 
-    // List status
-    isRefreshing: listSession.isRefreshing,
-    listStatus: listSession.remoteData.type,
+        // List status
+        isRefreshing: listSession.isRefreshing,
+        listStatus: listSession.remoteData.type,
 
-    // Summary
-    loteriaTotal: summary.loteriaTotal,
-    hasBets: summary.hasBets,
-    isSaving: summary.isSaving,
-    error: summary.error,
+        // Summary
+        loteriaTotal: summary.loteriaTotal,
+        hasBets: summary.hasBets,
+        isSaving: summary.isSaving,
+        error: summary.error,
 
-    // Catalog readiness
-    isCatalogReady,
+        // Catalog readiness
+        isCatalogReady,
+        isCatalogLoading,
+        catalogError,
 
-    // Rules Session
-    rulesSession,
+        // Rules Session
+        rulesSession,
 
         // Actions
         ...actions,
@@ -114,4 +125,3 @@ export const useLoteria = (drawId?: string, isEditing: boolean = true) => {
         clearSelection,
     };
 };
-

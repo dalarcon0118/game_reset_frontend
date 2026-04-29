@@ -8,7 +8,7 @@ import { NotificationBadge } from './notification_badge';
 import { ButtonKit } from './button';
 import { ScreenContainer } from './screen_container';
 import { withDataView } from './with_data_view';
-import { DrawsListSkeleton } from './moti_skeleton';
+import { DrawsListSkeleton, DashboardSkeleton } from './moti_skeleton';
 
 export {
   Label,
@@ -22,4 +22,5 @@ export {
   withDataView,
   ScreenContainer,
   DrawsListSkeleton,
+  DashboardSkeleton,
 };

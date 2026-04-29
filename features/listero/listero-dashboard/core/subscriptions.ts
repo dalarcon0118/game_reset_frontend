@@ -6,8 +6,12 @@ import { DASHBOARD_FILTER_CHANGED, SYSTEM_READY, DASHBOARD_RULES_CLICKED, DASHBO
 import { settings } from '@/config/settings';
 import { offlineEventBus } from '@core/offline-storage/instance';
 import { DomainEvent } from '@core/offline-storage/types';
+import { logger } from '@/shared/utils/logger';
+
+const log = logger.withTag('DASHBOARD_SUBS');
 
 export const subscriptions = (model: Model): SubDescriptor<Msg> => {
+    log.debug('Building subscriptions', { status: model.status.type, hasStructureId: !!model.userStructureId });
     // 1. Escucha señales globales para cambios de filtros
     const filterSub = Sub.receiveMsg(
         DASHBOARD_FILTER_CHANGED,
@@ -75,7 +79,7 @@ export const subscriptions = (model: Model): SubDescriptor<Msg> => {
 
     // 7. Sincronización con el perfil de usuario del AuthStore
     const authUserSub = Sub.watchStore(
-        'Auth',
+        'AuthModuleV1',
         (state: any) => state?.model?.user,
         (user) => ({ type: 'AUTH_USER_SYNCED', user: user ? adaptAuthUser(user) : null }),
         'listero-dashboard-auth-user-sync'
@@ -84,17 +88,15 @@ export const subscriptions = (model: Model): SubDescriptor<Msg> => {
     // 7b. Sincronización con el estado needs_pin_change del AuthStore
     // Evita cargar promociones si el usuario necesita cambiar su password
     const authNeedsPasswordChangeSub = Sub.watchStore(
-        'Auth',
+        'AuthModuleV1',
         (state: any) => state?.model?.needs_pin_change,
         (needsChange) => ({ type: 'NEEDS_PASSWORD_CHANGE', needsChange: needsChange ?? false }),
         'listero-dashboard-auth-needs-pin-change'
     );
 
-    // 8. Timeout fallback: Si después de 8s el CoreModule no envía SYSTEM_READY,
-    // forzamos la carga de datos usando fetchUserDataCmd (Bug 2 fix)
-    const timeoutFallbackSub = model.status.type === 'IDLE'
-        ? Sub.every(8000, SYSTEM_READY_MSG({ date: new Date().toISOString().split('T')[0] }), 'listero-dashboard-timeout-fallback')
-        : Sub.none();
+    // 8. Timeout fallback removed: Rely solely on CoreModule's SYSTEM_READY signal
+    // The 8s timeout was causing race conditions and focus loss on first launch
+    const timeoutFallbackSub = Sub.none();
 
     // 9. Periodic data refresh (TICK) — only when dashboard is READY
     /*const tickSub = model.status.type === 'READY' && model.userStructureId
@@ -128,7 +130,24 @@ export const subscriptions = (model: Model): SubDescriptor<Msg> => {
         'listero-dashboard-bets-sync-listener'
     );
 
-    // 11. Periodic data refresh (TICK) — only when dashboard is READY
+    // 11. Timeout fallback: If SYSTEM_READY never arrives within 10 seconds, force it
+    // This handles race conditions where the core module's isSystemReady gets stuck
+    // or the SYSTEM_READY signal is lost. The dispatch will be set later when subscriptions are activated.
+    // We'll initialize it as NONE and let the SubscriptionManager handle dynamic dispatch.
+    const timeoutSub = Sub.custom<Msg>(
+        (dispatch) => {
+            const timer = setTimeout(() => {
+                if (model.status.type === 'IDLE' && !model.userStructureId) {
+                    log.warn('[TIMEOUT_FALLBACK] No SYSTEM_READY received after 10s, forcing load');
+                    dispatch({ type: 'TIMEOUT_SYSTEM_READY' });
+                }
+            }, 10000);
+            return () => clearTimeout(timer);
+        },
+        'listero-dashboard-timeout-fallback'
+    );
 
-    return Sub.batch([filterSub, rulesSub, rewardsSub, refreshSub, systemReadySub, coreReadySub, authUserSub, authNeedsPasswordChangeSub, timeoutFallbackSub, betsSyncSub]);
+    // 12. Periodic data refresh (TICK) — only when dashboard is READY
+
+    return Sub.batch([filterSub, rulesSub, rewardsSub, refreshSub, systemReadySub, coreReadySub, authUserSub, authNeedsPasswordChangeSub, timeoutSub, betsSyncSub]);
 };

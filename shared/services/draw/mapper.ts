@@ -31,13 +31,45 @@ const getTimeZoneOffsetMinutes = (date: Date, timeZone: string): number => {
 };
 
 export const parseServerDateTime = (value: string | null | undefined): Date | null => {
-  if (!value) return null;
+  // DEFENSIVE: Ensure value is a string before calling .match()
+  if (value === null || value === undefined) {
+    console.warn('[MAPPER] parseServerDateTime called with null/undefined value');
+    return null;
+  }
+
+  // DEFENSIVE: If value is not a string, try to convert or return null
+  if (typeof value !== 'string') {
+    console.error('[MAPPER] parseServerDateTime: value is not a string!', { 
+      value, 
+      valueType: typeof value,
+      valueConstructor: value?.constructor?.name 
+    });
+    // Try to convert to string if possible
+    try {
+      value = String(value);
+      console.log('[MAPPER] parseServerDateTime: converted value to string', { newValue: value });
+    } catch (e) {
+      console.error('[MAPPER] parseServerDateTime: cannot convert value to string, returning null');
+      return null;
+    }
+  }
+
+  console.log('[MAPPER] parseServerDateTime input', { value, valueType: typeof value });
 
   const direct = new Date(value);
   if (hasTimeZoneInfo(value) && !Number.isNaN(direct.getTime())) {
+    console.log('[MAPPER] parseServerDateTime: has timezone info, returning direct date', { result: direct.toISOString() });
     return direct;
   }
 
+  console.log('[MAPPER] parseServerDateTime: attempting regex match on value', { value, valueLength: value.length });
+  
+  // DEFENSIVE: Ensure value is still a string before calling .match()
+  if (typeof value !== 'string') {
+    console.error('[MAPPER] parseServerDateTime: value changed type, aborting regex match');
+    return null;
+  }
+  
   const match = value.match(
     /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/
   );

@@ -29,7 +29,7 @@ const getDevelopmentBaseUrl = () => {
     return 'http://10.0.2.2:8000/api';
   }
   // En Node.js (Jest), localhost puede fallar, usamos 127.0.0.1 por seguridad
-  return 'http://127.0.0.1:8000/api';
+  return 'http://10.0.0.125:8000/api';
 };
 
 const API_BASE_URL_DEVELOPMENT = getDevelopmentBaseUrl();

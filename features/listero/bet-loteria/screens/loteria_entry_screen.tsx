@@ -14,7 +14,7 @@ interface LoteriaEntryScreenProps {
 
 const LoteriaEntryContent: React.FC<LoteriaEntryScreenProps> = ({ drawId }) => {
   const { colors } = useTheme();
-  const { loteriaTotal, hasBets, isSaving, isCatalogReady, handleSave } = useLoteria(drawId);
+  const { loteriaTotal, hasBets, isSaving, isCatalogReady, isCatalogLoading, catalogError, handleSave } = useLoteria(drawId);
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -27,6 +27,8 @@ const LoteriaEntryContent: React.FC<LoteriaEntryScreenProps> = ({ drawId }) => {
       total={loteriaTotal}
       isSaving={isSaving}
       isCatalogReady={isCatalogReady}
+      isCatalogLoading={isCatalogLoading}
+      catalogError={catalogError}
       onSave={handleSave}
     />
             )}
@@ -53,8 +55,10 @@ const LoteriaFooter: React.FC<{
   total: number;
   isSaving: boolean;
   isCatalogReady: boolean;
+  isCatalogLoading?: boolean;
+  catalogError?: string | null;
   onSave: () => void;
-}> = ({ total, isSaving, isCatalogReady, onSave }) => {
+}> = ({ total, isSaving, isCatalogReady, isCatalogLoading, catalogError, onSave }) => {
   const { colors } = useTheme();
 
   const saveDisabled = isSaving || !isCatalogReady;

@@ -78,13 +78,19 @@ export const adaptAuthUser = (rawUser: any): DashboardUser | null => {
         rawUser.structure?.commission_rate ?? rawUser.commission_rate
     );
 
+    // TOLERANCE: Try multiple fields for structureId to avoid failure when data shape varies
+    let structureId = rawUser.structure?.id;
+    if (!structureId) {
+        structureId = rawUser.structureId || rawUser.structure?._id || null;
+    }
+
     const candidate = {
         id: rawUser.id,
         username: rawUser.username,
         role: rawUser.role,
         name: rawUser.name,
         // Map nested structure fields to flat DTO
-        structureId: rawUser.structure?.id,
+        structureId,
         commissionRate: normalizedCommissionRate
     };
 

@@ -5,17 +5,12 @@ import { Cmd } from '@core/tea-utils/cmd';
 import { CoreService } from '../service';
 
 /**
- * Calcula el estado isSystemReady basado en mantenimiento y verificación de sesión
+ * Calcula el estado isSystemReady basado en mantenimiento y estado de sesión.
+ * Sistema listo cuando el mantenimiento está completado y la sesión es AUTHENTICATED o UNAUTHENTICATED.
  */
 export const calculateIsSystemReady = (model: CoreModel): boolean => {
   const hasMaintenance = model.maintenanceStatus?.status === 'ready';
-  if (!hasMaintenance) return false;
-
-  if (model.sessionStatus === 'AUTHENTICATED') {
-    return model.isSessionContextVerified === true;
-  }
-
-  return model.sessionStatus === 'UNAUTHENTICATED';
+  return hasMaintenance && (model.sessionStatus === 'AUTHENTICATED' || model.sessionStatus === 'UNAUTHENTICATED');
 };
 
 /**

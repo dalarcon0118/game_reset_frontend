@@ -6,6 +6,29 @@ import { Cmd } from '../tea-utils';
 import { debugTeaModule, debugEngine } from './debug_tea';
 
 /**
+ * Store Validation Helper
+ * Type guard to check if a value is a valid Zustand store.
+ */
+function isValidZustandStore(value: unknown): value is UseBoundStore<StoreApi<any>> {
+    // Check that value is a function (callable)
+    if (typeof value !== 'function') {
+        return false;
+    }
+    
+    // Check that it has getState method
+    if (typeof (value as any).getState !== 'function') {
+        return false;
+    }
+    
+    // Check that it has subscribe method
+    if (typeof (value as any).subscribe !== 'function') {
+        return false;
+    }
+    
+    return true;
+}
+
+/**
  * TEA Module Definition
  * Pure data structure describing a TEA module without instantiating it.
  */
@@ -125,9 +148,20 @@ export function createTEAModule<TModel, TMsg>(
         const timeSinceLastRender = now - lastRenderTime.current;
         lastRenderTime.current = now;
 
+        // Validate store is not null/undefined
         if (!store) {
             throw new Error(
                 `TEA Architecture Violation: ${def.name}Store accessed without its Provider. ` +
+                `Wrap your component tree with <${def.name}Module.Provider />.`
+            );
+        }
+        
+        // Validate store is a valid Zustand store
+        if (!isValidZustandStore(store)) {
+            throw new Error(
+                `TEA Architecture Violation: ${def.name}Store context is misconfigured. ` +
+                `The Context value is not a valid Zustand store. ` +
+                `Expected a store with getState() and subscribe() methods. ` +
                 `Wrap your component tree with <${def.name}Module.Provider />.`
             );
         }
@@ -159,7 +193,17 @@ export function createTEAModule<TModel, TMsg>(
 
         // Usar Zustand nativo que internamente usa useSyncExternalStore
         // Esto suscribe correctamente al store y solo causa re-renders cuando cambia el estado
-        const result = selector ? store(selector as any) as T : store();
+        try {
+            const result = selector ? store(selector as any) as T : store();
+            return result;
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            throw new Error(
+                `TEA Architecture Error: ${def.name}Store access failed. ` +
+                `Error during store call: ${errorMessage}. ` +
+                `This may indicate the Provider is misconfigured or the store is corrupted.`
+            );
+        }
 
         debugTeaModule(`useStore result #${callCount.current}`, { 
             name: def.name,

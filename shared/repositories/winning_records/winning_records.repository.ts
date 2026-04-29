@@ -74,21 +74,24 @@ export class WinningRecordsApiRepository implements IWinningRecordsRepository {
     async getAllWinnersByBank(bankId: number, days: number = 30, forceRefresh: boolean = false): Promise<WinningRecordEntry[]> {
         try {
             log.debug('Fetching all winners by bank', { bankId, days, forceRefresh });
-            
+
             const params = { days };
-            const results = await apiClient.get<WinningRecordEntry[]>(
+            const response = await apiClient.get<WinningRecordEntry[]>(
                 `/draw/winning-records/by-bank/${bankId}/`,
                 { queryParams: params, skipCache: forceRefresh }
             );
-            
-            log.debug('Winning records fetched', { 
-                count: Array.isArray(results) ? results.length : 0, 
+
+            // V2 returns array directly, but V1 format wraps in results. Handle both.
+            const results = Array.isArray(response) ? response : (response as any).results || [];
+
+            log.debug('Winning records fetched', {
+                count: results.length,
                 bankId,
                 days,
-                isArray: Array.isArray(results)
+                isArray: Array.isArray(response)
             });
-            
-            return results || [];
+
+            return results;
         } catch (error) {
             log.error('Failed to fetch winning records', { error, bankId, days });
             throw error;
@@ -108,29 +111,32 @@ export class WinningRecordsApiRepository implements IWinningRecordsRepository {
         try {
             // DDD: Resolver structureId si no se provee
             const structureIdNum = structureId ? Number(structureId) : await getUserStructureId();
-            
+
             if (!structureIdNum) {
                 log.warn('Cannot fetch winning records: no structureId available');
                 return [];
             }
-            
+
             const resolvedId = String(structureIdNum);
-            
+
             log.debug('Fetching all winners by structure', { structureId: resolvedId, days });
-            
+
             const params = { days };
-            const results = await apiClient.get<WinningRecordEntry[]>(
+            const response = await apiClient.get<WinningRecordEntry[]>(
                 `/draw/winning-records/by-structure/${resolvedId}/`,
                 { queryParams: params }
             );
-            
-            log.debug('Winning records fetched by structure', { 
-                count: Array.isArray(results) ? results.length : 0, 
+
+            // V2 returns array directly, but V1 format wraps in results. Handle both.
+            const results = Array.isArray(response) ? response : (response as any).results || [];
+
+            log.debug('Winning records fetched by structure', {
+                count: results.length,
                 structureId: resolvedId,
                 days
             });
-            
-            return results || [];
+
+            return results;
         } catch (error) {
             log.error('Failed to fetch winning records by structure', { error, structureId, days });
             throw error;

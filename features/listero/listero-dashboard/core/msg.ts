@@ -54,6 +54,7 @@ export type Msg =
     | { type: 'TOGGLE_BALANCE' }
     | { type: 'TOGGLE_BALANCE_VISIBILITY' }
     | { type: 'SYSTEM_READY'; date: string; structureId?: string; user?: any }
+    | { type: 'TIMEOUT_SYSTEM_READY' }
     | { type: 'PROMOTION_MSG'; msg: PromotionMsg }
     | { type: 'ERROR'; error: any }
     | { type: 'NONE' }

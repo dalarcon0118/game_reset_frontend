@@ -30,7 +30,7 @@ export function useAuthNavigation() {
 
       return { user: state.model.user, status: state.model.status };
     }
-    return { user: null, status: AuthStatus.IDLE };
+    return { user: null, status: AuthStatus.BOOTSTRAPPING };
   });
 
   useEffect(() => {

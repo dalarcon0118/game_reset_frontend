@@ -14,6 +14,7 @@ import { IDrawRepository, DrawFinancialState, createEmptyDrawFinancialData } fro
 import { STORAGE_TTL } from '@core/offline-storage/types';
 import { AuthRepository } from '@/shared/repositories/auth';
 import { TimerRepository } from '../system/time/tea.repository';
+import { TimePolicy } from '../system/time/time.update';
 
 import { toLocalISODate } from '@/shared/utils/formatters';
 
@@ -77,14 +78,65 @@ export class DrawRepository implements IDrawRepository {
 
     async getDraws(params: Record<string, any> = {}): Promise<Result<ExtendedDrawType[], Error>> {
         let structureId = params.owner_structure;
-        const commissionRate = params.commissionRate ?? 0;
+        const commissionRate = params.commissionRate ??0;
 
-        // Si no se proporciona structureId, obtenerlo directamente del AuthRepository
-        if (!structureId) {
-            const user = await AuthRepository.getMe();
-            structureId = user?.structure?.id?.toString();
-            this.log.debug('Auto-obtained structureId from AuthRepository', { structureId });
+        // DEFENSIVE: Validar structureId y obtenerlo del AuthRepository si es necesario
+        const isInvalidStructureId = !structureId || structureId === '0' || structureId === 0;
+        
+        if (isInvalidStructureId) {
+            this.log.warn('[getDraws] structureId inválido o faltante, intentando obtener de AuthRepository', { 
+                originalStructureId: structureId,
+                isValid: !isInvalidStructureId 
+            });
+            
+            try {
+                const user = await AuthRepository.getMe();
+                
+                this.log.info('[getDraws] AuthRepository.getMe() resultado', { 
+                    hasUser: !!user,
+                    userId: user?.id,
+                    hasStructure: !!user?.structure,
+                    structureIdFromUser: user?.structure?.id,
+                    structureIdType: typeof user?.structure?.id
+                });
+                
+                if (user?.structure?.id) {
+                    structureId = user.structure.id.toString();
+                    this.log.info('[getDraws] ✅ structureId obtenido exitosamente de AuthRepository', { 
+                        structureId,
+                        structureName: user.structure.name 
+                    });
+                } else {
+                    this.log.error('[getDraws] ❌ No se pudo obtener structureId del usuario', { 
+                        hasUser: !!user,
+                        userKeys: user ? Object.keys(user) : [],
+                        structure: user?.structure 
+                    });
+                }
+            } catch (error) {
+                this.log.error('[getDraws] ❌ Error al obtener usuario de AuthRepository', { 
+                    error: error instanceof Error ? error.message : String(error),
+                    stack: error instanceof Error ? error.stack : undefined
+                });
+            }
         }
+
+        // DEFENSIVE: Validación final - si aún no tenemos un structureId válido, retornar error
+        const finalValidation = !structureId || structureId === '0' || structureId === 0;
+        if (finalValidation) {
+            this.log.error('[getDraws] ❌ CRITICAL: No hay structureId válido disponible, no se pueden cargar sorteos', { 
+                structureId,
+                structureIdType: typeof structureId,
+                params: JSON.stringify(params).substring(0, 200)
+            });
+            return err(new Error('No valid structureId available - cannot fetch draws. User may need to re-authenticate.'));
+        }
+
+        this.log.info('[getDraws] ✅ Procediendo a cargar sorteos', { 
+            structureId, 
+            commissionRate,
+            forceSync: params.forceSync === true 
+        });
 
         const forceSync = params.forceSync === true;
 
@@ -92,7 +144,7 @@ export class DrawRepository implements IDrawRepository {
             const cached = await this.getCachedDraws(structureId);
             if (cached && cached.length > 0) {
                 this.log.info('Cache hit: returning valid today draws', { count: cached.length });
-                return ok(this.mapDrawsToFrontend(cached, structureId, commissionRate));
+                return ok(await this.mapDrawsToFrontend(cached, structureId, commissionRate));
             }
         }
 
@@ -100,15 +152,47 @@ export class DrawRepository implements IDrawRepository {
         delete remoteParams.forceSync;
         delete remoteParams.commissionRate;
 
-        const remoteResult = await ResultAsync.fromPromise(isServerReachable(), e => e as Error)
-            .andThen(isOnline => isOnline
-                ? this.fetchAndCacheRemote(remoteParams, structureId)
-                : err(new Error('No internet connection')))
-            .map(draws => this.mapDrawsToFrontend(draws, structureId, commissionRate))
-            .match(
-                (value) => ok<ExtendedDrawType[], Error>(value),
-                (error) => err<ExtendedDrawType[], Error>(error)
-            );
+        this.log.info('[getDraws] Starting remote fetch flow', { structureId, remoteParams, forceSync });
+
+        // First build the ResultAsync chain
+        const remoteResultAsync = ResultAsync.fromPromise(isServerReachable(), e => e as Error)
+            .andThen(isOnline => {
+                this.log.debug('[getDraws] Server reachability check', { isOnline });
+                return isOnline
+                    ? this.fetchAndCacheRemote(remoteParams, structureId)
+                    : err(new Error('No internet connection'));
+            })
+            .andThen(draws => {
+                this.log.debug('[getDraws] Mapping draws to frontend', { drawsCount: draws?.length });
+                // FIX: mapDrawsToFrontend returns a plain Promise — wrap in ResultAsync.fromPromise
+                // so the neverthrow chain contract (andThen expects Result | ResultAsync) is respected.
+                // Without this, syncResult has no .match() method → TypeError at runtime.
+                return ResultAsync.fromPromise(
+                    this.mapDrawsToFrontend(draws, structureId, commissionRate),
+                    e => e as Error
+                );
+            });
+
+        // Await the ResultAsync to get the synchronous Result (not calling .match() on ResultAsync!)
+        this.log.debug('[getDraws] Awaiting remoteResultAsync...');
+        const syncResult = await remoteResultAsync;
+        this.log.info('[getDraws] remoteResultAsync resolved', { 
+            isOk: syncResult.isOk(), 
+            error: syncResult.isErr() ? syncResult.error.message : null,
+            valueType: syncResult.isOk() ? typeof syncResult.value : null
+        });
+
+        // Now call .match() on the synchronous Result (valid for neverthrow Result)
+        const remoteResult = syncResult.match(
+            (value) => {
+                this.log.debug('[getDraws] remoteResult match success', { valueCount: value?.length });
+                return ok<ExtendedDrawType[], Error>(value);
+            },
+            (error) => {
+                this.log.warn('[getDraws] remoteResult match failure', { error: error.message });
+                return err<ExtendedDrawType[], Error>(error);
+            }
+        );
 
         if (remoteResult.isOk()) {
             return remoteResult;
@@ -121,7 +205,7 @@ export class DrawRepository implements IDrawRepository {
                 cachedCount: cachedFallback.length,
                 forceSync
             });
-            return ok(this.mapDrawsToFrontend(cachedFallback, structureId, commissionRate));
+            return ok(await this.mapDrawsToFrontend(cachedFallback, structureId, commissionRate));
         }
 
         return remoteResult;
@@ -132,9 +216,27 @@ export class DrawRepository implements IDrawRepository {
         if (cachedDraw) {
             this.log.info('Cache hit: returning cached draw', { id });
             const mapped = mapBackendDrawToFrontend(cachedDraw);
-            const user = await AuthRepository.getMe();
-            const structureId = user?.structure?.id?.toString();
-            const commissionRate = user?.structure?.commission_rate ?? 0;
+            
+            // DEFENSIVE: Get user and structureId with validation
+            let structureId: string | undefined;
+            let commissionRate = 0;
+            
+            try {
+                const user = await AuthRepository.getMe();
+                if (user?.structure?.id) {
+                    structureId = user.structure.id.toString();
+                    commissionRate = user.structure.commission_rate ?? 0;
+                    this.log.info('[getDraw] Got user structure from AuthRepository', { 
+                        structureId, 
+                        commissionRate 
+                    });
+                } else {
+                    this.log.warn('[getDraw] No structure found in AuthRepository for draw enrichment');
+                }
+            } catch (error) {
+                this.log.error('[getDraw] Error getting user from AuthRepository', error);
+            }
+            
             if (structureId) {
                 const [enriched] = await this.enrichDrawsWithFinancialData([mapped], structureId, commissionRate);
                 return ok(enriched);
@@ -416,48 +518,65 @@ export class DrawRepository implements IDrawRepository {
         return this.offlineAdapter.getAll(structureId);
     }
 
-    async cleanup(today: string): Promise<number> {
-        this.log.info('Starting DrawRepository Selective Cleanup', { today });
+async cleanup(today: string): Promise<number> {
+    this.log.info('[DrawRepository.cleanup] Starting DrawRepository Selective Cleanup', { today });
+    try {
+      let removed = 0;
+      await this.offlineAdapter.clearLists();
+      const allCachedDraws = await this.offlineAdapter.getAll();
 
-        try {
-            let removed = 0;
-            await this.offlineAdapter.clearLists();
-            const allCachedDraws = await this.offlineAdapter.getAll();
-            const toDelete = allCachedDraws.filter(draw => (draw as any).date && (draw as any).date < today);
-            const withoutDate = allCachedDraws.filter(draw => !(draw as any).date);
-            if (withoutDate.length > 0) {
-                this.log.warn(`Found ${withoutDate.length} draws without date field - these will not be cleaned up`, {
-                    drawIds: withoutDate.map(d => d.id)
-                });
-            }
-            this.log.debug(`Found ${toDelete.length} old draws to cleanup out of ${allCachedDraws.length} total`, {
-                today,
-                keeping: allCachedDraws.length - toDelete.length
-            });
-
-            for (const draw of toDelete) {
-                await this.offlineAdapter.deleteDraw(draw.id);
-                removed++;
-            }
-
-            const remainingDraws = await this.offlineAdapter.getAll();
-            if (remainingDraws.length === 0) {
-                await offlineStorage.set(HAS_DRAW_STORAGE_KEY, false);
-                this.log.info('hasDraw set to false - no draws remaining after cleanup');
-            } else {
-                this.log.info(`hasDraw remains true - ${remainingDraws.length} draws remaining after cleanup`);
-            }
-
-            this.log.info('DrawRepository Selective Cleanup completed', { removed });
-            return removed;
-
-        } catch (error: any) {
-            this.log.error('DrawRepository cleanup failed', error);
-            throw error;
+      // SSOT: Use draw_datetime (actual BackendDraw field) + TimePolicy for consistent date comparison
+      const toDelete = allCachedDraws.filter(draw => {
+        if (!draw.draw_datetime) {
+          this.log.warn('[DrawRepository.cleanup] Draw missing draw_datetime field, cannot determine age', {
+            drawId: draw.id
+          });
+          return false;
         }
-    }
+        const drawDate = TimePolicy.formatLocalDate(new Date(draw.draw_datetime));
+        return drawDate < today;
+      });
 
-    /**
+      const totalFound = allCachedDraws.length;
+      const oldDraws = toDelete.length;
+      const newDraws = totalFound - oldDraws;
+
+      this.log.info('[DrawRepository.cleanup] Analyzing cached draws for age', {
+        today,
+        totalCachedDraws: totalFound,
+        oldDrawsToDelete: oldDraws,
+        newDrawsToKeep: newDraws
+      });
+
+      for (const draw of toDelete) {
+        this.log.debug('[DrawRepository.cleanup] Deleting old draw', {
+          drawId: draw.id,
+          drawDatetime: draw.draw_datetime
+        });
+        await this.offlineAdapter.deleteDraw(draw.id);
+        removed++;
+      }
+
+      const remainingDraws = await this.offlineAdapter.getAll();
+      if (remainingDraws.length === 0) {
+        await offlineStorage.set(HAS_DRAW_STORAGE_KEY, false);
+        this.log.info('[DrawRepository.cleanup] hasDraw set to false - no draws remaining after cleanup');
+      } else {
+        this.log.info(`[DrawRepository.cleanup] hasDraw remains true - ${remainingDraws.length} draws remaining after cleanup`);
+      }
+
+      this.log.info('[DrawRepository.cleanup] Selective Cleanup completed', {
+        removed,
+        remaining: remainingDraws.length
+      });
+      return removed;
+    } catch (error: any) {
+      this.log.error('[DrawRepository.cleanup] Selective Cleanup failed', error);
+      throw error;
+}
+}
+
+/**
      * ✅ SSOT ÚNICA Y EXCLUSIVA para filtros de sorteos
      * 
      * Single Source of Truth: Toda la lógica de filtros vive AQUÍ y solo AQUÍ
@@ -619,6 +738,7 @@ export class DrawRepository implements IDrawRepository {
         structureId: string,
         commissionRate?: number
     ): Promise<ExtendedDrawType[]> {
+        // DEFENSIVE: Validate structureId
         if (!structureId || structureId === '0') {
             this.log.warn('[enrichDrawsWithFinancialData] Invalid structureId, returning draws as-is', { structureId });
             return draws;
@@ -628,17 +748,32 @@ export class DrawRepository implements IDrawRepository {
             return draws;
         }
 
-        // Use provided commissionRate or get from model (passed from dashboard)
+        // Use provided commissionRate or get from AuthRepository
         let rate = commissionRate ?? 0;
 
-        // If no commissionRate provided, try to get from AuthRepository (async fallback)
+        // DEFENSIVE: If no commissionRate provided, try to get from AuthRepository
         if (rate === 0) {
-            // This requires synchronous access which we don't have, so we log a warning
-            // The dashboard should pass commissionRate when calling this method
-            this.log.debug('[enrichDrawsWithFinancialData] No commissionRate provided, using 0', {
-                structureId,
-                note: 'Dashboard should pass commissionRate from model'
-            });
+            try {
+                const user = await AuthRepository.getMe();
+                if (user?.structure?.commission_rate !== undefined) {
+                    rate = user.structure.commission_rate;
+                    this.log.info('[enrichDrawsWithFinancialData] Got commissionRate from AuthRepository', { 
+                        rate, 
+                        structureId,
+                        userName: user.username 
+                    });
+                } else {
+                    this.log.warn('[enrichDrawsWithFinancialData] Could not get commissionRate from AuthRepository', { 
+                        hasUser: !!user,
+                        hasStructure: !!user?.structure,
+                        commissionRateFromUser: user?.structure?.commission_rate 
+                    });
+                }
+            } catch (error) {
+                this.log.error('[enrichDrawsWithFinancialData] Error getting user from AuthRepository', { 
+                    error: error instanceof Error ? error.message : String(error) 
+                });
+            }
         }
 
         // Get local bets (async)

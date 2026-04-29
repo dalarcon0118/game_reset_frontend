@@ -28,19 +28,23 @@ export const BootstrapHandler = {
       error: null
     });
 
+    // SSOT: Maintenance is a SYSTEM-LEVEL concern, independent of user authentication
+    // It verifies if daily cleanup was done and runs if needed
     return ret(
       nextModel,
-      isAuth
-        ? Cmd.batch([
-          CoreService.verifySessionContextTask(),
-          CoreService.maintenanceTask('INITIAL_MAINTENANCE'),
-          CoreService.initializeSyncWorkerTask(),
-          CoreService.syncPendingBetsOnStartupTask(),
-          CoreService.syncTimeAnchorTask()
-        ])
-        : (nextModel.isSystemReady ? Cmd.batch([
-          CoreService.notifySystemReady(new Date().toISOString().split('T')[0])
-        ]) : Cmd.none)
+      Cmd.batch([
+        CoreService.maintenanceTask('INITIAL_MAINTENANCE'),
+        ...(isAuth
+          ? [
+              CoreService.verifySessionContextTask(),
+              CoreService.initializeSyncWorkerTask(),
+              CoreService.syncPendingBetsOnStartupTask(),
+              CoreService.syncTimeAnchorTask()
+            ]
+          : (nextModel.isSystemReady
+              ? [CoreService.notifySystemReady(new Date().toISOString().split('T')[0])]
+              : []))
+      ])
     );
   },
 

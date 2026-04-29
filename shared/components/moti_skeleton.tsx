@@ -10,8 +10,7 @@ interface MotiSkeletonProps {
   height?: number;
   radius?: Radius;
   colorMode?: 'light' | 'dark';
-  children?: React.ReactNode;
-  show?: boolean;
+   show?: boolean;
 }
 
 export const MotiSkeleton: React.FC<MotiSkeletonProps> = ({
@@ -19,7 +18,6 @@ export const MotiSkeleton: React.FC<MotiSkeletonProps> = ({
   height = 20,
   radius = 8,
   colorMode,
-  children,
   show,
 }) => {
   const systemColorMode = useColorScheme() ?? 'light';
@@ -32,15 +30,13 @@ export const MotiSkeleton: React.FC<MotiSkeletonProps> = ({
       radius={radius as any}
       colorMode={effectiveColorMode}
       show={show}
-    >
-      {children}
-    </Skeleton>
+    />
   );
 };
 
 interface SkeletonGroupProps {
   show: boolean;
-  children: React.ReactNode;
+  children: React.ReactElement | React.ReactElement[];
 }
 
 export const SkeletonGroup: React.FC<SkeletonGroupProps> = ({ show, children }) => {
@@ -270,6 +266,32 @@ export const DrawsListSkeleton: React.FC<DrawsListSkeletonProps> = ({
     </Skeleton.Group>
   );
 };
+
+interface DashboardSkeletonProps {
+  loading: boolean;
+  colorMode?: 'light' | 'dark';
+  drawsCount?: number;
+}
+
+export const DashboardSkeleton: React.FC<DashboardSkeletonProps> = ({
+  loading,
+  colorMode,
+  drawsCount = 3,
+}) => {
+  return (
+    <View style={dashboardStyles.container}>
+      <DailySummarySkeleton loading={loading} colorMode={colorMode} />
+      <DrawsListSkeleton loading={loading} colorMode={colorMode} count={drawsCount} />
+    </View>
+  );
+};
+
+const dashboardStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+});
 
 const styles = StyleSheet.create({
   cardContainer: {

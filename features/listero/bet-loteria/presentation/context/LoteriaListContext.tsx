@@ -31,11 +31,18 @@ export const LoteriaListProvider: React.FC<LoteriaListProviderProps> = ({ drawId
     const dispatch = useLoteriaDispatch();
     const { user } = useAuth();
 
-    const loteriaList = useMemo(() => selectLoteriaList(model), [model]);
-    const drawDetails = useMemo(() => selectDrawDetails(model), [model]);
-    
     const { isRefreshing, remoteData } = model.listSession;
     const { loteriaTotal } = model.summary;
+    
+    // Use remoteData as source of truth to keep groupedBets in sync
+    const loteriaList = useMemo(() => {
+        if (remoteData.type === 'Success') {
+            return remoteData.data.loteria;
+        }
+        // Fallback to selector for edge cases (shouldn't happen in list mode)
+        return selectLoteriaList(model);
+    }, [remoteData, model]);
+    const drawDetails = useMemo(() => selectDrawDetails(model), [model]);
 
     useEffect(() => {
         if (drawId) {

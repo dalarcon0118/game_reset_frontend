@@ -42,12 +42,12 @@ export const initialModel: LoteriaFeatureModel = {
         editingAmountType: null,
         amountConfirmationDetails: null,
     },
-    listSession: {
-        remoteData: RemoteData.notAsked(),
-        aliasFilter: '',
-        isRefreshing: false,
-        loadedDrawId: null,
-    },
+  listSession: {
+    remoteData: RemoteData.loading(),
+    aliasFilter: '',
+    isRefreshing: false,
+    loadedDrawId: null,
+  },
     entrySession: {
         loteria: [],
     },

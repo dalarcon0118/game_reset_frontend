@@ -8,6 +8,7 @@ import apiClient from '@/shared/services/api_client';
 import { BetType } from '@/types';
 import { logger } from '@/shared/utils/logger';
 import { ensureError } from '@/shared/utils/error';
+import { withTimeout } from '@/shared/utils/timeout';
 
 import {
     PENDING_BETS_LOADED,
@@ -19,15 +20,6 @@ import {
 import { DashboardUser, adaptAuthUser } from './user.dto';
 
 const log = logger.withTag('DASHBOARD_COMMANDS');
-
-const withTimeout = <T>(promise: Promise<T>, ms: number, label: string): Promise<T> => {
-    return Promise.race([
-        promise,
-        new Promise<T>((_, reject) =>
-            setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
-        )
-    ]);
-};
 
 export const fetchUserDataCmd = (): Cmd => {
     return Cmd.task({
@@ -63,71 +55,63 @@ export const fetchDrawsCmd = (structureId: string | null, commissionRate: number
     return Cmd.task({
         task: async () => {
             log.info('[FLOW] Fetching draws', { structureId, commissionRate, forceSync });
-            try {
-                const fetchPromise = drawRepository.getDraws({
+            
+            // Log the input parameters clearly
+            log.info('[FETCH_DRAWS] Starting fetchDrawsCmd task', { 
+                structureId, 
+                structureIdType: typeof structureId,
+                commissionRate, 
+                forceSync 
+            });
+            
+            const result = await withTimeout(
+                drawRepository.getDraws({
                     owner_structure: structureId,
                     today: true,
                     forceSync,
                     commissionRate
-                });
-                const result = await withTimeout(fetchPromise, 10000, 'fetchDraws');
+                }),
+                10000,
+                'fetchDraws'
+            );
 
-                if (result.isOk()) {
-                    log.info(`[FLOW] Draws fetched successfully: ${result.value.length} draws`);
-                    return result.value;
-                }
+            log.info('[FETCH_DRAWS] withTimeout result', { 
+                resultType: typeof result, 
+                isOk: result?.isOk?.(),
+                isErr: result?.isErr?.(),
+                error: result?.isErr?.() ? result.error : null
+            });
+
+            if (!result.isOk()) {
+                log.error('[FLOW] Error from draw repository', result.error);
                 throw result.error;
-            } catch (e) {
-                const errorMessage = e instanceof Error ? e.message : String(e);
-                log.warn('[FLOW] Error fetching draws, evaluating fallback', { errorMessage });
-
-                const isOfflineError =
-                    errorMessage.includes('No internet connection') ||
-                    errorMessage.includes('Offline') ||
-                    errorMessage.includes('timed out') ||
-                    errorMessage.includes('Network Error');
-
-                if (isOfflineError) {
-                    log.warn('[FLOW] >>> CACHE FALLBACK: Attempting offline cache for draws...');
-                    try {
-                        const cachedDraws = await drawRepository.getDraws({ owner_structure: structureId });
-                        const isOk = cachedDraws.isOk();
-                        const draws = isOk ? (cachedDraws as any).value : null;
-                        log.warn('[FLOW] >>> CACHE FALLBACK: Raw cached draws:', isOk, draws?.length);
-
-                        if (isOk && draws && draws.length > 0) {
-                            const relevantDraws = draws.filter((draw: any) => {
-                                const status = draw.status?.toLowerCase();
-                                return status === 'open' || status === 'scheduled' || status === 'pending';
-                            });
-
-                            log.warn(`[FLOW] >>> CACHE FALLBACK: Filtered ${draws.length} -> ${relevantDraws.length} (open/scheduled/pending)`);
-
-                            if (relevantDraws.length === 0) {
-                                log.warn('[FLOW] >>> CACHE FALLBACK: No relevant draws (all closed), returning empty');
-                                return [];
-                            }
-
-                            return relevantDraws;
-                        }
-                    } catch (cacheError) {
-                        log.error('[FLOW] >>> CACHE FALLBACK: ERROR reading cache:', cacheError);
-                    }
-
-                    log.warn('[FLOW] >>> CACHE FALLBACK: No cached draws, returning empty list');
-                    return [];
-                }
-
-                log.error('[FLOW] Unexpected error in fetchDrawsCmd task', e);
-                throw e;
             }
+
+            const draws = result.value;
+            if (!Array.isArray(draws)) {
+                log.error('[FLOW] drawRepository.getDraws() did not return an array', { value: draws });
+                throw new Error('Invalid draws data: expected array');
+            }
+            const relevantDraws = draws.filter((draw: any) => {
+                const status = draw.status?.toLowerCase();
+                return status === 'open' || status === 'scheduled' || status === 'pending';
+            });
+
+            log.info(`[FLOW] Draws processed: ${draws.length} total → ${relevantDraws.length} relevant`);
+            return relevantDraws;
         },
         onSuccess: (data) => {
-            log.info(`[FLOW] DRAWS_RECEIVED: ${data.length} draws`);
+            log.info(`[FETCH_DRAWS] onSuccess handler - DRAWS_RECEIVED`, { 
+                drawsCount: data?.length,
+                drawsSample: data?.length > 0 ? data.slice(0, 2) : null
+            });
             return DRAWS_RECEIVED({ type: 'Success', data });
         },
         onFailure: (error) => {
-            log.error('[FLOW] DRAWS_RECEIVED failed', error);
+            log.error('[FETCH_DRAWS] onFailure handler - DRAWS_RECEIVED failed', { 
+                error: error?.message, 
+                stack: error?.stack?.split('\n').slice(0, 5).join('\n')
+            });
             return DRAWS_RECEIVED({ type: 'Failure', error: ensureError(error) });
         }
     });

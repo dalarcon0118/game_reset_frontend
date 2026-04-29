@@ -14,28 +14,29 @@ const makeModel = (promotion: PromotionState, showBalance: boolean = true) => (p
   const isReady = (params as any)?.isSystemReady ?? false;
   const userStructureId = params?.userStructureId || null;
 
-  return {
-    status: isReady ? { type: 'LOADING_DATA' } : { type: 'IDLE' },
-    draws: RemoteData.notAsked(),
-    filteredDraws: [],
-    pendingBets: [],
-    syncedBets: [],
-    userStructureId,
-    statusFilter: 'all',
-    appliedFilter: 'all',
-    commissionRate: 0,
-    showBalance,
-    authToken: null,
-    currentUser: null,
-    isRateLimited: false,
-    promotion,
-    needsPasswordChange: false,
-    financialSummary: RemoteData.notAsked(),
-    totalsByDrawId: new Map(),
-    trustedNow: Date.now(),
-    syncStatus: 'idle' as SyncStatus,
-    ...params,
-  };
+   return {
+     status: isReady ? { type: 'LOADING_DATA' } : { type: 'IDLE' },
+     draws: RemoteData.notAsked(),
+     filteredDraws: [],
+     pendingBets: [],
+     syncedBets: [],
+     userStructureId,
+     statusFilter: 'all',
+     appliedFilter: 'all',
+     commissionRate: 0,
+     showBalance,
+     authToken: null,
+     currentUser: null,
+     isRateLimited: false,
+     promotion,
+     needsPasswordChange: false,
+     financialSummary: RemoteData.notAsked(),
+     totalsByDrawId: new Map(),
+     trustedNow: Date.now(),
+     syncStatus: 'idle' as SyncStatus,
+     timeoutTriggered: false,
+     ...params,
+   };
 };
 
 export const initialState = (params?: Partial<Model>): Return<Model, Msg> => {

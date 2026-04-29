@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { StyleSheet, ScrollView, RefreshControl, View } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { match } from 'ts-pattern';
 import { useShallow } from 'zustand/shallow';
 import { RemoteData } from '@core/tea-utils';
-import { Label, ScreenContainer } from '@/shared/components';
+import { Label, ScreenContainer, DashboardSkeleton } from '@/shared/components';
 import Header from '../views/header';
 import { useDashboardStore, useListeroDashboardStoreApi } from '../store';
 import { useNotificationStore, NotificationModule, selectUnreadCount } from '@/features/notification';
@@ -19,6 +20,16 @@ import { useDashboardLifecycle } from '../core/lifecycle';
 import { DrawsListView, SummaryView, FiltersView } from '../views/components';
 
 const log = logger.withTag('DASHBOARD_SCREEN');
+
+// ============================================================================
+// LOADING VIEW - State-driven loading UI
+// ============================================================================
+
+const LoadingView = () => (
+  <View style={styles.loadingContainer}>
+    <DashboardSkeleton loading={true} />
+  </View>
+);
 
 // ============================================================================
 // HELPERS - Extracción de lógica de renderizado
@@ -54,8 +65,23 @@ export default function DashboardScreen() {
     })));
     const storeApi = useListeroDashboardStoreApi();
     const winningDispatch = useWinningDispatch();
+    const scrollViewRef = useRef<ScrollView>(null);
 
     useDashboardLifecycle(storeApi);
+
+    // Expo Router focus effect: Restore focus when screen comes into view
+    useFocusEffect(
+        useCallback(() => {
+            log.info('[FOCUS] Dashboard screen focused');
+            // Small delay to ensure UI is fully rendered
+            const timer = setTimeout(() => {
+                if (model.status.type === 'READY' && scrollViewRef.current) {
+                    scrollViewRef.current.scrollTo({ y: 0, animated: false });
+                }
+            }, 100);
+            return () => clearTimeout(timer);
+        }, [model.status.type])
+    );
 
     const handleRefresh = () => {
         log.info('[REFRESH] Pull-to-refresh triggered', { 
@@ -66,6 +92,34 @@ export default function DashboardScreen() {
     };
 
     const handleRetryRewards = () => winningDispatch(FETCH_PENDING_REWARDS_COUNT());
+
+    // Show loading view for non-READY states
+    if (model.status.type !== 'READY') {
+        return (
+            <ScreenContainer edges={['top', 'left', 'right']} backgroundColor="#f5f5f5">
+                <Header
+                    username={user?.username || 'Usuario'}
+                    structureName={user?.structure?.name || 'Mi Estructura'}
+                    isOnline={isOnline}
+                    showBalance={model.showBalance}
+                    unreadCount={unreadCount}
+                    rewardsCount={pendingRewardsCount}
+                    rewardsError={pendingRewardsError}
+                    onRewardsCountPress={handleRetryRewards}
+                    onHelpPress={() => dispatch(HELP_CLICKED())}
+                    onNotificationPress={() => dispatch(NOTIFICATIONS_CLICKED())}
+                    onSettingsPress={() => dispatch(SETTINGS_CLICKED())}
+                    onToggleBalance={() => dispatch(TOGGLE_BALANCE())}
+                    onSyncPress={() => {
+                        dispatch(SYNC_PRESSED());
+                        dispatch(REFRESH_CLICKED());
+                    }}
+                    isSyncing={model.syncStatus === 'syncing'}
+                />
+                <LoadingView />
+            </ScreenContainer>
+        );
+    }
 
     return (
         <ScreenContainer edges={['top', 'left', 'right']} backgroundColor="#f5f5f5">
@@ -89,19 +143,23 @@ export default function DashboardScreen() {
           isSyncing={model.syncStatus === 'syncing'}
         />
             <ContentScrollView 
+                scrollRef={scrollViewRef}
                 model={model} 
                 onRefresh={handleRefresh} 
                 showSummary={!!model.userStructureId}
             />
-            <PromotionModal
-                isVisible={model.promotion.showPromotionsModal}
-                promotions={model.promotion.promotions}
-                onClose={() => dispatch(PROMOTION_MSG(CLOSE_PROMOTIONS_MODAL()))}
-                onParticipate={(promotion) => {
-                    const activeDraws = RemoteData.withDefault([], model.draws);
-                    dispatch(PROMOTION_MSG(PARTICIPATE_CLICKED(promotion, activeDraws)));
-                }}
-            />
+            {/* Only show modal when dashboard is fully ready */}
+            {model.status.type === 'READY' && (
+                <PromotionModal
+                    isVisible={model.promotion.showPromotionsModal}
+                    promotions={model.promotion.promotions}
+                    onClose={() => dispatch(PROMOTION_MSG(CLOSE_PROMOTIONS_MODAL()))}
+                    onParticipate={(promotion) => {
+                        const activeDraws = RemoteData.withDefault([], model.draws);
+                        dispatch(PROMOTION_MSG(PARTICIPATE_CLICKED(promotion, activeDraws)));
+                    }}
+                />
+            )}
         </ScreenContainer>
     );
 }
@@ -113,14 +171,17 @@ export default function DashboardScreen() {
 function ContentScrollView({ 
     model, 
     onRefresh, 
-    showSummary 
+    showSummary,
+    scrollRef
 }: { 
     model: any; 
     onRefresh: () => void; 
     showSummary: boolean;
+    scrollRef?: React.RefObject<ScrollView>;
 }) {
     return (
         <ScrollView
+            ref={scrollRef}
             style={styles.container}
             contentContainerStyle={styles.scrollContent}
             stickyHeaderIndices={[1]}
@@ -153,7 +214,10 @@ function ContentScrollView({
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#f5f5f5' },
     scrollContent: { paddingBottom: 20 },
-    errorBanner: {
+  loadingContainer: {
+    flex: 1,
+  },
+  errorBanner: {
         backgroundColor: '#ffebee',
         padding: 12,
         marginHorizontal: 16,

@@ -79,12 +79,12 @@ export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMs
         .with(LOGIN_REQUESTED.type(), ({ payload }) => {
             // FIX: Permitir login aunque ya haya un usuario restaurado por hidratacion
             // El usuario siempre debe confirmar su identidad con PIN
-            log.info('Procesando LOGIN_REQUESTED', { 
-                username: payload.username, 
+            log.info('Procesando LOGIN_REQUESTED', {
+                username: payload.username,
                 currentStatus: model.status,
                 hasExistingUser: !!model.user
             });
-            
+
             return ret(
                 { ...model, status: AuthStatus.AUTHENTICATING, error: null },
                 RemoteDataHttp.fetch(

@@ -3,26 +3,25 @@ import { okAsync, ResultAsync, err } from 'neverthrow';
 import { LoteriaFeatureModel, FeatureMsg } from './feature.types';
 import { Return, ret, Cmd, WebData, RemoteData, RemoteDataHttp } from '@core/tea-utils';
 import { LoteriaDomain } from './feature.domain';
-import { LoteriaBet, GameType } from '@/types';
+import { LoteriaBet, GameType, BetType } from '@/types';
 import { initialModel } from './feature.initial';
 import {
-    CONFIRM_SAVE_BETS,
-    SAVE_BETS_RESPONSE,
-    SAVE_SUCCESS,
-    SAVE_FAILURE,
-    OPEN_BET_KEYBOARD,
-    CLOSE_BET_KEYBOARD,
-    OPEN_AMOUNT_KEYBOARD,
-    CLOSE_AMOUNT_KEYBOARD,
-    INIT,
-    REFRESH_BETS,
-    LoteriaFeatMsg
+  CONFIRM_SAVE_BETS,
+  SAVE_BETS_RESPONSE,
+  SAVE_SUCCESS,
+  SAVE_FAILURE,
+  OPEN_BET_KEYBOARD,
+  CLOSE_BET_KEYBOARD,
+  OPEN_AMOUNT_KEYBOARD,
+  CLOSE_AMOUNT_KEYBOARD,
+  INIT,
+  REFRESH_BETS,
+  LoteriaFeatMsg
 } from '../loteria/loteria.types';
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
 import { drawRepository } from '@/shared/repositories/draw';
 import { logger } from '@/shared/utils/logger';
-import { BET_TYPE_KEYS, isLoteriaType, resolveLoteriaBetTypeId } from '@/shared/types/bet_types';
-import { BetType } from '@/types';
+import { resolveLoteriaBetTypeId } from '@/shared/types/bet_types';
 import { CalculationLogic } from './domain/calculation.logic';
 
 const log = logger.withTag('LOTERIA_FLOWS');
@@ -79,6 +78,21 @@ export const FeatureFlows = {
     // --- Orchestration Flows ---
 
     init: (model: LoteriaFeatureModel, drawId: string, isEditing: boolean = true, structureId?: string, userId?: string): Return<LoteriaFeatureModel, FeatureMsg> => {
+        // 🛡️ GUARDA DEFENSIVA: Evitar re-inicialización si ya se está cargando o cargó para el mismo drawId.
+        // Esto previene que un useEffect inestable pise el estado exitoso con un reset a Loading/NotAsked.
+        const alreadyInitializedForThisDraw =
+            model.currentDrawId !== null &&
+            model.currentDrawId === drawId &&
+            model.listSession.loadedDrawId === drawId;
+
+        if (alreadyInitializedForThisDraw) {
+            const betsStatus = model.listSession.remoteData.type;
+            if (betsStatus === 'Success') {
+                log.debug('INIT_SKIPPED: bets already loaded for this draw', { drawId, betsStatus });
+                return ret(model, Cmd.none);
+            }
+        }
+
         // IMPORTANTE: Usar initialModel en lugar de model para reiniciar el estado completamente
         // Esto asegura que las apuestas anteriores se borren al entrar al screen
         const baseState = {
@@ -98,16 +112,18 @@ export const FeatureFlows = {
             },
             listSession: {
                 ...baseState.listSession,
-                remoteData: RemoteData.loading()
+                remoteData: RemoteData.loading(),
+                loadedDrawId: drawId
             }
         };
 
-        // ESTRATEGIA: Carga en Paralelo con Prioridad de Disco
-        // 1. CARGA INMEDIATA (Disco): Las apuestas existentes se piden sin esperar a la red.
-        // Usamos offline-first para mostrar datos inmediatos mientras la API responde en background.
-        const localCmd = !isEditing ? FeatureFlows.fetchExistingBetsOfflineFirst(drawId, null) : Cmd.none;
+        // ESTRATEGIA: Carga en Paralelo — Repository decide la fuente (SSOT)
+        // El Feature Layer delega al betRepository la estrategia de obtención de datos.
+        // betRepository.getBets() usa getBetsFlow (Resilient Pipeline: offline+online merge)
+        // que gestiona correctamente el ciclo Loading → Success/Failure del remoteData.
+        const betsCmd = !isEditing ? FeatureFlows.fetchExistingBets(drawId, null) : Cmd.none;
 
-        // 2. CARGA DE METADATOS (Red/Caché): Sorteo y tipos de apuesta.
+        // CARGA DE METADATOS (Red/Caché): Sorteo y tipos de apuesta.
         const networkCmds = Cmd.batch([
             FeatureFlows.fetchDrawDetails(drawId),
             FeatureFlows.fetchBetTypes(drawId),
@@ -115,7 +131,7 @@ export const FeatureFlows = {
 
         return ret(
             loadingModel,
-            Cmd.batch([localCmd, networkCmds])
+            Cmd.batch([betsCmd, networkCmds])
         );
     },
 
@@ -171,8 +187,8 @@ export const FeatureFlows = {
         );
     },
 
-    fetchExistingBets: (drawId: string, betTypeId?: string | null): Cmd => {
-        log.debug('FETCH_EXISTING_BETS', { drawId, betTypeId });
+    fetchExistingBets: (drawId: string, _betTypeId?: string | null): Cmd => {
+        log.debug('FETCH_EXISTING_BETS', { drawId });
         return RemoteDataHttp.fetch<LoteriaBet[], FeatureMsg>(
             async () => {
                 const query = {
@@ -190,74 +206,19 @@ export const FeatureFlows = {
                 }
 
                 const bets = betsResult.value;
-                log.info(`[LOTERIA_FLOW] Fetching bets for Draw: ${drawId}`);
+                log.info('[LOTERIA_FLOW] Fetched bets for Draw', { drawId, count: bets.length });
 
-                const mapped = bets
-                    .filter((b: BetType) => {
-                        const isLoteria = isLoteriaType(b.type || '', b.betTypeId);
-                        if (betTypeId) {
-                            return String(b.betTypeId) === String(betTypeId);
-                        }
-                        return isLoteria;
-                    })
-                    .map((b: BetType) => ({
-                        id: b.id,
-                        bet: b.numbers,
-                        amount: b.amount,
-                        receiptCode: b.receiptCode,
-                        betTypeid: b.betTypeId,
-                        drawid: String(b.drawId || '')
-                    })) as unknown as LoteriaBet[];
-
-                return mapped;
+                return bets.map((b: BetType): LoteriaBet => ({
+                    id: b.id,
+                    bet: b.numbers,
+                    amount: b.amount,
+                    receiptCode: b.receiptCode,
+                    betTypeid: b.betTypeId,
+                    drawid: String(b.drawId || '')
+                }));
             },
             (response) => ({ type: 'FETCH_EXISTING_BETS_RESPONSE', response })
         );
-    },
-
-    fetchExistingBetsOfflineFirst: (drawId: string, betTypeId?: string | null): Cmd => {
-        log.debug('FETCH_EXISTING_BETS_OFFLINE_FIRST', { drawId, betTypeId });
-        return Cmd.task({
-            task: async () => {
-                const query = {
-                    drawId: String(drawId),
-                    sort: {
-                        field: 'createdAt' as const,
-                        order: 'desc' as const
-                    }
-                };
-
-                // First, get offline data immediately
-                const offlineResult = await betRepository.getBetsOfflineFirst(query);
-
-                if (offlineResult.isErr()) {
-                    log.warn('Offline first failed', { error: offlineResult.error.message });
-                    return [];
-                }
-
-                const bets = offlineResult.value
-                    .filter((b: BetType) => {
-                        const isLoteria = isLoteriaType(b.type || '', b.betTypeId);
-                        if (betTypeId) {
-                            return String(b.betTypeId) === String(betTypeId);
-                        }
-                        return isLoteria;
-                    })
-                    .map((b: BetType) => ({
-                        id: b.id,
-                        bet: b.numbers,
-                        amount: b.amount,
-                        receiptCode: b.receiptCode,
-                        betTypeid: b.betTypeId,
-                        drawid: String(b.drawId || '')
-                    })) as unknown as LoteriaBet[];
-
-                log.info('fetchExistingBetsOfflineFirst result', { count: bets.length });
-                return bets;
-            },
-            onSuccess: (bets) => ({ type: 'FETCH_EXISTING_BETS_RESPONSE' as const, response: { type: 'Success' as const, data: bets } }),
-            onFailure: (error) => ({ type: 'FETCH_EXISTING_BETS_RESPONSE' as const, response: { type: 'Failure' as const, error: String(error) } })
-        });
     },
 
     // --- Core Business Flows ---

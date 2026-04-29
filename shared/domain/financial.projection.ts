@@ -7,8 +7,9 @@
 import { BetType } from '@/types';
 import { FinancialProjection, DrawFinancial, BetTypeFinancial, DailyTotals } from './financial.types';
 import { logger } from '@/shared/utils/logger';
+import { TimerRepository } from '../repositories/system/time';
 
-const log = logger.withTag('FINANCIAL_PROJECTION');
+const log = logger.withTag('<-----------FINANCIAL_PROJECTION----------->');
 
 const isValidBet = (bet: BetType): boolean => {
     return bet.status === 'pending' || bet.status === 'synced';
@@ -22,13 +23,17 @@ export const calculateFinancialProjection = (
     structureId: string = ''
 ): FinancialProjection => {
     const safeRate = commissionRate > 1 ? commissionRate / 100 : commissionRate;
-    const now = Date.now();
-    const today = new Date().toISOString().split('T')[0]; // UTC date for metadata
+    const trustedNow = TimerRepository.getTrustedNow(Date.now());
+    const today = new Date(trustedNow).toISOString().split('T')[0]; // UTC date for metadata
 
+
+
+    log.debug('Calculating projection for today', today);
     const allBets = [...pendingBets, ...syncedBets];
+    log.debug('All bets', JSON.stringify(allBets, null, 2));
     const validBets = allBets.filter(isValidBet);
 
-    log.info('[FINANCIAL_PROJECTION] Calculating projection', {
+    log.info('Calculating projection', {
         pendingBetsCount: pendingBets.length,
         syncedBetsCount: syncedBets.length,
         allBetsCount: allBets.length,
@@ -42,7 +47,7 @@ export const calculateFinancialProjection = (
 
     if (validBets.length !== allBets.length) {
         const filtered = allBets.filter(b => !isValidBet);
-        log.warn(`[FINANCIAL_PROJECTION] Filtered ${filtered.length} invalid bets`, filtered.map(b => ({
+        log.warn(`Filtered ${filtered.length} invalid bets`, filtered.map(b => ({
             id: b.id,
             status: b.status,
             timestamp: b.timestamp,
@@ -58,7 +63,7 @@ export const calculateFinancialProjection = (
     for (const bet of validBets) {
         const amount = Number(bet.amount) || 0;
         if (amount <= 0) {
-            log.warn(`[FINANCIAL_PROJECTION] Skipping bet with invalid amount`, {
+            log.warn(`Skipping bet with invalid amount`, {
                 betId: bet.id,
                 amount,
                 status: bet.status,
@@ -81,7 +86,7 @@ export const calculateFinancialProjection = (
                 premiumsPaid: premiumsByDraw[drawId] || 0,
                 netResult: 0
             };
-            log.debug(`[FINANCIAL_PROJECTION] Created DrawFinancial for draw ${drawId}`);
+            log.debug(`Created DrawFinancial for draw ${drawId}`);
         }
         byDrawId[drawId].totalCollected += amount;
         byDrawId[drawId].betCount++;
@@ -102,7 +107,7 @@ export const calculateFinancialProjection = (
     const estimatedCommission = totalCollected * safeRate;
     const netResult = totalCollected - totalPremiums - estimatedCommission;
 
-    log.info('[FINANCIAL_PROJECTION] Totals calculated', {
+    log.info(' calculated', {
         totalCollected,
         totalPremiums,
         estimatedCommission,
@@ -119,7 +124,7 @@ export const calculateFinancialProjection = (
     }
 
     const projection = {
-        calculatedAt: now,
+        calculatedAt: trustedNow,
         structureId,
         date: today,
         totalCollected,
@@ -132,8 +137,8 @@ export const calculateFinancialProjection = (
         byBetType
     };
 
-    log.info('[FINANCIAL_PROJECTION] Projection complete', {
-        calculatedAt: new Date(now).toLocaleString(),
+    log.info('Projection complete', {
+        calculatedAt: trustedNow,
         date: today,
         totalCollected: projection.totalCollected,
         betCount: projection.betCount
@@ -146,7 +151,7 @@ export const extractDailyTotals = (
     projection: FinancialProjection,
     commissionRate: number
 ): DailyTotals => {
-    log.info('[FINANCIAL_PROJECTION] Extracting DailyTotals from projection', {
+    log.info('Extracting DailyTotals from projection', {
         totalCollected: projection.totalCollected,
         premiumsPaid: projection.premiumsPaid,
         estimatedCommission: projection.estimatedCommission,
