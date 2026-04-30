@@ -47,22 +47,16 @@ export const parseServerDateTime = (value: string | null | undefined): Date | nu
     // Try to convert to string if possible
     try {
       value = String(value);
-      console.log('[MAPPER] parseServerDateTime: converted value to string', { newValue: value });
     } catch (e) {
       console.error('[MAPPER] parseServerDateTime: cannot convert value to string, returning null');
       return null;
     }
   }
 
-  console.log('[MAPPER] parseServerDateTime input', { value, valueType: typeof value });
-
   const direct = new Date(value);
   if (hasTimeZoneInfo(value) && !Number.isNaN(direct.getTime())) {
-    console.log('[MAPPER] parseServerDateTime: has timezone info, returning direct date', { result: direct.toISOString() });
     return direct;
   }
-
-  console.log('[MAPPER] parseServerDateTime: attempting regex match on value', { value, valueLength: value.length });
   
   // DEFENSIVE: Ensure value is still a string before calling .match()
   if (typeof value !== 'string') {

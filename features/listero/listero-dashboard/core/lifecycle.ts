@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { logger } from '@/shared/utils/logger';
 
@@ -26,22 +26,28 @@ export const useDashboardLifecycle = (store: any) => {
     }, [store]);
 
     // Focus management: Ensure interface is interactive when screen comes into focus
-    useFocusEffect(() => {
-        const state = store.getState();
-        const model = state.model;
-        
-        log.info('[LIFECYCLE] Dashboard focused', { 
-            status: model?.status?.type,
-            hasStructureId: !!model?.userStructureId 
-        });
-        
-        // If dashboard is ready, ensure no modal is blocking interaction
-        if (model?.status?.type === 'READY') {
-            // Close any accidentally opened promotion modal
-            if (model.promotion?.showPromotionsModal) {
-                log.info('[LIFECYCLE] Closing promotion modal on focus to restore interaction');
-                state.dispatch({ type: 'PROMOTION_MSG', msg: { type: 'CLOSE_PROMOTIONS_MODAL' } });
+    // IMPORTANT: useCallback with stable [store] dep prevents infinite re-subscription loop
+    useFocusEffect(
+        useCallback(() => {
+            const state = store.getState();
+            const model = state.model;
+            
+            log.info('[LIFECYCLE] Dashboard focused', { 
+                status: model?.status?.type,
+                hasStructureId: !!model?.userStructureId 
+            });
+            
+            // If dashboard is ready, ensure no modal is blocking interaction
+            if (model?.status?.type === 'READY') {
+                // Close any accidentally opened promotion modal
+                if (model.promotion?.showPromotionsModal) {
+                    log.info('[LIFECYCLE] Closing promotion modal on focus to restore interaction');
+                    state.dispatch({ type: 'PROMOTION_MSG', msg: { type: 'CLOSE_PROMOTIONS_MODAL' } });
+                }
+                // Refresh financial data from repository (e.g. after returning from bet creation)
+                log.info('[LIFECYCLE] Refreshing financial summary on focus');
+                state.dispatch({ type: 'GET_FINANCIAL_BETS' });
             }
-        }
-    });
+        }, [store])
+    );
 };

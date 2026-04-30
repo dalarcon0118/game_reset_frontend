@@ -111,11 +111,14 @@ export const subscriptions = (model: Model): SubDescriptor<Msg> => {
     const betsSyncSub = Sub.custom<Msg>(
         (dispatch) => {
             let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-            const DEBOUNCE_MS = 3000; // Aumentado de 1000ms a 3000ms para prevenir ANR por storm de peticiones
+            const DEBOUNCE_MS = 3000;
 
             const unsubscribe = offlineEventBus.subscribe((event: DomainEvent) => {
                 const isBetSync = (event.type === 'SYNC_ITEM_SUCCESS' || event.type === 'SYNC_ITEM_ERROR') && event.entity === 'bet';
-                if (isBetSync) {
+                const isLocalBetAdded = event.type === 'ENTITY_CHANGED' &&
+                    String(event.entity).startsWith('bet:') &&
+                    (event.payload as any)?.changeType === 'local_added';
+                if (isBetSync || isLocalBetAdded) {
                     if (debounceTimer) clearTimeout(debounceTimer);
                     debounceTimer = setTimeout(() => {
                         dispatch(EXTERNAL_BETS_CHANGED());

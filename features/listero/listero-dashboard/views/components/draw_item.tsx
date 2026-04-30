@@ -23,11 +23,19 @@ const DrawItemComponent: React.FC<DrawItemProps> = ({
 }: DrawItemProps) => {
   const [currentTime, setCurrentTime] = useState(TimerRepository.getTrustedNow(Date.now()));
 
+  const parsedEndTime = useMemo(() =>
+    parseServerDateTime(draw.betting_end_time),
+    [draw.betting_end_time]
+  );
+
+  const parsedStartTime = useMemo(() =>
+    parseServerDateTime(draw.betting_start_time),
+    [draw.betting_start_time]
+  );
+
   useEffect(() => {
-    if (!draw.betting_end_time) return;
-    const parsedEnd = parseServerDateTime(draw.betting_end_time);
-    if (!parsedEnd) return;
-    const bettingEndTime = parsedEnd.getTime();
+    if (!parsedEndTime) return;
+    const bettingEndTime = parsedEndTime.getTime();
     const nowTrusted = TimerRepository.getTrustedNow(Date.now());
     const timeRemaining = bettingEndTime - nowTrusted;
 
@@ -50,7 +58,7 @@ const DrawItemComponent: React.FC<DrawItemProps> = ({
       if (timeoutId) clearTimeout(timeoutId);
       if (intervalId) clearInterval(intervalId);
     };
-  }, [draw.betting_end_time]);
+  }, [parsedEndTime]);
 
   const drawId = String(draw.id);
   // SSOT: Usar draw.totalCollected (enriquecido por enrichDraws con pending + synced bets)
@@ -94,31 +102,27 @@ const DrawItemComponent: React.FC<DrawItemProps> = ({
     
     // Por defecto, usar el status del backend
     return draw.status as DrawStatus;
-  }, [draw, currentTime]);
+  }, [draw.betting_start_time, draw.betting_end_time, draw.status, currentTime]);
 
   const effectiveStatus = getDrawStatus;
 
   const getClosingTimeInfo = useMemo(() => {
-    if (!draw.betting_end_time || effectiveStatus !== DRAW_STATUS.OPEN) return null;
-    const parsedEnd = parseServerDateTime(draw.betting_end_time);
-    if (!parsedEnd) return null;
-    const diffMs = parsedEnd.getTime() - currentTime;
+    if (!parsedEndTime || effectiveStatus !== DRAW_STATUS.OPEN) return null;
+    const diffMs = parsedEndTime.getTime() - currentTime;
     if (diffMs <= 0 || diffMs > 5 * 60 * 1000) return null;
     const diffMins = Math.floor(diffMs / (1000 * 60));
     const diffSecs = Math.floor((diffMs % (1000 * 60)) / 1000);
     return { isCritical: true, timeLeft: `${diffMins}:${diffSecs.toString().padStart(2, '0')}` };
-  }, [draw.betting_end_time, effectiveStatus, currentTime]);
+  }, [parsedEndTime, effectiveStatus, currentTime]);
 
   const getOpeningTimeInfo = useMemo(() => {
-    if (!draw.betting_start_time || effectiveStatus !== DRAW_STATUS.SCHEDULED) return null;
-    const parsedStart = parseServerDateTime(draw.betting_start_time);
-    if (!parsedStart) return null;
-    const diffMs = parsedStart.getTime() - currentTime;
+    if (!parsedStartTime || effectiveStatus !== DRAW_STATUS.SCHEDULED) return null;
+    const diffMs = parsedStartTime.getTime() - currentTime;
     if (diffMs <= 0) return null;
     const diffMins = Math.floor(diffMs / (1000 * 60));
     const diffSecs = Math.floor((diffMs % (1000 * 60)) / 1000);
     return { timeLeft: `${diffMins}:${diffSecs.toString().padStart(2, '0')}` };
-  }, [draw.betting_start_time, effectiveStatus, currentTime]);
+  }, [parsedStartTime, effectiveStatus, currentTime]);
 
   const closingInfo = getClosingTimeInfo;
   const openingInfo = getOpeningTimeInfo;

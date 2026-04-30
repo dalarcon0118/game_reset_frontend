@@ -15,6 +15,8 @@ import * as PromotionUpdate from '../../../../shared/components/promotion/update
 import { PROMOTION_MSG, RETRY_INITIAL_LOAD } from './msg';
 
 import { betRepository } from '@/shared/repositories/bet/bet.repository';
+import { RawBetTotals } from '@/shared/repositories/bet/bet.types';
+import { DailyTotals } from '@/shared/domain/financial.types';
 import { drawRepository } from '@/shared/repositories/draw';
 import { dashboardService } from '../services/dashboard.service';
 import { filterDraws } from './logic/index';
@@ -263,7 +265,29 @@ function handleGetFinancialBets(model: Model): Return<Model, Msg> {
 }
 
 function handleFinancialBetsUpdated(model: Model, webData: any): Return<Model, Msg> {
-  return ret({ ...model, financialSummary: webData }, Cmd.none);
+  if (webData.type !== 'Success' || !webData.data) {
+    return ret({ ...model, financialSummary: webData }, Cmd.none);
+  }
+
+  const rawData = webData.data as RawBetTotals;
+
+  let premiumsPaid = 0;
+  if (model.draws.type === 'Success') {
+    for (const draw of model.draws.data) {
+      premiumsPaid += (draw as any).premiumsPaid || 0;
+    }
+  }
+
+  const dailyTotals: DailyTotals = {
+    totalCollected: rawData.totalCollected,
+    premiumsPaid,
+    estimatedCommission: rawData.commissions,
+    netResult: rawData.netResult,
+    amountToRemit: rawData.netResult,
+    betCount: rawData.betCount,
+  };
+
+  return ret({ ...model, financialSummary: webData, dailyTotals }, Cmd.none);
 }
 
 // SSOT: Local Draws Handler (from draws_list_plugin)

@@ -27,6 +27,7 @@ import { AuthErrorType, isValidUser } from '../../repositories/auth/types/types'
 import { logger } from '../../utils/logger';
 import { GLOBAL_LOGOUT } from '@/config/signals';
 import { sessionLockMediator } from '@/core/core_module/services/session-lock.mediator';
+import { appStateService } from '@/core/core_module/app_state.service';
 import { inactivityTracker } from '@/core/core_module/services/inactivity-tracker.service';
 
 const log = logger.withTag('AUTH_V1_UPDATE');
@@ -132,6 +133,7 @@ export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMs
             }
 
             sessionLockMediator.unlock();
+            appStateService.resetLockState();
             inactivityTracker.reset();
             logger.info('[AUTH] LOGIN_SUCCEEDED', { userId: payload.user?.id });
             return ret(

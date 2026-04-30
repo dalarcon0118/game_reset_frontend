@@ -19,7 +19,6 @@ class AppStateServiceImpl {
     private backgroundTimestamp: number | null = null;
     private timeoutCheckInterval: NodeJS.Timeout | null = null;
     private appStateSubscription: ReturnType<typeof AppState.addEventListener> | null = null;
-    private isSessionLocked = false;
     private wasTimeoutExceeded = false;
 
     start(deps?: AppStateServiceDeps): () => void {
@@ -71,7 +70,7 @@ class AppStateServiceImpl {
         this.stopTimeoutCheck();
         this.backgroundTimestamp = null;
 
-        if (this.isSessionLocked) {
+        if (sessionLockMediator.isSessionLocked()) {
             log.info('[APP_STATE_SERVICE] Session locked, forcing navigation to login');
             sessionLockMediator.forceNavigationToLogin();
             return;
@@ -83,6 +82,8 @@ class AppStateServiceImpl {
                 thresholdMs: BACKGROUND_TIMEOUT_MS
             });
             this.lockSessionDueToTimeout();
+            sessionLockMediator.forceNavigationToLogin();
+            return;
         }
     }
 
@@ -91,7 +92,7 @@ class AppStateServiceImpl {
         this.timeoutCheckInterval = setInterval(() => {
             if (this.backgroundTimestamp === null) return;
             const elapsed = Date.now() - this.backgroundTimestamp;
-            if (elapsed >= BACKGROUND_TIMEOUT_MS && !this.isSessionLocked) {
+            if (elapsed >= BACKGROUND_TIMEOUT_MS && !sessionLockMediator.isSessionLocked()) {
                 log.warn('[APP_STATE_SERVICE] Background timeout threshold reached', { elapsedMs: elapsed, thresholdMs: BACKGROUND_TIMEOUT_MS });
                 this.lockSessionDueToTimeout();
                 this.stopTimeoutCheck();
@@ -107,7 +108,6 @@ class AppStateServiceImpl {
     }
 
     private lockSessionDueToTimeout(): void {
-        this.isSessionLocked = true;
         this.wasTimeoutExceeded = true;
         log.info('[APP_STATE_SERVICE] Locking session due to background timeout');
 
@@ -160,11 +160,9 @@ class AppStateServiceImpl {
             this.appStateSubscription = null;
         }
         this.backgroundTimestamp = null;
-        this.isSessionLocked = false;
     }
 
     resetLockState(): void {
-        this.isSessionLocked = false;
         sessionLockMediator.unlock();
         log.debug('[APP_STATE_SERVICE] Lock state reset');
     }
