@@ -95,44 +95,35 @@ export const createBetRepository = (
             });
         },
 
-        getBets: async (filters?: ListBetsFilters) => {
-            const timeoutMs = BET_VALUES.GET_BETS_TIMEOUT_MS;
-            const mainPromise = new Promise<Result<Error, BetType[]>>(resolve => {
-                dispatch(Msg.getBetsRequested({ filters, resolve }));
-            });
-            const timeoutPromise = new Promise<Result<Error, BetType[]>>(resolve =>
-                setTimeout(() => {
-                    log.warn(`${BET_LOGS.GET_BETS_TIMEOUT} after ${timeoutMs}ms, returning error`);
-                    resolve(Result.error(new Error('TIMEOUT')));
-                }, timeoutMs)
-            );
-            return Promise.race([mainPromise, timeoutPromise]);
-        },
+    getBets: async (filters?: ListBetsFilters) => {
+      return new Promise<Result<Error, BetType[]>>(resolve => {
+        dispatch(Msg.getBetsRequested({ filters, resolve }));
+      });
+    },
 
-        getBetsOfflineFirst: async (filters?: ListBetsFilters) => {
-            const timeoutMs = 1000;
-            const storageFilters: any = {};
-            if (filters?.drawId) storageFilters.drawId = filters.drawId;
-            if (filters?.receiptCode) storageFilters.receiptCode = filters.receiptCode;
-            if (filters?.date) {
-                if (typeof filters.date === 'number') {
-                    storageFilters.date = filters.date;
-                } else {
-                    const [y, m, d] = filters.date.split('-').map(Number);
-                    storageFilters.date = new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
-                }
-            }
-            try {
-                const offlineBets = await storage.getFiltered(storageFilters);
-                setTimeout(() => {
-                    dispatch(Msg.getBetsRequested({ filters, resolve: () => { } }));
-                }, 0);
-                return Result.ok(offlineBets as BetType[]);
-            } catch (error) {
-                log.warn('getBetsOfflineFirst failed', { error });
-                return Result.error(error as Error);
-            }
-        },
+    getBetsOfflineFirst: async (filters?: ListBetsFilters) => {
+      const storageFilters: any = {};
+      if (filters?.drawId) storageFilters.drawId = filters.drawId;
+      if (filters?.receiptCode) storageFilters.receiptCode = filters.receiptCode;
+      if (filters?.date) {
+        if (typeof filters.date === 'number') {
+          storageFilters.date = filters.date;
+        } else {
+          const [y, m, d] = filters.date.split('-').map(Number);
+          storageFilters.date = new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
+        }
+      }
+      try {
+        const offlineBets = await storage.getFiltered(storageFilters);
+        setTimeout(() => {
+          dispatch(Msg.getBetsRequested({ filters, resolve: () => { } }));
+        }, 0);
+        return Result.ok(offlineBets as BetType[]);
+      } catch (error) {
+        log.warn('getBetsOfflineFirst failed', { error });
+        return Result.error(error as Error);
+      }
+    },
 
         syncPending: async () => {
             return new Promise<{ success: number; failed: number; successBets: string[]; failedBets: { receiptCode: string; error: string }[]; structureTotalCollected?: number; structureId?: number }>((resolve, reject) => {
@@ -179,10 +170,15 @@ export const createBetRepository = (
 
         applyMaintenance: async () => {
             dispatch(Msg.maintenanceCompleted());
-            await Promise.all([
-                new Promise<number>((resolve, reject) => dispatch(Msg.cleanupFailedRequested({ days: BET_VALUES.CLEANUP_DAYS_DEFAULT, resolve: (result) => result.isOk() ? resolve(result.value) : reject(result.error) }))),
-                new Promise<number>((resolve, reject) => dispatch(Msg.recoverStuckRequested({ resolve: (result) => result.isOk() ? resolve(result.value) : reject(result.error) })))
-            ]);
+            // Secuencial: primero recuperar apuestas atascadas (error/blocked → pending)
+            await new Promise<number>((resolve, reject) => dispatch(Msg.recoverStuckRequested({
+                resolve: (result) => result.isOk() ? resolve(result.value) : reject(result.error)
+            })));
+            // Luego limpiar apuestas fallidas antiguas (que no fueron recuperadas)
+            await new Promise<number>((resolve, reject) => dispatch(Msg.cleanupFailedRequested({
+                days: BET_VALUES.CLEANUP_DAYS_DEFAULT,
+                resolve: (result) => result.isOk() ? resolve(result.value) : reject(result.error)
+            })));
         },
 
         getFinancialSummary: async (todayStart: number, structureId?: string, defaultCommissionRate?: number) => {

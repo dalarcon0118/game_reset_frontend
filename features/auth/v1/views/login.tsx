@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { TouchableOpacity, ScrollView, Keyboard, View } from 'react-native';
 import { Text } from '@ui-kitten/components';
 import { Flex, ScreenContainer } from '@/shared/components';
@@ -20,6 +20,9 @@ function LoginContent() {
   const {
     status,
     isAuthenticating,
+    isSessionHydrated,
+    needsPinConfirmation,
+    user,
     error,
     dispatch: authDispatch
   } = useAuthV1();
@@ -38,6 +41,18 @@ function LoginContent() {
   const styles = useMemo(() => createLoginStyles(metrics), [metrics]);
 
   const isInputDisabled = isAuthenticating || isEditingUsername;
+
+  // 🔑 FIX: Si hay sesión hidratada pero requiere PIN, usar el username del user
+  // y no permitir editarlo (ya viene de la sesión restaurada)
+  const effectiveUsername = needsPinConfirmation && user ? user.username : username;
+  const canEditUsername = !needsPinConfirmation;
+
+  // 🔑 FIX: Sincronizar el username del user en el store de UI cuando está en IDLE
+  useEffect(() => {
+    if (needsPinConfirmation && user?.username && username !== user.username) {
+      updateUsername(user.username);
+    }
+  }, [needsPinConfirmation, user?.username, username, updateUsername]);
 
   const dismissKeyboard = () => {
     if (isEditingUsername) {
@@ -62,10 +77,10 @@ function LoginContent() {
     >
       <View style={styles.headerSection}>
         <LoginHeader
-          username={username}
+          username={effectiveUsername}
           onUsernameUpdate={updateUsername}
-          isEditing={isEditingUsername}
-          setIsEditing={toggleEditUsername}
+          isEditing={isEditingUsername && canEditUsername}
+          setIsEditing={(editing) => toggleEditUsername(editing && canEditUsername)}
           metrics={metrics}
           styles={styles}
         />

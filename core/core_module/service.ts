@@ -32,6 +32,7 @@ import storageClient from '@core/offline-storage/storage_client';
 const log = logger.withTag('CORE_SERVICE');
 const APP_VERSION_KEY = 'APP_VERSION_TRACKER';
 const SESSION_CHECK_COOLDOWN_MS = 1000;
+const REACHABILITY_CHECK_DEBOUNCE_MS = 100;
 
 /**
  * Claves que contienen DATOS CRÍTICOS de negocio que NO deben borrarse
@@ -63,6 +64,8 @@ const CLEANABLE_PATTERNS = [
 
 let _authRepo: IAuthRepository | null = null;
 let _lastSessionCheckTime = 0;
+let _reachabilityDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+let _lastPhysicalConnected: boolean | null = null;
 
 /**
  * Inicializa las dependencias del servicio.
@@ -493,16 +496,16 @@ export const CoreService = {
     });
   },
 
-/**
- * Verifica la inactividad del usuario basándose en el InactivityTracker (SSOT).
- *
- * FIX: Antes usaba betRepository.getAllRawBets() como proxy de actividad,
- * lo que causaba expiraciones erróneas cuando no había apuestas
- * (SRP violation: bets ≠ user activity).
- *
- * Ahora delega al InactivityTracker que rastrea la última actividad
- * real del usuario (foreground, touch, navegación).
- */
+  /**
+   * Verifica la inactividad del usuario basándose en el InactivityTracker (SSOT).
+   *
+   * FIX: Antes usaba betRepository.getAllRawBets() como proxy de actividad,
+   * lo que causaba expiraciones erróneas cuando no había apuestas
+   * (SRP violation: bets ≠ user activity).
+   *
+   * Ahora delega al InactivityTracker que rastrea la última actividad
+   * real del usuario (foreground, touch, navegación).
+   */
   async checkInactivityProximity(): Promise<CoreMsg> {
     try {
       if (inactivityTracker.isInactive()) {
@@ -536,6 +539,28 @@ export const CoreService = {
   subscribeToConnectivity(dispatch: (msg: CoreMsg) => void): () => void {
     log.debug('Subscribing to hybrid connectivity sensors...');
 
+    const checkServerReachabilityDebounced = () => {
+      if (_reachabilityDebounceTimer !== null) {
+        log.debug('[CONNECTIVITY-ACTIVO] Skipping reachability check - debounce active');
+        return;
+      }
+      _reachabilityDebounceTimer = setTimeout(async () => {
+        _reachabilityDebounceTimer = null;
+        const isReachable = await isServerReachable();
+        if (isReachable) {
+          dispatch({ type: 'SERVER_REACHABILITY_CHANGED', payload: true });
+        }
+      }, REACHABILITY_CHECK_DEBOUNCE_MS);
+    };
+
+    const unsubscribeCleanup = () => {
+      if (_reachabilityDebounceTimer !== null) {
+        clearTimeout(_reachabilityDebounceTimer);
+        _reachabilityDebounceTimer = null;
+      }
+      _lastPhysicalConnected = null;
+    };
+
     // 1. Sensor Activo (NetInfo): Hardware/Sistema Operativo
     const unsubscribeNetInfo = NetInfo.addEventListener(async (state) => {
       // Workaround for Issue #781: NetInfo returns type="unknown" on first callback
@@ -550,14 +575,12 @@ export const CoreService = {
         });
 
         const isConnected = !!refreshedState.isConnected;
-        dispatch({ type: 'PHYSICAL_CONNECTION_CHANGED', payload: isConnected });
-
-        if (isConnected) {
-          isServerReachable().then(reachable => {
-            if (reachable) {
-              dispatch({ type: 'SERVER_REACHABILITY_CHANGED', payload: true });
-            }
-          });
+        if (isConnected !== _lastPhysicalConnected) {
+          _lastPhysicalConnected = isConnected;
+          dispatch({ type: 'PHYSICAL_CONNECTION_CHANGED', payload: isConnected });
+          if (isConnected) {
+            checkServerReachabilityDebounced();
+          }
         }
         return;
       }
@@ -569,16 +592,12 @@ export const CoreService = {
         details: state.details
       });
 
-      dispatch({ type: 'PHYSICAL_CONNECTION_CHANGED', payload: isConnected });
-
-      // Si recuperamos conexión física, forzamos un ping de validación inmediata
-      if (isConnected) {
-        isServerReachable().then(reachable => {
-          // Solo despachamos si el servidor es realmente alcanzable
-          if (reachable) {
-            dispatch({ type: 'SERVER_REACHABILITY_CHANGED', payload: true });
-          }
-        });
+      if (isConnected !== _lastPhysicalConnected) {
+        _lastPhysicalConnected = isConnected;
+        dispatch({ type: 'PHYSICAL_CONNECTION_CHANGED', payload: isConnected });
+        if (isConnected) {
+          checkServerReachabilityDebounced();
+        }
       }
     });
 
@@ -605,6 +624,7 @@ export const CoreService = {
     return () => {
       log.debug('Unsubscribing from connectivity sensors...');
       unsubscribeNetInfo();
+      unsubscribeCleanup();
       try {
         apiClient.config({ onConnectivity: undefined });
       } catch (e) {

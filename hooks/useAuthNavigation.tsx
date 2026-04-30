@@ -1,13 +1,12 @@
-import React, { useEffect, useCallback, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { storeRegistry } from '../shared/core/engine/store_registry';
 import { CoreModule } from '../core/core_module';
 import { logger } from '../shared/utils/logger';
 import { Button } from '@ui-kitten/components';
 import { ArrowLeft } from "lucide-react-native";
-import { AuthModel, AuthStatus } from '../shared/auth/v1';
-import { isValidUser } from '../shared/repositories/auth/types/types';
+import { AuthStatus, isSessionHydrated, isFullyAuthenticated } from '../shared/auth/v1';
+import { AuthModuleV1 } from '../features/auth/v1';
 
 const log = logger.withTag('AUTH_NAVIGATION');
 
@@ -17,47 +16,19 @@ export function useAuthNavigation() {
   const pathname = usePathname() ?? '/';
   const redirectInProgress = useRef(false);
 
-  const authStore = storeRegistry.get<{ model: AuthModel }>('AuthModuleV1');
-  log.info('AuthModuleV1 store', authStore);
-  const [authState, setAuthState] = useState(() => {
-    if (authStore) {
-      const state = authStore.getState();
-      log.info('AuthModuleV1 store state',  { 
-        user: state.model.user, 
-        status: state.model.status,
-        isUserValid: isValidUser(state.model.user)
-      });
+  // ✅ Reactivo: useStore de TEA module es reactivo vía Context + zustand
+  const authModel = AuthModuleV1.useStore(state => state.model);
+  const { user, status } = authModel;
 
-      return { user: state.model.user, status: state.model.status };
-    }
-    return { user: null, status: AuthStatus.BOOTSTRAPPING };
-  });
-
-  useEffect(() => {
-    if (!authStore) {
-      log.warn('AuthModuleV1 store not found in registry');
-      return;
-    }
-
-    const unsubscribe = authStore.subscribe((state) => {
-      setAuthState({ user: state.model.user, status: state.model.status });
-    });
-
-    return unsubscribe;
-  }, [authStore]);
-
-  const { user, status } = authState;
   // DEFENSIVO: isLoading espera a que hidratacion complete - solo BOOTSTRAPPING es loading
   const isLoading = status === AuthStatus.BOOTSTRAPPING;
-  // DEFENSIVO: isAuthenticated valida que user tenga campos requeridos (id, username)
-  const isAuthenticated = isValidUser(user) && (
-    status === AuthStatus.AUTHENTICATED || 
-    status === AuthStatus.AUTHENTICATED_OFFLINE ||
-    status === AuthStatus.REFRESHING
-  );
+
+  // 🔑 FIX: Usar predicados del dominio auth en lugar de lógica local
+  const sessionHydrated = isSessionHydrated(authModel);
+  const fullyAuthenticated = isFullyAuthenticated(authModel);
 
   useEffect(() => {
-    SplashScreen.hideAsync().catch(() => { });
+    SplashScreen.hideAsync().catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -66,27 +37,21 @@ export function useAuthNavigation() {
       return;
     }
 
-    // Si NO está autenticado, redirigir a login (excepto si ya está en login/register)
-    if (!isAuthenticated) {
+    // Si NO hay sesión hidratada → redirigir a login
+    if (!sessionHydrated) {
       if (pathname === '/' || pathname === '/index') {
         if (!redirectInProgress.current) {
           redirectInProgress.current = true;
-          logger.info('User not authenticated on root, redirecting to login', 'RootLayout', { 
-            pathname, 
-            status, 
-            hasUser: !!user,
-            isUserValid: isValidUser(user)
+          logger.info('No valid session on root, redirecting to login', 'RootLayout', {
+            pathname, status, hasUser: !!user
           });
           router.replace('/login');
         }
       } else if (pathname !== '/login' && pathname !== '/register') {
-        // Si está en otra ruta sin estar autenticado, también redirigir a login
         if (!redirectInProgress.current) {
           redirectInProgress.current = true;
-          logger.warn('User not authenticated on protected route, redirecting to login', 'RootLayout', { 
-            pathname, 
-            status,
-            hasUser: !!user
+          logger.warn('No valid session on protected route, redirecting to login', 'RootLayout', {
+            pathname, status, hasUser: !!user
           });
           router.replace('/login');
         }
@@ -94,7 +59,9 @@ export function useAuthNavigation() {
       return;
     }
 
-    if (isAuthenticated && user && navigationPolicy) {
+    // ✅ Sesión hidratada presente (IDLE, AUTHENTICATED, etc.) → NO redirigir a login
+    // Si está completamente autenticado en root → ir al dashboard
+    if (fullyAuthenticated && user && navigationPolicy) {
       if (pathname === '/' || pathname === '/index') {
         const targetPath = navigationPolicy.getHomeRoute(user);
         if (targetPath && !redirectInProgress.current) {
@@ -102,16 +69,22 @@ export function useAuthNavigation() {
           logger.info(`Redirecting authenticated user to dashboard: ${targetPath}`, 'RootLayout');
           router.replace(targetPath as any);
         }
-      } else {
-        if (!navigationPolicy.canAccess(user, pathname) && !redirectInProgress.current) {
-          redirectInProgress.current = true;
-          const targetPath = navigationPolicy.getHomeRoute(user);
-          logger.warn(`Access denied for user ${user.role} to ${pathname}. Redirecting to ${targetPath}`, 'RootLayout');
-          router.replace(targetPath as any);
-        }
+      } else if (!navigationPolicy.canAccess(user, pathname) && !redirectInProgress.current) {
+        redirectInProgress.current = true;
+        const targetPath = navigationPolicy.getHomeRoute(user);
+        logger.warn(`Access denied for ${user.role} to ${pathname}. Redirecting to ${targetPath}`, 'RootLayout');
+        router.replace(targetPath as any);
       }
     }
-  }, [isLoading, isAuthenticated, user, pathname, router, navigationPolicy]);
+    // IDLE = sesión hidratada, PIN requerido → ir a login para confirmación
+    else if (sessionHydrated && !fullyAuthenticated) {
+      if (pathname !== '/login' && !redirectInProgress.current) {
+        redirectInProgress.current = true;
+        logger.info('PIN required, redirecting to login', 'RootLayout', { status, pathname });
+        router.replace('/login');
+      }
+    }
+  }, [isLoading, sessionHydrated, fullyAuthenticated, user, pathname, router, navigationPolicy]);
 
   useEffect(() => {
     if ((pathname === '/login' || pathname === '/register') && redirectInProgress.current) {

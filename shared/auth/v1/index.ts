@@ -6,7 +6,7 @@ import { AuthRepository } from '../../repositories/auth';
 import { logger } from '../../utils/logger';
 import { SESSION_CHANGED, SESSION_HYDRATED } from './msg';
 
-export { AuthModel, AuthStatus, Tokens } from './model';
+export { AuthModel, AuthStatus, Tokens, isSessionHydrated, isFullyAuthenticated } from './model';
 
 const log = logger.withTag('AUTH_V1');
 

@@ -132,6 +132,17 @@ class AuthRepositoryImpl implements IAuthRepository {
             }
 
             const tokenState = SessionPolicy.resolveTokenState(session.access);
+
+            // HARD-EXPIRED: Token expirado por más de 30 min -> forzar logout
+            if (tokenState === TokenState.EXPIRED && session.access && SessionPolicy.isHardExpired(session.access)) {
+                log.warn('Session token hard-expired, forcing logout', {
+                    username: user?.username || offlineProfile?.username,
+                    tokenState
+                });
+                this.notifySessionListeners(null);
+                return null;
+            }
+
             const isValid = tokenState === TokenState.VALID || tokenState === TokenState.EXPIRED || tokenState === TokenState.OFFLINE_MARKER;
 
             // DEFENSIVO: Validar que los perfiles tengan datos reales
@@ -148,7 +159,13 @@ class AuthRepositoryImpl implements IAuthRepository {
                     return null;
                 }
 
-                log.info('Session hydrated successfully', {
+                const logMessage = tokenState === TokenState.VALID
+                    ? 'Session hydrated successfully'
+                    : tokenState === TokenState.EXPIRED
+                        ? 'Session hydrated from cache (token expired, refresh pending)'
+                        : 'Session hydrated from offline profile';
+
+                log.info(logMessage, {
                     username: currentUser.username,
                     tokenState,
                     source: isUserValid ? 'active_profile' : 'offline_profile',

@@ -139,24 +139,29 @@ export function createTEAModule<TModel, TMsg>(
         selector?: (state: { model: TModel; dispatch: (msg: TMsg) => void }) => T
     ): T => {
         const store = useContext(Context);
-        const callCount = useRef(0);
-        const lastRenderTime = useRef<number>(0);
-        const renderCountByStore = useRef<number>(0);
-        
-        callCount.current++;
-        const now = Date.now();
-        const timeSinceLastRender = now - lastRenderTime.current;
-        lastRenderTime.current = now;
+        const callCountRef = useRef(0);
+        const lastRenderTimeRef = useRef<number>(0);
+        const mountCountRef = useRef(0);
 
-        // Validate store is not null/undefined
+        callCountRef.current++;
+        const now = Date.now();
+        const timeSinceLastRender = now - lastRenderTimeRef.current;
+        lastRenderTimeRef.current = now;
+
+        const currentCallCount = callCountRef.current;
+        const isFirstRender = callCountRef.current === 1;
+        if (isFirstRender) {
+            mountCountRef.current++;
+        }
+        const currentMountCount = mountCountRef.current;
+
         if (!store) {
             throw new Error(
                 `TEA Architecture Violation: ${def.name}Store accessed without its Provider. ` +
                 `Wrap your component tree with <${def.name}Module.Provider />.`
             );
         }
-        
-        // Validate store is a valid Zustand store
+
         if (!isValidZustandStore(store)) {
             throw new Error(
                 `TEA Architecture Violation: ${def.name}Store context is misconfigured. ` +
@@ -165,36 +170,37 @@ export function createTEAModule<TModel, TMsg>(
                 `Wrap your component tree with <${def.name}Module.Provider />.`
             );
         }
-        
-        // AUDIT: Detectar renders rápidos que indican loop
-        const isRapidRender = timeSinceLastRender < 50 && callCount.current > 5;
-        
-        debugTeaModule(`useStore call #${callCount.current}`, { 
+
+        const isRapidRender = timeSinceLastRender < 50 && currentCallCount > 5;
+
+        debugTeaModule(`useStore call #${currentCallCount} (mount #${currentMountCount})`, {
             name: def.name,
             hasSelector: !!selector,
             timeSinceLastRender,
             isRapidRender,
-            callCount: callCount.current
+            isFirstRender,
+            mountCount: currentMountCount
         });
 
-        // GUARD: Detener loop si hay más de 50 renders en menos de 1 segundo
-        if (timeSinceLastRender < 20 && callCount.current > 50) {
-            console.error(`[TEA][${def.name}] RENDER LOOP DETECTED: ${callCount.current} renders in rapid succession`);
+        if (timeSinceLastRender < 20 && currentCallCount > 50) {
+            console.error(`[TEA][${def.name}] RENDER LOOP DETECTED: ${currentCallCount} renders in rapid succession`);
             console.error(`[TEA][${def.name}] Time since last render: ${timeSinceLastRender}ms`);
             console.error(`[TEA][${def.name}] Selector: ${selector?.toString()?.substring(0, 200)}`);
-            debugTeaModule('RENDER_LOOP_DETECTED', { 
-                callCount: callCount.current, 
+            debugTeaModule('RENDER_LOOP_DETECTED', {
+                callCount: currentCallCount,
                 timeSinceLastRender,
                 selector: selector?.toString()?.substring(0, 200)
             });
-            // Retornar estado actual sin causar más re-renders
             return store.getState() as T;
         }
 
-        // Usar Zustand nativo que internamente usa useSyncExternalStore
-        // Esto suscribe correctamente al store y solo causa re-renders cuando cambia el estado
         try {
-            const result = selector ? store(selector as any) as T : store();
+            const result = (selector ? store(selector as any) : store()) as T;
+            debugTeaModule(`useStore result #${currentCallCount} (mount #${currentMountCount})`, {
+                name: def.name,
+                resultType: typeof result,
+                hasModel: result && typeof result === 'object' && 'model' in result
+            });
             return result;
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
@@ -204,14 +210,6 @@ export function createTEAModule<TModel, TMsg>(
                 `This may indicate the Provider is misconfigured or the store is corrupted.`
             );
         }
-
-        debugTeaModule(`useStore result #${callCount.current}`, { 
-            name: def.name,
-            resultType: typeof result,
-            hasModel: result && typeof result === 'object' && 'model' in result
-        });
-
-        return result;
     };
 
     const useStoreApi = () => {

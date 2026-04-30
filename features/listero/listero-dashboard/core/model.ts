@@ -1,5 +1,6 @@
 import { WebData, RemoteData } from '@core/tea-utils';
 import { FinancialSummary, DrawType, BetType } from '@/types';
+import { DailyTotals } from '@/shared/domain/financial.types';
 import { StatusFilter } from './core.types';
 import { DashboardUser } from './user.dto';
 import { PromotionState } from '../../../../shared/components/promotion/model';
@@ -43,8 +44,10 @@ export interface Model {
   totalsByDrawId: Map<string, DrawFinancialTotals>;
   // Trusted time reference for countdown display
   trustedNow: number;
-   // SSOT: Manual sync status
-   syncStatus: SyncStatus;
-   // Timeout fallback: prevents indefinite LOADING_DATA if SYSTEM_READY never arrives
-   timeoutTriggered?: boolean;
+  // SSOT: Daily totals calculated from bets (CQRS pattern - derived state computed on write)
+  dailyTotals: DailyTotals;
+  // SSOT: Manual sync status
+  syncStatus: SyncStatus;
+  // Timeout fallback: prevents indefinite LOADING_DATA if SYSTEM_READY never arrives
+  timeoutTriggered?: boolean;
 }

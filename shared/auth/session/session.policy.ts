@@ -11,6 +11,7 @@ const log = logger.withTag('SESSION_POLICY');
 export class SessionPolicy {
     private static REFRESH_SKEW_SECONDS = 300; // 5 minutos: Ventana para refresco silencioso del sistema
     private static CRITICAL_SKEW_SECONDS = 60; // 1 minuto: Ventana crítica para alertar al usuario
+    private static HARD_EXPIRED_SKEW_SECONDS = 1800; // 30 minutos: Ventana máxima para restaurar sesión con token expirado
 
     /**
      * Determina el estado de un token JWT o marcador offline.
@@ -64,6 +65,28 @@ export class SessionPolicy {
             const payload = JSON.parse(this.atob(parts[1]));
             const now = Math.floor(TimerRepository.getTrustedNow(Date.now()) / 1000);
             return (payload.exp - now) < this.CRITICAL_SKEW_SECONDS;
+        } catch {
+            return false;
+        }
+    }
+
+    /**
+     * Determina si el token ha expirado más allá de la ventana HARD_EXPIRED.
+     * Si retorna true, la sesión NO debe restaurarse.
+     */
+    static isHardExpired(token: string): boolean {
+        if (!token || !token.includes('.')) return false;
+        try {
+            const parts = token.split('.');
+            if (parts.length < 2) return false;
+
+            let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+            while (base64.length % 4) base64 += '=';
+
+            const payload = JSON.parse(this.atob(base64));
+            const now = Math.floor(TimerRepository.getTrustedNow(Date.now()) / 1000);
+            const timeRemaining = payload.exp - now;
+            return timeRemaining < -this.HARD_EXPIRED_SKEW_SECONDS;
         } catch {
             return false;
         }

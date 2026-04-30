@@ -1,6 +1,5 @@
 import React, { useCallback } from 'react';
 import { StyleSheet, View, ScrollView, RefreshControl, useColorScheme, ActivityIndicator } from 'react-native';
-import { router } from '@/shared/core/router';
 import { match } from 'ts-pattern';
 import Colors from '@/constants/colors';
 import LayoutConstants from '@/constants/layout';
@@ -10,13 +9,16 @@ import { LoteriaStoreProvider } from '../core/store';
 import { LoteriaListProvider, useLoteriaListContext } from '../presentation/context/LoteriaListContext';
 import { EmptyBetsView } from '@/shared/components/bets/empty';
 import { ErrorBetsView } from '@/shared/components/bets/error';
-
+import { useRouter } from 'expo-router';
+import { logger } from '@/shared/utils/logger';
 interface LoteriaListContentProps {
     drawId: string;
 }
+const log = logger.withTag('LoteriaListContent');
 
 const LoteriaListContent: React.FC<LoteriaListContentProps> = ({ drawId }) => {
     const colorScheme = (useColorScheme() ?? 'light') as keyof typeof Colors;
+    const router = useRouter();
     const {
         loteriaTotal,
         isRefreshing,
@@ -41,7 +43,10 @@ const LoteriaListContent: React.FC<LoteriaListContentProps> = ({ drawId }) => {
             <View style={[styles.container, styles.loadingContainer]}>
                 <ErrorBetsView
                     onRetry={handleRefresh}
-                    goToHome={() => router.push({ pathname: '/' })}
+                    goToHome={() => {
+                        log.info('Go to home', 'RootLayout');
+                        router.push({ pathname: '/' });
+                    }}
                 />
             </View>
         ))
@@ -50,8 +55,14 @@ const LoteriaListContent: React.FC<LoteriaListContentProps> = ({ drawId }) => {
             if (isEmpty) {
                 return (
                     <EmptyBetsView 
-                        onAnotar={() => router.push({ pathname: '/lister/bets/loteria/anotate', params: { id: drawId } })} 
-                        goToHome={() => router.push({ pathname: '/' })}
+                        onAnotar={() => {
+                            log.info('[router] Go to anotate', 'RootLayout');
+                            router.push({ pathname: '/lister/bets/loteria/anotate', params: { id: drawId } });
+                        }} 
+                        goToHome={() => {
+                            log.info('[router] Go to home', 'RootLayout');
+                            router.push({ pathname: '/' });
+                        }}
                     />
                 );
             }

@@ -53,11 +53,7 @@ export function createAuthBackendError(
     rawMessage: string | undefined,
     backendCode?: string | null
 ): AuthBackendError {
-    const isNetworkError =
-        status === 0 ||
-        rawMessage?.toLowerCase().includes('network') ||
-        rawMessage?.toLowerCase().includes('timeout') ||
-        rawMessage?.toLowerCase().includes('abort');
+    const isNetworkError = !status;
 
     const isServerError = status >= 500;
     const isInvalidCredentials = status === 401;
@@ -191,12 +187,7 @@ export function mapAuthErrorToType(
     backendCode?: string | null
 ): AuthErrorType {
     const rawLower = rawMessage?.toLowerCase() || '';
-    const isNetworkError =
-        status === 0 ||
-        rawLower.includes('network') ||
-        rawLower.includes('timeout') ||
-        rawLower.includes('abort') ||
-        !status;
+    const isNetworkError = !status;
 
     const isServerError = status >= 500;
     const isInvalidCredentials = status === 401;

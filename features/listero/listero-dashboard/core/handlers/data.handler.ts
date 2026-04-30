@@ -10,6 +10,7 @@ import { GameRegistry } from '@/shared/core/registry/game_registry';
 import { TimerRepository } from '@/shared/repositories/system/time/tea.repository';
 import { dashboardService } from '../../services/dashboard.service';
 import { drawRepository } from '@/shared/repositories/draw';
+import { calculateDailyTotalsFromModel } from '../selectors';
 
 const log = logger.withTag('DASHBOARD_LIFECYCLE');
 
@@ -26,8 +27,8 @@ export const checkReadyState = (model: Model): Return<Model, Msg> => {
 
     if (isDataLoaded) {
         log.info('[FLOW] checkReadyState: Transitioning dashboard to READY state', {
-          type: model.draws.type,
-          previousStatus: model.status.type
+            type: model.draws.type,
+            previousStatus: model.status.type
         });
         return singleton({ ...model, status: { type: 'READY' } });
     }
@@ -58,26 +59,34 @@ export const DataHandler = {
         );
     },
 
-  handlePendingBetsLoaded: (model: Model, bets: BetType[], syncedBets?: BetType[]): Return<Model, Msg> => {
-    const safeBets = Array.isArray(bets) ? bets : [];
-    const allSynced = Array.isArray(syncedBets) ? syncedBets : (Array.isArray(model.syncedBets) ? model.syncedBets : []);
+    handlePendingBetsLoaded: (model: Model, bets: BetType[], syncedBets?: BetType[]): Return<Model, Msg> => {
+        const safeBets = Array.isArray(bets) ? bets : [];
+        const allSynced = Array.isArray(syncedBets) ? syncedBets : (Array.isArray(model.syncedBets) ? model.syncedBets : []);
 
-    log.info('[CQRS_FIX] handlePendingBetsLoaded: Bets loaded (dailyTotals derived via selector)', {
-      pending: safeBets.length,
-      synced: allSynced.length,
-    });
+        log.info('[CQRS_FIX] handlePendingBetsLoaded: Bets loaded (dailyTotals derived via selector)', {
+            pending: safeBets.length,
+            synced: allSynced.length,
+        });
 
-    const drawsData = model.draws.type === 'Success' ? model.draws.data : [];
-    const now = TimerRepository.getTrustedNow(Date.now());
-    const filteredDraws = drawRepository.filterDraws(drawsData, model.appliedFilter, now);
+        const drawsData = model.draws.type === 'Success' ? model.draws.data : [];
+        const now = TimerRepository.getTrustedNow(Date.now());
+        const filteredDraws = drawRepository.filterDraws(drawsData, model.appliedFilter, now);
 
-    return checkReadyState({
-      ...model,
-      pendingBets: safeBets,
-      syncedBets: allSynced,
-      filteredDraws,
-    });
-  },
+        const updatedModel = {
+            ...model,
+            pendingBets: safeBets,
+            syncedBets: allSynced,
+            filteredDraws,
+            trustedNow: now,
+        };
+
+        const dailyTotals = calculateDailyTotalsFromModel(updatedModel);
+
+        return checkReadyState({
+            ...updatedModel,
+            dailyTotals,
+        });
+    },
 
     handleExternalBetsChanged: (model: Model): Return<Model, Msg> => {
         log.info('[EXTERNAL_BETS_CHANGED] External bet storage changed, reloading pending bets');
@@ -122,8 +131,8 @@ export const DataHandler = {
             // 2. Success Case: Update draws and recalculate derived state
             .with({ type: 'Success', data: P.select() }, (data: DrawType[]) => {
                 log.info('[FLOW] handleDrawsReceived: SUCCESS path', {
-                  drawCount: data.length,
-                  firstDrawId: data[0]?.id,
+                    drawCount: data.length,
+                    firstDrawId: data[0]?.id,
                 });
 
                 GameRegistry.syncWithBackend(data);
@@ -132,17 +141,25 @@ export const DataHandler = {
                 const filteredDraws = drawRepository.filterDraws(data, model.appliedFilter, now);
 
                 log.info('[FLOW] Draws filtered', {
-                  filteredDrawsCount: filteredDraws.length,
-                  filter: model.appliedFilter,
+                    filteredDrawsCount: filteredDraws.length,
+                    filter: model.appliedFilter,
                 });
 
+                const updatedModel = {
+                    ...model,
+                    draws: webData,
+                    isRateLimited: false,
+                    filteredDraws,
+                    trustedNow: now,
+                };
+
+                const dailyTotals = calculateDailyTotalsFromModel(updatedModel);
+
                 return checkReadyState({
-                  ...model,
-                  draws: webData,
-                  isRateLimited: false,
-                  filteredDraws,
+                    ...updatedModel,
+                    dailyTotals,
                 });
-              })
+            })
             // 3. Other cases: Update draws, clear filteredDraws, then check ready state
             .otherwise((webData) => {
                 log.warn('[FLOW] handleDrawsReceived: FAILURE path (no previous data)', {
@@ -158,8 +175,8 @@ export const DataHandler = {
             });
 
         log.info('[FLOW] handleDrawsReceived EXIT', {
-          nextStatus: (result as any)?.model?.status?.type,
-          nextDrawsType: (result as any)?.model?.draws?.type
+            nextStatus: (result as any)?.model?.status?.type,
+            nextDrawsType: (result as any)?.model?.draws?.type
         });
 
         return result;

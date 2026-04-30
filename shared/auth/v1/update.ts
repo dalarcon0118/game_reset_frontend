@@ -109,7 +109,8 @@ export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMs
                             const errorData = resultError.data;
                             detailedErrorMessage = errorData?.detail || resultError.message;
                         }
-                        return LOGIN_FAILED({ error: detailedErrorMessage, type: AuthErrorType.CONNECTION_ERROR });
+                        const resultErrorType = resultError?.type || AuthErrorType.UNKNOWN_ERROR;
+                        return LOGIN_FAILED({ error: detailedErrorMessage, type: resultErrorType });
                     },
                     'AUTH_LOGIN'
                 )
@@ -153,12 +154,7 @@ export function update(model: AuthModel, msg: AuthMsg): Return<AuthModel, AuthMs
             let status: AuthStatus;
             if (payload.type === AuthErrorType.DEVICE_LOCKED) {
                 status = AuthStatus.DEVICE_LOCKED;
-            } else if (
-                payload.type === AuthErrorType.CONNECTION_ERROR ||
-                payload.type === AuthErrorType.OFFLINE_NOT_ALLOWED ||
-                payload.type === AuthErrorType.CONNECTION_ERROR_FIRST_AUTH ||
-                payload.type === AuthErrorType.OFFLINE_NO_DRAWS
-            ) {
+            } else if (payload.type === AuthErrorType.CONNECTION_ERROR) {
                 status = AuthStatus.CONNECTION_ERROR;
             } else if (payload.type === AuthErrorType.ACCOUNT_DISABLED || payload.type === AuthErrorType.ACCOUNT_LOCKED) {
                 status = AuthStatus.UNAUTHENTICATED;

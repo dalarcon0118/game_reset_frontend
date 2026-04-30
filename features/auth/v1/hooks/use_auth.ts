@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useCallback } from 'react';
 import { AuthModuleV1 } from '../adapters/auth_provider';
-import { AuthStatus } from '@/shared/auth/v1/model';
+import { AuthStatus, isSessionHydrated, isFullyAuthenticated } from '@/shared/auth/v1/model';
 import {
     LOGIN_REQUESTED,
     LOGOUT_REQUESTED
@@ -37,7 +37,9 @@ export const useAuthV1 = () => {
     return useMemo(() => ({
         user: model.user,
         status: model.status,
-        isAuthenticated: status === AuthStatus.AUTHENTICATED || status === AuthStatus.AUTHENTICATED_OFFLINE,
+        isAuthenticated: isFullyAuthenticated(model),
+        isSessionHydrated: isSessionHydrated(model),
+        needsPinConfirmation: status === AuthStatus.IDLE,
         isAuthenticating,
         isHydrating: status === AuthStatus.BOOTSTRAPPING,
         isLoading: isAuthenticating || status === AuthStatus.BOOTSTRAPPING,

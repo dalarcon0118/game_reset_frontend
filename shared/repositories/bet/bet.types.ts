@@ -214,12 +214,16 @@ export interface IBetStorage {
 /**
  * Port for Bet API (Network)
  */
+export interface ApiCallOptions {
+  signal?: AbortSignal;
+}
+
 export interface IBetApi {
-    create(bet: BetDomainModel, idempotencyKey: string): Promise<CreateBetResponse>;
-    checkStatus(idempotencyKey: string): Promise<{ synced: boolean; bets?: BackendBet[] }>;
-    list(filters?: ListBetsFilters): Promise<BackendBet[]>;
-    delete(betId: number): Promise<void>;
-    getChildren(id: number, level?: number): Promise<BackendChildStructure[]>;
-    getListeroDetails(id: number, date?: string): Promise<BackendListeroDetails>;
-    reportToDlq(bet: BetDomainModel, error: string): Promise<void>;
+  create(bet: BetDomainModel, idempotencyKey: string, options?: ApiCallOptions): Promise<CreateBetResponse>;
+  checkStatus(idempotencyKey: string, options?: ApiCallOptions): Promise<{ synced: boolean; bets?: BackendBet[] }>;
+  list(filters?: ListBetsFilters, options?: ApiCallOptions): Promise<BackendBet[]>;
+  delete(betId: number, options?: ApiCallOptions): Promise<void>;
+  getChildren(id: number, level?: number): Promise<BackendChildStructure[]>;
+  getListeroDetails(id: number, date?: string): Promise<BackendListeroDetails>;
+  reportToDlq(bet: BetDomainModel, error: string): Promise<void>;
 }

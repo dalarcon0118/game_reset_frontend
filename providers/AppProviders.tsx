@@ -40,17 +40,16 @@ const SplashScreenGuard: React.FC<{ children: React.ReactNode }> = ({ children }
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 const CoreInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { bootstrapped, status } = useCoreBootstrap();
-  
-  React.useEffect(() => {
-    log.debug('Bootstrap state updated', { bootstrapped, status });
-  }, [bootstrapped, status]);
+  const { status } = useCoreBootstrap();
 
-  if (!bootstrapped) {
-    log.debug('Core not bootstrapped yet, but mounting children to preserve stores');
+  React.useEffect(() => {
+    log.debug('Bootstrap state updated', { status });
+  }, [status]);
+
+  if (status === 'IDLE') {
+    return null;
   }
 
-  log.info('Core infrastructure ready or mounting, rendering children', { bootstrapped });
   return <>{children}</>;
 };
 

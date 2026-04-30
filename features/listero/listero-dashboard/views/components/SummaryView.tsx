@@ -6,10 +6,7 @@ import { formatCurrency } from '@/shared/utils/formatters';
 import { useDashboardStore } from '../../store';
 import { TOGGLE_BALANCE_VISIBILITY } from '../../core/msg';
 import { summaryStyles } from '../../core/styles';
-import { selectDailyTotals } from '../../core/selectors';
 import { useEffect } from 'react';
-import logger from '@/shared/utils/logger';
-const log = logger.withTag('SummaryView');
 
 const MainMetricCard = ({ icon: Icon, color, bg, label, value, badgeText }: any) => (
   <View style={summaryStyles.mainMetricCard}>
@@ -41,19 +38,10 @@ const SecondaryMetric = ({ icon: Icon, label, value }: any) => (
 export const SummaryView: React.FC = () => {
   const model = useDashboardStore((s) => s.model);
   const dispatch = useDashboardStore((s) => s.dispatch);
-  const dailyTotals = selectDailyTotals(model);
-  const { showBalance, commissionRate } = model;
+  const { dailyTotals, showBalance, commissionRate } = model;
 
   const formatValue = (val: number) => showBalance ? formatCurrency(val) : '****';
   const toggleVisibility = useCallback(() => dispatch(TOGGLE_BALANCE_VISIBILITY()), [dispatch]);
-
-  useEffect(() => {
-    log.info('[amountToRemit]', dailyTotals.amountToRemit);
-    log.info('[estimatedCommission]', dailyTotals.estimatedCommission);
-    log.info('[totalCollected]', dailyTotals.totalCollected);
-    log.info('[premiumsPaid]', dailyTotals.premiumsPaid);
-    log.info('[commissionRate]', commissionRate);
-  }, [dailyTotals, commissionRate, showBalance]);
 
   return (
     <Card style={summaryStyles.card}>

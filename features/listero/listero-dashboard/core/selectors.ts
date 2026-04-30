@@ -2,8 +2,6 @@ import { DrawType } from '@/types';
 import { DailyTotals } from '@/shared/domain/financial.types';
 import { calculateFinancialProjection, extractDailyTotals } from '@/shared/domain/financial.projection';
 import { Model } from './model';
-import { TimerRepository } from '@/shared/repositories/system/time/tea.repository';
-import { TimePolicy } from '@/shared/repositories/system/time/time.update';
 import { logger } from '@/shared/utils/logger';
 
 const log = logger.withTag('DASHBOARD_SELECTORS');
@@ -14,6 +12,60 @@ const EMPTY_TOTALS: DailyTotals = {
   estimatedCommission: 0,
   amountToRemit: 0,
   betCount: 0,
+};
+
+export const calculateDailyTotalsFromModel = (model: Model): DailyTotals => {
+  const drawsData: DrawType[] = model.draws.type === 'Success' ? model.draws.data : [];
+
+  if (drawsData.length === 0 && model.pendingBets.length === 0 && model.syncedBets.length === 0) {
+    log.debug('[FINANCIAL_FLOW] No draws or bets, returning empty totals');
+    return EMPTY_TOTALS;
+  }
+
+  const trustedNow = model.trustedNow || Date.now();
+  const trustedDate = new Date(trustedNow);
+  const todayStart = new Date(
+    trustedDate.getFullYear(),
+    trustedDate.getMonth(),
+    trustedDate.getDate()
+  ).getTime();
+  const todayEnd = todayStart + 86400000; // 24h
+
+  log.debug('[FINANCIAL_FLOW] Calculating daily totals', {
+    trustedNow,
+    pendingBetsCount: model.pendingBets.length,
+    syncedBetsCount: model.syncedBets.length,
+    drawsCount: drawsData.length
+  });
+
+  const filterToday = (bets: typeof model.pendingBets) => {
+    return bets.filter(b => {
+      const ts = Number(b.timestamp) || 0;
+      return ts >= todayStart && ts < todayEnd;
+    });
+  };
+
+  const premiumsByDraw: Record<string, number> = {};
+  for (const draw of drawsData) {
+    premiumsByDraw[draw.id] = (draw as any).premiumsPaid || 0;
+  }
+
+  const pendingToday = filterToday(model.pendingBets);
+  const syncedToday = filterToday(model.syncedBets);
+
+  const projection = calculateFinancialProjection(
+    pendingToday,
+    syncedToday,
+    premiumsByDraw,
+    model.commissionRate,
+    model.userStructureId || ''
+  );
+
+  const totals = extractDailyTotals(projection, model.commissionRate);
+
+  log.debug('[FINANCIAL_FLOW] DailyTotals calculated:', totals);
+
+  return totals;
 };
 
 export const selectDailyTotals = (model: Model): DailyTotals => {

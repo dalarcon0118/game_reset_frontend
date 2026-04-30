@@ -1,4 +1,4 @@
-import { IBetApi, BetDomainModel, CreateBetDTO, BackendBet, ListBetsFilters } from '../bet.types';
+import { IBetApi, ApiCallOptions, BetDomainModel, CreateBetDTO, BackendBet, ListBetsFilters } from '../bet.types';
 import { StructureApi } from '@/shared/services/structure/api';
 import { BackendChildStructure, BackendListeroDetails } from '@/shared/services/structure/types';
 import apiClient from '@/shared/services/api_client';
@@ -69,7 +69,7 @@ const decodeOrFallback = <T>(codec: t.Type<T>, value: unknown, label: string): T
 // ============================================================================
 
 export class BetApiAdapter implements IBetApi {
-    async create(bet: BetDomainModel, idempotencyKey: string): Promise<CreateBetResponse> {
+    async create(bet: BetDomainModel, idempotencyKey: string, options?: ApiCallOptions): Promise<CreateBetResponse> {
         log.info(`${logs_text.API_SENDING_BET}: ${idempotencyKey}`);
         const betTypeId = bet.betTypeCode || bet.betTypeId;
 
@@ -89,23 +89,23 @@ export class BetApiAdapter implements IBetApi {
             fingerprint: bet.fingerprint
         };
 
-        const response = await apiClient.post<any>(
-            settings.api.endpoints.bets(),
-            dto,
-            { headers: { 'X-Idempotency-Key': idempotencyKey } }
-        );
+    const response = await apiClient.post<any>(
+      settings.api.endpoints.bets(),
+      dto,
+      { headers: { 'X-Idempotency-Key': idempotencyKey }, abortSignal: options?.signal }
+    );
         const decoded = decodeOrFallback(CreateBetResponseCodec, response, 'create');
         const bets = Array.isArray(decoded.bets) ? decoded.bets : [decoded.bets];
         return { bets, structureTotalCollected: decoded.structureTotalCollected, structureId: Number(decoded.structureId) };
     }
 
-    async checkStatus(idempotencyKey: string): Promise<{ synced: boolean; bets?: BackendBet[] }> {
-        const endpoint = `${settings.api.endpoints.bets()}sync_status/${idempotencyKey}/`;
-        const status = await apiClient.get<{ synced: boolean; bets?: BackendBet[] }>(endpoint);
+  async checkStatus(idempotencyKey: string, options?: ApiCallOptions): Promise<{ synced: boolean; bets?: BackendBet[] }> {
+    const endpoint = `${settings.api.endpoints.bets()}sync_status/${idempotencyKey}/`;
+    const status = await apiClient.get<{ synced: boolean; bets?: BackendBet[] }>(endpoint, { abortSignal: options?.signal });
         return { synced: status.synced, bets: status.bets };
     }
 
-    async list(filters?: ListBetsFilters): Promise<BackendBet[]> {
+    async list(filters?: ListBetsFilters, options?: ApiCallOptions): Promise<BackendBet[]> {
         log.debug(logs_text.API_LIST_BETS_DEBUG, { filters });
         let endpoint = settings.api.endpoints.bets();
         const params = new URLSearchParams();
@@ -118,8 +118,8 @@ export class BetApiAdapter implements IBetApi {
         const queryString = params.toString();
         const finalEndpoint = `${endpoint}${queryString ? `?${queryString}` : ''}`;
 
-        try {
-            const response = await apiClient.get<any>(finalEndpoint);
+    try {
+      const response = await apiClient.get<any>(finalEndpoint, { abortSignal: options?.signal });
 
             // FASE 2 DIAGNOSTIC: Verificar estructura de la respuesta antes de decodificar
             if (!Array.isArray(response)) {
@@ -159,10 +159,10 @@ export class BetApiAdapter implements IBetApi {
         }
     }
 
-    async delete(betId: number): Promise<void> {
-        const endpoint = `${settings.api.endpoints.bets()}${betId}/`;
-        await apiClient.delete(endpoint);
-    }
+  async delete(betId: number, options?: ApiCallOptions): Promise<void> {
+    const endpoint = `${settings.api.endpoints.bets()}${betId}/`;
+    await apiClient.delete(endpoint, { abortSignal: options?.signal });
+  }
 
     async getChildren(id: number, level: number = 1): Promise<BackendChildStructure[]> {
         return StructureApi.getChildren(id, level);

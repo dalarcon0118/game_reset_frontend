@@ -3,7 +3,7 @@ import { Task, Result } from '@/shared/core';
 import { IBetStorage, IBetApi } from '../bet.types';
 import { notificationRepository } from '../../notification';
 import { dlqRepository } from '../../dlq';
-import { isServerReachable } from '@/shared/utils/network';
+import { isServerReachable, resolveOnlineTimeout } from '@/shared/utils/network';
 import { drawRepository } from '../../draw';
 import { mapBackendBetToFrontend } from '../bet.mapper.backend';
 import { Fx } from './types';
@@ -36,11 +36,14 @@ export const createBetEffectHandlers = (
                 .tapError(e => log.error('PLACE_BATCH', e));
         },
 
-        [Fx.getBets.type]: ({ filters }: any) => {
-            fetchAndCacheRemote(storage, api, filters, notifySubscribers).catch(() => { });
-            return getBetsFlow(storage, api, filters)
-                .tapError(e => log.error('GET_BETS', e));
-        },
+  [Fx.getBets.type]: ({ filters }: any) => {
+    fetchAndCacheRemote(storage, api, filters, notifySubscribers).catch(() => { });
+    return Task.fromPromise(() => resolveOnlineTimeout())
+      .andThen(onlineTimeoutMs =>
+        getBetsFlow(storage, api, filters, { onlineTimeoutMs })
+          .tapError(e => log.error('GET_BETS', e))
+      );
+  },
 
         [Fx.addPendingBet.type]: ({ bet }: any) => {
             return Task.fromPromise(() => storage.save(bet))
@@ -143,7 +146,7 @@ export const createBetEffectHandlers = (
         },
 
         [Fx.recoverStuck.type]: () => {
-            const recoverable = ['No ID received', 'Network request failed', 'timeout', '500', '502', '503', '504', '408'];
+            const recoverable = ['No ID received', 'Network request failed', 'TimeoutError', '500', '502', '503', '504', '408'];
             return Task.fromPromise(() => storage.getPending())
                 .map(pending => pending.filter(b => b.status === 'error' && recoverable.some(e => ((b as any).lastError || '').includes(e))))
                 .andThen(stuck => Task.fromPromise(async () => {

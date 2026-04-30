@@ -1,4 +1,5 @@
 import { User } from '../../repositories/auth/types/types';
+import { isValidUser } from '../../repositories/auth/types/types';
 
 export interface Tokens {
     access: string;
@@ -38,3 +39,24 @@ export const initialModel: AuthModel = {
     isOffline: false,
     needs_pin_change: false,
 };
+
+/**
+ * Una sesión está hidratada si el usuario es válido
+ * y ya no estamos en fase de bootstrap inicial.
+ * IDLE es un estado hidratado (usuario restaurado, requiere PIN).
+ */
+export function isSessionHydrated(model: AuthModel): boolean {
+    return isValidUser(model.user) && model.status !== AuthStatus.BOOTSTRAPPING;
+}
+
+/**
+ * Usuario completamente autenticado (PIN confirmado).
+ * IDLE NO cuenta como autenticado pleno.
+ */
+export function isFullyAuthenticated(model: AuthModel): boolean {
+    return isValidUser(model.user) && (
+        model.status === AuthStatus.AUTHENTICATED ||
+        model.status === AuthStatus.AUTHENTICATED_OFFLINE ||
+        model.status === AuthStatus.REFRESHING
+    );
+}

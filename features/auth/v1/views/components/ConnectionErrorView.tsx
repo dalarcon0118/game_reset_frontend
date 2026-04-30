@@ -59,6 +59,19 @@ export const ConnectionErrorView: React.FC<ConnectionErrorViewProps> = ({ error 
                     </Button>
 
                     <Button
+                        status="warning"
+                        appearance="outline"
+                        onPress={() => {
+                            if (username && pin.length === 6) {
+                                stableDispatch(LOGIN_REQUESTED({ username, pin }));
+                            }
+                        }}
+                        style={styles.button}
+                    >
+                        CONTINUAR SIN CONEXIÓN
+                    </Button>
+
+                    <Button
                         status="basic"
                         appearance="ghost"
                         onPress={() => stableDispatch(RESET_AUTH_STATE())}
